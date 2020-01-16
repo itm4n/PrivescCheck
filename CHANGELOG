@@ -1,0 +1,32 @@
+2020-01-16
+	- Moved "Invoke-PrivescCheck.ps1" from "Pentest-Tools" to a dedicated repo.
+	- Added User > Invoke-UserCheck
+	- Added User > Invoke-UserGroupsCheck
+	- Added User > Invoke-UserPrivilegesCheck
+	- Added Services > Invoke-InstalledServicesCheck
+	- Added Services > Invoke-ServicesPermissionsCheck
+	- Added Services > Invoke-ServicesPermissionsRegistryCheck
+	- Added Services > Invoke-ServicesImagePermissionsCheck
+	- Added Services > Invoke-ServicesUnquotedPathCheck
+	- Added Dll Hijacking > Invoke-DllHijackingCheck
+	- Added Sensitive Files > Invoke-SamBackupFilesCheck
+	- Added Programs > Invoke-InstalledProgramsCheck
+	- Added Programs > Invoke-ModifiableProgramsCheck
+	- Added Programs > Invoke-RunningProcessCheck
+	- Added Credentials > Invoke-WinlogonCheck
+	- Added Credentials > Invoke-CredentialFilesCheck
+	- Added Registry > Invoke-UacCheck
+	- Added Registry > Invoke-LapsCheck
+	- Added Registry > Invoke-PowershellTranscriptionCheck
+	- Added Registry > Invoke-RegistryAlwaysInstallElevatedCheck
+	- Added Network > Invoke-TcpEndpointsCheck
+	- Added Network > Invoke-UdpEndpointsCheck
+	- Added Misc > Invoke-WindowsUpdateCheck
+	- Added Misc > Invoke-SystemInfoCheck
+	- Added Misc > Invoke-LocalAdminGroupCheck
+	- Added Misc > Invoke-MachineRoleCheck
+	- Added Misc > Invoke-SystemStartupHistoryCheck
+	- Added Misc > Invoke-SystemStartupCheck
+	- Added Misc > Invoke-SystemDrivesCheck
+
+	
