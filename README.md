@@ -69,7 +69,7 @@ You can get a looooot of information through WMI, that's great! But, if you face
 
 - __PowerShellv2 support__
 
-This wasn't that easy because newer version of PowerShell have very convenient functions or options. For example, the `Get-LocalGroup`function doesn't exist and `Get-ChildItem` doesn't have the `-Recurse` option in PowerShellv2. So, you have to work your way around each one of these small but time-consuming issues. 
+This wasn't that easy because newer version of PowerShell have very convenient functions or options. For example, the `Get-LocalGroup`function doesn't exist and `Get-ChildItem` doesn't have the `-Depth` option in PowerShellv2. So, you have to work your way around each one of these small but time-consuming issues. 
 
 
 ## Features 
