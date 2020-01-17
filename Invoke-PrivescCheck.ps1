@@ -198,6 +198,12 @@ public static extern bool CloseHandle(IntPtr hObject);
 [DllImport("kernel32.dll")]
 public static extern UInt64 GetTickCount64();
 
+[DllImport("kernel32.dll", CharSet=CharSet.Auto, SetLastError=true)]
+public static extern uint GetFirmwareEnvironmentVariable(string lpName, string lpGuid, IntPtr pBuffer, uint nSize);
+
+[DllImport("kernel32.dll", SetLastError=true)]
+public static extern bool GetFirmwareType(ref uint FirmwareType);
+
 [DllImport("iphlpapi.dll", SetLastError=true)]
 public static extern uint GetExtendedTcpTable(IntPtr pTcpTable, ref int pdwSize, bool bOrder, int ulAf, uint TableClass, uint Reserved);
 
@@ -1585,6 +1591,288 @@ function Add-ServiceDacl {
         }
     }
 }
+
+function Get-UEFIStatus {
+    <#
+    .SYNOPSIS
+
+    Helper - Gets the BIOS mode of the machine (Legacy / UEFI)
+
+    Author: @itm4n
+    License: BSD 3-Clause
+    
+    .DESCRIPTION
+
+    Invokes the "GetFirmwareEnvironmentVariable()" function from the Windows API with dummy 
+    parameters. Indeed, the queried value doesn't matter, what matters is the last error code,
+    which you can get by invoking "GetLastError()". If the return code is ERROR_INVALID_FUNCTION,
+    this means that the function is not supported by the BIOS so it's LEGACY. Otherwise, the error
+    code will indicate that it cannot find the requested variable, which means that the function is
+    supported by the BIOS so it's UEFI. 
+    
+    .EXAMPLE
+
+    PS C:\> Get-BiosMode
+
+    Name Status Description      
+    ---- ------ -----------
+    UEFI   True BIOS mode is UEFI
+    
+    .NOTES
+
+    https://github.com/xcat2/xcat-core/blob/master/xCAT-server/share/xcat/netboot/windows/detectefi.cpp
+    https://docs.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-getfirmwareenvironmentvariablea
+    https://github.com/ChrisWarwick/GetUEFI/blob/master/GetFirmwareBIOSorUEFI.psm1
+
+    #>
+
+    [CmdletBinding()]Param()
+
+    $OsVersion = [System.Environment]::OSVersion.Version
+
+    # Windows >= 8/2012
+    if (($OsVersion.Major -ge 10) -or (($OsVersion.Major -ge 6) -and ($OsVersion.Minor -ge 2))) {
+
+        [int]$FirmwareType = 0
+        $Result = [PrivescCheck.Win32]::GetFirmwareType([ref]$FirmwareType)
+        $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+
+        if ($Result -gt 0) {
+            if ($FirmwareType -eq 1) {
+                # FirmwareTypeBios = 1
+                $Status = $False 
+                $Description = "BIOS mode is Legacy"
+            } elseif ($FirmwareType -eq 2) {
+                # FirmwareTypeUefi = 2
+                $Status = $True 
+                $Description = "BIOS mode is UEFI"
+            } else {
+                $Description = "BIOS mode is unknown"
+            }
+        } else {
+            Write-Verbose ([ComponentModel.Win32Exception] $LastError)
+        }
+
+    # Windows = 7/2008 R2
+    } elseif (($OsVersion.Major -eq 6) -and ($OsVersion.Minor -eq 1)) {
+
+        [PrivescCheck.Win32]::GetFirmwareEnvironmentVariable("", "{00000000-0000-0000-0000-000000000000}", [IntPtr]::Zero, 0) | Out-Null 
+        $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+    
+        $ERROR_INVALID_FUNCTION = 1
+        if ($LastError -eq $ERROR_INVALID_FUNCTION) {
+            $Status = $False 
+            $Description = "BIOS mode is Legacy"
+            Write-Verbose ([ComponentModel.Win32Exception] $LastError)
+        } else {
+            $Status = $True 
+            $Description = "BIOS mode is UEFI"
+            Write-Verbose ([ComponentModel.Win32Exception] $LastError)
+        }
+        
+    } else {
+        $Description = "Cannot check BIOS mode"
+    }
+
+    $BiosMode = New-Object -TypeName PSObject
+    $BiosMode | Add-Member -MemberType "NoteProperty" -Name "Name" -Value "UEFI"
+    $BiosMode | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $Status
+    $BiosMode | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+    $BiosMode
+}
+
+function Get-SecureBootStatus {
+    <#
+    .SYNOPSIS
+    
+    Helper - Get the status of Secure Boot (enabled/disabled/unsupported)
+
+    Author: @itm4n
+    License: BSD 3-Clause
+    
+    .DESCRIPTION
+
+    In case of a UEFI BIOS, you can check whether 'Secure Boot' is enabled by looking at the 
+    'UEFISecureBootEnabled' value of the following registry key: 'HKEY_LOCAL_MACHINE\SYSTEM\Current
+    ControlSet\Control\SecureBoot\State'. 
+    
+    .EXAMPLE
+
+    PS C:\> Get-SecureBootStatus
+
+    Name        Status Description
+    ----        ------ -----------
+    Secure Boot   True Secure Boot is enabled
+
+    #>
+    
+    [CmdletBinding()]Param()
+
+    $RegPath = "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\SecureBoot\State"
+    $Result = Get-ItemProperty -Path "Registry::$($RegPath)" -ErrorAction SilentlyContinue -ErrorVariable $GetItemPropertyError 
+
+    if (-not $GetItemPropertyError) {
+
+        if (-not ($Null -eq $Result.UEFISecureBootEnabled)) {
+
+            if ($Result.UEFISecureBootEnabled -eq 1) {
+                $Status = $True
+                $Description = "Secure Boot is enabled"
+            } else {
+                $Status = $False
+                $Description = "Secure Boot is disabled"
+            }
+        } else {
+            $Status = $False
+            $Description = "Secure Boot is not supported"
+        }
+    } else {
+        $Status = $False
+        $Description = "Secure Boot is not supported"
+    }
+
+    $SecureBootStatus = New-Object -TypeName PSObject
+    $SecureBootStatus | Add-Member -MemberType "NoteProperty" -Name "Name" -Value "Secure Boot"
+    $SecureBootStatus | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $Status
+    $SecureBootStatus | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+    $SecureBootStatus
+}
+
+function Get-CredentialGuardStatus {
+    <#
+    .SYNOPSIS
+
+    Helper - Gets the status of Windows Defender Credential Guard 
+
+    Author: @itm4n
+    License: BSD 3-Clause
+    
+    .DESCRIPTION
+
+    Gets the status of the Credential Guard by reading the 'LsaCfgFlags' value of the following 
+    registry key: 'HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\LSA'. Possible values are:
+    None=>Not configured, 0=>Disabled, 1=>Enabled with UEFI lock, 2=>Disabled without UEFI lock.
+    
+    .EXAMPLE
+
+    PS C:\> Get-CredentialGuardStatus
+
+    Name             Status Description
+    ----             ------ -----------
+    Credential Guard  False Credential Guard is not configured
+    
+    .LINK
+
+    https://docs.microsoft.com/en-us/windows/security/identity-protection/credential-guard/credential-guard-manage
+
+    #>
+    
+    [CmdletBinding()]Param()
+
+    $OsVersion = [System.Environment]::OSVersion.Version
+
+    if ($OsVersion.Major -ge 10) {
+
+        $RegPath = "HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\LSA"
+        $Result = Get-ItemProperty -Path "Registry::$($RegPath)" -ErrorAction SilentlyContinue -ErrorVariable GetItemPropertyError 
+    
+        if (-not $GetItemPropertyError) {
+    
+            if (-not ($Null -eq $Result.LsaCfgFlags)) {
+    
+                if ($Result.LsaCfgFlags -eq 0) {
+                    $Status = $False 
+                    $Description = "Credential Guard is disabled"
+                } elseif ($Result.LsaCfgFlags -eq 1) {
+                    $Status = $True 
+                    $Description = "Credential Guard is enabled with UEFI lock"
+                } elseif ($Result.LsaCfgFlags -eq 2) {
+                    $Status = $True
+                    $Description = "Credential Guard is enabled without UEFI lock"
+                } 
+            } else {
+                $Status = $False 
+                $Description = "Credential Guard is not configured"
+            }
+        }
+    } else {
+        $Status = $False
+        $Description = "Credential Guard is not supported on this OS"
+    }
+
+    $CredentialGuardStatus = New-Object -TypeName PSObject
+    $CredentialGuardStatus | Add-Member -MemberType "NoteProperty" -Name "Name" -Value "Credential Guard"
+    $CredentialGuardStatus | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $Status
+    $CredentialGuardStatus | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+    $CredentialGuardStatus
+}
+
+function Get-LsaRunAsPPLStatus {
+    <#
+    .SYNOPSIS
+
+    Helper - Gets the status of RunAsPPL option for LSA
+    
+    .DESCRIPTION
+
+    RunAsPPL can be enabled for the LSA process in the registry. If it's enabled and the device has
+    Secure Boot or UEFI, this setting is stored in the UEFI firmware so removing the registry key 
+    won't disable this setting. 
+    
+    .EXAMPLE
+
+    PS C:\> Get-LsaRunAsPPLStatus
+    
+    Name     Status Description        
+    ----     ------ -----------
+    RunAsPPL   True RunAsPPL is enabled
+    
+    .LINK
+
+    https://docs.microsoft.com/en-us/windows-server/security/credentials-protection-and-management/configuring-additional-lsa-protection
+    #>
+    
+
+    [CmdletBinding()]Param()
+
+    $OsVersion = [System.Environment]::OSVersion.Version
+
+    # if Windows >= 8.1 / 2012 R2
+    if ($OsVersion.Major -eq 10 -or ( ($OsVersion.Major -eq 6) -and ($OsVersion.Minor -ge 3) )) {
+
+        $RegPath = "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Lsa"
+        $Result = Get-ItemProperty -Path "REgistry::$($RegPath)" -ErrorAction SilentlyContinue -ErrorVariable GetItemPropertyError
+
+        if (-not $GetItemPropertyError) {
+
+            if (-not ($Null -eq $Result.RunAsPPL)) {
+
+                if ($Result.RunAsPPL -eq 1) {
+                    $Status = $True 
+                    $Description = "RunAsPPL is enabled"
+                } else {
+                    $Status = $False 
+                    $Description = "RunAsPPL is disabled"
+                } 
+            } else {
+                $Status = $False 
+                $Description = "RunAsPPL is not configured"
+            }
+        }
+
+    } else {
+        # RunAsPPL not supported 
+        $Status = $False 
+        $Description = "RunAsPPL is not supported on this OS"
+    }
+
+    $LsaRunAsPplStatus = New-Object -TypeName PSObject
+    $LsaRunAsPplStatus | Add-Member -MemberType "NoteProperty" -Name "Name" -Value "RunAsPPL"
+    $LsaRunAsPplStatus | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $Status
+    $LsaRunAsPplStatus | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+    $LsaRunAsPplStatus
+
+}
 #endregion Helpers 
 
 
@@ -1775,6 +2063,21 @@ function Invoke-RegistryAlwaysInstallElevatedCheck {
             $RegistryAlwaysInstallElevatedItem
         }
     }   
+}
+
+function Invoke-LsaProtectionsCheck {
+
+    [CmdletBinding()]Param()
+
+    $Results = New-Object -TypeName System.Collections.ArrayList
+
+    [void]$Results.Add($(Get-LsaRunAsPPLStatus))
+    [void]$Results.Add($(Get-UEFIStatus))
+    [void]$Results.Add($(Get-SecureBootStatus))
+    [void]$Results.Add($(Get-CredentialGuardStatus))
+
+    $Results
+
 }
 # ----------------------------------------------------------------
 # END REGISTRY SETTINGS   
@@ -3689,7 +3992,7 @@ function Invoke-ServicesPermissionsCheck {
 # ----------------------------------------------------------------
 
 # ----------------------------------------------------------------
-# END DLL HIJACKING   
+# BEGIN DLL HIJACKING   
 # ----------------------------------------------------------------
 function Invoke-DllHijackingCheck {
     <#
@@ -3927,6 +4230,7 @@ function Invoke-PrivescCheck {
     "----------------------------------------------------------------"
     "|                       INSTALLED PROGRAMS                     |"
     "----------------------------------------------------------------"
+    
     "TEST: Listing non-default programs..."
     "DESC: Is there any non-default / third-party software we could exploit?"
     "NOTE: Again, security holes are often caused by third-party software."
@@ -4011,6 +4315,19 @@ function Invoke-PrivescCheck {
         "[!] Nothing found."
     }
     
+    "`n"
+
+    "TEST: Checking LSA RunAsPPL..."
+    "DESC: Is lsass running as a Protected Process?"
+    "NOTE: If Secure Boot or UEFI, RunAsPPL cannot be disabled by deleting the registry key."
+    $Results = Invoke-LsaProtectionsCheck
+    if ($Results) {
+        "[*] Found some info."
+        $Results | Format-Table -AutoSize
+    } else {
+        "[!] Nothing found."
+    }
+
     "`n"
 
     "TEST: Checking LAPS settings..."
@@ -4144,7 +4461,7 @@ function Invoke-PrivescCheck {
     $Results = Invoke-SystemStartupHistoryCheck
     if (([object[]]$Results).Length -gt 0) {
         "[*] Found $(([object[]]$Results).Length) startup event(s) in the last 31 days."
-        "[*] Last startup time was: $($Results[0].Time)"
+        "[*] Last startup time was: $(([object[]]$Results)[0].Time)"
         $Results | Select-Object -First 10 | Format-Table
     } else {
         "[!] Nothing found."

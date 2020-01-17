@@ -126,6 +126,7 @@ Invoke-UacCheck - Checks whether UAC (User Access Control) is enabled
 Invoke-LapsCheck - Checks whether LAPS (Local Admin Password Solution) is enabled
 Invoke-PowershellTranscriptionCheck - Checks whether PowerShell Transcription is configured/enabled
 Invoke-RegistryAlwaysInstallElevatedCheck - Checks whether the AlwaysInstallElevated key is set in the registry
+Invoke-LsaProtectionsCheck - Checks whether LSASS is running as a Protected Process (+ additional checks)
 ```
 
 ### Network

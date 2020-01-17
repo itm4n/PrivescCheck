@@ -1,3 +1,10 @@
+2020-01-17
+    - Added Helper > Get-UEFIStatus
+    - Added Helper > Get-SecureBootStatus
+    - Added Helper > Get-CredentialGuardStatus
+    - Added Helper > Get-LsaRunAsPPLStatus
+    - Added Registry > Invoke-LsaProtectionsCheck
+
 2020-01-16
     - Moved "Invoke-PrivescCheck.ps1" from "Pentest-Tools" to a dedicated repo.
     - Added User > Invoke-UserCheck
