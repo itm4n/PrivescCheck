@@ -4,6 +4,9 @@
     - Added Helper > Get-CredentialGuardStatus
     - Added Helper > Get-LsaRunAsPPLStatus
     - Added Registry > Invoke-LsaProtectionsCheck
+    - Added Helper > Get-UnattendSensitiveData
+    - Added Credentials > Invoke-UnattendFilesCheck
+    - Merged Sensitive Files with Credentials
 
 2020-01-16
     - Moved "Invoke-PrivescCheck.ps1" from "Pentest-Tools" to a dedicated repo.

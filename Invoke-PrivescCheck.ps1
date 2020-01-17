@@ -1812,6 +1812,9 @@ function Get-LsaRunAsPPLStatus {
     .SYNOPSIS
 
     Helper - Gets the status of RunAsPPL option for LSA
+
+    Author: @itm4n
+    License: BSD 3-Clause
     
     .DESCRIPTION
 
@@ -1872,6 +1875,150 @@ function Get-LsaRunAsPPLStatus {
     $LsaRunAsPplStatus | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
     $LsaRunAsPplStatus
 
+}
+
+function Get-UnattendSensitiveData {
+    <#
+    .SYNOPSIS
+
+    Helper - Extract sensitive data from an "unattend" XML file
+
+    Author: @itm4n
+    License: BSD 3-Clause
+    
+    .DESCRIPTION
+
+    Unattend files are XML documents which may contain cleartext passwords if they are not
+    properly sanitized. Most of the time, "Password" fields will be replaced by the generic
+    "*SENSITIVE*DATA*DELETED*" mention but sometimes, the original value remains and is either
+    present in its plaintext form or base64-encoded form. If a non-empty password field is found
+    and if it's not equal to the default "*SENSITIVE*DATA*DELETED*", this function will return the
+    corresponding set of credentials: domain, username and (decoded) password. 
+    
+    .PARAMETER Path
+
+    The Path of the "unattend.xml" file to parse
+    
+    .EXAMPLE
+
+    PS C:\> Get-UnattendSensitiveData -Path C:\Windows\Panther\Unattend.xml
+
+    Type         Domain      Username      Password
+    ----         ------      --------      --------
+    Credentials  contoso.com Administrator Password1
+    LocalAccount N/A         John          Password1
+    AutoLogon    .           Administrator P@ssw0rd
+    
+    .NOTES 
+
+    A password can be stored in three formats:
+
+    1) Simple string
+
+        <Password>Password</Password>
+
+    2) XML node + plain value
+    
+        <Password>
+            <Value>Password</Value>
+            <PlainText>true</PlainText>
+        </Password>
+
+    3) XML node + base64-encoded value
+
+        <Password>
+            <Value>UABhAHMAcwB3AG8AcgBkAA==</Value>
+            <PlainText>false</PlainText>
+        </Password> 
+
+    /!\ UNICODE encoding!
+
+    #>
+
+    [CmdletBinding()]Param(
+        [Parameter(Mandatory=$True)]
+        [string]$Path
+    )
+
+    function Get-DecodedPassword {
+
+        [CmdletBinding()]Param(
+            [object]$XmlNode
+        )
+
+        if ($XmlNode.GetType().Name -eq "string") {
+            $XmlNode
+        } else {
+            if ($XmlNode) {
+                if ($XmlNode.PlainText -eq "false") {
+                    [System.Text.Encoding]::Unicode.GetString([System.Convert]::FromBase64String($XmlNode.Value))
+                } else {
+                    $XmlNode.Value
+                }
+            }
+        }
+    }
+
+    [xml] $Xml = Get-Content -Path $Path -ErrorAction SilentlyContinue -ErrorVariable GetContentError
+
+    if (-not $GetContentError) {
+
+        $Xml.GetElementsByTagName("Credentials") | ForEach-Object {
+
+            $Password = Get-DecodedPassword -XmlNode $_.Password
+
+            if ($Password -and ( -not ($Password -eq "*SENSITIVE*DATA*DELETED*"))) {
+                $Item = New-Object -TypeName PSObject
+                $Item | Add-Member -MemberType "NoteProperty" -Name "Type" -Value "Credentials"
+                $Item | Add-Member -MemberType "NoteProperty" -Name "Domain" -Value $_.Domain
+                $Item | Add-Member -MemberType "NoteProperty" -Name "Username" -Value $_.Username
+                $Item | Add-Member -MemberType "NoteProperty" -Name "Password" -Value $Password
+                $Item
+            }
+        }
+    
+        $Xml.GetElementsByTagName("LocalAccount") | ForEach-Object {
+
+            $Password = Get-DecodedPassword -XmlNode $_.Password
+    
+            if ($Password -and ( -not ($Password -eq "*SENSITIVE*DATA*DELETED*"))) {
+                $Item = New-Object -TypeName PSObject
+                $Item | Add-Member -MemberType "NoteProperty" -Name "Type" -Value "LocalAccount"
+                $Item | Add-Member -MemberType "NoteProperty" -Name "Domain" -Value "N/A"
+                $Item | Add-Member -MemberType "NoteProperty" -Name "Username" -Value $_.Name
+                $Item | Add-Member -MemberType "NoteProperty" -Name "Password" -Value $Password
+                $Item
+            }
+        }
+    
+        $Xml.GetElementsByTagName("AutoLogon") | ForEach-Object {
+
+            $Password = Get-DecodedPassword -XmlNode $_.Password
+
+            if ($Password -and ( -not ($Password -eq "*SENSITIVE*DATA*DELETED*"))) {
+                $Item = New-Object -TypeName PSObject
+                $Item | Add-Member -MemberType "NoteProperty" -Name "Type" -Value "AutoLogon"
+                $Item | Add-Member -MemberType "NoteProperty" -Name "Domain" -Value $_.Domain
+                $Item | Add-Member -MemberType "NoteProperty" -Name "Username" -Value $_.Username
+                $Item | Add-Member -MemberType "NoteProperty" -Name "Password" -Value $Password
+                $Item
+            }
+        }
+
+        $Xml.GetElementsByTagName("AdministratorPassword") | ForEach-Object {
+
+            $Password = Get-DecodedPassword -XmlNode $_
+
+            if ($Password -and ( -not ($Password -eq "*SENSITIVE*DATA*DELETED*"))) {
+                $Item = New-Object -TypeName PSObject
+                $Item | Add-Member -MemberType "NoteProperty" -Name "Type" -Value "AdministratorPassword"
+                $Item | Add-Member -MemberType "NoteProperty" -Name "Domain" -Value "N/A"
+                $Item | Add-Member -MemberType "NoteProperty" -Name "Username" -Value "N/A"
+                $Item | Add-Member -MemberType "NoteProperty" -Name "Password" -Value $Password
+                $Item
+            }
+        }
+    }
 }
 #endregion Helpers 
 
@@ -3091,7 +3238,8 @@ function Invoke-WinlogonCheck {
 
     Windows has a registry setting to enable automatic logon. You can set a username and a password
     in order to automatically initiate a user session on system startup. The password is stored in
-    clear text so it's easy to extract it.
+    clear text so it's easy to extract it. This function returns a set of credentials only if the 
+    password field is not empty.
     
     .EXAMPLE
 
@@ -3114,25 +3262,22 @@ function Invoke-WinlogonCheck {
 
     if (-not $GetItemPropertyError) {
 
-        $WinlogonResult = New-Object -TypeName System.Collections.ArrayList
-
-        if ($Item.DefaultDomainName -Or $Item.DefaultUserName -Or $Item.DefaultPassword) {
+        if ($Item.DefaultPassword) {
             $WinlogonItem = New-Object -TypeName PSObject 
             $WinlogonItem | Add-Member -MemberType "NoteProperty" -Name "Domain" -Value $Item.DefaultDomainName
             $WinlogonItem | Add-Member -MemberType "NoteProperty" -Name "Username" -Value $Item.DefaultUserName
             $WinlogonItem | Add-Member -MemberType "NoteProperty" -Name "Password" -Value $Item.DefaultPassword
-            [void]$WinlogonResult.Add($WinlogonItem)
+            $WinlogonItem
         } 
     
-        if ($Item.AltDefaultDomainName -Or $Item.AltDefaultUserName -Or $Item.AltDefaultPassword) {
+        if ($Item.AltDefaultPassword) {
             $WinlogonItem = New-Object -TypeName PSObject 
             $WinlogonItem | Add-Member -MemberType "NoteProperty" -Name "Domain" -Value $Item.AltDefaultDomainName
             $WinlogonItem | Add-Member -MemberType "NoteProperty" -Name "Username" -Value $Item.AltDefaultUserName
             $WinlogonItem | Add-Member -MemberType "NoteProperty" -Name "Password" -Value $Item.AltDefaultPassword
-            [void]$WinlogonResult.Add($WinlogonItem)
+            $WinlogonItem
         }
 
-        $WinlogonResult
     } else {
         Write-Verbose "Error while querying '$RegPath'"
     }
@@ -3235,8 +3380,6 @@ function Invoke-SamBackupFilesCheck {
     
     [CmdletBinding()] param()
 
-    $SamBackupFiles = New-Object System.Collections.ArrayList
-
     $ArrayOfPaths = New-Object System.Collections.ArrayList 
     [void]$ArrayOfPaths.Add($(Join-Path -Path $env:SystemRoot -ChildPath "repair\SAM"))
     [void]$ArrayOfPaths.Add($(Join-Path -Path $env:SystemRoot -ChildPath "System32\config\RegBack\SAM"))
@@ -3246,17 +3389,70 @@ function Invoke-SamBackupFilesCheck {
     [void]$ArrayOfPaths.Add($(Join-Path -Path $env:SystemRoot -ChildPath "System32\config\RegBack\system"))
 
     ForEach ($Path in [string[]]$ArrayOfPaths) {
+
         if (Test-Path -Path $Path -ErrorAction SilentlyContinue) { 
-            $SamBackupFile = New-Object -TypeName PSObject   
+
             Get-Content -Path $Path -ErrorAction SilentlyContinue -ErrorVariable GetContentError | Out-Null 
+
             if (-not $GetContentError) {
+                $SamBackupFile = New-Object -TypeName PSObject 
                 $SamBackupFile | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $Path 
-                [void]$SamBackupFiles.Add($SamBackupFile) 
+                $SamBackupFile
             } 
         }
     }
+}
 
-    $SamBackupFiles
+function Invoke-UnattendFilesCheck {
+    <#
+    .SYNOPSIS
+
+    Enumerates Unattend files and extracts credentials 
+
+    Author: @itm4n
+    License: BSD 3-Clause
+    
+    .DESCRIPTION
+
+    Searches common locations for "Unattend.xml" files. When a file is found, it calls the custom 
+    "Get-UnattendSensitiveData" function to extract credentials from it. Note: credentials are only
+    returned if the password is not empty and not equal to "*SENSITIVE*DATA*DELETED*".
+    
+    .EXAMPLE
+
+    PS C:\> Invoke-UnattendFilesCheck | fl
+
+    Type     : LocalAccount
+    Domain   : N/A
+    Username : John
+    Password : Password1
+    File     : C:\WINDOWS\Panther\Unattend.xml
+
+    #>
+
+    [CmdletBinding()] param()
+
+    $ArrayOfPaths = New-Object System.Collections.ArrayList 
+    [void]$ArrayOfPaths.Add($(Join-Path -Path $env:windir -ChildPath "Panther\Unattended.xml"))
+    [void]$ArrayOfPaths.Add($(Join-Path -Path $env:windir -ChildPath "Panther\Unattend.xml"))
+    [void]$ArrayOfPaths.Add($(Join-Path -Path $env:windir -ChildPath "Panther\Unattend\Unattended.xml"))
+    [void]$ArrayOfPaths.Add($(Join-Path -Path $env:windir -ChildPath "Panther\Unattend\Unattend.xml"))
+    [void]$ArrayOfPaths.Add($(Join-Path -Path $env:windir -ChildPath "System32\Sysprep\Unattend.xml"))
+    [void]$ArrayOfPaths.Add($(Join-Path -Path $env:windir -ChildPath "System32\Sysprep\Panther\Unattend.xml"))
+
+    ForEach ($Path in [string[]]$ArrayOfPaths) {
+
+        if (Test-Path -Path $Path -ErrorAction SilentlyContinue) { 
+
+            Write-Verbose "Found file: $Path"
+
+            $Result = Get-UnattendSensitiveData -Path $Path 
+            if ($Result) {
+                $Result | Add-Member -MemberType "NoteProperty" -Name "File" -Value $Path 
+                $Result
+            }
+        }
+    }
 }
 # ----------------------------------------------------------------
 # END SENSITIVE FILES 
@@ -3659,7 +3855,7 @@ function Test-ServiceDaclPermission {
                             ForEach($TargetPermission in $TargetPermissions) {
                                 # check permissions || style
                                 if (($ServiceDacl.AceType -eq 'AccessAllowed') -and ($ServiceDacl.AccessRights -band $AccessMask[$TargetPermission]) -eq $AccessMask[$TargetPermission]) {
-                                    Write-Verbose "Current user has '$TargetPermission' for $IndividualService"
+                                    Write-Verbose "Current user has '$TargetPermission' permission for $IndividualService"
                                     $TargetService
                                     $MatchingDaclFound = $True 
                                     break
@@ -4248,23 +4444,6 @@ function Invoke-PrivescCheck {
     "`n"
 
     "----------------------------------------------------------------"
-    "|                        SENSITIVE FILES                       |"
-    "----------------------------------------------------------------"
-
-    "TEST: Checking SAM/SYSTEM files..."
-    "DESC: Is there any backup of the SAM/SYSTEM hives we can read?"
-    "NOTE: 'Some secrets are safer kept hidden...'"
-    $Results = Invoke-SamBackupFilesCheck
-    if ($Results) {
-        "[+] Found $() readable file(s)."
-        $Results | Format-List
-    } else {
-        "[!] Nothing found."
-    }
-
-    "`n"
-
-    "----------------------------------------------------------------"
     "|                       INSTALLED PROGRAMS                     |"
     "----------------------------------------------------------------"
     
@@ -4310,6 +4489,32 @@ function Invoke-PrivescCheck {
     "----------------------------------------------------------------"
     "|                          CREDENTIALS                         |"
     "----------------------------------------------------------------"
+
+    "TEST: Checking SAM/SYSTEM files..."
+    "DESC: Is there any backup of the SAM/SYSTEM hives we can read?"
+    "NOTE: 'Some secrets are safer kept hidden...'"
+    $Results = Invoke-SamBackupFilesCheck
+    if ($Results) {
+        "[+] Found $(([object[]]$Results).Length) readable file(s)."
+        $Results | Format-List
+    } else {
+        "[!] Nothing found."
+    }
+
+    "`n"
+
+    "TEST: Checking Unattend files..."
+    "DESC: Is there any Unatttend file? Do they contain cleartext credentials?"
+    "NOTE: Base64 *encryption*..."
+    $Results = Invoke-UnattendFilesCheck
+    if ($Results) {
+        "[+] Found $(([object[]]$Results).Length) password(s)."
+        $Results | Format-List
+    } else {
+        "[!] Nothing found."
+    }
+
+    "`n"
 
     "TEST: Checking WinLogon registry key..."
     "DESC: Does the Winlogon registry key contain any cleartext password?"
