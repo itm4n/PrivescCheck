@@ -3159,7 +3159,12 @@ function Invoke-UserGroupsCheck {
             }
 
             if (-not $KnownSid) {
-                $GroupName = ($Group.Translate([System.Security.Principal.NTAccount])).Value 
+
+                if ($GroupSid -notmatch '^S-1-5.*') {
+                    $GroupName = ($Group.Translate([System.Security.Principal.NTAccount])).Value
+                } else {
+                    $GroupName = "N/A"
+                }
 
                 $UserGroups = New-Object -TypeName PSObject 
                 $UserGroups | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $GroupName 
@@ -4435,7 +4440,7 @@ function Invoke-PrivescCheck {
     "NOTE: Show me the %PATH% to DLL hijacking."
     $Results = Invoke-DllHijackingCheck
     if ($Results) {
-        "[+] Found $(([object[]]$Results).Length) vulnerable path(s)."
+        "[+] Found $(([object[]]$Results).Length) result(s)."
         $Results | Format-List 
     } else {
         "[!] Nothing found."

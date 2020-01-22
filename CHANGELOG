@@ -1,3 +1,6 @@
+2020-01-20
+    - Fixed bug User > Invoke-UserGroupsCheck (don't translate SIDs like "S-1-5.*")
+
 2020-01-17
     - Added Helper > Get-UEFIStatus
     - Added Helper > Get-SecureBootStatus
