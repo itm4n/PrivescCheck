@@ -1,3 +1,6 @@
+2020-01-29
+    - Fixed bug Helper > Get-ModifiablePath (error handling in Split-Path)
+
 2020-01-20
     - Fixed bug User > Invoke-UserGroupsCheck (don't translate SIDs like "S-1-5.*")
 

@@ -1287,24 +1287,24 @@ function Get-ModifiablePath {
                             # if the path is actually an option like '/svc', skip it 
                             # it will prevent a lot of false positives but it might also skip vulnerable paths in some particular cases 
                             # though, it's more common to see options like '/svc' than file paths like '/ProgramData/something' in Windows 
-                            if ($TempPath -Like "/*") { continue }
+                            if (-not ($TempPath -Like "/*")) { 
 
-                            if($TempPath -and ($TempPath -ne '')) {
-                                if(Test-Path -Path $TempPath -ErrorAction SilentlyContinue) {
-                                    # if the path exists, resolve it and add it to the candidate list
-                                    $CandidatePaths += Resolve-Path -Path $TempPath | Select-Object -ExpandProperty Path
-                                }
-
-                                else {
-                                    # if the path doesn't exist, check if the parent folder allows for modification
-                                    try {
-                                        $ParentPath = (Split-Path -Path $TempPath -Parent).Trim()
-                                        if($ParentPath -and ($ParentPath -ne '') -and (Test-Path -Path $ParentPath -ErrorAction SilentlyContinue)) {
-                                            $CandidatePaths += Resolve-Path -Path $ParentPath | Select-Object -ExpandProperty Path
-                                        }
+                                if($TempPath -and ($TempPath -ne '')) {
+                                    if(Test-Path -Path $TempPath -ErrorAction SilentlyContinue) {
+                                        # if the path exists, resolve it and add it to the candidate list
+                                        $CandidatePaths += Resolve-Path -Path $TempPath | Select-Object -ExpandProperty Path
                                     }
-                                    catch {
-                                        # trap because Split-Path doesn't handle -ErrorAction SilentlyContinue nicely
+                                    else {
+                                        # if the path doesn't exist, check if the parent folder allows for modification
+                                        try {
+                                            $ParentPath = (Split-Path -Path $TempPath -Parent -ErrorAction SilentlyContinue).Trim()
+                                            if($ParentPath -and ($ParentPath -ne '') -and (Test-Path -Path $ParentPath -ErrorAction SilentlyContinue)) {
+                                                $CandidatePaths += Resolve-Path -Path $ParentPath | Select-Object -ExpandProperty Path
+                                            }
+                                        }
+                                        catch {
+                                            # trap because Split-Path doesn't handle -ErrorAction SilentlyContinue nicely
+                                        }
                                     }
                                 }
                             }
