@@ -11,6 +11,11 @@ PS C:\Temp\> Set-ExecutionPolicy Bypass -Scope Process -Force
 PS C:\Temp\> . .\Invoke-PrivescCheck.ps1; Invoke-PrivescCheck 
 ```
 
+Display output and write to a log file at the same time.
+```
+PS C:\Temp\> . .\Invoke-PrivescCheck.ps1; Invoke-PrivescCheck | Tee-Object "C:\Temp\result.txt"
+```
+
 Use the script from a CMD prompt.
 ```
 C:\Temp\>powershell -ep bypass -c ". .\Invoke-PrivescCheck.ps1; Invoke-PrivescCheck"
@@ -48,7 +53,7 @@ Therefore, I decided to make my own script with the following constraints in min
 
 - __It must not use built-in Windows tools__ such as `sc.exe` or `tasklist.exe` because you'll often get an __Access denied__ error if you try to use them on __Windows Server 2016/2019__ for instance.
 
-- __It must not use WMI__ because its usage can be restricted to admin-only users.  
+- __It must not use WMI__ because its usage can be restricted to admin-only users.
 
 - Last but not least, it must be compatible with __PowerShell Version 2__. 
 
@@ -57,7 +62,7 @@ Therefore, I decided to make my own script with the following constraints in min
 
 - __Third-party tools__
 
-I have no merit, I reused some of the code made by [@harmj0y](https://twitter.com/harmj0y) and [@mattifestation](https://twitter.com/mattifestation). Indeed, PowerUp has a very powerfull function called `Get-ModifiablePath` which checks the ACL of a given file path to see if the current user has write permissions on the file or folder. I modified this function a bit to avoid some false positives though. Before that a service command line argument such as `/svc`could be identified as a vulnerable path because it was interpreted as `C:\svc`. My other contribution is that I made a _registry-compatible_ version of this function (`Get-ModifiableRegistryPath`).  
+I have no merit, I reused some of the code made by [@harmj0y](https://twitter.com/harmj0y) and [@mattifestation](https://twitter.com/mattifestation). Indeed, PowerUp has a very powerfull function called `Get-ModifiablePath` which checks the ACL of a given file path to see if the current user has write permissions on the file or folder. I modified this function a bit to avoid some false positives though. Before that a service command line argument such as `/svc`could be identified as a vulnerable path because it was interpreted as `C:\svc`. My other contribution is that I made a _registry-compatible_ version of this function (`Get-ModifiableRegistryPath`).
 
 - __Windows built-in windows commands/tools__
 
@@ -113,6 +118,7 @@ Invoke-SamBackupFilesCheck - Checks common locations for the SAM/SYSTEM backup f
 Invoke-UnattendFilesCheck - Enumerates Unattend files and extracts credentials 
 Invoke-WinlogonCheck - Checks credentials stored in the Winlogon registry key
 Invoke-CredentialFilesCheck - List the Credential files that are stored in the current user AppData folders
+Invoke-CredentialManagerCheck - Enumerates credentials saved in the Credential Manager
 ```
 
 ### Registry

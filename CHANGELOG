@@ -1,3 +1,6 @@
+2020-01-30
+    - Added Credentials > Invoke-CredentialManagerCheck
+
 2020-01-29
     - Fixed bug Helper > Get-ModifiablePath (error handling in Split-Path)
 
