@@ -3569,7 +3569,7 @@ function Invoke-GPPPasswordCheck {
     <#
     .SYNOPSIS
 
-    Lists Group Policy Preferences (GPP) containing a non-empty "cpassword" field.
+    Lists Group Policy Preferences (GPP) containing a non-empty "cpassword" field
 
     Author: @itm4n
     Credit: @obscuresec, @harmj0y
@@ -3649,7 +3649,7 @@ function Invoke-GPPPasswordCheck {
     Add-Type -Assembly System.Security
     Add-Type -Assembly System.Core
 
-    function Get-DecrpytedPassword {
+    function Get-DecryptedPassword {
         [CmdletBinding()] param(
             [string] $Cpassword 
         )
@@ -3766,7 +3766,7 @@ function Invoke-GPPPasswordCheck {
                     $Item = New-Object -TypeName PSObject
                     $Item | Add-Member -MemberType "NoteProperty" -Name "Type" -Value $Type
                     $Item | Add-Member -MemberType "NoteProperty" -Name "UserName" -Value $UserName
-                    $Item | Add-Member -MemberType "NoteProperty" -Name "Password" -Value $(Get-DecrpytedPassword -Cpassword $Cpassword)
+                    $Item | Add-Member -MemberType "NoteProperty" -Name "Password" -Value $(Get-DecryptedPassword -Cpassword $Cpassword)
                     $Item | Add-Member -MemberType "NoteProperty" -Name "Content" -Value $Content
                     $Item | Add-Member -MemberType "NoteProperty" -Name "Changed" -Value $Properties.ParentNode.changed
                     $Item | Add-Member -MemberType "NoteProperty" -Name "FilePath" -Value $FileFullPath
