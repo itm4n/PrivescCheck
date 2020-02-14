@@ -83,8 +83,8 @@ Invoke-UserPrivilegesCheck - Enumerates the high potential privileges of the cur
 
 ```
 Invoke-InstalledServicesCheck - Enumerates non-default services
-Invoke-ServicesPermissionsCheck - Enumerates the services the current can modify through the service control manager
-Invoke-ServicesPermissionsRegistryCheck - Enumerates services that can be modified in the registry
+Invoke-ServicesPermissionsCheck - Enumerates the services the current user can modify through the service control manager
+Invoke-ServicesPermissionsRegistryCheck - Enumerates services that can be modified by the current user in the registry
 Invoke-ServicesImagePermissionsCheck - Enumerates all the services that have a modifiable binary (or argument)
 Invoke-ServicesUnquotedPathCheck - Enumerates services with an unquoted path that can be exploited
 ```
