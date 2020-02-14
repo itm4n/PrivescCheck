@@ -110,7 +110,8 @@ Invoke-SamBackupFilesCheck - Checks common locations for the SAM/SYSTEM backup f
 Invoke-UnattendFilesCheck - Enumerates Unattend files and extracts credentials 
 Invoke-WinlogonCheck - Checks credentials stored in the Winlogon registry key
 Invoke-CredentialFilesCheck - Lists the Credential files that are stored in the current user AppData folders
-Invoke-CredentialManagerCheck - Enumerates credentials saved in the Credential Manager
+Invoke-VaultCredCheck - Enumerates credentials saved in the Credential Manager
+Invoke-VaultListCheck - Enumerates web credentials saved in the Credential Manager
 Invoke-GPPPasswordCheck - Lists Group Policy Preferences (GPP) containing a non-empty "cpassword" field
 ```
 

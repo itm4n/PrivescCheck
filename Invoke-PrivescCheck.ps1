@@ -196,6 +196,44 @@ public struct UNICODE_STRING
    public IntPtr Buffer;
 }
 
+[StructLayout(LayoutKind.Sequential, CharSet=CharSet.Unicode)]
+public struct VAULT_ITEM_7
+{
+    public Guid SchemaId;
+    public string FriendlyName;
+    public IntPtr Resource;
+    public IntPtr Identity;
+    public IntPtr Authenticator;
+    public UInt64 LastWritten;
+    public UInt32 Flags;
+    public UInt32 PropertiesCount;
+    public IntPtr Properties;
+}
+
+[StructLayout(LayoutKind.Sequential, CharSet=CharSet.Unicode)]
+public struct VAULT_ITEM_8
+{
+    public Guid SchemaId;
+    public string FriendlyName;
+    public IntPtr Resource;
+    public IntPtr Identity;
+    public IntPtr Authenticator;
+    public IntPtr PackageSid;
+    public UInt64 LastWritten;
+    public UInt32 Flags;
+    public UInt32 PropertiesCount;
+    public IntPtr Properties;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+public struct VAULT_ITEM_DATA_HEADER
+{
+    public UInt32 SchemaElementId;
+    public UInt32 Unknown1;
+    public UInt32 Type;
+    public UInt32 Unknown2;
+}
+
 [DllImport("advapi32.dll", SetLastError=true)]
 [return: MarshalAs(UnmanagedType.Bool)]
 public static extern bool QueryServiceObjectSecurity(IntPtr serviceHandle, System.Security.AccessControl.SecurityInfos secInfo, byte[] lpSecDesrBuf, uint bufSize, out uint bufSizeNeeded);
@@ -255,6 +293,27 @@ public static extern uint GetExtendedTcpTable(IntPtr pTcpTable, ref int pdwSize,
 
 [DllImport("iphlpapi.dll", SetLastError=true)]
 public static extern uint GetExtendedUdpTable(IntPtr pUdpTable, ref int pdwSize, bool bOrder, int ulAf, uint TableClass, uint Reserved);
+
+[DllImport("vaultcli.dll", SetLastError=false)]
+public static extern uint VaultEnumerateVaults(uint dwFlags, out int VaultsCount, out IntPtr ppVaultGuids);
+
+[DllImport("vaultcli.dll", SetLastError=false)]
+public static extern uint VaultOpenVault(IntPtr pVaultId, uint dwFlags, out IntPtr pVaultHandle);
+
+[DllImport("vaultcli.dll", SetLastError=false)]
+public static extern uint VaultEnumerateItems(IntPtr pVaultHandle, uint dwFlags, out int ItemsCount, out IntPtr ppItems);
+
+[DllImport("vaultcli.dll", SetLastError=false, EntryPoint="VaultGetItem")]
+public static extern uint VaultGetItem7(IntPtr pVaultHandle, ref Guid guidSchemaId, IntPtr pResource, IntPtr pIdentity, IntPtr pUnknown, uint iUnknown, out IntPtr pItem);
+
+[DllImport("vaultcli.dll", SetLastError=false, EntryPoint="VaultGetItem")]
+public static extern uint VaultGetItem8(IntPtr pVaultHandle, ref Guid guidSchemaId, IntPtr pResource, IntPtr pIdentity, IntPtr pPackageSid, IntPtr pUnknown, uint iUnknown, out IntPtr pItem);
+
+[DllImport("vaultcli.dll", SetLastError=false)]
+public static extern uint VaultFree(IntPtr pVaultItem);
+
+[DllImport("vaultcli.dll", SetLastError=false)]
+public static extern uint VaultCloseVault(ref IntPtr pVaultHandle);
 '@
 
 try {
@@ -276,7 +335,7 @@ try {
 # Helpers 
 # ----------------------------------------------------------------
 #region Helpers 
-$global:IgnoredPrograms = @("Common Files", "Internet Explorer", "ModifiableWindowsApps", "PackageManagement", "VMware", "Windows Defender", "Windows Defender Advanced Threat Protection", "Windows Mail", "Windows Media Player", "Windows Multimedia Platform", "Windows NT", "Windows Photo Viewer", "Windows Portable Devices", "Windows Security", "WindowsPowerShell", "Microsoft.NET", "Windows Portable Devices", "dotnet", "MSBuild", "Intel", "Reference Assemblies")
+$global:IgnoredPrograms = @("Common Files", "Internet Explorer", "ModifiableWindowsApps", "PackageManagement", "Windows Defender", "Windows Defender Advanced Threat Protection", "Windows Mail", "Windows Media Player", "Windows Multimedia Platform", "Windows NT", "Windows Photo Viewer", "Windows Portable Devices", "Windows Security", "WindowsPowerShell", "Microsoft.NET", "Windows Portable Devices", "dotnet", "MSBuild", "Intel", "Reference Assemblies")
 
 $global:IgnoredServices = @("1394ohci", "3ware", "AarSvc", "ACPI", "AcpiDev", "acpiex", "acpipagr", "AcpiPmi", "acpitime", "Acx01000", "ADOVMPPackage", "ADP80XX", "adsi", "ADWS", "AeLookupSvc", "AFD", "afunix", "ahcache", "AJRouter", "ALG", "amdgpio2", "amdi2c", "AmdK8", "AmdPPM", "amdsata", "amdsbs", "amdxata", "AppID", "AppIDSvc", "Appinfo", "applockerfltr", "AppMgmt", "AppReadiness", "AppHostSvc", "AppVClient", "AppvStrm", "AppvVemgr", "AppvVfs", "AppXSvc", "arcsas", "aspnet_state", "AssignedAccessManagerSvc", "AsyncMac", "atapi", "AudioEndpointBuilder", "Audiosrv", "autotimesvc", "AxInstSV", "b06bdrv", "bam", "BasicDisplay", "BasicRender", "BattC", "BcastDVRUserService", "bcmfn2", "BDESVC", "Beep", "BFE", "bindflt", "BITS", "BluetoothUserService", "bowser", "BrokerInfrastructure", "Browser", "BTAGService", "BthA2dp", "BthAvctpSvc", "BthEnum", "BthHFEnum", "BthLEEnum", "BthMini", "BTHMODEM", "BthPan", "BTHPORT", "bthserv", "BTHUSB", "bttflt", "buttonconverter", "CAD", "camsvc", "CaptureService", "cbdhsvc", "cdfs", "CDPSvc", "CDPUserSvc", "cdrom", "CertPropSvc", "cht4iscsi", "cht4vbd", "CimFS", "circlass", "CldFlt", "CLFS", "ClipSVC", "CmBatt", "CNG", "cnghwassist", "CompositeBus", "COMSysApp", "condrv", "ConsentUxUserSvc", "CoreMessagingRegistrar", "CoreUI", "CredentialEnrollmentManagerUserSvc", "crypt32", "CryptSvc", "CSC", "CscService", "dam", "DCLocator", "DcomLaunch", "defragsvc", "DeviceAssociationBrokerSvc", "DeviceAssociationService", "DeviceInstall", "DevicePickerUserSvc", "DevicesFlowUserSvc", "DevQueryBroker", "Dfs", "Dfsc", "DFSR", "Dhcp", "diagnosticshub.standardcollector.service", "diagsvc", "DiagTrack", "disk", "DispBrokerDesktopSvc", "DisplayEnhancementService", "DmEnrollmentSvc", "dmvsc", "dmwappushservice", "DNS", "Dnscache", "DoSvc", "dot3svc", "DPS", "drmkaud", "DsmSvc", "DsRoleSvc", "DsSvc", "DusmSvc", "DXGKrnl", "e1i65x64", "Eaphost", "ebdrv", "EFS", "ehRecvr", "ehSched", "EhStorClass", "EhStorTcgDrv", "embeddedmode", "EntAppSvc", "ErrDev", "ESENT", "EventLog", "EventSystem", "exfat", "fastfat", "Fax", "fdc", "fdPHost", "FDResPub", "fhsvc", "FileCrypt", "FileInfo", "Filetrace", "flpydisk", "FltMgr", "FontCache", "FrameServer", "FsDepends", "Fs_Rec", "fvevol", "gencounter", "genericusbfn", "GPIOClx0101", "gpsvc", "GpuEnergyDrv", "GraphicsPerfSvc", "HdAudAddService", "HDAudBus", "HidBatt", "HidBth", "hidi2c", "hidinterrupt", "HidIr", "hidserv", "hidspi", "HidUsb", "hkmsvc", "HomeGroupListener", "HomeGroupProvider", "HpSAMD", "HTTP", "hvcrash", "HvHost", "hvservice", "HwNClx0101", "hwpolicy", "hyperkbd", "HyperVideo", "i8042prt", "iagpio", "iai2c", "iaStorAV", "iaStorAVC", "iaStorV", "ibbus", "icssvc", "idsvc", "IEEtwCollectorService", "IKEEXT", "IndirectKmd", "inetaccs", "InstallService", "intelide", "intelpep", "intelpmax", "intelppm", "iorate", "IPBusEnum", "IpFilterDriver", "iphlpsvc", "IPMIDRV", "IPNAT", "IPT", "IpxlatCfgSvc", "isapnp", "iScsiPrt", "IsmServ", "ItSas35i", "kbdclass", "kbdhid", "Kdc", "KdsSvc", "kdnic", "KeyIso", "KPSSVC", "KSecDD", "KSecPkg", "ksthunk", "KtmRm", "LanmanServer", "LanmanWorkstation", "ldap", "lfsvc", "LicenseManager", "lltdio", "lltdsvc", "lmhosts", "Lsa", "LSI_SAS", "LSI_SAS2i", "LSI_SAS3i", "LSI_SSS", "LSM", "luafv", "LxpSvc", "MapsBroker", "mausbhost", "mausbip", "MbbCx", "Mcx2Svc", "megasas", "megasas2i", "megasas35i", "megasr", "MessagingService", "Microsoft_Bluetooth_AvrcpTransport", "MixedRealityOpenXRSvc", "mlx4_bus", "MMCSS", "Modem", "monitor", "mouclass", "mouhid", "mountmgr", "mpsdrv", "mpssvc", "MRxDAV", "mrxsmb", "mrxsmb20", "MsBridge", "Msfs", "msgpiowin32", "mshidkmdf", "mshidumdf", "msisadrv", "MSiSCSI", "msiserver", "MSKSSRV", "MsLldp", "MSPCLOCK", "MSPQM", "MsQuic", "MsRPC", "MSSCNTRS", "MsSecFlt", "mssmbios", "MSTEE", "MTConfig", "Mup", "mvumis", "napagent", "NativeWifiP", "NaturalAuthentication", "NcaSvc", "NcbService", "NcdAutoSetup", "ndfltr", "NDIS", "NdisCap", "NdisImPlatform", "NdisTapi", "Ndisuio", "NdisVirtualBus", "NdisWan", "ndiswanlegacy", "NDKPing", "ndproxy", "Ndu", "NetAdapterCx", "NetBIOS", "NetbiosSmb", "NetBT", "NetMsmqActivator", "NetPipeActivator", "NetTcpActivator", "Netlogon", "Netman", "netprofm", "NetSetupSvc", "NetTcpPortSharing", "netvsc", "NgcCtnrSvc", "NgcSvc", "NlaSvc", "Npfs", "npsvctrig", "nsi", "nsiproxy", "NTDS", "Ntfs", "NtFrs", "Null", "nvdimm", "nvraid", "nvstor", "OneSyncSvc", "p2pimsvc", "p2psvc", "Parport", "partmgr", "PcaSvc", "pci", "pciide", "pcmcia", "pcw", "pdc", "PEAUTH", "PeerDistSvc", "perceptionsimulation", "percsas2i", "percsas3i", "PerfDisk", "PerfHost", "PerfNet", "PerfOS", "PerfProc", "PhoneSvc", "PimIndexMaintenanceSvc", "PktMon", "pla", "PlugPlay", "pmem", "PNPMEM", "PNRPAutoReg", "PNRPsvc", "PolicyAgent", "portcfg", "PortProxy", "Power", "PptpMiniport", "PrintNotify", "PrintWorkflowUserSvc", "Processor", "ProfSvc", "ProtectedStorage", "Psched", "PushToInstall", "pvscsi", "QWAVE", "QWAVEdrv", "Ramdisk", "RasAcd", "RasAgileVpn", "RasAuto", "Rasl2tp", "RasMan", "RasPppoe", "RasSstp", "rdbss", "RDMANDK", "rdpbus", "RDPDR", "RDPNP", "RDPUDD", "RdpVideoMiniport", "rdyboost", "ReFS", "ReFSv1", "RemoteAccess", "RemoteRegistry", "RetailDemo", "RFCOMM", "rhproxy", "RmSvc", "RpcEptMapper", "RpcLocator", "RpcSs", "RSoPProv", "rspndr", "s3cap", "sacsvr", "SamSs", "sbp2port", "SCardSvr", "ScDeviceEnum", "scfilter", "Schedule", "scmbus", "SCPolicySvc", "sdbus", "SDFRd", "SDRSVC", "sdstor", "seclogon", "SecurityHealthService", "SEMgrSvc", "SENS", "Sense", "SensorDataService", "SensorService", "SensrSvc", "SerCx", "SerCx2", "Serenum", "Serial", "sermouse", "SessionEnv", "sfloppy", "SgrmAgent", "SgrmBroker", "SharedAccess", "SharedRealitySvc", "ShellHWDetection", "shpamsvc", "SiSRaid2", "SiSRaid4", "SmartSAMD", "smbdirect", "smphost", "SmsRouter", "SMSvcHost 4.0.0.0", "SNMPTRAP", "spaceparser", "spaceport", "SpatialGraphFilter", "SpbCx", "spectrum", "Spooler", "sppsvc", "sppuinotify", "srv2", "srvnet", "SSDPSRV", "ssh-agent", "SstpSvc", "StateRepository", "stexstor", "stisvc", "storahci", "storflt", "stornvme", "storqosflt", "StorSvc", "storufs", "storvsc", "svsvc", "swenum", "swprv", "Synth3dVsc", "SysMain", "SystemEventsBroker", "TabletInputService", "TapiSrv", "Tcpip", "Tcpip6", "TCPIP6TUNNEL", "tcpipreg", "TCPIPTUNNEL", "tdx", "Telemetry", "terminpt", "TermService", "Themes", "TieringEngineService", "TimeBroker", "TimeBrokerSvc", "THREADORDER", "TokenBroker", "TPM", "TrkWks", "TroubleshootingSvc", "TrustedInstaller", "TSDDD", "TsUsbFlt", "TsUsbGD", "tsusbhub", "tunnel", "tzautoupdate", "UALSVC", "UASPStor", "UcmCx0101", "UcmTcpciCx0101", "UcmUcsiAcpiClient", "UcmUcsiCx0101", "Ucx01000", "UdeCx", "udfs", "UdkUserSvc", "UEFI", "UevAgentDriver", "UevAgentService", "Ufx01000", "UfxChipidea", "ufxsynopsys", "UGatherer", "UGTHRSVC", "UI0Detect", "umbus", "UmPass", "UmRdpService", "UnistoreSvc", "upnphost", "UrsChipidea", "UrsCx01000", "UrsSynopsys", "usbaudio", "usbaudio2", "usbccgp", "usbcir", "usbehci", "usbhub", "USBHUB3", "usbohci", "usbprint", "usbser", "USBSTOR", "usbuhci", "USBXHCI", "UserDataSvc", "UserManager", "UsoSvc", "UxSms", "VacSvc", "VaultSvc", "vdrvroot", "vds", "VerifierExt", "VGAuthService", "vhdmp", "vhf", "Vid", "VirtualRender", "vm3dmp", "vm3dmp-debug", "vm3dmp-stats", "vm3dmp_loader", "vmbus", "VMBusHID", "vmci", "vmgid", "vmhgfs", "vmicguestinterface", "vmicheartbeat", "vmickvpexchange", "vmicrdv", "vmicshutdown", "vmictimesync", "vmicvmsession", "vmicvss", "VMMemCtl", "vmmouse", "vmrawdsk", "vmusbmouse", "vmvss", "vmwefifw", "vmxnet3ndis6", "volmgr", "volmgrx", "volsnap", "volume", "vpci", "vsmraid", "vsock", "VSS", "VSTXRAID", "vwifibus", "vwififlt", "W32Time", "w3logsvc", "W3SVC", "WaaSMedicSvc", "WAS", "WacomPen", "WalletService", "wanarp", "wanarpv6", "WarpJITSvc", "WatAdminSvc", "wbengine", "WbioSrvc", "wcifs", "Wcmsvc", "wcncsvc", "wcnfs", "WcsPlugInService", "WdBoot", "Wdf01000", "WdFilter", "WdiServiceHost", "WdiSystemHost", "wdiwifi", "WdmCompanionFilter", "WdNisDrv", "WdNisSvc", "WebClient", "Wecsvc", "WEPHOSTSVC", "wercplsupport", "WerSvc", "WFDSConMgrSvc", "WFPLWFS", "WiaRpc", "WIMMount", "WinDefend", "Windows Workflow Foundation 4.0.0.0", "WindowsTrustedRT", "WindowsTrustedRTProxy", "WinHttpAutoProxySvc", "WinMad", "Winmgmt", "WinNat", "WinRM", "Winsock", "WinSock2", "WINUSB", "WinVerbs", "wisvc", "WlanSvc", "wlidsvc", "WLMS", "wlpasvc", "WManSvc", "WmiAcpi", "WmiApRpl", "wmiApSrv", "WMPNetworkSvc", "Wof", "workerdd", "workfolderssvc", "WpcMonSvc", "WPCSvc", "WPDBusEnum", "WpdUpFltr", "WpnService", "WpnUserService", "ws2ifsl", "wscsvc", "WSearch", "WSearchIdxPi", "WSService", "wuauserv", "WudfPf", "WUDFRd", "wudfsvc", "WwanSvc", "XblAuthManager", "XblGameSave", "xboxgip", "XboxGipSvc", "XboxNetApiSvc", "xinputhid", "xmlprov")
 
@@ -445,7 +504,7 @@ function Test-IsKnownService {
         $ServiceName
     )
 
-    $KnownServices = @("AarSvc_*", "BcastDVRUserService_*", "BluetoothUserService_*", "CaptureService_*", "cbdhsvc_*", "CDPUserSvc_*", "clr_optimization_*", "ConsentUxUserSvc_*", "CredentialEnrollmentManagerUserSvc_*", "DeviceAssociationBrokerSvc_*", "DevicePickerUserSvc_*", "DevicesFlowUserSvc_*", "FontCache*", "iaLPSS*", "IpOverUsbSvc", "MessagingService_*", "MSDTC*", ".NET*", "OneSyncSvc_*", "PimIndexMaintenanceSvc_*", "PrintWorkflowUserSvc_*", "UdkUserSvc_*", "UnistoreSvc_*", "UserDataSvc_*", "WpnUserService_*")
+    $KnownServices = @("AarSvc_*", "BcastDVRUserService_*", "BluetoothUserService_*", "CaptureService_*", "cbdhsvc_*", "CDPUserSvc_*", "clr_optimization_*", "ConsentUxUserSvc_*", "CredentialEnrollmentManagerUserSvc_*", "DeviceAssociationBrokerSvc_*", "DevicePickerUserSvc_*", "DevicesFlowUserSvc_*", "FontCache*", "iaLPSS*", "IpOverUsbSvc", "LxssManager*", "MessagingService_*", "MSDTC*", ".NET*", "OneSyncSvc_*", "PimIndexMaintenanceSvc_*", "PrintWorkflowUserSvc_*", "UdkUserSvc_*", "UnistoreSvc_*", "UserDataSvc_*", "WpnUserService_*")
 
     if ($global:IgnoredServices -contains $ServiceName) {
         return $True 
@@ -636,7 +695,7 @@ function Get-UserPrivileges {
                     #$Offset = [System.IntPtr]::Add($Offset, [System.Runtime.InteropServices.Marshal]::SizeOf($LuidAndAttributes))
                     # Properly Incrementing an IntPtr
                     # https://docs.microsoft.com/en-us/archive/blogs/jaredpar/properly-incrementing-an-intptr
-                    $Offset = [IntPTr] ($Offset.ToInt64() + [System.Runtime.InteropServices.Marshal]::SizeOf($LuidAndAttributes))
+                    $Offset = [IntPtr] ($Offset.ToInt64() + [System.Runtime.InteropServices.Marshal]::SizeOf($LuidAndAttributes))
                 }
 
             } else {
@@ -980,7 +1039,7 @@ function Get-NetworkEndpoints {
                 $ListenerObject | Add-Member -MemberType "NoteProperty" -Name "Name" -Value (Get-Process -PID $ProcessId).ProcessName
                 $ListenerObject
 
-                $Offset = [IntPTr] ($Offset.ToInt64() + [System.Runtime.InteropServices.Marshal]::SizeOf($TableEntry))
+                $Offset = [IntPtr] ($Offset.ToInt64() + [System.Runtime.InteropServices.Marshal]::SizeOf($TableEntry))
             }
 
         } else {
@@ -3356,11 +3415,11 @@ function Invoke-CredentialFilesCheck {
 
     PS C:\> Invoke-CredentialFilesCheck
 
-    Name                             Folder
-    ----                             ------
-    DFBE70A7E5CC19A398EBF1B96859CE5D C:\Users\lab-user\AppData\Local\Microsoft\Credentials
-    9751D70B4AC36953347138F9A5C2D23B C:\Users\lab-user\AppData\Roaming\Microsoft\Credentials
-    9970C9D5A29B2D83514BEFD30A4D48B4 C:\Users\lab-user\AppData\Roaming\Microsoft\Credentials
+    FullPath
+    ------
+    C:\Users\lab-user\AppData\Local\Microsoft\Credentials\DFBE70A7E5CC19A398EBF1B96859CE5D
+    C:\Users\lab-user\AppData\Roaming\Microsoft\Credentials\9751D70B4AC36953347138F9A5C2D23B
+    C:\Users\lab-user\AppData\Roaming\Microsoft\Credentials\9970C9D5A29B2D83514BEFD30A4D48B4
     
     #>
     
@@ -3380,8 +3439,9 @@ function Invoke-CredentialFilesCheck {
                 $FullPath = Join-Path -Path $Path -ChildPath $Item.Name 
                 if (-not ($FullPath -eq (Join-Path -Path $Path -ChildPath ""))) {
                     $FileObject = New-Object -TypeName PSObject 
-                    $FileObject | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $Item.Name
-                    $FileObject | Add-Member -MemberType "NoteProperty" -Name "Folder" -Value $Path
+                    $FileObject | Add-Member -MemberType "NoteProperty" -Name "FullPath" -Value $FullPath
+                    #$FileObject | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $Item.Name
+                    #$FileObject | Add-Member -MemberType "NoteProperty" -Name "Folder" -Value $Path
                     [void]$Result.Add($FileObject)
                 }
             }
@@ -3407,7 +3467,7 @@ function Invoke-CredentialFilesCheck {
     $CredentialFilesResult
 }
 
-function Invoke-CredentialManagerCheck {
+function Invoke-VaultCredCheck {
     <#
     .SYNOPSIS
 
@@ -3428,7 +3488,7 @@ function Invoke-CredentialManagerCheck {
     
     .EXAMPLE
 
-    PS C:\> Invoke-CredentialManagerCheck
+    PS C:\> Invoke-VaultCredCheck
 
     TargetName : Domain:target=192.168.0.10
     UserName   : LAB-PC\lab-user
@@ -3546,22 +3606,278 @@ function Invoke-CredentialManagerCheck {
             $CredentialPtrOffset = [IntPtr] ($CredentialsPtr.ToInt64() + [IntPtr]::Size * $i)
             $CredentialPtr = [System.Runtime.InteropServices.Marshal]::ReadIntPtr($CredentialPtrOffset) 
             $Credential = [System.Runtime.InteropServices.Marshal]::PtrToStructure($CredentialPtr, [type] [PrivescCheck.Win32+CREDENTIAL])
+            $CredentialStr = Get-Credential -RawObject $Credential
 
-            $CredentialObject = New-Object -TypeName PSObject 
-            $CredentialObject | Add-Member -MemberType "NoteProperty" -Name "TargetName" -Value $Credential.TargetName
-            $CredentialObject | Add-Member -MemberType "NoteProperty" -Name "UserName" -Value $Credential.UserName
-            $CredentialObject | Add-Member -MemberType "NoteProperty" -Name "Comment" -Value $Credential.Comment
-            $CredentialObject | Add-Member -MemberType "NoteProperty" -Name "Type" -Value "$($Credential.Type) - $(Convert-TypeToString -Type $Credential.Type)"
-            $CredentialObject | Add-Member -MemberType "NoteProperty" -Name "Persist" -Value "$($Credential.Persist) - $(Convert-PersistToString -Persist $Credential.Persist)"
-            $CredentialObject | Add-Member -MemberType "NoteProperty" -Name "Flags" -Value "0x$('{0:X8}' -f $Credential.Flags)"
-            $CredentialObject | Add-Member -MemberType "NoteProperty" -Name "Credential" -Value "$(Get-Credential -RawObject $Credential)"
-            $CredentialObject
+            if (-not [String]::IsNullOrEmpty($CredentialStr)) {
+                $CredentialObject = New-Object -TypeName PSObject 
+                $CredentialObject | Add-Member -MemberType "NoteProperty" -Name "TargetName" -Value $Credential.TargetName
+                $CredentialObject | Add-Member -MemberType "NoteProperty" -Name "UserName" -Value $Credential.UserName
+                $CredentialObject | Add-Member -MemberType "NoteProperty" -Name "Comment" -Value $Credential.Comment
+                $CredentialObject | Add-Member -MemberType "NoteProperty" -Name "Type" -Value "$($Credential.Type) - $(Convert-TypeToString -Type $Credential.Type)"
+                $CredentialObject | Add-Member -MemberType "NoteProperty" -Name "Persist" -Value "$($Credential.Persist) - $(Convert-PersistToString -Persist $Credential.Persist)"
+                $CredentialObject | Add-Member -MemberType "NoteProperty" -Name "Flags" -Value "0x$($Credential.Flags.ToString('X8'))"
+                $CredentialObject | Add-Member -MemberType "NoteProperty" -Name "Credential" -Value $CredentialStr
+                $CredentialObject
+            }
         }
 
         [PrivescCheck.Win32]::CredFree($CredentialsPtr) 
 
     } else {
+        # If there is no saved credentials, CredEnumerate sets the last error to ERROR_NOT_FOUND 
+        # but this doesn't mean that the function really failed. The same thing applies for 
+        # the error code ERROR_NO_SUCH_LOGON_SESSION.
         Write-Verbose ([ComponentModel.Win32Exception] $LastError)
+    }
+}
+
+function Invoke-VaultListCheck {
+    <#
+    .SYNOPSIS
+
+    Enumerates web credentials saved in the Credential Manager.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+    
+    .DESCRIPTION
+
+    Credentials saved in Internet Explorer or Edge for example are actually saved in the system's 
+    Credential Manager. These credentials can be extracted using undocumented Windows API functions
+    from "vaultcli.dll". It's highly inspired from the "vault::list" command of M*m*k*tz (by 
+    Benjamin Delpy @gentilkiwi) and "Get-VaultCredential.ps1" (by Matthew Graeber @mattifestation). 
+    Only entries containing a non-empty password field are returned as a custom PS object. 
+
+    .EXAMPLE
+
+    PS C:\> Invoke-VaultListCheck
+
+    Type        : Web Credentials
+    TargetName  : https://github.com/
+    UserName    : foo123@example.com
+    Credential  : foo123
+    LastWritten : 01/01/1970 13:37:00
+
+    .LINK
+
+    https://github.com/gentilkiwi/mimikatz/blob/master/mimikatz/modules/kuhl_m_vault.c
+    https://github.com/EmpireProject/Empire/blob/master/data/module_source/credentials/Get-VaultCredential.ps1
+
+    #>
+    
+
+    [CmdletBinding()] param()
+
+    function Get-VaultNameFromGuid {
+        [CmdletBinding()] param(
+            [Guid] $VaultGuid
+        )
+
+        $VaultSchemaEnum = @{
+            ([Guid] '2F1A6504-0641-44CF-8BB5-3612D865F2E5') = 'Windows Secure Note'
+            ([Guid] '3CCD5499-87A8-4B10-A215-608888DD3B55') = 'Windows Web Password Credential'
+            ([Guid] '154E23D0-C644-4E6F-8CE6-5069272F999F') = 'Windows Credential Picker Protector'
+            ([Guid] '4BF4C442-9B8A-41A0-B380-DD4A704DDB28') = 'Web Credentials'
+            ([Guid] '77BC582B-F0A6-4E15-4E80-61736B6F3B29') = 'Windows Credentials'
+            ([Guid] 'E69D7838-91B5-4FC9-89D5-230D4D4CC2BC') = 'Windows Domain Certificate Credential'
+            ([Guid] '3E0E35BE-1B77-43E7-B873-AED901B6275B') = 'Windows Domain Password Credential'
+            ([Guid] '3C886FF3-2669-4AA2-A8FB-3F6759A77548') = 'Windows Extended Credential'
+        }
+
+        $VaultSchemaEnum[$VaultGuid]
+    }
+
+    # Highly inspired from "Get-VaultCredential.ps1", credit goes to Matthew Graeber (@mattifestation)
+    # https://github.com/EmpireProject/Empire/blob/master/data/module_source/credentials/Get-VaultCredential.ps1
+    function Get-VaultItemElementValue {
+        [CmdletBinding()] param(
+            [IntPtr] $VaultItemElementPtr
+        )
+
+        if ($VaultItemElementPtr -eq [IntPtr]::Zero) {
+            return
+        }
+
+        $VaultItemDataHeader = [Runtime.InteropServices.Marshal]::PtrToStructure($VaultItemElementPtr, [type] [PrivescCheck.Win32+VAULT_ITEM_DATA_HEADER])
+        $VaultItemDataValuePtr = [IntPtr] ($VaultItemElementPtr.ToInt64() + 16)
+
+        switch ($VaultItemDataHeader.Type) {
+
+            # ElementType_Boolean
+            0x00 {
+                [Bool] [Runtime.InteropServices.Marshal]::ReadByte($VaultItemDataValuePtr)
+            }
+
+            # ElementType_Short
+            0x01 {
+                [Runtime.InteropServices.Marshal]::ReadInt16($VaultItemDataValuePtr)
+            }
+
+            # ElementType_UnsignedShort
+            0x02 {
+                [Runtime.InteropServices.Marshal]::ReadInt16($VaultItemDataValuePtr)
+            }
+
+            # ElementType_Integer
+            0x03 {
+                [Runtime.InteropServices.Marshal]::ReadInt32($VaultItemDataValuePtr)
+            }
+
+            # ElementType_UnsignedInteger
+            0x04 {
+                [Runtime.InteropServices.Marshal]::ReadInt32($VaultItemDataValuePtr)
+            }
+
+            # ElementType_Double
+            0x05 {
+                [Runtime.InteropServices.Marshal]::PtrToStructure($VaultItemDataValuePtr, [Type] [Double])
+            }
+
+            # ElementType_Guid
+            0x06 {
+                [Runtime.InteropServices.Marshal]::PtrToStructure($VaultItemDataValuePtr, [Type] [Guid])
+            }
+
+            # ElementType_String
+            0x07 { 
+                $StringPtr = [Runtime.InteropServices.Marshal]::ReadIntPtr($VaultItemDataValuePtr)
+                [Runtime.InteropServices.Marshal]::PtrToStringUni($StringPtr)
+            }
+
+            # ElementType_ByteArray
+            0x08 {
+
+            }
+
+            # ElementType_TimeStamp
+            0x09 {
+
+            }
+
+            # ElementType_ProtectedArray
+            0x0a {
+
+            }
+
+            # ElementType_Attribute
+            0x0b {
+
+            }
+
+            # ElementType_Sid
+            0x0c {
+                $SidPtr = [Runtime.InteropServices.Marshal]::ReadIntPtr($VaultItemDataValuePtr)
+                $SidObject = [Security.Principal.SecurityIdentifier] ($SidPtr)
+                $SidObject.Value
+            }
+
+            # ElementType_Max
+            0x0d {
+                
+            }
+        }
+    }
+
+    $VaultsCount = 0
+    $VaultGuids = [IntPtr]::Zero 
+    $Result = [PrivescCheck.Win32]::VaultEnumerateVaults(0, [ref]$VaultsCount, [ref]$VaultGuids)
+
+    if ($Result -eq 0) {
+
+        Write-Verbose "VaultEnumerateVaults() OK - Count: $($VaultsCount)"
+
+        for ($i = 0; $i -lt $VaultsCount; $i++) {
+
+            $VaultGuidPtr = [IntPtr] ($VaultGuids.ToInt64() + ($i * [Runtime.InteropServices.Marshal]::SizeOf([Type] [Guid])))
+            $VaultGuid = [Runtime.InteropServices.Marshal]::PtrToStructure($VaultGuidPtr, [type] [Guid])
+            $VaultName = Get-VaultNameFromGuid -VaultGuid $VaultGuid
+
+            Write-Verbose "Vault: $($VaultGuid) - $($VaultName)"
+
+            $VaultHandle = [IntPtr]::Zero 
+            $Result = [PrivescCheck.Win32]::VaultOpenVault($VaultGuidPtr, 0, [ref]$VaultHandle)
+
+            if ($Result -eq 0) {
+
+                Write-Verbose "VaultOpenVault() OK - Vault Handle: 0x$($VaultHandle.ToString('X8'))"
+
+                $VaultItemsCount = 0
+                $ItemsPtr = [IntPtr]::Zero 
+                $Result = [PrivescCheck.Win32]::VaultEnumerateItems($VaultHandle, 0x0200, [ref]$VaultItemsCount, [ref]$ItemsPtr)
+
+                $VaultItemPtr = $ItemsPtr
+
+                if ($Result -eq 0) {
+
+                    Write-Verbose "VaultEnumerateItems() OK - Items Count: $($VaultItemsCount)"
+
+                    $OSVersion = [Environment]::OSVersion.Version
+
+                    try {
+
+                        for ($j = 0; $j -lt $VaultItemsCount; $j++) {
+
+                            if ($OSVersion.Major -le 6 -and $OSVersion.Minor -le 1) {
+                                # Windows 7
+                                $VaultItemType = [type] [PrivescCheck.Win32+VAULT_ITEM_7]
+                            } else {
+                                # Windows 8+
+                                $VaultItemType = [type] [PrivescCheck.Win32+VAULT_ITEM_8]
+                            }
+    
+                            $VaultItem = [Runtime.InteropServices.Marshal]::PtrToStructure($VaultItemPtr, [type] $VaultItemType)
+    
+                            if ($OSVersion.Major -le 6 -and $OSVersion.Minor -le 1) {
+                                # Windows 7
+                                $PasswordItemPtr = [IntPtr]::Zero
+                                $Result = [PrivescCheck.Win32]::VaultGetItem7($VaultHandle, [ref]$VaultItem.SchemaId, $VaultItem.Resource, $VaultItem.Identity, [IntPtr]::Zero, 0, [ref]$PasswordItemPtr)
+                            } else {
+                                # Windows 8+
+                                $PasswordItemPtr = [IntPtr]::Zero
+                                $Result = [PrivescCheck.Win32]::VaultGetItem8($VaultHandle, [ref]$VaultItem.SchemaId, $VaultItem.Resource, $VaultItem.Identity, $VaultItem.PackageSid, [IntPtr]::Zero, 0, [ref]$PasswordItemPtr)
+                            }
+    
+                            if ($Result -eq 0) {
+
+                                Write-Verbose "VaultGetItem() OK - ItemPtr: 0x$($PasswordItemPtr.ToString('X8'))"
+                                $PasswordItem = [Runtime.InteropServices.Marshal]::PtrToStructure($PasswordItemPtr, [Type] $VaultItemType)
+                                $Password = Get-VaultItemElementValue -VaultItemElementPtr $PasswordItem.Authenticator
+                                [PrivescCheck.Win32]::VaultFree($PasswordItemPtr) | Out-Null 
+
+                            } else {
+                                Write-Verbose "VaultGetItem() failed - Err: 0x$($Result.ToString('X8'))"
+                            }
+    
+                            if (-not [String]::IsNullOrEmpty($Password)) {
+                                $Item = New-Object -TypeName PSObject
+                                $Item | Add-Member -MemberType "NoteProperty" -Name "Type" -Value $VaultName
+                                $Item | Add-Member -MemberType "NoteProperty" -Name "TargetName" -Value $(Get-VaultItemElementValue -VaultItemElementPtr $VaultItem.Resource)
+                                $Item | Add-Member -MemberType "NoteProperty" -Name "UserName" -Value $(Get-VaultItemElementValue -VaultItemElementPtr $VaultItem.Identity)
+                                $Item | Add-Member -MemberType "NoteProperty" -Name "Credential" -Value $Password
+                                $Item | Add-Member -MemberType "NoteProperty" -Name "LastWritten" -Value $([DateTime]::FromFileTimeUtc($VaultItem.LastWritten))
+                                $Item
+                            }
+
+                            $VaultItemPtr = [IntPtr] ($VaultItemPtr.ToInt64() + [Runtime.InteropServices.Marshal]::SizeOf([Type] $VaultItemType))
+                        }
+
+                    } catch [Exception] {
+                        Write-Verbose $_.Exception.Message 
+                    }
+
+                } else {
+                    Write-Verbose "VaultEnumerateItems() failed - Err: 0x$($Result.ToString('X8'))"
+                }
+
+                [PrivescCheck.Win32]::VaultCloseVault([ref]$VaultHandle) | Out-Null 
+
+            } else {
+                Write-Verbose "VaultOpenVault() failed - Err: 0x$($Result.ToString('X8'))"
+            }
+        }
+
+    } else {
+        Write-Verbose "VaultEnumerateVaults() failed - Err: 0x$($Result.ToString('X8'))"
     }
 }
 
@@ -3592,7 +3908,8 @@ function Invoke-GPPPasswordCheck {
     .PARAMETER Remote
 
     Set this flag if you want to search for GPP files in the SYSVOL share of your primary Domain
-    Controller. 
+    Controller. Initially, I wanted to do only local checks but this was a special request from
+    @mpgn_x64 so I couldn't say no :P.
     
     .EXAMPLE
 
@@ -4967,9 +5284,22 @@ function Invoke-PrivescCheck {
     "`n"
 
     "TEST: Checking Credential Manager..."
-    "DESC: Is there any credential saved in the Credential Manager?"
-    "NOTE: Yeah, vault::cred if you know what I mean. ;)"
-    $Results = Invoke-CredentialManagerCheck
+    "DESC: Is there any credentials saved in the Credential Manager?"
+    "NOTE: vault::cred"
+    $Results = Invoke-VaultCredCheck
+    if ($Results) {
+        "[*] Found $(([object[]]$Results).Length) result(s)."
+        $Results | Format-List
+    } else {
+        "[!] Nothing found."
+    }
+
+    "`n"
+
+    "TEST: Checking Credential Manager (web)..."
+    "DESC: Is there any web credentials saved in the Credential Manager?"
+    "NOTE: vault::list"
+    $Results = Invoke-VaultListCheck
     if ($Results) {
         "[*] Found $(([object[]]$Results).Length) result(s)."
         $Results | Format-List
@@ -4998,7 +5328,7 @@ function Invoke-PrivescCheck {
 
     "TEST: Checking UAC settings..."
     "DESC: Is User Access Control enabled?"
-    "NOTE: If so, we may have to use a UAC bypass `"exploit`"."
+    "NOTE: EnableLUA=1 => UAC enabled / EnableLUA=0 => UAC disabled."
     $Results = Invoke-UacCheck
     if ($Results) {
         "[*] UAC status:"
@@ -5067,8 +5397,10 @@ function Invoke-PrivescCheck {
 
     "TEST: Checking TCP endpoints..."
     "DESC: Is there any interesting/unusual service?"
-    "NOTE: Default ports such as 445 are filtered out."
-    $Results = Invoke-TcpEndpointsCheck -Filtered
+    #"NOTE: Default ports such as 445 are filtered out."
+    "NOTE: Showing all listening TCP endpoints."
+    #$Results = Invoke-TcpEndpointsCheck -Filtered
+    $Results = Invoke-TcpEndpointsCheck
     if ($Results) {
         "[*] Found $(([object[]]$Results).Length) TCP endpoints."
         $Results | Format-Table -AutoSize
@@ -5080,8 +5412,10 @@ function Invoke-PrivescCheck {
 
     "TEST: Checking UDP endpoints..."
     "DESC: Is there any interesting/unusual service?"
-    "NOTE: Default ports such as 500 are filtered out."
-    $Results = Invoke-UdpEndpointsCheck -Filtered
+    #"NOTE: Default ports such as 500 are filtered out."
+    "NOTE: Showing all listening UDP endpoints (except DNS)."
+    #$Results = Invoke-UdpEndpointsCheck -Filtered
+    $Results = Invoke-UdpEndpointsCheck
     if ($Results) {
         "[*] Found $(([object[]]$Results).Length) UDP endpoints."
         $Results | Format-Table -AutoSize
