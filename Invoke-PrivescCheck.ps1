@@ -234,6 +234,23 @@ public struct VAULT_ITEM_DATA_HEADER
     public UInt32 Unknown2;
 }
 
+[StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+public struct WLAN_INTERFACE_INFO
+{
+    public Guid InterfaceGuid;
+    [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 256)]
+    public string strInterfaceDescription;
+    public uint isState; // WLAN_INTERFACE_STATE
+}
+
+[StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+public struct WLAN_PROFILE_INFO
+{
+    [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 256)]
+    public string strProfileName;
+    public uint dwFlags;
+}
+
 [DllImport("advapi32.dll", SetLastError=true)]
 [return: MarshalAs(UnmanagedType.Bool)]
 public static extern bool QueryServiceObjectSecurity(IntPtr serviceHandle, System.Security.AccessControl.SecurityInfos secInfo, byte[] lpSecDesrBuf, uint bufSize, out uint bufSizeNeeded);
@@ -314,6 +331,24 @@ public static extern uint VaultFree(IntPtr pVaultItem);
 
 [DllImport("vaultcli.dll", SetLastError=false)]
 public static extern uint VaultCloseVault(ref IntPtr pVaultHandle);
+
+[DllImport("Wlanapi.dll")]
+public static extern uint WlanOpenHandle(uint dwClientVersion, IntPtr pReserved, out uint pdwNegotiatedVersion, out IntPtr hClientHandle);
+
+[DllImport("Wlanapi.dll")]
+public static extern uint WlanCloseHandle(IntPtr hClientHandle, IntPtr pReserved);
+
+[DllImport("Wlanapi.dll")]
+public static extern uint WlanEnumInterfaces(IntPtr hClientHandle, IntPtr pReserved, ref IntPtr ppInterfaceList);
+
+[DllImport("Wlanapi.dll")]
+public static extern void WlanFreeMemory(IntPtr pMemory);
+
+[DllImport("Wlanapi.dll")]
+public static extern uint WlanGetProfileList(IntPtr hClientHandle, [MarshalAs(UnmanagedType.LPStruct)]Guid interfaceGuid, IntPtr pReserved, out IntPtr ppProfileList);
+
+[DllImport("Wlanapi.dll")]
+public static extern uint WlanGetProfile(IntPtr clientHandle, [MarshalAs(UnmanagedType.LPStruct)] Guid interfaceGuid, [MarshalAs(UnmanagedType.LPWStr)] string profileName, IntPtr pReserved, [MarshalAs(UnmanagedType.LPWStr)] out string profileXml, ref uint flags, out uint pdwGrantedAccess);
 '@
 
 try {
@@ -2643,6 +2678,155 @@ function Invoke-UdpEndpointsCheck {
             $UdpEndpoint | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $_.Name
             $UdpEndpoint
         }
+    }
+}
+
+function Invoke-WlanProfilesCheck {
+    <#
+    .SYNOPSIS
+
+    Enumerates the saved Wifi profiles and extract the cleartext key/passphrase when applicable
+
+    Author: @itm4n
+    License: BSD 3-Clause
+    
+    .DESCRIPTION
+
+    The built-in "netsh" command allows one to list the saved Wifi profiles and extract the cleartext
+    key or passphrase when applicable (e.g.: "netsh wlan show profile MyWifiProfile key=clear"). This
+    function achieves the same goal. It iterates the list of Wlan interfaces in order to enumerate
+    all the Wifi profiles which can be accessed in the context of the current user. If a network is 
+    configured with WEP or PSK authentication, it will attempt to extract the cleartext value of the
+    key or passphrase. 
+    
+    .EXAMPLE
+    
+    PS C:\> Invoke-WlanProfilesCheck
+
+    Profile        : MySecretAccessPoint
+    SSID           : MySecretAccessPoint
+    Authentication : WPA2PSK
+    PassPhrase     : AvErYsEcReTpAsSpHrAsE
+    Interface      : Compact Wireless-G USB Network Adapter
+    
+    #>
+
+    [CmdletBinding()] param()
+
+    function Convert-ProfileXmlToObject {
+
+        [CmdletBinding()] param(
+            [string]$ProfileXml
+        )
+
+        $Xml = [xml] $ProfileXml
+
+        $Name = $Xml.WLANProfile.name
+        $Ssid = $Xml.WLANProfile.SSIDConfig.SSID.name 
+        $Authentication = $Xml.WLANProfile.MSM.security.authEncryption.authentication
+        $PassPhrase = $Xml.WLANProfile.MSM.security.sharedKey.keyMaterial
+
+        $Profile = New-Object -TypeName PSObject
+        $Profile | Add-Member -MemberType "NoteProperty" -Name "Profile" -Value $Name
+        $Profile | Add-Member -MemberType "NoteProperty" -Name "SSID" -Value $Ssid
+        $Profile | Add-Member -MemberType "NoteProperty" -Name "Authentication" -Value $Authentication
+        $Profile | Add-Member -MemberType "NoteProperty" -Name "PassPhrase" -Value $PassPhrase
+        $Profile
+    }
+
+    $ERROR_SUCCESS = 0
+
+    [IntPtr]$ClientHandle = [IntPtr]::Zero
+    $NegotiatedVersion = 0
+    $Result = [PrivescCheck.Win32]::WlanOpenHandle(2, [IntPtr]::Zero, [ref]$NegotiatedVersion, [ref]$ClientHandle)
+    if ($Result -eq $ERROR_SUCCESS) {
+
+        Write-Verbose "WlanOpenHandle() OK - Handle: $($ClientHandle)"
+
+        [IntPtr]$InterfaceListPtr = [IntPtr]::Zero
+        $Result = [PrivescCheck.Win32]::WlanEnumInterfaces($ClientHandle, [IntPtr]::Zero, [ref]$InterfaceListPtr)
+        if ($Result -eq $ERROR_SUCCESS) {
+
+            Write-Verbose "WlanEnumInterfaces() OK - Interface list pointer: 0x$($InterfaceListPtr.ToString('X8'))"
+
+            $NumberOfInterfaces = [Runtime.InteropServices.Marshal]::ReadInt32($InterfaceListPtr)
+            Write-Verbose "Number of Wlan interfaces: $($NumberOfInterfaces)"
+
+            # Calculate the pointer to the first WLAN_INTERFACE_INFO structure 
+            $WlanInterfaceInfoPtr = [IntPtr] ($InterfaceListPtr.ToInt64() + 8) # dwNumberOfItems + dwIndex
+
+            for ($i = 0; $i -lt $NumberOfInterfaces; $i++) {
+
+                $WlanInterfaceInfo = [System.Runtime.InteropServices.Marshal]::PtrToStructure($WlanInterfaceInfoPtr, [type] [PrivescCheck.Win32+WLAN_INTERFACE_INFO])
+
+                Write-Verbose "Wlan interface: $($WlanInterfaceInfo.strInterfaceDescription)"
+
+                [IntPtr]$ProfileListPtr = [IntPtr]::Zero
+                $Result = [PrivescCheck.Win32]::WlanGetProfileList($ClientHandle, $WlanInterfaceInfo.InterfaceGuid, [IntPtr]::Zero, [ref]$ProfileListPtr)
+                if ($Result -eq $ERROR_SUCCESS) {
+
+                    Write-Verbose "WlanGetProfileList() OK - Profile list pointer: 0x$($ProfileListPtr.ToString('X8'))"
+
+                    $NumberOfProfiles = [Runtime.InteropServices.Marshal]::ReadInt32($ProfileListPtr)
+                    Write-Verbose "Number of profiles: $($NumberOfProfiles)"
+
+                    # Calculate the pointer to the first WLAN_PROFILE_INFO structure 
+                    $WlanProfileInfoPtr = [IntPtr] ($ProfileListPtr.ToInt64() + 8) # dwNumberOfItems + dwIndex
+
+                    for ($j = 0; $j -lt $NumberOfProfiles; $j++) {
+
+                        $WlanProfileInfo = [System.Runtime.InteropServices.Marshal]::PtrToStructure($WlanProfileInfoPtr, [type] [PrivescCheck.Win32+WLAN_PROFILE_INFO])
+
+                        Write-Verbose "Wlan profile: $($WlanProfileInfo.strProfileName)"
+
+                        [string]$ProfileXml = ""
+                        [UInt32]$WlanProfileFlags = 4 # WLAN_PROFILE_GET_PLAINTEXT_KEY
+                        [UInt32]$WlanProfileAccessFlags = 0
+                        $Result = [PrivescCheck.Win32]::WlanGetProfile($ClientHandle, $WlanInterfaceInfo.InterfaceGuid, $WlanProfileInfo.strProfileName, [IntPtr]::Zero, [ref]$ProfileXml, [ref]$WlanProfileFlags, [ref]$WlanProfileAccessFlags)
+                        if ($Result -eq $ERROR_SUCCESS) {
+
+                            Write-Verbose "WlanGetProfile() OK"
+
+                            $Item = Convert-ProfileXmlToObject -ProfileXml $ProfileXml
+                            $Item | Add-Member -MemberType "NoteProperty" -Name "Interface" -Value $WlanInterfaceInfo.strInterfaceDescription
+                            $Item
+
+                        } else {
+                            Write-Verbose "WlanGetProfile() failed (Err: $($Result))"
+                        }
+
+                        # Calculate the pointer to the next WLAN_PROFILE_INFO structure 
+                        $WlanProfileInfoPtr = [IntPtr] ($WlanProfileInfoPtr.ToInt64() + [System.Runtime.InteropServices.Marshal]::SizeOf($WlanProfileInfo))
+                    }
+
+                    # cleanup
+                    [PrivescCheck.Win32]::WlanFreeMemory($ProfileListPtr)
+
+                } else {
+                    Write-Verbose "WlanGetProfileList() failed (Err: $($Result))"
+                }
+
+                # Calculate the pointer to the next WLAN_INTERFACE_INFO structure 
+                $WlanInterfaceInfoPtr = [IntPtr] ($WlanInterfaceInfoPtr.ToInt64() + [System.Runtime.InteropServices.Marshal]::SizeOf($WlanInterfaceInfo))
+            }
+
+            # cleanup
+            [PrivescCheck.Win32]::WlanFreeMemory($InterfaceListPtr)
+
+        } else {
+            Write-Verbose "WlanEnumInterfaces() failed (Err: $($Result))"
+        }
+
+        # cleanup
+        $Result = [PrivescCheck.Win32]::WlanCloseHandle($ClientHandle, [IntPtr]::Zero)
+        if ($Result -eq $ERROR_SUCCESS) {
+            Write-Verbose "WlanCloseHandle() OK"
+        } else {
+            Write-Verbose "WlanCloseHandle() failed (Err: $($Result))"
+        }
+
+    } else {
+        Write-Verbose "WlanOpenHandle() failed (Err: $($Result))"
     }
 }
 # ----------------------------------------------------------------
@@ -5418,6 +5602,19 @@ function Invoke-PrivescCheck {
     $Results = Invoke-UdpEndpointsCheck
     if ($Results) {
         "[*] Found $(([object[]]$Results).Length) UDP endpoints."
+        $Results | Format-Table -AutoSize
+    } else {
+        "[!] Nothing found."
+    }
+
+    "`n"
+
+    "TEST: Checking saved Wifi profiles..."
+    "DESC: Can we extract any saved WEP key or PSK passphrase?"
+    "NOTE: This can be useful for lateral movement?"
+    $Results = Invoke-WlanProfilesCheck
+    if ($Results) {
+        "[*] Found $(([object[]]$Results).Length) saved Wifi profiles."
         $Results | Format-Table -AutoSize
     } else {
         "[!] Nothing found."

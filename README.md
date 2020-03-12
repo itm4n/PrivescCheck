@@ -130,6 +130,7 @@ Invoke-LsaProtectionsCheck - Checks whether LSASS is running as a Protected Proc
 ```
 Invoke-TcpEndpointsCheck - Enumerates unusual TCP endpoints on the local machine (IPv4 and IPv6)
 Invoke-UdpEndpointsCheck - Enumerates unusual UDP endpoints on the local machine (IPv4 and IPv6)
+Invoke-WlanProfilesCheck - Enumerates the saved Wifi profiles and extract the cleartext key/passphrase when applicable
 ```
 
 ### Misc

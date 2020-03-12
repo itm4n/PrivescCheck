@@ -1,3 +1,6 @@
+2020-03-12
+    - Added Network > Invoke-WlanProfilesCheck
+
 2020-02-14
     - Added Credentials > Invoke-VaultListCheck
     - Renamed Credentials > Invoke-CredentialManagerCheck -> Invoke-VaultCredCheck
