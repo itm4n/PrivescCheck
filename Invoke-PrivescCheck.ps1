@@ -2736,97 +2736,102 @@ function Invoke-WlanProfilesCheck {
 
     $ERROR_SUCCESS = 0
 
-    [IntPtr]$ClientHandle = [IntPtr]::Zero
-    $NegotiatedVersion = 0
-    $Result = [PrivescCheck.Win32]::WlanOpenHandle(2, [IntPtr]::Zero, [ref]$NegotiatedVersion, [ref]$ClientHandle)
-    if ($Result -eq $ERROR_SUCCESS) {
-
-        Write-Verbose "WlanOpenHandle() OK - Handle: $($ClientHandle)"
-
-        [IntPtr]$InterfaceListPtr = [IntPtr]::Zero
-        $Result = [PrivescCheck.Win32]::WlanEnumInterfaces($ClientHandle, [IntPtr]::Zero, [ref]$InterfaceListPtr)
+    try {
+        [IntPtr]$ClientHandle = [IntPtr]::Zero
+        $NegotiatedVersion = 0
+        $Result = [PrivescCheck.Win32]::WlanOpenHandle(2, [IntPtr]::Zero, [ref]$NegotiatedVersion, [ref]$ClientHandle)
         if ($Result -eq $ERROR_SUCCESS) {
-
-            Write-Verbose "WlanEnumInterfaces() OK - Interface list pointer: 0x$($InterfaceListPtr.ToString('X8'))"
-
-            $NumberOfInterfaces = [Runtime.InteropServices.Marshal]::ReadInt32($InterfaceListPtr)
-            Write-Verbose "Number of Wlan interfaces: $($NumberOfInterfaces)"
-
-            # Calculate the pointer to the first WLAN_INTERFACE_INFO structure 
-            $WlanInterfaceInfoPtr = [IntPtr] ($InterfaceListPtr.ToInt64() + 8) # dwNumberOfItems + dwIndex
-
-            for ($i = 0; $i -lt $NumberOfInterfaces; $i++) {
-
-                $WlanInterfaceInfo = [System.Runtime.InteropServices.Marshal]::PtrToStructure($WlanInterfaceInfoPtr, [type] [PrivescCheck.Win32+WLAN_INTERFACE_INFO])
-
-                Write-Verbose "Wlan interface: $($WlanInterfaceInfo.strInterfaceDescription)"
-
-                [IntPtr]$ProfileListPtr = [IntPtr]::Zero
-                $Result = [PrivescCheck.Win32]::WlanGetProfileList($ClientHandle, $WlanInterfaceInfo.InterfaceGuid, [IntPtr]::Zero, [ref]$ProfileListPtr)
-                if ($Result -eq $ERROR_SUCCESS) {
-
-                    Write-Verbose "WlanGetProfileList() OK - Profile list pointer: 0x$($ProfileListPtr.ToString('X8'))"
-
-                    $NumberOfProfiles = [Runtime.InteropServices.Marshal]::ReadInt32($ProfileListPtr)
-                    Write-Verbose "Number of profiles: $($NumberOfProfiles)"
-
-                    # Calculate the pointer to the first WLAN_PROFILE_INFO structure 
-                    $WlanProfileInfoPtr = [IntPtr] ($ProfileListPtr.ToInt64() + 8) # dwNumberOfItems + dwIndex
-
-                    for ($j = 0; $j -lt $NumberOfProfiles; $j++) {
-
-                        $WlanProfileInfo = [System.Runtime.InteropServices.Marshal]::PtrToStructure($WlanProfileInfoPtr, [type] [PrivescCheck.Win32+WLAN_PROFILE_INFO])
-
-                        Write-Verbose "Wlan profile: $($WlanProfileInfo.strProfileName)"
-
-                        [string]$ProfileXml = ""
-                        [UInt32]$WlanProfileFlags = 4 # WLAN_PROFILE_GET_PLAINTEXT_KEY
-                        [UInt32]$WlanProfileAccessFlags = 0
-                        $Result = [PrivescCheck.Win32]::WlanGetProfile($ClientHandle, $WlanInterfaceInfo.InterfaceGuid, $WlanProfileInfo.strProfileName, [IntPtr]::Zero, [ref]$ProfileXml, [ref]$WlanProfileFlags, [ref]$WlanProfileAccessFlags)
-                        if ($Result -eq $ERROR_SUCCESS) {
-
-                            Write-Verbose "WlanGetProfile() OK"
-
-                            $Item = Convert-ProfileXmlToObject -ProfileXml $ProfileXml
-                            $Item | Add-Member -MemberType "NoteProperty" -Name "Interface" -Value $WlanInterfaceInfo.strInterfaceDescription
-                            $Item
-
-                        } else {
-                            Write-Verbose "WlanGetProfile() failed (Err: $($Result))"
+    
+            Write-Verbose "WlanOpenHandle() OK - Handle: $($ClientHandle)"
+    
+            [IntPtr]$InterfaceListPtr = [IntPtr]::Zero
+            $Result = [PrivescCheck.Win32]::WlanEnumInterfaces($ClientHandle, [IntPtr]::Zero, [ref]$InterfaceListPtr)
+            if ($Result -eq $ERROR_SUCCESS) {
+    
+                Write-Verbose "WlanEnumInterfaces() OK - Interface list pointer: 0x$($InterfaceListPtr.ToString('X8'))"
+    
+                $NumberOfInterfaces = [Runtime.InteropServices.Marshal]::ReadInt32($InterfaceListPtr)
+                Write-Verbose "Number of Wlan interfaces: $($NumberOfInterfaces)"
+    
+                # Calculate the pointer to the first WLAN_INTERFACE_INFO structure 
+                $WlanInterfaceInfoPtr = [IntPtr] ($InterfaceListPtr.ToInt64() + 8) # dwNumberOfItems + dwIndex
+    
+                for ($i = 0; $i -lt $NumberOfInterfaces; $i++) {
+    
+                    $WlanInterfaceInfo = [System.Runtime.InteropServices.Marshal]::PtrToStructure($WlanInterfaceInfoPtr, [type] [PrivescCheck.Win32+WLAN_INTERFACE_INFO])
+    
+                    Write-Verbose "Wlan interface: $($WlanInterfaceInfo.strInterfaceDescription)"
+    
+                    [IntPtr]$ProfileListPtr = [IntPtr]::Zero
+                    $Result = [PrivescCheck.Win32]::WlanGetProfileList($ClientHandle, $WlanInterfaceInfo.InterfaceGuid, [IntPtr]::Zero, [ref]$ProfileListPtr)
+                    if ($Result -eq $ERROR_SUCCESS) {
+    
+                        Write-Verbose "WlanGetProfileList() OK - Profile list pointer: 0x$($ProfileListPtr.ToString('X8'))"
+    
+                        $NumberOfProfiles = [Runtime.InteropServices.Marshal]::ReadInt32($ProfileListPtr)
+                        Write-Verbose "Number of profiles: $($NumberOfProfiles)"
+    
+                        # Calculate the pointer to the first WLAN_PROFILE_INFO structure 
+                        $WlanProfileInfoPtr = [IntPtr] ($ProfileListPtr.ToInt64() + 8) # dwNumberOfItems + dwIndex
+    
+                        for ($j = 0; $j -lt $NumberOfProfiles; $j++) {
+    
+                            $WlanProfileInfo = [System.Runtime.InteropServices.Marshal]::PtrToStructure($WlanProfileInfoPtr, [type] [PrivescCheck.Win32+WLAN_PROFILE_INFO])
+    
+                            Write-Verbose "Wlan profile: $($WlanProfileInfo.strProfileName)"
+    
+                            [string]$ProfileXml = ""
+                            [UInt32]$WlanProfileFlags = 4 # WLAN_PROFILE_GET_PLAINTEXT_KEY
+                            [UInt32]$WlanProfileAccessFlags = 0
+                            $Result = [PrivescCheck.Win32]::WlanGetProfile($ClientHandle, $WlanInterfaceInfo.InterfaceGuid, $WlanProfileInfo.strProfileName, [IntPtr]::Zero, [ref]$ProfileXml, [ref]$WlanProfileFlags, [ref]$WlanProfileAccessFlags)
+                            if ($Result -eq $ERROR_SUCCESS) {
+    
+                                Write-Verbose "WlanGetProfile() OK"
+    
+                                $Item = Convert-ProfileXmlToObject -ProfileXml $ProfileXml
+                                $Item | Add-Member -MemberType "NoteProperty" -Name "Interface" -Value $WlanInterfaceInfo.strInterfaceDescription
+                                $Item
+    
+                            } else {
+                                Write-Verbose "WlanGetProfile() failed (Err: $($Result))"
+                            }
+    
+                            # Calculate the pointer to the next WLAN_PROFILE_INFO structure 
+                            $WlanProfileInfoPtr = [IntPtr] ($WlanProfileInfoPtr.ToInt64() + [System.Runtime.InteropServices.Marshal]::SizeOf($WlanProfileInfo))
                         }
-
-                        # Calculate the pointer to the next WLAN_PROFILE_INFO structure 
-                        $WlanProfileInfoPtr = [IntPtr] ($WlanProfileInfoPtr.ToInt64() + [System.Runtime.InteropServices.Marshal]::SizeOf($WlanProfileInfo))
+    
+                        # cleanup
+                        [PrivescCheck.Win32]::WlanFreeMemory($ProfileListPtr)
+    
+                    } else {
+                        Write-Verbose "WlanGetProfileList() failed (Err: $($Result))"
                     }
-
-                    # cleanup
-                    [PrivescCheck.Win32]::WlanFreeMemory($ProfileListPtr)
-
-                } else {
-                    Write-Verbose "WlanGetProfileList() failed (Err: $($Result))"
+    
+                    # Calculate the pointer to the next WLAN_INTERFACE_INFO structure 
+                    $WlanInterfaceInfoPtr = [IntPtr] ($WlanInterfaceInfoPtr.ToInt64() + [System.Runtime.InteropServices.Marshal]::SizeOf($WlanInterfaceInfo))
                 }
-
-                # Calculate the pointer to the next WLAN_INTERFACE_INFO structure 
-                $WlanInterfaceInfoPtr = [IntPtr] ($WlanInterfaceInfoPtr.ToInt64() + [System.Runtime.InteropServices.Marshal]::SizeOf($WlanInterfaceInfo))
+    
+                # cleanup
+                [PrivescCheck.Win32]::WlanFreeMemory($InterfaceListPtr)
+    
+            } else {
+                Write-Verbose "WlanEnumInterfaces() failed (Err: $($Result))"
             }
-
+    
             # cleanup
-            [PrivescCheck.Win32]::WlanFreeMemory($InterfaceListPtr)
-
+            $Result = [PrivescCheck.Win32]::WlanCloseHandle($ClientHandle, [IntPtr]::Zero)
+            if ($Result -eq $ERROR_SUCCESS) {
+                Write-Verbose "WlanCloseHandle() OK"
+            } else {
+                Write-Verbose "WlanCloseHandle() failed (Err: $($Result))"
+            }
+    
         } else {
-            Write-Verbose "WlanEnumInterfaces() failed (Err: $($Result))"
+            Write-Verbose "WlanOpenHandle() failed (Err: $($Result))"
         }
-
-        # cleanup
-        $Result = [PrivescCheck.Win32]::WlanCloseHandle($ClientHandle, [IntPtr]::Zero)
-        if ($Result -eq $ERROR_SUCCESS) {
-            Write-Verbose "WlanCloseHandle() OK"
-        } else {
-            Write-Verbose "WlanCloseHandle() failed (Err: $($Result))"
-        }
-
-    } else {
-        Write-Verbose "WlanOpenHandle() failed (Err: $($Result))"
+    } catch {
+        # Do nothing
+        # Wlan API doesn't exist on this machine probably 
     }
 }
 # ----------------------------------------------------------------
