@@ -372,7 +372,7 @@ try {
 #region Helpers 
 $global:IgnoredPrograms = @("Common Files", "Internet Explorer", "ModifiableWindowsApps", "PackageManagement", "Windows Defender", "Windows Defender Advanced Threat Protection", "Windows Mail", "Windows Media Player", "Windows Multimedia Platform", "Windows NT", "Windows Photo Viewer", "Windows Portable Devices", "Windows Security", "WindowsPowerShell", "Microsoft.NET", "Windows Portable Devices", "dotnet", "MSBuild", "Intel", "Reference Assemblies")
 
-$global:IgnoredServices = @("1394ohci", "3ware", "AarSvc", "ACPI", "AcpiDev", "acpiex", "acpipagr", "AcpiPmi", "acpitime", "Acx01000", "ADOVMPPackage", "ADP80XX", "adsi", "ADWS", "AeLookupSvc", "AFD", "afunix", "ahcache", "AJRouter", "ALG", "amdgpio2", "amdi2c", "AmdK8", "AmdPPM", "amdsata", "amdsbs", "amdxata", "AppID", "AppIDSvc", "Appinfo", "applockerfltr", "AppMgmt", "AppReadiness", "AppHostSvc", "AppVClient", "AppvStrm", "AppvVemgr", "AppvVfs", "AppXSvc", "arcsas", "aspnet_state", "AssignedAccessManagerSvc", "AsyncMac", "atapi", "AudioEndpointBuilder", "Audiosrv", "autotimesvc", "AxInstSV", "b06bdrv", "bam", "BasicDisplay", "BasicRender", "BattC", "BcastDVRUserService", "bcmfn2", "BDESVC", "Beep", "BFE", "bindflt", "BITS", "BluetoothUserService", "bowser", "BrokerInfrastructure", "Browser", "BTAGService", "BthA2dp", "BthAvctpSvc", "BthEnum", "BthHFEnum", "BthLEEnum", "BthMini", "BTHMODEM", "BthPan", "BTHPORT", "bthserv", "BTHUSB", "bttflt", "buttonconverter", "CAD", "camsvc", "CaptureService", "cbdhsvc", "cdfs", "CDPSvc", "CDPUserSvc", "cdrom", "CertPropSvc", "cht4iscsi", "cht4vbd", "CimFS", "circlass", "CldFlt", "CLFS", "ClipSVC", "CmBatt", "CNG", "cnghwassist", "CompositeBus", "COMSysApp", "condrv", "ConsentUxUserSvc", "CoreMessagingRegistrar", "CoreUI", "CredentialEnrollmentManagerUserSvc", "crypt32", "CryptSvc", "CSC", "CscService", "dam", "DCLocator", "DcomLaunch", "defragsvc", "DeviceAssociationBrokerSvc", "DeviceAssociationService", "DeviceInstall", "DevicePickerUserSvc", "DevicesFlowUserSvc", "DevQueryBroker", "Dfs", "Dfsc", "DFSR", "Dhcp", "diagnosticshub.standardcollector.service", "diagsvc", "DiagTrack", "disk", "DispBrokerDesktopSvc", "DisplayEnhancementService", "DmEnrollmentSvc", "dmvsc", "dmwappushservice", "DNS", "Dnscache", "DoSvc", "dot3svc", "DPS", "drmkaud", "DsmSvc", "DsRoleSvc", "DsSvc", "DusmSvc", "DXGKrnl", "e1i65x64", "Eaphost", "ebdrv", "EFS", "ehRecvr", "ehSched", "EhStorClass", "EhStorTcgDrv", "embeddedmode", "EntAppSvc", "ErrDev", "ESENT", "EventLog", "EventSystem", "exfat", "fastfat", "Fax", "fdc", "fdPHost", "FDResPub", "fhsvc", "FileCrypt", "FileInfo", "Filetrace", "flpydisk", "FltMgr", "FontCache", "FrameServer", "FsDepends", "Fs_Rec", "fvevol", "gencounter", "genericusbfn", "GPIOClx0101", "gpsvc", "GpuEnergyDrv", "GraphicsPerfSvc", "HdAudAddService", "HDAudBus", "HidBatt", "HidBth", "hidi2c", "hidinterrupt", "HidIr", "hidserv", "hidspi", "HidUsb", "hkmsvc", "HomeGroupListener", "HomeGroupProvider", "HpSAMD", "HTTP", "hvcrash", "HvHost", "hvservice", "HwNClx0101", "hwpolicy", "hyperkbd", "HyperVideo", "i8042prt", "iagpio", "iai2c", "iaStorAV", "iaStorAVC", "iaStorV", "ibbus", "icssvc", "idsvc", "IEEtwCollectorService", "IKEEXT", "IndirectKmd", "inetaccs", "InstallService", "intelide", "intelpep", "intelpmax", "intelppm", "iorate", "IPBusEnum", "IpFilterDriver", "iphlpsvc", "IPMIDRV", "IPNAT", "IPT", "IpxlatCfgSvc", "isapnp", "iScsiPrt", "IsmServ", "ItSas35i", "kbdclass", "kbdhid", "Kdc", "KdsSvc", "kdnic", "KeyIso", "KPSSVC", "KSecDD", "KSecPkg", "ksthunk", "KtmRm", "LanmanServer", "LanmanWorkstation", "ldap", "lfsvc", "LicenseManager", "lltdio", "lltdsvc", "lmhosts", "Lsa", "LSI_SAS", "LSI_SAS2i", "LSI_SAS3i", "LSI_SSS", "LSM", "luafv", "LxpSvc", "MapsBroker", "mausbhost", "mausbip", "MbbCx", "Mcx2Svc", "megasas", "megasas2i", "megasas35i", "megasr", "MessagingService", "Microsoft_Bluetooth_AvrcpTransport", "MixedRealityOpenXRSvc", "mlx4_bus", "MMCSS", "Modem", "monitor", "mouclass", "mouhid", "mountmgr", "mpsdrv", "mpssvc", "MRxDAV", "mrxsmb", "mrxsmb20", "MsBridge", "Msfs", "msgpiowin32", "mshidkmdf", "mshidumdf", "msisadrv", "MSiSCSI", "msiserver", "MSKSSRV", "MsLldp", "MSPCLOCK", "MSPQM", "MsQuic", "MsRPC", "MSSCNTRS", "MsSecFlt", "mssmbios", "MSTEE", "MTConfig", "Mup", "mvumis", "napagent", "NativeWifiP", "NaturalAuthentication", "NcaSvc", "NcbService", "NcdAutoSetup", "ndfltr", "NDIS", "NdisCap", "NdisImPlatform", "NdisTapi", "Ndisuio", "NdisVirtualBus", "NdisWan", "ndiswanlegacy", "NDKPing", "ndproxy", "Ndu", "NetAdapterCx", "NetBIOS", "NetbiosSmb", "NetBT", "NetMsmqActivator", "NetPipeActivator", "NetTcpActivator", "Netlogon", "Netman", "netprofm", "NetSetupSvc", "NetTcpPortSharing", "netvsc", "NgcCtnrSvc", "NgcSvc", "NlaSvc", "Npfs", "npsvctrig", "nsi", "nsiproxy", "NTDS", "Ntfs", "NtFrs", "Null", "nvdimm", "nvraid", "nvstor", "OneSyncSvc", "p2pimsvc", "p2psvc", "Parport", "partmgr", "PcaSvc", "pci", "pciide", "pcmcia", "pcw", "pdc", "PEAUTH", "PeerDistSvc", "PenService", "perceptionsimulation", "percsas2i", "percsas3i", "PerfDisk", "PerfHost", "PerfNet", "PerfOS", "PerfProc", "PhoneSvc", "PimIndexMaintenanceSvc", "PktMon", "pla", "PlugPlay", "pmem", "PNPMEM", "PNRPAutoReg", "PNRPsvc", "PolicyAgent", "portcfg", "PortProxy", "Power", "PptpMiniport", "PrintNotify", "PrintWorkflowUserSvc", "Processor", "ProfSvc", "ProtectedStorage", "Psched", "PushToInstall", "pvscsi", "QWAVE", "QWAVEdrv", "Ramdisk", "RasAcd", "RasAgileVpn", "RasAuto", "Rasl2tp", "RasMan", "RasPppoe", "RasSstp", "rdbss", "RDMANDK", "rdpbus", "RDPDR", "RDPNP", "RDPUDD", "RdpVideoMiniport", "rdyboost", "ReFS", "ReFSv1", "RemoteAccess", "RemoteRegistry", "RetailDemo", "RFCOMM", "rhproxy", "RmSvc", "RpcEptMapper", "RpcLocator", "RpcSs", "RSoPProv", "rspndr", "s3cap", "sacsvr", "SamSs", "sbp2port", "SCardSvr", "ScDeviceEnum", "scfilter", "Schedule", "scmbus", "SCPolicySvc", "sdbus", "SDFRd", "SDRSVC", "sdstor", "seclogon", "SecurityHealthService", "SEMgrSvc", "SENS", "Sense", "SensorDataService", "SensorService", "SensrSvc", "SerCx", "SerCx2", "Serenum", "Serial", "sermouse", "SessionEnv", "sfloppy", "SgrmAgent", "SgrmBroker", "SharedAccess", "SharedRealitySvc", "ShellHWDetection", "shpamsvc", "SiSRaid2", "SiSRaid4", "SmartSAMD", "smbdirect", "smphost", "SmsRouter", "SMSvcHost 4.0.0.0", "SNMPTRAP", "spaceparser", "spaceport", "SpatialGraphFilter", "SpbCx", "spectrum", "Spooler", "sppsvc", "sppuinotify", "srv2", "srvnet", "SSDPSRV", "ssh-agent", "SstpSvc", "StateRepository", "stexstor", "stisvc", "storahci", "storflt", "stornvme", "storqosflt", "StorSvc", "storufs", "storvsc", "svsvc", "swenum", "swprv", "Synth3dVsc", "SysMain", "SystemEventsBroker", "TabletInputService", "TapiSrv", "Tcpip", "Tcpip6", "TCPIP6TUNNEL", "tcpipreg", "TCPIPTUNNEL", "tdx", "Telemetry", "terminpt", "TermService", "Themes", "TieringEngineService", "TimeBroker", "TimeBrokerSvc", "THREADORDER", "TokenBroker", "TPM", "TrkWks", "TroubleshootingSvc", "TrustedInstaller", "TSDDD", "TsUsbFlt", "TsUsbGD", "tsusbhub", "tunnel", "tzautoupdate", "UALSVC", "UASPStor", "UcmCx0101", "UcmTcpciCx0101", "UcmUcsiAcpiClient", "UcmUcsiCx0101", "Ucx01000", "UdeCx", "udfs", "UdkUserSvc", "UEFI", "UevAgentDriver", "UevAgentService", "Ufx01000", "UfxChipidea", "ufxsynopsys", "UGatherer", "UGTHRSVC", "UI0Detect", "umbus", "UmPass", "UmRdpService", "UnistoreSvc", "upnphost", "UrsChipidea", "UrsCx01000", "UrsSynopsys", "usbaudio", "usbaudio2", "usbccgp", "usbcir", "usbehci", "usbhub", "USBHUB3", "usbohci", "usbprint", "usbser", "USBSTOR", "usbuhci", "USBXHCI", "UserDataSvc", "UserManager", "UsoSvc", "UxSms", "VacSvc", "VaultSvc", "vdrvroot", "vds", "VerifierExt", "VGAuthService", "vhdmp", "vhf", "Vid", "VirtualRender", "vm3dmp", "vm3dmp-debug", "vm3dmp-stats", "vm3dmp_loader", "vmbus", "VMBusHID", "vmci", "vmgid", "vmhgfs", "vmicguestinterface", "vmicheartbeat", "vmickvpexchange", "vmicrdv", "vmicshutdown", "vmictimesync", "vmicvmsession", "vmicvss", "VMMemCtl", "vmmouse", "vmrawdsk", "vmusbmouse", "vmvss", "vmwefifw", "vmxnet3ndis6", "volmgr", "volmgrx", "volsnap", "volume", "vpci", "vsmraid", "vsock", "VSS", "VSTXRAID", "vwifibus", "vwififlt", "W32Time", "w3logsvc", "W3SVC", "WaaSMedicSvc", "WAS", "WacomPen", "WalletService", "wanarp", "wanarpv6", "WarpJITSvc", "WatAdminSvc", "wbengine", "WbioSrvc", "wcifs", "Wcmsvc", "wcncsvc", "wcnfs", "WcsPlugInService", "WdBoot", "Wdf01000", "WdFilter", "WdiServiceHost", "WdiSystemHost", "wdiwifi", "WdmCompanionFilter", "WdNisDrv", "WdNisSvc", "WebClient", "Wecsvc", "WEPHOSTSVC", "wercplsupport", "WerSvc", "WFDSConMgrSvc", "WFPLWFS", "WiaRpc", "WIMMount", "WinDefend", "Windows Workflow Foundation 4.0.0.0", "WindowsTrustedRT", "WindowsTrustedRTProxy", "WinHttpAutoProxySvc", "WinMad", "Winmgmt", "WinNat", "WinRM", "Winsock", "WinSock2", "WINUSB", "WinVerbs", "wisvc", "WlanSvc", "wlidsvc", "WLMS", "wlpasvc", "WManSvc", "WmiAcpi", "WmiApRpl", "wmiApSrv", "WMPNetworkSvc", "Wof", "workerdd", "workfolderssvc", "WpcMonSvc", "WPCSvc", "WPDBusEnum", "WpdUpFltr", "WpnService", "WpnUserService", "ws2ifsl", "wscsvc", "WSearch", "WSearchIdxPi", "WSService", "wuauserv", "WudfPf", "WUDFRd", "wudfsvc", "WwanSvc", "XblAuthManager", "XblGameSave", "xboxgip", "XboxGipSvc", "XboxNetApiSvc", "xinputhid", "xmlprov")
+$global:IgnoredServices = @("1394ohci", "3ware", "AarSvc", "ACPI", "AcpiDev", "acpiex", "acpipagr", "AcpiPmi", "acpitime", "Acx01000", "ADOVMPPackage", "ADP80XX", "adsi", "ADWS", "AeLookupSvc", "AFD", "afunix", "ahcache", "AJRouter", "ALG", "amdgpio2", "amdi2c", "AmdK8", "AmdPPM", "amdsata", "amdsbs", "amdxata", "AppID", "AppIDSvc", "Appinfo", "applockerfltr", "AppMgmt", "AppReadiness", "AppHostSvc", "AppVClient", "AppvStrm", "AppvVemgr", "AppvVfs", "AppXSvc", "arcsas", "aspnet_state", "AssignedAccessManagerSvc", "AsyncMac", "atapi", "AudioEndpointBuilder", "Audiosrv", "autotimesvc", "AxInstSV", "b06bdrv", "bam", "BasicDisplay", "BasicRender", "BattC", "BcastDVRUserService", "bcmfn2", "BDESVC", "Beep", "BFE", "bindflt", "BITS", "BluetoothUserService", "bowser", "BrokerInfrastructure", "Browser", "BTAGService", "BthA2dp", "BthAvctpSvc", "BthEnum", "BthHFEnum", "BthLEEnum", "BthMini", "BTHMODEM", "BthPan", "BTHPORT", "bthserv", "BTHUSB", "bttflt", "buttonconverter", "CAD", "camsvc", "CaptureService", "cbdhsvc", "cdfs", "CDPSvc", "CDPUserSvc", "cdrom", "CertPropSvc", "cht4iscsi", "cht4vbd", "CimFS", "circlass", "CldFlt", "CLFS", "ClipSVC", "CmBatt", "CNG", "cnghwassist", "CompositeBus", "COMSysApp", "condrv", "ConsentUxUserSvc", "CoreMessagingRegistrar", "CoreUI", "CredentialEnrollmentManagerUserSvc", "crypt32", "CryptSvc", "CSC", "CscService", "dam", "DCLocator", "DcomLaunch", "defragsvc", "DeviceAssociationBrokerSvc", "DeviceAssociationService", "DeviceInstall", "DevicePickerUserSvc", "DevicesFlowUserSvc", "DevQueryBroker", "Dfs", "Dfsc", "DFSR", "Dhcp", "diagnosticshub.standardcollector.service", "diagsvc", "DiagTrack", "disk", "DispBrokerDesktopSvc", "DisplayEnhancementService", "DmEnrollmentSvc", "dmvsc", "dmwappushservice", "DNS", "Dnscache", "DoSvc", "dot3svc", "DPS", "drmkaud", "DsmSvc", "DsRoleSvc", "DsSvc", "DusmSvc", "DXGKrnl", "e1i65x64", "Eaphost", "ebdrv", "EFS", "ehRecvr", "ehSched", "EhStorClass", "EhStorTcgDrv", "embeddedmode", "EntAppSvc", "ErrDev", "ESENT", "EventLog", "EventSystem", "exfat", "fastfat", "Fax", "fdc", "fdPHost", "FDResPub", "fhsvc", "FileCrypt", "FileInfo", "Filetrace", "flpydisk", "FltMgr", "FontCache", "FrameServer", "FsDepends", "Fs_Rec", "fvevol", "gencounter", "genericusbfn", "GPIOClx0101", "gpsvc", "GpuEnergyDrv", "GraphicsPerfSvc", "HdAudAddService", "HDAudBus", "HidBatt", "HidBth", "hidi2c", "hidinterrupt", "HidIr", "hidserv", "hidspi", "HidUsb", "hkmsvc", "HomeGroupListener", "HomeGroupProvider", "HpSAMD", "HTTP", "hvcrash", "HvHost", "hvservice", "HwNClx0101", "hwpolicy", "hyperkbd", "HyperVideo", "i8042prt", "iagpio", "iai2c", "iaStorAV", "iaStorAVC", "iaStorV", "ibbus", "icssvc", "idsvc", "IEEtwCollectorService", "IKEEXT", "IndirectKmd", "inetaccs", "InstallService", "intelide", "intelpep", "intelpmax", "intelppm", "iorate", "IPBusEnum", "IpFilterDriver", "iphlpsvc", "IPMIDRV", "IPNAT", "IPT", "IpxlatCfgSvc", "isapnp", "iScsiPrt", "IsmServ", "ItSas35i", "kbdclass", "kbdhid", "Kdc", "KdsSvc", "kdnic", "KeyIso", "KPSSVC", "KSecDD", "KSecPkg", "ksthunk", "KtmRm", "LanmanServer", "LanmanWorkstation", "ldap", "lfsvc", "LicenseManager", "lltdio", "lltdsvc", "lmhosts", "Lsa", "LSI_SAS", "LSI_SAS2i", "LSI_SAS3i", "LSI_SSS", "LSM", "luafv", "LxpSvc", "MapsBroker", "mausbhost", "mausbip", "MbbCx", "Mcx2Svc", "megasas", "megasas2i", "megasas35i", "megasr", "MessagingService", "Microsoft_Bluetooth_AvrcpTransport", "MixedRealityOpenXRSvc", "mlx4_bus", "MMCSS", "Modem", "monitor", "mouclass", "mouhid", "mountmgr", "mpsdrv", "mpssvc", "MRxDAV", "mrxsmb", "mrxsmb20", "MsBridge", "Msfs", "msgpiowin32", "mshidkmdf", "mshidumdf", "msisadrv", "MSiSCSI", "msiserver", "MSKSSRV", "MsLldp", "MSPCLOCK", "MSPQM", "MsQuic", "MsRPC", "MSSCNTRS", "MsSecFlt", "mssmbios", "MSTEE", "MTConfig", "Mup", "mvumis", "napagent", "NativeWifiP", "NaturalAuthentication", "NcaSvc", "NcbService", "NcdAutoSetup", "ndfltr", "NDIS", "NdisCap", "NdisImPlatform", "NdisTapi", "Ndisuio", "NdisVirtualBus", "NdisWan", "ndiswanlegacy", "NDKPing", "ndproxy", "Ndu", "NetAdapterCx", "NetBIOS", "NetbiosSmb", "NetBT", "NetMsmqActivator", "NetPipeActivator", "NetTcpActivator", "Netlogon", "Netman", "netprofm", "NetSetupSvc", "NetTcpPortSharing", "netvsc", "NgcCtnrSvc", "NgcSvc", "NlaSvc", "Npfs", "npsvctrig", "nsi", "nsiproxy", "NTDS", "Ntfs", "NtFrs", "Null", "nvdimm", "nvraid", "nvstor", "OneSyncSvc", "p2pimsvc", "p2psvc", "Parport", "partmgr", "PcaSvc", "pci", "pciide", "pcmcia", "pcw", "pdc", "PEAUTH", "PeerDistSvc", "PenService", "perceptionsimulation", "percsas2i", "percsas3i", "PerfDisk", "PerfHost", "PerfNet", "PerfOS", "PerfProc", "PhoneSvc", "PimIndexMaintenanceSvc", "PktMon", "pla", "PlugPlay", "pmem", "PNPMEM", "PNRPAutoReg", "PNRPsvc", "PolicyAgent", "portcfg", "PortProxy", "Power", "PptpMiniport", "PrintNotify", "PrintWorkflowUserSvc", "Processor", "ProfSvc", "ProtectedStorage", "Psched", "PushToInstall", "pvscsi", "QWAVE", "QWAVEdrv", "Ramdisk", "RasAcd", "RasAgileVpn", "RasAuto", "Rasl2tp", "RasMan", "RasPppoe", "RasSstp", "rdbss", "RDMANDK", "rdpbus", "RDPDR", "RDPNP", "RDPUDD", "RdpVideoMiniport", "rdyboost", "ReFS", "ReFSv1", "FCRegSvc", "RemoteAccess", "RemoteRegistry", "RetailDemo", "RFCOMM", "rhproxy", "RmSvc", "RpcEptMapper", "RpcLocator", "RpcSs", "RSoPProv", "rspndr", "s3cap", "sacsvr", "SamSs", "sbp2port", "SCardSvr", "ScDeviceEnum", "scfilter", "Schedule", "scmbus", "SCPolicySvc", "sdbus", "SDFRd", "SDRSVC", "sdstor", "seclogon", "SecurityHealthService", "SEMgrSvc", "SENS", "Sense", "SensorDataService", "SensorService", "SensrSvc", "SerCx", "SerCx2", "Serenum", "Serial", "sermouse", "SessionEnv", "sfloppy", "SgrmAgent", "SgrmBroker", "SharedAccess", "SharedRealitySvc", "ShellHWDetection", "shpamsvc", "SiSRaid2", "SiSRaid4", "SmartSAMD", "smbdirect", "smphost", "SmsRouter", "SMSvcHost 4.0.0.0", "SNMPTRAP", "spaceparser", "spaceport", "SpatialGraphFilter", "SpbCx", "spectrum", "Spooler", "sppsvc", "sppuinotify", "srv2", "srvnet", "SSDPSRV", "ssh-agent", "SstpSvc", "StateRepository", "stexstor", "stisvc", "storahci", "storflt", "stornvme", "storqosflt", "StorSvc", "storufs", "storvsc", "svsvc", "swenum", "swprv", "Synth3dVsc", "SysMain", "SystemEventsBroker", "TabletInputService", "TapiSrv", "Tcpip", "Tcpip6", "TCPIP6TUNNEL", "tcpipreg", "TCPIPTUNNEL", "tdx", "Telemetry", "terminpt", "TermService", "Themes", "TieringEngineService", "TimeBroker", "TimeBrokerSvc", "THREADORDER", "TokenBroker", "TPM", "TrkWks", "TroubleshootingSvc", "TrustedInstaller", "TSDDD", "TsUsbFlt", "TsUsbGD", "tsusbhub", "tunnel", "tzautoupdate", "UALSVC", "UASPStor", "UcmCx0101", "UcmTcpciCx0101", "UcmUcsiAcpiClient", "UcmUcsiCx0101", "Ucx01000", "UdeCx", "udfs", "UdkUserSvc", "UEFI", "UevAgentDriver", "UevAgentService", "Ufx01000", "UfxChipidea", "ufxsynopsys", "UGatherer", "UGTHRSVC", "UI0Detect", "umbus", "UmPass", "UmRdpService", "UnistoreSvc", "upnphost", "UrsChipidea", "UrsCx01000", "UrsSynopsys", "usbaudio", "usbaudio2", "usbccgp", "usbcir", "usbehci", "usbhub", "USBHUB3", "usbohci", "usbprint", "usbser", "USBSTOR", "usbuhci", "USBXHCI", "UserDataSvc", "UserManager", "UsoSvc", "UxSms", "VacSvc", "VaultSvc", "vdrvroot", "vds", "VerifierExt", "VGAuthService", "vhdmp", "vhf", "Vid", "VirtualRender", "vm3dmp", "vm3dmp-debug", "vm3dmp-stats", "vm3dmp_loader", "vmbus", "VMBusHID", "vmci", "vmgid", "vmhgfs", "vmicguestinterface", "vmicheartbeat", "vmickvpexchange", "vmicrdv", "vmicshutdown", "vmictimesync", "vmicvmsession", "vmicvss", "VMMemCtl", "vmmouse", "vmrawdsk", "vmusbmouse", "vmvss", "vmwefifw", "vmxnet3ndis6", "volmgr", "volmgrx", "volsnap", "volume", "vpci", "vsmraid", "vsock", "VSS", "VSTXRAID", "vwifibus", "vwififlt", "W32Time", "w3logsvc", "W3SVC", "WaaSMedicSvc", "WAS", "WacomPen", "WalletService", "wanarp", "wanarpv6", "WarpJITSvc", "WatAdminSvc", "wbengine", "WbioSrvc", "wcifs", "Wcmsvc", "wcncsvc", "wcnfs", "WcsPlugInService", "WdBoot", "Wdf01000", "WdFilter", "WdiServiceHost", "WdiSystemHost", "wdiwifi", "WdmCompanionFilter", "WdNisDrv", "WdNisSvc", "WebClient", "Wecsvc", "WEPHOSTSVC", "wercplsupport", "WerSvc", "WFDSConMgrSvc", "WFPLWFS", "WiaRpc", "WIMMount", "WinDefend", "Windows Workflow Foundation 4.0.0.0", "WindowsTrustedRT", "WindowsTrustedRTProxy", "WinHttpAutoProxySvc", "WinMad", "Winmgmt", "WinNat", "WinRM", "Winsock", "WinSock2", "WINUSB", "WinVerbs", "wisvc", "WlanSvc", "wlidsvc", "WLMS", "wlpasvc", "WManSvc", "WmiAcpi", "WmiApRpl", "wmiApSrv", "WMPNetworkSvc", "Wof", "workerdd", "workfolderssvc", "WpcMonSvc", "WPCSvc", "WPDBusEnum", "WpdUpFltr", "WpnService", "WpnUserService", "ws2ifsl", "wscsvc", "WSearch", "WSearchIdxPi", "WSService", "wuauserv", "WudfPf", "WUDFRd", "wudfsvc", "WwanSvc", "XblAuthManager", "XblGameSave", "xboxgip", "XboxGipSvc", "XboxNetApiSvc", "xinputhid", "xmlprov")
 
 function Convert-DateToString {
     <#
@@ -1852,7 +1852,7 @@ function Get-SecureBootStatus {
     [CmdletBinding()]Param()
 
     $RegPath = "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\SecureBoot\State"
-    $Result = Get-ItemProperty -Path "Registry::$($RegPath)" -ErrorAction SilentlyContinue -ErrorVariable $GetItemPropertyError 
+    $Result = Get-ItemProperty -Path "Registry::$($RegPath)" -ErrorAction SilentlyContinue -ErrorVariable GetItemPropertyError 
 
     if (-not $GetItemPropertyError) {
 
@@ -4207,8 +4207,12 @@ function Invoke-GPPPasswordCheck {
         [switch]$Remote
     )
 
-    Add-Type -Assembly System.Security
-    Add-Type -Assembly System.Core
+    try {
+        Add-Type -Assembly System.Security
+        Add-Type -Assembly System.Core
+    } catch {
+        # do nothing
+    }
 
     function Get-DecryptedPassword {
         [CmdletBinding()] param(
@@ -4550,6 +4554,112 @@ function Invoke-ModifiableProgramsCheck {
                             $Path
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+function Invoke-ApplicationsOnStartupCheck {
+    <#
+    .SYNOPSIS
+
+    Enumerates the applications which are run on startup
+
+    Author: @itm4n
+    License: BSD 3-Clause
+    
+    .DESCRIPTION
+    
+    Applications can be run on startup or whenever a user logs on. They can be either configured
+    in the registry or by adding an shortcut file (.LNK) in a Start Menu folder. 
+    
+    .EXAMPLE
+    
+    PS C:\> Invoke-ApplicationsOnStartupCheck
+
+    Name         : SecurityHealth
+    Path         : HKLM\Software\Microsoft\Windows\CurrentVersion\Run\SecurityHealth
+    Data         : %windir%\system32\SecurityHealthSystray.exe
+    IsModifiable : False
+
+    Name         : VMware User Process
+    Path         : HKLM\Software\Microsoft\Windows\CurrentVersion\Run\VMware User Process
+    Data         : "C:\Program Files\VMware\VMware Tools\vmtoolsd.exe" -n vmusr
+    IsModifiable : False
+    
+    #>
+
+    [CmdletBinding()] param()
+
+    # Is it relevant to check HKCU entries???
+    #[string[]]$RegistryPaths = "HKLM\Software\Microsoft\Windows\CurrentVersion\Run", "HKLM\Software\Microsoft\Windows\CurrentVersion\RunOnce", "HKCU\Software\Microsoft\Windows\CurrentVersion\Run", "HKCU\Software\Microsoft\Windows\CurrentVersion\RunOnce"
+    [string[]]$RegistryPaths = "HKLM\Software\Microsoft\Windows\CurrentVersion\Run", "HKLM\Software\Microsoft\Windows\CurrentVersion\RunOnce"
+
+    $RegistryPaths | ForEach-Object {
+
+        $RegKeyPath = $_
+
+        $Item = Get-Item -Path "Registry::$($RegKeyPath)" -ErrorAction SilentlyContinue -ErrorVariable ErrorGetItem
+        if (-not $ErrorGetItem) {
+
+            $Item | Select-Object -ExpandProperty Property | ForEach-Object {
+
+                $RegKeyValueName = $_
+                $RegKeyValueData = $Item.GetValue($RegKeyValueName, "", "DoNotExpandEnvironmentNames")
+                
+                $ModifiablePaths = $RegKeyValueData | Get-ModifiablePath | Where-Object {$_ -and $_.ModifiablePath -and ($_.ModifiablePath -ne '')}
+                if (([object[]]$ModifiablePaths).Length -gt 0) {
+                    $IsModifiable = $True 
+                } else {
+                    $IsModifiable = $False 
+                }
+
+                $ResultItem = New-Object -TypeName PSObject 
+                $ResultItem | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $RegKeyValueName
+                $ResultItem | Add-Member -MemberType "NoteProperty" -Name "Path" -Value "$($RegKeyPath)\$($RegKeyValueName)"
+                $ResultItem | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $RegKeyValueData
+                $ResultItem | Add-Member -MemberType "NoteProperty" -Name "IsModifiable" -Value $IsModifiable
+                $ResultItem 
+            }
+        }
+    }
+
+    $Root = (Get-Item -Path $env:windir).PSDrive.Root
+    
+    [string[]]$FileSystemPaths = "\Users\All Users\Start Menu\Programs\Startup", "\Users\$env:USERNAME\Start Menu\Programs\Startup"
+
+    $FileSystemPaths | ForEach-Object {
+
+        $StartupFolderPath = Join-Path -Path $Root -ChildPath $_ 
+
+        Get-ChildItem -Path $StartupFolderPath -ErrorAction SilentlyContinue | ForEach-Object {
+            $EntryName = $_.Name
+            $EntryPath = $_.FullName
+
+            if ($EntryPath -Like "*.lnk") {
+
+                try {
+
+                    $Wsh = New-Object -ComObject WScript.Shell
+                    $Shortcut = $Wsh.CreateShortcut((Resolve-Path -Path $EntryPath))
+
+                    $ModifiablePaths = $Shortcut.TargetPath | Get-ModifiablePath -LiteralPaths | Where-Object {$_ -and $_.ModifiablePath -and ($_.ModifiablePath -ne '')}
+                    if (([object[]]$ModifiablePaths).Length -gt 0) {
+                        $IsModifiable = $True
+                    } else {
+                        $IsModifiable = $False
+                    }
+
+                    $ResultItem = New-Object -TypeName PSObject 
+                    $ResultItem | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $EntryName
+                    $ResultItem | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $EntryPath
+                    $ResultItem | Add-Member -MemberType "NoteProperty" -Name "Data" -Value "$($Shortcut.TargetPath) $($Shortcut.Arguments)"
+                    $ResultItem | Add-Member -MemberType "NoteProperty" -Name "IsModifiable" -Value $IsModifiable
+                    $ResultItem 
+
+                } catch {
+                    # do nothing
                 }
             }
         }
@@ -5349,7 +5459,7 @@ function Invoke-PrivescCheck {
 
     "`r`n"
 
-    Write-Banner -Category "user" -Name "whoami /groups" -Type Conf -Note "Do I belong to any interesting group(s)? Additional groups give you additional privileges."
+    Write-Banner -Category "user" -Name "whoami /groups" -Type Conf -Note "Do I belong to any interesting group(s)? Additional groups give you additional privileges. Default groups are filtered out."
     $Results = Invoke-UserGroupsCheck
     if ($Results) {
         "[+] Found $(([object[]]$Results).Length) non-default group(s)."
@@ -5427,7 +5537,7 @@ function Invoke-PrivescCheck {
 
     "`r`n"
 
-    Write-Banner -Category "DLL Hijacking" -Name "System's %PATH%" -Type Vuln -Note "Do we have write permissions in at least one of the system %PATH% folders?"
+    Write-Banner -Category "DLL Hijacking" -Name "System's %PATH%" -Type Vuln -Note "Do we have write permissions in at least one of the system's %PATH% folders?"
     $Results = Invoke-DllHijackingCheck
     if ($Results) {
         "[+] Found $(([object[]]$Results).Length) result(s)."
@@ -5454,6 +5564,17 @@ function Invoke-PrivescCheck {
     if ($Results) {
         "[+] Found $(([object[]]$Results).Length) file(s)."
         $Results | Format-Table
+    } else {
+        "[!] Nothing found."
+    }
+
+    "`r`n"
+
+    Write-Banner -Category "Applications" -Name "Programs Run on Startup" -Type Info -Note "Which applications run automatically on startup?"
+    $Results = Invoke-ApplicationsOnStartupCheck
+    if ($Results) {
+        "[+] Found $(([object[]]$Results).Length) application(s)."
+        $Results | Format-List
     } else {
         "[!] Nothing found."
     }

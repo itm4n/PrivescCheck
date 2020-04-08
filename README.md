@@ -100,6 +100,7 @@ Invoke-DllHijackingCheck - Checks whether any of the system path folders is modi
 ```
 Invoke-InstalledProgramsCheck - Enumerates the applications that are not installed by default
 Invoke-ModifiableProgramsCheck - Enumerates applications which have a modifiable EXE of DLL file
+Invoke-ApplicationsOnStartupCheck - Enumerates the applications which are run on startup
 Invoke-RunningProcessCheck - Enumerates the running processes
 ```
 
