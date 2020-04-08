@@ -2406,6 +2406,63 @@ function Invoke-LsaProtectionsCheck {
     Get-CredentialGuardStatus
 
 }
+
+function Invoke-WsusConfigCheck {
+    <#
+    .SYNOPSIS
+    
+    Checks whether the WSUS is enabled and vulnerable (Wsuxploit)
+
+    Author: @itm4n
+    License: BSD 3-Clause
+    
+    .DESCRIPTION
+    
+    A system can be compromise if the updates are not requested using HTTPS but HTTP. If the URL of
+    the update server (WUServer) starts with HTTP and UseWUServer=1, then the update requests are
+    vulnerable to MITM attacks.
+    
+    .EXAMPLE
+    
+    PS C:\> Invoke-WsusConfigCheck
+
+    WUServer     : http://acme-upd01.corp.internal.com:8535
+    UseWUServer  : 1
+    IsVulnerable : True
+    
+    .LINK
+
+    https://book.hacktricks.xyz/windows/windows-local-privilege-escalation#wsus
+    https://github.com/pimps/wsuxploit
+    #>
+
+    $WindowsUpdateRegPath = "HKLM\Software\Policies\Microsoft\Windows\WindowsUpdate"
+    $WindowsUpdateAURegPath = "HKLM\Software\Policies\Microsoft\Windows\WindowsUpdate\AU"
+
+    $WsusKeyServerValue = Get-ItemProperty -Path "Registry::$($WindowsUpdateRegPath)" -Name WUServer -ErrorAction SilentlyContinue -ErrorVariable ErrorGetItemProperty
+    if (-not $ErrorGetItemProperty) {
+
+        $WusUrl = $WsusKeyServerValue.WUServer
+
+        $UseWUServerValue = Get-ItemProperty -Path "Registry::$($WindowsUpdateAURegPath)" -Name UseWUServer -ErrorAction SilentlyContinue -ErrorVariable ErrorGetItemProperty
+        if (-not $ErrorGetItemProperty) {
+
+            $WusEnabled = $UseWUServerValue.UseWUServer
+            
+            if ($WusUrl -Like "http://*" -and $WusEnabled -eq 1) {
+                $IsVulnerable = $True
+            } else {
+                $IsVulnerable = $False
+            }
+
+            $Result = New-Object -TypeName PSObject
+            $Result | Add-Member -MemberType "NoteProperty" -Name "WUServer" -Value $WusUrl
+            $Result | Add-Member -MemberType "NoteProperty" -Name "UseWUServer" -Value $WusEnabled
+            $Result | Add-Member -MemberType "NoteProperty" -Name "IsVulnerable" -Value $IsVulnerable
+            $Result
+        }        
+    }
+}
 # ----------------------------------------------------------------
 # END REGISTRY SETTINGS   
 # ----------------------------------------------------------------
@@ -5717,6 +5774,17 @@ function Invoke-PrivescCheck {
     $Results = Invoke-RegistryAlwaysInstallElevatedCheck
     if ($Results) {
         "[+] AlwaysInstallElevated is enabled."
+        $Result | Format-List
+    } else {
+        "[!] Nothing found."
+    }
+    
+    "`r`n"
+
+    Write-Banner -Category "Registry" -Name "WSUS Configuration" -Type Conf -Note "Is WSUS configured/enabled? If so, check whether it's vulnerable to the 'Wsuxploit' MITM attack (https://github.com/pimps/wsuxploit)."
+    $Results = Invoke-WsusConfigCheck
+    if ($Results) {
+        "[*] Found some info."
         $Result | Format-List
     } else {
         "[!] Nothing found."

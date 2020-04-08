@@ -22,7 +22,7 @@ PS C:\Temp\> . .\Invoke-PrivescCheck.ps1; Invoke-PrivescCheck | Tee-Object "C:\T
 
 Use the script from a CMD prompt.
 ```
-C:\Temp\>powershell -ep bypass -c ". .\Invoke-PrivescCheck.ps1; Invoke-PrivescCheck"
+C:\Temp\>powershell -ep bypass -c ". .\Invoke-PrivescCheck.ps1; Invoke-PrivescCheck | Tee-Object result.txt"
 ```
 
 Import the script from a web server.
@@ -124,6 +124,7 @@ Invoke-LapsCheck - Checks whether LAPS (Local Admin Password Solution) is enable
 Invoke-PowershellTranscriptionCheck - Checks whether PowerShell Transcription is configured/enabled
 Invoke-RegistryAlwaysInstallElevatedCheck - Checks whether the AlwaysInstallElevated key is set in the registry
 Invoke-LsaProtectionsCheck - Checks whether LSASS is running as a Protected Process (+ additional checks)
+Invoke-WsusConfigCheck - Checks whether the WSUS is enabled and vulnerable (Wsuxploit)
 ```
 
 ### Network
