@@ -3590,7 +3590,10 @@ function Invoke-UserPrivilegesCheck {
     <#
     .SYNOPSIS
     
-    Enumerates the high potential privileges of the current user's token
+    Enumerates privileges which can be abused for privilege escalation
+
+    Author: @itm4n
+    License: BSD 3-Clause
     
     .DESCRIPTION
 
@@ -3628,6 +3631,46 @@ function Invoke-UserPrivilegesCheck {
         if ($HighPotentialPrivileges -contains $Privilege.Name) {
 
             $Privilege
+        }
+    }
+}
+
+function Invoke-UserEnvCheck {
+    <#
+    .SYNOPSIS
+
+    Checks for sensitive data in environment variables
+
+    Author: @itm4n
+    License: BSD 3-Clause
+    
+    .DESCRIPTION
+
+    Environment variables may contain sensitive information such as database credentials or API 
+    keys. 
+    
+    #>
+
+    [CmdletBinding()] param() 
+
+    [string[]] $Keywords = "key", "passw", "secret", "pwd", "creds", "credential", "api"
+
+    Get-ChildItem -Path env: | ForEach-Object {
+
+        $EntryName = $_.Name
+        $EntryValue = $_.Value 
+        $CheckVal = "$($_.Name) $($_.Value)"
+        
+        ForEach ($Keyword in $Keywords) {
+
+            if ($CheckVal -Like "*$($Keyword)*") {
+
+                $EnvItem = New-Object -TypeName PSObject 
+                $EnvItem | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $EntryName
+                $EnvItem | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $EntryValue
+                $EnvItem | Add-Member -MemberType "NoteProperty" -Name "Keyword" -Value $Keyword
+                $EnvItem
+            }
         }
     }
 }
@@ -5531,6 +5574,17 @@ function Invoke-PrivescCheck {
     $Results = Invoke-UserPrivilegesCheck
     if ($Results) {
         "[+] Found $(([object[]]$Results).Length) potentially interesting privilege(s)."
+        $Results | Format-Table -AutoSize
+    } else {
+        "[!] Nothing found."
+    }
+
+    "`r`n"
+
+    Write-Banner -Category "user" -Name "Environment Variables" -Type Conf -Note "Environment variables may contain some sensitive information."
+    $Results = Invoke-UserEnvCheck
+    if ($Results) {
+        "[+] Found $(([object[]]$Results).Length) potentially interesting result(s)."
         $Results | Format-Table -AutoSize
     } else {
         "[!] Nothing found."

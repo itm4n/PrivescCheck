@@ -77,6 +77,7 @@ This wasn't that easy because newer version of PowerShell have very convenient f
 Invoke-UserCheck - Gets the usernane and SID of the current user
 Invoke-UserGroupsCheck - Enumerates groups the current user belongs to except default and low-privileged ones
 Invoke-UserPrivilegesCheck - Enumerates the high potential privileges of the current user's token
+Invoke-UserEnvCheck - Checks for sensitive data in environment variables
 ```
 
 ### Services
