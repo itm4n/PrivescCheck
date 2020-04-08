@@ -5730,7 +5730,7 @@ function Invoke-PrivescCheck {
     $Results = Invoke-WinlogonCheck
     if ($Results) {
         "[*] Found some info:"
-        $Results | Format-Table -AutoSize
+        $Results | Format-List
     } else {
         "[!] Nothing found."
     }
