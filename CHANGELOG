@@ -1,3 +1,6 @@
+2020-04-08
+    - Added Misc > Invoke-UsersHomeFolderCheck
+
 2020-03-21
     - Handled exception in "Network > Invoke-WlanProfilesCheck" when dealing with servers
 
