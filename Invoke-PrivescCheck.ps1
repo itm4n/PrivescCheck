@@ -5250,6 +5250,46 @@ function Invoke-DllHijackingCheck {
 # Main  
 # ----------------------------------------------------------------
 #region Main
+function Write-Banner {
+    [CmdletBinding()] param(
+        [string]$Category,
+        [string]$Name,
+        [ValidateSet("Info", "Conf", "Vuln")]$Type,
+        [string]$Note
+    )
+
+    function Split-Note {
+        param([string]$Note)
+        $NoteSplit = New-Object System.Collections.ArrayList
+        $Temp = $Note 
+        do {
+            if ($Temp.Length -gt 53) {
+                [void]$NoteSplit.Add([string]$Temp.Substring(0, 53))
+                $Temp = $Temp.Substring(53)
+            } else {
+                [void]$NoteSplit.Add([string]$Temp)
+                break
+            }
+        } while ($Temp.Length -gt 0)
+        $NoteSplit
+    }
+
+    $Title = "$($Category.ToUpper()) > $($Name)"
+    if ($Title.Length -gt 46) {
+        throw "Input title is too long."
+    }
+
+    $Result = ""
+    $Result += "+------+------------------------------------------------+------+`r`n"
+    $Result += "| TEST | $Title$(' '*(46 - $Title.Length)) | $($Type.ToUpper()) |`r`n"
+    $Result += "+------+------------------------------------------------+------+`r`n"
+    Split-Note -Note $Note | ForEach-Object {
+        $Result += "| $(if ($Flag) { '    ' } else { 'DESC'; $Flag = $True }) | $($_)$(' '*(53 - ([string]$_).Length)) |`r`n"
+    }
+    $Result += "+------+-------------------------------------------------------+"
+    $Result
+}
+
 function Invoke-PrivescCheck {
     <#
     .SYNOPSIS
@@ -5298,13 +5338,7 @@ function Invoke-PrivescCheck {
         return
     }
 
-    "----------------------------------------------------------------"
-    "|                         CURRENT USER                         |"
-    "----------------------------------------------------------------"
-
-    "TEST: whoami"
-    "DESC: What's my username / SID?"
-    "NOTE: 'My name is...'"
+    Write-Banner -Category "user" -Name "whoami" -Type Info -Note "What's my username / SID?"
     $Results = Invoke-UserCheck
     if ($Results) {
         "[*] Found some info:"
@@ -5313,11 +5347,9 @@ function Invoke-PrivescCheck {
         "[!] Nothing found."
     }
 
-    "`n"
+    "`r`n"
 
-    "TEST: whoami /groups"
-    "DESC: Do I belong to any interesting group(s)?"
-    "NOTE: Additional groups give you additional privileges."
+    Write-Banner -Category "user" -Name "whoami /groups" -Type Conf -Note "Do I belong to any interesting group(s)? Additional groups give you additional privileges."
     $Results = Invoke-UserGroupsCheck
     if ($Results) {
         "[+] Found $(([object[]]$Results).Length) non-default group(s)."
@@ -5326,11 +5358,9 @@ function Invoke-PrivescCheck {
         "[!] Nothing found."
     }
 
-    "`n"
+    "`r`n"
 
-    "TEST: whoami /priv"
-    "DESC: Do I have any interesting privilege(s)?"
-    "NOTE: Privileges such as SeImpersonate or SeAssignPrimaryToken might allow you to run code as SYSTEM."
+    Write-Banner -Category "user" -Name "whoami /priv" -Type Conf -Note "Do I have any interesting privilege(s)? Privileges such as SeImpersonate or SeAssignPrimaryToken might allow you to run code as SYSTEM."
     $Results = Invoke-UserPrivilegesCheck
     if ($Results) {
         "[+] Found $(([object[]]$Results).Length) potentially interesting privilege(s)."
@@ -5339,15 +5369,9 @@ function Invoke-PrivescCheck {
         "[!] Nothing found."
     }
 
-    "`n"
+    "`r`n"
 
-    "----------------------------------------------------------------"
-    "|                           SERVICES                           |"
-    "----------------------------------------------------------------"
-
-    "TEST: Listing non-default services..."
-    "DESC: Is there any non-default / third-party service?"
-    "NOTE: Security holes are often caused by third-party software."
+    Write-Banner -Category "services" -Name "Non-default Services" -Type Info -Note "Is there any non-default / third-party service?"
     $Results = Invoke-InstalledServicesCheck
     if (([object[]]$Results).Length -gt 0) {
         "[*] Found $(([object[]]$Results).Length) service(s)."
@@ -5357,11 +5381,9 @@ function Invoke-PrivescCheck {
         "[!] Nothing found."
     }
 
-    "`n"
+    "`r`n"
 
-    "TEST: Checking service permissions..."
-    "DESC: Can we modify the configuration of any service through the Service Control Manager?"
-    "NOTE: sc.exe config VulnService binpath= C:\Temp\evil.exe"
+    Write-Banner -Category "services" -Name "Service Permissions" -Type Vuln -Note "Can we modify the configuration of any service through the Service Control Manager? (sc.exe config VulnService binpath= C:\Temp\evil.exe)"
     $Results = Invoke-ServicesPermissionsCheck
     if ($Results) {
         "[+] Found $(([object[]]$Results).Length) vulnerable service(s)."
@@ -5370,11 +5392,9 @@ function Invoke-PrivescCheck {
         "[!] Nothing found."
     }
 
-    "`n"
+    "`r`n"
 
-    "TEST: Checking service permissions (registry)..."
-    "DESC: Can we modify the configuration of any service in the Registry?"
-    "NOTE: reg.exe add HKLM\[...]\Services\VulnService /v ImagePath /d C:\Temp\evil.exe /f"
+    Write-Banner -Category "services" -Name "Service Permissions (Registry)" -Type Vuln -Note "Can we modify the configuration of any service in the Registry? (reg.exe add HKLM\[...]\Services\VulnService /v ImagePath /d C:\Temp\evil.exe /f)"
     $Results = Invoke-ServicesPermissionsRegistryCheck
     if ($Results) {
         "[+] Found $(([object[]]$Results).Length) result(s)."
@@ -5383,11 +5403,9 @@ function Invoke-PrivescCheck {
         "[!] Nothing found."
     }
 
-    "`n"
+    "`r`n"
     
-    "TEST: Checking service executable and argument permissions..."
-    "DESC: Can we modify the executable itself or can we somehow control one of its arguments?"
-    "NOTE: copy C:\Temp\evil.exe C:\APPS\MyCustomApp\service.exe"
+    Write-Banner -Category "services" -Name "Service Binary Permissions" -Type Vuln -Note "Can we modify the executable itself or can we somehow control one of its arguments? (copy C:\Temp\evil.exe C:\APPS\MyCustomApp\service.exe)"
     $Results = Invoke-ServicesImagePermissionsCheck
     if ($Results) {
         "[+] Found $(([object[]]$Results).Length) result(s)."
@@ -5396,11 +5414,9 @@ function Invoke-PrivescCheck {
         "[!] Nothing found."
     }
 
-    "`n"
+    "`r`n"
 
-    "TEST: Checking for unquoted service paths..."
-    "DESC: Can we hijack any service by planting a binary in one of the executable parent folders?"
-    "NOTE: C:\APPS\Foo Bar\service.exe -> copy C:\Temp\evil.exe C:\APPS\Foo.exe"
+    Write-Banner -Category "services" -Name "Unquoted Paths" -Type Vuln -Note "Can we hijack any service by planting a binary in one of the executable parent folders? (C:\APPS\Foo Bar\service.exe -> copy C:\Temp\evil.exe C:\APPS\Foo.exe)"
     $Results = Invoke-ServicesUnquotedPathCheck
     if ($Results) {
         "[+] Found $(([object[]]$Results).Length) result(s)"
@@ -5409,15 +5425,9 @@ function Invoke-PrivescCheck {
         "[!] Nothing found."
     }
 
-    "`n"
+    "`r`n"
 
-    "----------------------------------------------------------------"
-    "|                         DLL HIJACKING                        |"
-    "----------------------------------------------------------------"
-
-    "TEST: Checking system %PATH% for potentially hijackable DLL locations..."
-    "DESC: Do we have write permissions in at least one of the system %PATH% folders?"
-    "NOTE: Show me the %PATH% to DLL hijacking."
+    Write-Banner -Category "DLL Hijacking" -Name "System's %PATH%" -Type Vuln -Note "Do we have write permissions in at least one of the system %PATH% folders?"
     $Results = Invoke-DllHijackingCheck
     if ($Results) {
         "[+] Found $(([object[]]$Results).Length) result(s)."
@@ -5426,15 +5436,9 @@ function Invoke-PrivescCheck {
         "[!] Nothing found."
     }
 
-    "`n"
+    "`r`n"
 
-    "----------------------------------------------------------------"
-    "|                       INSTALLED PROGRAMS                     |"
-    "----------------------------------------------------------------"
-    
-    "TEST: Listing non-default programs..."
-    "DESC: Is there any non-default / third-party software we could exploit?"
-    "NOTE: Again, security holes are often caused by third-party software."
+    Write-Banner -Category "Applications" -Name "Non-default Applications" -Type Info -Note "Is there any non-default / third-party software we could exploit?"
     $Results = Invoke-InstalledProgramsCheck
     if ($Results) {
         "[*] Found $(([object[]]$Results).Length) non-default application(s)."
@@ -5443,11 +5447,9 @@ function Invoke-PrivescCheck {
         "[!] Nothing found."
     }
 
-    "`n"
+    "`r`n"
     
-    "TEST: Checking modifiable programs..."
-    "DESC: Do we have write permissions in non-default application folders?"
-    "NOTE: If so, we may compromise other user accounts by planting a malicious EXE or DLL."
+    Write-Banner -Category "Applications" -Name "Modifiable Applications" -Type Vuln -Note "Do we have write permissions in non-default application folders? If so, we may compromise other user accounts by planting a malicious EXE or DLL."
     $Results = Invoke-ModifiableProgramsCheck
     if ($Results) {
         "[+] Found $(([object[]]$Results).Length) file(s)."
@@ -5456,11 +5458,9 @@ function Invoke-PrivescCheck {
         "[!] Nothing found."
     }
 
-    "`n"
+    "`r`n"
 
-    "TEST: Listing processes..."
-    "DESC: Among the processes that are not owned by the current user, is there anything interesting?"
-    "NOTE: In this check, typical windows processes such as 'svchost' are filtered out."
+    Write-Banner -Category "Applications" -Name "Running Processes" -Type Info -Note "Among the processes that are not owned by the current user, is there anything interesting? In this check, typical windows processes such as 'svchost.exe' are filtered out."
     $Results = Invoke-RunningProcessCheck
     if ($Results) {
         "[*] Found $(([object[]]$Results).Length) process(es)."
@@ -5469,15 +5469,9 @@ function Invoke-PrivescCheck {
         "[!] Nothing found."
     }
 
-    "`n"
+    "`r`n"
 
-    "----------------------------------------------------------------"
-    "|                          CREDENTIALS                         |"
-    "----------------------------------------------------------------"
-
-    "TEST: Checking SAM/SYSTEM files..."
-    "DESC: Is there any backup of the SAM/SYSTEM hives we can read?"
-    "NOTE: 'Some secrets are safer kept hidden...'"
+    Write-Banner -Category "Credentials" -Name "SAM/SYSTEM Backup Files" -Type Vuln -Note "Is there any backup of the SAM/SYSTEM hives we can read?"
     $Results = Invoke-SamBackupFilesCheck
     if ($Results) {
         "[+] Found $(([object[]]$Results).Length) readable file(s)."
@@ -5486,11 +5480,9 @@ function Invoke-PrivescCheck {
         "[!] Nothing found."
     }
 
-    "`n"
+    "`r`n"
 
-    "TEST: Checking Unattend files..."
-    "DESC: Is there any Unattend file? Do they contain cleartext credentials?"
-    "NOTE: Base64 *encryption*..."
+    Write-Banner -Category "Credentials" -Name "Unattended Files" -Type Vuln -Note "Is there any Unattend file? Do they contain cleartext credentials?"
     $Results = Invoke-UnattendFilesCheck
     if ($Results) {
         "[+] Found $(([object[]]$Results).Length) password(s)."
@@ -5499,11 +5491,9 @@ function Invoke-PrivescCheck {
         "[!] Nothing found."
     }
 
-    "`n"
+    "`r`n"
 
-    "TEST: Checking WinLogon registry key..."
-    "DESC: Does the Winlogon registry key contain any cleartext password?"
-    "NOTE: Only entries containing a password are displayed."
+    Write-Banner -Category "Credentials" -Name "WinLogon" -Type Vuln -Note "Does the Winlogon registry key contain any cleartext password? Entries with an empty password field are filtered out."
     $Results = Invoke-WinlogonCheck
     if ($Results) {
         "[*] Found some info:"
@@ -5512,11 +5502,9 @@ function Invoke-PrivescCheck {
         "[!] Nothing found."
     }
 
-    "`n"
+    "`r`n"
 
-    "TEST: Checking Credential files..."
-    "DESC: Does the current user have any saved credentials?"
-    "NOTE: Saved credentials are actually stored as files in the current user's home folder."
+    Write-Banner -Category "Credentials" -Name "Credential Files" -Type Info -Note "Does the current user have any saved credentials?"
     $Results = Invoke-CredentialFilesCheck
     if ($Results) {
         "[*] Found $(([object[]]$Results).Length) file(s)."
@@ -5525,11 +5513,9 @@ function Invoke-PrivescCheck {
         "[!] Nothing found."
     }
 
-    "`n"
+    "`r`n"
 
-    "TEST: Checking Credential Manager..."
-    "DESC: Is there any credentials saved in the Credential Manager?"
-    "NOTE: vault::cred"
+    Write-Banner -Category "Credentials" -Name "Credential Manager" -Type Info -Note "Is there any credentials saved in the Credential Manager? vault::cred"
     $Results = Invoke-VaultCredCheck
     if ($Results) {
         "[*] Found $(([object[]]$Results).Length) result(s)."
@@ -5538,11 +5524,9 @@ function Invoke-PrivescCheck {
         "[!] Nothing found."
     }
 
-    "`n"
+    "`r`n"
 
-    "TEST: Checking Credential Manager (web)..."
-    "DESC: Is there any web credentials saved in the Credential Manager?"
-    "NOTE: vault::list"
+    Write-Banner -Category "Credentials" -Name "Credential Manager (web)" -Type Info -Note "Is there any web credentials saved in the Credential Manager? vault::list"
     $Results = Invoke-VaultListCheck
     if ($Results) {
         "[*] Found $(([object[]]$Results).Length) result(s)."
@@ -5551,11 +5535,9 @@ function Invoke-PrivescCheck {
         "[!] Nothing found."
     }
 
-    "`n"
+    "`r`n"
 
-    "TEST: Checking Cached Group Policy Preferences..."
-    "DESC: Is there any cached GPP containing a 'cpassword'?"
-    "NOTE: It has become very rare but it's still a quick win."
+    Write-Banner -Category "Credentials" -Name "GPP Passwords" -Type Vuln -Note "Is there any cached GPP containing a 'cpassword'?"
     $Results = Invoke-GPPPasswordCheck
     if ($Results) {
         "[*] Found $(([object[]]$Results).Length) credential(s)."
@@ -5564,15 +5546,9 @@ function Invoke-PrivescCheck {
         "[!] Nothing found."
     }
 
-    "`n"
+    "`r`n"
 
-    "----------------------------------------------------------------"
-    "|                       REGISTRY SETTINGS                      |"
-    "----------------------------------------------------------------"
-
-    "TEST: Checking UAC settings..."
-    "DESC: Is User Access Control enabled?"
-    "NOTE: EnableLUA=1 => UAC enabled / EnableLUA=0 => UAC disabled."
+    Write-Banner -Category "Registry" -Name "UAC Settings" -Type Conf -Note "Is User Access Control enabled?"
     $Results = Invoke-UacCheck
     if ($Results) {
         "[*] UAC status:"
@@ -5581,11 +5557,9 @@ function Invoke-PrivescCheck {
         "[!] Nothing found."
     }
     
-    "`n"
+    "`r`n"
 
-    "TEST: Checking LSA RunAsPPL..."
-    "DESC: Is lsass running as a Protected Process?"
-    "NOTE: If Secure Boot or UEFI, RunAsPPL cannot be disabled by deleting the registry key."
+    Write-Banner -Category "Registry" -Name "LSA RunAsPPL" -Type Conf -Note "Is lsass running as a Protected Process?"
     $Results = Invoke-LsaProtectionsCheck
     if ($Results) {
         "[*] Found some info."
@@ -5594,11 +5568,9 @@ function Invoke-PrivescCheck {
         "[!] Nothing found."
     }
 
-    "`n"
+    "`r`n"
 
-    "TEST: Checking LAPS settings..."
-    "DESC: Is the `"Local Administrator Password Solution`" enabled?"
-    "NOTE: Even if we can extract the local admin password/hash, we might not be able to replay it on other machines."
+    Write-Banner -Category "Registry" -Name "LAPS Settings" -Type Conf -Note "Is the `"Local Administrator Password Solution`" enabled?"
     $Results = Invoke-LapsCheck
     if ($Results) {
         "[*] LAPS status:"
@@ -5607,11 +5579,9 @@ function Invoke-PrivescCheck {
         "[!] Nothing found."
     }
     
-    "`n"
+    "`r`n"
 
-    "TEST: Checking PowerShell Transcription settings..."
-    "DESC: Is PowerShell Transcription enabled or even configured?"
-    "NOTE: If so, everything we do in PowerShell is logged into a file." 
+    Write-Banner -Category "Registry" -Name "PowerShell Transcription" -Type Conf -Note "Is PowerShell Transcription enabled or even configured?"
     $Results = Invoke-PowershellTranscriptionCheck
     if ($Results) {
         "[*] PowerShell Transcription is configured (and enabled?)."
@@ -5620,11 +5590,9 @@ function Invoke-PrivescCheck {
         "[!] Nothing found."
     }
     
-    "`n"
+    "`r`n"
 
-    "TEST: Checking AlwaysInstallElevated registry key..."
-    "DESC: Is the 'AlwaysInstallElevated' registry key enabled?"
-    "NOTE: If so, we might be able to run an MSI file as SYSTEM."
+    Write-Banner -Category "Registry" -Name "AlwaysInstallElevated" -Type Conf -Note "Is the 'AlwaysInstallElevated' registry key enabled?"
     $Results = Invoke-RegistryAlwaysInstallElevatedCheck
     if ($Results) {
         "[+] AlwaysInstallElevated is enabled."
@@ -5633,18 +5601,10 @@ function Invoke-PrivescCheck {
         "[!] Nothing found."
     }
     
-    "`n"
+    "`r`n"
 
-    "----------------------------------------------------------------"
-    "|                           NETWORK                            |"
-    "----------------------------------------------------------------"
-
-    "TEST: Checking TCP endpoints..."
-    "DESC: Is there any interesting/unusual service?"
-    #"NOTE: Default ports such as 445 are filtered out."
-    "NOTE: Showing all listening TCP endpoints."
-    #$Results = Invoke-TcpEndpointsCheck -Filtered
-    $Results = Invoke-TcpEndpointsCheck
+    Write-Banner -Category "Network" -Name "TCP Endpoints" -Type Info -Note "Is there any interesting/unusual service? Default ports such as 445 are filtered out."    
+    $Results = Invoke-TcpEndpointsCheck #$Results = Invoke-TcpEndpointsCheck -Filtered
     if ($Results) {
         "[*] Found $(([object[]]$Results).Length) TCP endpoints."
         $Results | Format-Table -AutoSize
@@ -5652,14 +5612,10 @@ function Invoke-PrivescCheck {
         "[!] Nothing found."
     }
 
-    "`n"
+    "`r`n"
 
-    "TEST: Checking UDP endpoints..."
-    "DESC: Is there any interesting/unusual service?"
-    #"NOTE: Default ports such as 500 are filtered out."
-    "NOTE: Showing all listening UDP endpoints (except DNS)."
-    #$Results = Invoke-UdpEndpointsCheck -Filtered
-    $Results = Invoke-UdpEndpointsCheck
+    Write-Banner -Category "Network" -Name "UDP Endpoints" -Type Info -Note "Is there any interesting/unusual service? Showing all listening UDP endpoints (except DNS)."
+    $Results = Invoke-UdpEndpointsCheck #$Results = Invoke-UdpEndpointsCheck -Filtered
     if ($Results) {
         "[*] Found $(([object[]]$Results).Length) UDP endpoints."
         $Results | Format-Table -AutoSize
@@ -5667,11 +5623,9 @@ function Invoke-PrivescCheck {
         "[!] Nothing found."
     }
 
-    "`n"
+    "`r`n"
 
-    "TEST: Checking saved Wifi profiles..."
-    "DESC: Can we extract any saved WEP key or PSK passphrase?"
-    "NOTE: This can be useful for lateral movement?"
+    Write-Banner -Category "Network" -Name "Saved Wifi Profiles" -Type Info -Note "Can we extract any saved WEP key or PSK passphrase?"
     $Results = Invoke-WlanProfilesCheck
     if ($Results) {
         "[*] Found $(([object[]]$Results).Length) saved Wifi profiles."
@@ -5680,15 +5634,9 @@ function Invoke-PrivescCheck {
         "[!] Nothing found."
     }
 
-    "`n"
+    "`r`n"
 
-    "----------------------------------------------------------------"
-    "|                             MISC                             |"
-    "----------------------------------------------------------------"
-
-    "TEST: Checking last Windows Update installation date..."
-    "DESC: Has the OS been updated lately?"
-    "NOTE: If the last update is more than 1 month old, we might be able to use some public exploits."
+    Write-Banner -Category "Misc" -Name "Last Windows Update Date" -Type Info -Note "Has the OS been updated lately? If the last update is more than 1 month old, we might be able to use some public exploits."
     $Results = Invoke-WindowsUpdateCheck 
     if ($Results) {
         "[*] Last update time:"
@@ -5697,11 +5645,9 @@ function Invoke-PrivescCheck {
         "[!] Nothing found."
     }
 
-    "`n"
+    "`r`n"
 
-    "TEST: Checking system version..."
-    "DESC: What is the exact version number of the system?"
-    "NOTE: If we can't get the last system update date and time, this can be useful."
+    Write-Banner -Category "Misc" -Name "OS Version" -Type Info -Note "What is the exact version number of the system? If we can't get the last system update date and time, this can be useful."
     $Results = Invoke-SystemInfoCheck
     if ($Results) {
         "[*] Found some info."
@@ -5710,11 +5656,9 @@ function Invoke-PrivescCheck {
         "[!] Nothing found."
     }
 
-    "`n"
+    "`r`n"
 
-    "TEST: Checking local admin group..."
-    "DESC: Who is a member of the local administator group?"
-    "NOTE: It's useful to know which user account we can try to compromise next."
+    Write-Banner -Category "Misc" -Name "Local Admin Group" -Type Info -Note "Who is a member of the local administator group? It might be useful to know which user account we could try to compromise next."
     $Results = Invoke-LocalAdminGroupCheck
     if (([object[]]$Results).Length -gt 0) {
         "[*] The default local admin group has $(([object[]]$Results).Length) member(s)."
@@ -5723,11 +5667,9 @@ function Invoke-PrivescCheck {
         "[!] Nothing found."
     }
     
-    "`n"
+    "`r`n"
 
-    "TEST: Checking user home folders..."
-    "DESC: Do we have R/W access to any other home folder?"
-    "NOTE: Weak permissions may lead to disclosure of sensitive data or even privilege escalation."
+    Write-Banner -Category "Misc" -Name "User Home Folders" -Type Conf -Note "Do we have R/W access to any other home folder?"
     $Results = Invoke-UsersHomeFolderCheck
     if ($Results) {
         "[*] Found some info."
@@ -5736,11 +5678,9 @@ function Invoke-PrivescCheck {
         "[!] Nothing found"
     }
 
-    "`n"
+    "`r`n"
 
-    "TEST: Checking machine role..."
-    "DESC: Is it a Workstation / Server / Domain Controller?"
-    "NOTE: Not the most useful piece of information, but eh, it doesn't hurt."
+    Write-Banner -Category "Misc" -Name "Machine Role" -Type Info -Note "Is it a Workstation / Server / Domain Controller?"
     $Results = Invoke-MachineRoleCheck 
     if ($Results) {
         "[*] Found some info."
@@ -5749,11 +5689,9 @@ function Invoke-PrivescCheck {
         "[!] Nothing found"
     }
 
-    "`n"
+    "`r`n"
 
-    "TEST: Checking system startup history..."
-    "DESC: Can we extract the startup history from the Event Log?"
-    "NOTE: If the machine is frequently rebooted, we could exploit services that can't be restarted manually."
+    Write-Banner -Category "Misc" -Name "System Startup History" -Type Info -Note "Can we extract the startup history from the Event Log?"
     $Results = Invoke-SystemStartupHistoryCheck
     if (([object[]]$Results).Length -gt 0) {
         "[*] Found $(([object[]]$Results).Length) startup event(s) in the last 31 days."
@@ -5763,11 +5701,9 @@ function Invoke-PrivescCheck {
         "[!] Nothing found."
     }
 
-    "`n"
+    "`r`n"
 
-    "TEST: Checking last system startup..."
-    "DESC: Can we calculate the last system startup date based on the current tick count?"
-    "NOTE: We might not be able to get the system startup history from the Event Log but we can check the uptime."
+    Write-Banner -Category "Misc" -Name "Last System Startup" -Type Info -Note "Can we calculate the last system startup date based on the current tick count? /!\ This might be unreliable."
     $Results = Invoke-SystemStartupCheck
     if ($Results) {
         "[*] Last startup event time:"
@@ -5776,15 +5712,13 @@ function Invoke-PrivescCheck {
         "[!] Nothing found."
     }
 
-    "`n"
+    "`r`n"
 
-    "TEST: Checking file system drives..."
-    "DESC: Is there any other partition or mapped share?"
-    "NOTE: It's quite common to see program folders configured with weak permissions on additional partitions."
+    Write-Banner -Category "Misc" -Name "Filesystem Drives" -Type Info -Note "Is there any other partition or mapped share?"
     $Results = Invoke-SystemDrivesCheck
     "[*] Found $(([object[]]$Results).Length) drive(s)."
     $Results | Format-Table -AutoSize
 
-    "`n"
+    "`r`n"
 }
 #endregion Main
