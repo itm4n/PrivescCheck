@@ -3769,46 +3769,47 @@ function Invoke-CredentialFilesCheck {
     
     [CmdletBinding()] param()
 
-    function Get-CredentialFiles {
-        [CmdletBinding()] param(
-            [string]
-            $Path 
-        )
-        $Result = New-Object System.Collections.ArrayList
-        # User '-Force' rather that '-Hidden' for PS2 compatibility 
-        #$Items = Get-ChildItem -Hidden -Path $Path -ErrorAction SilentlyContinue -ErrorVariable Errors 
-        $Items = Get-ChildItem -Force -Path $Path -ErrorAction SilentlyContinue -ErrorVariable Errors
-        if (-not $Errors) {
-            ForEach ($Item in $Items) {
-                $FullPath = Join-Path -Path $Path -ChildPath $Item.Name 
-                if (-not ($FullPath -eq (Join-Path -Path $Path -ChildPath ""))) {
-                    $FileObject = New-Object -TypeName PSObject 
-                    $FileObject | Add-Member -MemberType "NoteProperty" -Name "FullPath" -Value $FullPath
-                    #$FileObject | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $Item.Name
-                    #$FileObject | Add-Member -MemberType "NoteProperty" -Name "Folder" -Value $Path
-                    [void]$Result.Add($FileObject)
+    $CredentialsFound = $False
+
+    $Paths = New-Object -TypeName System.Collections.ArrayList
+    [void] $Paths.Add($(Join-Path -Path $env:LOCALAPPDATA -ChildPath "Microsoft\Credentials"))
+    [void] $Paths.Add($(Join-Path -Path $env:APPDATA -ChildPath "Microsoft\Credentials"))
+
+    ForEach ($Path in [string[]]$Paths) {
+
+        Get-ChildItem -Force -Path $Path -ErrorAction SilentlyContinue | ForEach-Object {
+
+            $Result = New-Object -TypeName PSObject 
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Type" -Value "Credentials"
+            $Result | Add-Member -MemberType "NoteProperty" -Name "FullPath" -Value $_.FullName
+            $Result
+
+            if (-not $CredentialsFound) { $CredentialsFound = $True }
+        }
+    }
+
+    if ($CredentialsFound) {
+
+        $CurrentUser = Invoke-UserCheck
+
+        if ($CurrentUser -and $CurrentUser.SID) {
+    
+            $Paths = New-Object -TypeName System.Collections.ArrayList
+            [void] $Paths.Add($(Join-Path -Path $env:LOCALAPPDATA -ChildPath "Microsoft\Protect\$($CurrentUser.SID)"))
+            [void] $Paths.Add($(Join-Path -Path $env:APPDATA -ChildPath "Microsoft\Protect\$($CurrentUser.SID)"))
+    
+            ForEach ($Path in [string[]]$Paths) {
+    
+                Get-ChildItem -Force -Path $Path -ErrorAction SilentlyContinue | Where-Object {$_.Name.Length -eq 36 } | ForEach-Object {
+        
+                    $Result = New-Object -TypeName PSObject 
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "Type" -Value "Protect"
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "FullPath" -Value $_.FullName
+                    $Result
                 }
             }
-        }
-        return $Result
-    }
-
-    $CredentialFilesResult = New-Object -TypeName System.Collections.ArrayList
-
-    $PathLocalAppData = Join-Path -Path $env:LOCALAPPDATA -ChildPath "Microsoft\Credentials"
-    $PathAppData = Join-Path -Path $env:APPDATA -ChildPath "Microsoft\Credentials"
-
-    $Items = Get-CredentialFiles -Path $PathLocalAppData
-    if ($Items) {
-        [void]$CredentialFilesResult.AddRange([object[]]$Items)
-    }
-
-    $Items = Get-CredentialFiles -Path $PathAppData
-    if ($Items) {
-        [void]$CredentialFilesResult.AddRange([object[]]$Items)
-    }
-
-    $CredentialFilesResult
+        } 
+    } 
 }
 
 function Invoke-VaultCredCheck {
@@ -5740,7 +5741,7 @@ function Invoke-PrivescCheck {
     $Results = Invoke-CredentialFilesCheck
     if ($Results) {
         "[*] Found $(([object[]]$Results).Length) file(s)."
-        $Results | Format-Table -AutoSize
+        $Results | Format-List
     } else {
         "[!] Nothing found."
     }
