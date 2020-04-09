@@ -1,5 +1,6 @@
 2020-04-09
     - Added DLL Hijacking > Invoke-HijackableDllsCheck
+    - Added Applications > Invoke-ScheduledTasksCheck
 
 2020-04-08
     - Added Misc > Invoke-UsersHomeFolderCheck

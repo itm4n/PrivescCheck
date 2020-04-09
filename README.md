@@ -104,6 +104,7 @@ Invoke-InstalledProgramsCheck - Enumerates the applications that are not install
 Invoke-ModifiableProgramsCheck - Enumerates applications which have a modifiable EXE of DLL file
 Invoke-ApplicationsOnStartupCheck - Enumerates the applications which are run on startup
 Invoke-RunningProcessCheck - Enumerates the running processes
+Invoke-ScheduledTasksCheck - Enumrates scheduled tasks with a modifiable path
 ```
 
 ### Credentials
