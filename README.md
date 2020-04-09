@@ -94,6 +94,7 @@ Invoke-ServicesUnquotedPathCheck - Enumerates services with an unquoted path tha
 
 ```
 Invoke-DllHijackingCheck - Checks whether any of the system path folders is modifiable
+Invoke-HijackableDllsCheck - Lists hijackable DLLs depending on the version of the OS
 ```
 
 ### Programs
