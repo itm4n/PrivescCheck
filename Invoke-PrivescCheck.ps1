@@ -1180,6 +1180,33 @@ function Get-InstalledPrograms {
     }
 }
 
+function Get-ServiceFromRegistry {
+
+    [CmdletBinding()] param(
+        [string]$Name
+    )
+
+    $ServicesRegPath = "HKLM\SYSTEM\CurrentControlSet\Services" 
+    $ServiceRegPath = Join-Path -Path $ServicesRegPath -ChildPath $Name
+
+    $ServiceProperties = Get-ItemProperty -Path "Registry::$ServiceRegPath" -ErrorAction SilentlyContinue -ErrorVariable GetItemPropertyError
+    if (-not $GetItemPropertyError) {
+
+        $DisplayName = [System.Environment]::ExpandEnvironmentVariables($ServiceProperties.DisplayName)
+
+        $ServiceItem = New-Object -TypeName PSObject 
+        $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $ServiceProperties.PSChildName
+        $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "DisplayName" -Value $DisplayName
+        $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "User" -Value $ServiceProperties.ObjectName 
+        $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "ImagePath" -Value $ServiceProperties.ImagePath 
+        $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "StartMode" -Value $(Convert-ServiceStartModeToString -StartMode $ServiceProperties.Start)
+        $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "Type" -Value $(Convert-ServiceTypeToString -ServiceType $Properties.Type)
+        $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "RegistryKey" -Value $ServiceProperties.Name
+        $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "RegistryPath" -Value $ServiceProperties.PSPath
+        $ServiceItem
+    }
+}
+
 function Get-ServiceList {
     <#
     .SYNOPSIS
@@ -5651,8 +5678,9 @@ function Invoke-HijackableDllsCheck {
     $OsVersion = [System.Environment]::OSVersion.Version
 
     if ($OsVersion.Major -eq 10) {
-        $Service = Get-Service -Name "CDPSvc" -ErrorAction SilentlyContinue -ErrorVariable ErrorGetService
-        if ((-not $ErrorGetService) -and ($Service.StartType -ne "Disabled")) {
+        #$Service = Get-Service -Name "CDPSvc" -ErrorAction SilentlyContinue -ErrorVariable ErrorGetService
+        $Service = Get-ServiceFromRegistry -Name "CDPSvc"
+        if ($Service -and ($Service.StartMode -ne "Disabled")) {
             $DllName = "cdpsgshims.dll"
             if (-not (Test-DllExists -Name $DllName)) {
                 $ServiceItem = New-Object -TypeName PSObject
@@ -5667,8 +5695,9 @@ function Invoke-HijackableDllsCheck {
 
     # Windows 7, 8, 8.1
     if (($OsVersion.Major -eq 6) -and ($OsVersion.Minor -ge 1) -and ($OsVersion.Minor -le 3)) {
-        $Service = Get-Service -Name "DiagTrack" -ErrorAction SilentlyContinue -ErrorVariable ErrorGetService
-        if ((-not $ErrorGetService) -and ($Service.StartType -ne "Disabled")) {
+        #$Service = Get-Service -Name "DiagTrack" -ErrorAction SilentlyContinue -ErrorVariable ErrorGetService
+        $Service = Get-ServiceFromRegistry -Name "DiagTrack"
+        if ($Service -and ($Service.StartMode -ne "Disabled")) {
             $DllName = "windowsperformancerecordercontrol.dll"
             if (-not (Test-DllExists -Name $DllName)) {
                 $ServiceItem = New-Object -TypeName PSObject
@@ -5693,13 +5722,14 @@ function Invoke-HijackableDllsCheck {
 
     # Windows Vista, 7, 8
     if (($OsVersion.Major -eq 6) -and ($OsVersion.Minor -ge 0) -and ($OsVersion.Minor -le 2)) {
-        $Service = Get-Service -Name "IKEEXT" -ErrorAction SilentlyContinue -ErrorVariable ErrorGetService
-        if ((-not $ErrorGetService) -and ($Service.StartType -ne "Disabled")) {
+        #$Service = Get-Service -Name "IKEEXT" -ErrorAction SilentlyContinue -ErrorVariable ErrorGetService
+        $Service = Get-ServiceFromRegistry -Name "IKEEXT"
+        if ($Service -and ($Service.StartMode -ne "Disabled")) {
 
-            if ($Service.Status -eq "Stopped") {
-                $RebootRequired = $False 
-            } else {
-                $RebootRequired = $True
+            $RebootRequired = $True
+            $Service = Get-Service -Name "IKEEXT" -ErrorAction SilentlyContinue -ErrorVariable ErrorGetService
+            if ((-not $ErrorGetService) -and ($Service.Status -eq "Stopped")) {
+                $RebootRequired = $False
             }
 
             $DllName = "wlbsctrl.dll"
@@ -5716,8 +5746,9 @@ function Invoke-HijackableDllsCheck {
 
     # Windows 7
     if (($OsVersion.Major -eq 6) -and ($OsVersion.Minor -eq 1)) {
-        $Service = Get-Service -Name "NetMan" -ErrorAction SilentlyContinue -ErrorVariable ErrorGetService
-        if ((-not $ErrorGetService) -and ($Service.StartType -ne "Disabled")) {
+        #$Service = Get-Service -Name "NetMan" -ErrorAction SilentlyContinue -ErrorVariable ErrorGetService
+        $Service = Get-ServiceFromRegistry -Name "NetMan"
+        if ($Service -and ($Service.StartMode -ne "Disabled")) {
             $DllName = "wlanhlp.dll"
             if (-not (Test-DllExists -Name $DllName)) {
                 $ServiceItem = New-Object -TypeName PSObject
@@ -5731,9 +5762,10 @@ function Invoke-HijackableDllsCheck {
     }
 
     # Windows 8, 8.1, 10
-    if (($OsVersion -eq 10) -or (($OsVersion.Major -eq 6) -and ($OsVersion.Minor -ge 2) -and ($OsVersion.Minor -le 3))) {
-        $Service = Get-Service -Name "NetMan" -ErrorAction SilentlyContinue -ErrorVariable ErrorGetService
-        if ((-not $ErrorGetService) -and ($Service.StartType -ne "Disabled")) {
+    if (($OsVersion.Major -eq 10) -or (($OsVersion.Major -eq 6) -and ($OsVersion.Minor -ge 2) -and ($OsVersion.Minor -le 3))) {
+        # $Service = Get-Service -Name "NetMan" -ErrorAction SilentlyContinue -ErrorVariable ErrorGetService
+        $Service = Get-ServiceFromRegistry -Name "NetMan"
+        if ($Service -and ($Service.StartMode -ne "Disabled")) {
             $DllName = "wlanapi.dll"
             if (-not (Test-DllExists -Name $DllName)) {
                 $ServiceItem = New-Object -TypeName PSObject
@@ -6189,7 +6221,7 @@ function Invoke-PrivescCheck {
     $Results = Invoke-WlanProfilesCheck
     if ($Results) {
         "[*] Found $(([object[]]$Results).Length) saved Wifi profiles."
-        $Results | Format-Table -AutoSize
+        $Results | Format-List
     } else {
         "[!] Nothing found."
     }
