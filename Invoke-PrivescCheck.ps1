@@ -372,8 +372,6 @@ try {
 #region Helpers 
 $global:IgnoredPrograms = @("Common Files", "Internet Explorer", "ModifiableWindowsApps", "PackageManagement", "Windows Defender", "Windows Defender Advanced Threat Protection", "Windows Mail", "Windows Media Player", "Windows Multimedia Platform", "Windows NT", "Windows Photo Viewer", "Windows Portable Devices", "Windows Security", "WindowsPowerShell", "Microsoft.NET", "Windows Portable Devices", "dotnet", "MSBuild", "Intel", "Reference Assemblies")
 
-$global:IgnoredServices = @("1394ohci", "3ware", "AarSvc", "ACPI", "AcpiDev", "acpiex", "acpipagr", "AcpiPmi", "acpitime", "Acx01000", "ADOVMPPackage", "ADP80XX", "adsi", "ADWS", "AeLookupSvc", "AFD", "afunix", "ahcache", "AJRouter", "ALG", "AllUserInstallAgent", "amdgpio2", "amdi2c", "AmdK8", "AmdPPM", "amdsata", "amdsbs", "amdxata", "AppID", "AppIDSvc", "Appinfo", "applockerfltr", "AppMgmt", "AppReadiness", "AppHostSvc", "AppVClient", "AppvStrm", "AppvVemgr", "AppvVfs", "AppXSvc", "arcsas", "aspnet_state", "AssignedAccessManagerSvc", "AsyncMac", "atapi", "AudioEndpointBuilder", "Audiosrv", "autotimesvc", "AxInstSV", "b06bdrv", "bam", "BasicDisplay", "BasicRender", "BattC", "BcastDVRUserService", "bcmfn2", "BDESVC", "Beep", "BFE", "bindflt", "BITS", "BluetoothUserService", "bowser", "BrokerInfrastructure", "Browser", "BTAGService", "BthA2dp", "BthAvctpSvc", "BthEnum", "BthHFEnum", "BthLEEnum", "BthMini", "BTHMODEM", "BthPan", "BTHPORT", "bthserv", "BTHUSB", "bttflt", "buttonconverter", "CAD", "camsvc", "CaptureService", "cbdhsvc", "cdfs", "CDPSvc", "CDPUserSvc", "cdrom", "CertPropSvc", "cht4iscsi", "cht4vbd", "CimFS", "circlass", "CldFlt", "CLFS", "ClipSVC", "CmBatt", "CNG", "cnghwassist", "CompositeBus", "COMSysApp", "condrv", "ConsentUxUserSvc", "CoreMessagingRegistrar", "CoreUI", "CredentialEnrollmentManagerUserSvc", "crypt32", "CryptSvc", "CSC", "CscService", "dam", "DCLocator", "DcomLaunch", "defragsvc", "DeviceAssociationBrokerSvc", "DeviceAssociationService", "DeviceInstall", "DevicePickerUserSvc", "DevicesFlowUserSvc", "DevQueryBroker", "Dfs", "Dfsc", "DFSR", "Dhcp", "diagnosticshub.standardcollector.service", "diagsvc", "DiagTrack", "disk", "DispBrokerDesktopSvc", "DisplayEnhancementService", "DmEnrollmentSvc", "dmvsc", "dmwappushservice", "DNS", "Dnscache", "DoSvc", "dot3svc", "DPS", "drmkaud", "DsmSvc", "DsRoleSvc", "DsSvc", "DusmSvc", "DXGKrnl", "e1i65x64", "Eaphost", "ebdrv", "EFS", "ehRecvr", "ehSched", "EhStorClass", "EhStorTcgDrv", "embeddedmode", "EntAppSvc", "ErrDev", "ESENT", "EventLog", "EventSystem", "exfat", "fastfat", "Fax", "fdc", "fdPHost", "FDResPub", "fhsvc", "FileCrypt", "FileInfo", "Filetrace", "flpydisk", "FltMgr", "FontCache", "FrameServer", "FsDepends", "Fs_Rec", "fvevol", "gencounter", "genericusbfn", "GPIOClx0101", "gpsvc", "GpuEnergyDrv", "GraphicsPerfSvc", "HdAudAddService", "HDAudBus", "HidBatt", "HidBth", "hidi2c", "hidinterrupt", "HidIr", "hidserv", "hidspi", "HidUsb", "hkmsvc", "HomeGroupListener", "HomeGroupProvider", "HpSAMD", "HTTP", "hvcrash", "HvHost", "hvservice", "HwNClx0101", "hwpolicy", "hyperkbd", "HyperVideo", "i8042prt", "iagpio", "iai2c", "iaStorAV", "iaStorAVC", "iaStorV", "ibbus", "icssvc", "idsvc", "IEEtwCollectorService", "IKEEXT", "IndirectKmd", "inetaccs", "InstallService", "intelide", "intelpep", "intelpmax", "intelppm", "iorate", "IPBusEnum", "IpFilterDriver", "iphlpsvc", "IPMIDRV", "IPNAT", "IPT", "IpxlatCfgSvc", "isapnp", "iScsiPrt", "IsmServ", "ItSas35i", "kbdclass", "kbdhid", "Kdc", "KdsSvc", "kdnic", "KeyIso", "KPSSVC", "KSecDD", "KSecPkg", "ksthunk", "KtmRm", "LanmanServer", "LanmanWorkstation", "ldap", "lfsvc", "LicenseManager", "lltdio", "lltdsvc", "lmhosts", "Lsa", "LSI_SAS", "LSI_SAS2i", "LSI_SAS3i", "LSI_SSS", "LSM", "luafv", "LxpSvc", "MapsBroker", "mausbhost", "mausbip", "MbbCx", "Mcx2Svc", "megasas", "megasas2i", "megasas35i", "megasr", "MessagingService", "Microsoft_Bluetooth_AvrcpTransport", "MixedRealityOpenXRSvc", "mlx4_bus", "MMCSS", "Modem", "monitor", "mouclass", "mouhid", "mountmgr", "mpsdrv", "mpssvc", "MRxDAV", "mrxsmb", "mrxsmb20", "MsBridge", "Msfs", "msgpiowin32", "mshidkmdf", "mshidumdf", "msisadrv", "MSiSCSI", "msiserver", "MSKSSRV", "MsLldp", "MSPCLOCK", "MSPQM", "MsQuic", "MsRPC", "MSSCNTRS", "MsSecFlt", "mssmbios", "MSTEE", "MTConfig", "Mup", "mvumis", "napagent", "NativeWifiP", "NaturalAuthentication", "NcaSvc", "NcbService", "NcdAutoSetup", "ndfltr", "NDIS", "NdisCap", "NdisImPlatform", "NdisTapi", "Ndisuio", "NdisVirtualBus", "NdisWan", "ndiswanlegacy", "NDKPing", "ndproxy", "Ndu", "NetAdapterCx", "NetBIOS", "NetbiosSmb", "NetBT", "NetMsmqActivator", "NetPipeActivator", "NetTcpActivator", "Netlogon", "Netman", "netprofm", "NetSetupSvc", "NetTcpPortSharing", "netvsc", "NgcCtnrSvc", "NgcSvc", "NlaSvc", "Npfs", "npsvctrig", "nsi", "nsiproxy", "NTDS", "Ntfs", "NtFrs", "Null", "nvdimm", "nvraid", "nvstor", "OneSyncSvc", "p2pimsvc", "p2psvc", "Parport", "partmgr", "PcaSvc", "pci", "pciide", "pcmcia", "pcw", "pdc", "PEAUTH", "PeerDistSvc", "PenService", "perceptionsimulation", "percsas2i", "percsas3i", "PerfDisk", "PerfHost", "PerfNet", "PerfOS", "PerfProc", "PhoneSvc", "PimIndexMaintenanceSvc", "PktMon", "pla", "PlugPlay", "pmem", "PNPMEM", "PNRPAutoReg", "PNRPsvc", "PolicyAgent", "portcfg", "PortProxy", "Power", "PptpMiniport", "PrintNotify", "PrintWorkflowUserSvc", "Processor", "ProfSvc", "ProtectedStorage", "Psched", "PushToInstall", "pvscsi", "QWAVE", "QWAVEdrv", "Ramdisk", "RasAcd", "RasAgileVpn", "RasAuto", "Rasl2tp", "RasMan", "RasPppoe", "RasSstp", "rdbss", "RDMANDK", "rdpbus", "RDPDR", "RDPNP", "RDPUDD", "RdpVideoMiniport", "rdyboost", "ReFS", "ReFSv1", "FCRegSvc", "RemoteAccess", "RemoteRegistry", "RetailDemo", "RFCOMM", "rhproxy", "RmSvc", "RpcEptMapper", "RpcLocator", "RpcSs", "RSoPProv", "rspndr", "s3cap", "sacsvr", "SamSs", "sbp2port", "SCardSvr", "ScDeviceEnum", "scfilter", "Schedule", "scmbus", "SCPolicySvc", "sdbus", "SDFRd", "SDRSVC", "sdstor", "seclogon", "SecurityHealthService", "SEMgrSvc", "SENS", "Sense", "SensorDataService", "SensorService", "SensrSvc", "SerCx", "SerCx2", "Serenum", "Serial", "sermouse", "SessionEnv", "sfloppy", "SgrmAgent", "SgrmBroker", "SharedAccess", "SharedRealitySvc", "ShellHWDetection", "shpamsvc", "SiSRaid2", "SiSRaid4", "SmartSAMD", "smbdirect", "smphost", "SmsRouter", "SMSvcHost 4.0.0.0", "SNMPTRAP", "spaceparser", "spaceport", "SpatialGraphFilter", "SpbCx", "spectrum", "Spooler", "sppsvc", "sppuinotify", "srv2", "srvnet", "SSDPSRV", "ssh-agent", "SstpSvc", "StateRepository", "stexstor", "stisvc", "storahci", "storflt", "stornvme", "storqosflt", "StorSvc", "storufs", "storvsc", "svsvc", "swenum", "swprv", "Synth3dVsc", "SysMain", "SystemEventsBroker", "TabletInputService", "TapiSrv", "Tcpip", "Tcpip6", "TCPIP6TUNNEL", "tcpipreg", "TCPIPTUNNEL", "tdx", "Telemetry", "terminpt", "TermService", "Themes", "TieringEngineService", "TimeBroker", "TimeBrokerSvc", "THREADORDER", "TokenBroker", "TPM", "TrkWks", "TroubleshootingSvc", "TrustedInstaller", "TSDDD", "TsUsbFlt", "TsUsbGD", "tsusbhub", "tunnel", "tzautoupdate", "UALSVC", "UASPStor", "UcmCx0101", "UcmTcpciCx0101", "UcmUcsiAcpiClient", "UcmUcsiCx0101", "Ucx01000", "UdeCx", "udfs", "UdkUserSvc", "UEFI", "UevAgentDriver", "UevAgentService", "Ufx01000", "UfxChipidea", "ufxsynopsys", "UGatherer", "UGTHRSVC", "UI0Detect", "umbus", "UmPass", "UmRdpService", "UnistoreSvc", "upnphost", "UrsChipidea", "UrsCx01000", "UrsSynopsys", "usbaudio", "usbaudio2", "usbccgp", "usbcir", "usbehci", "usbhub", "USBHUB3", "usbohci", "usbprint", "usbser", "USBSTOR", "usbuhci", "USBXHCI", "UserDataSvc", "UserManager", "UsoSvc", "UxSms", "VacSvc", "VaultSvc", "vdrvroot", "vds", "VerifierExt", "VGAuthService", "vhdmp", "vhf", "Vid", "VirtualRender", "vm3dmp", "vm3dmp-debug", "vm3dmp-stats", "vm3dmp_loader", "vmbus", "VMBusHID", "vmci", "vmgid", "vmhgfs", "vmicguestinterface", "vmicheartbeat", "vmickvpexchange", "vmicrdv", "vmicshutdown", "vmictimesync", "vmicvmsession", "vmicvss", "VMMemCtl", "vmmouse", "vmrawdsk", "vmusbmouse", "vmvss", "vmwefifw", "vmxnet3ndis6", "volmgr", "volmgrx", "volsnap", "volume", "vpci", "vsmraid", "vsock", "VSS", "VSTXRAID", "vwifibus", "vwififlt", "W32Time", "w3logsvc", "W3SVC", "WaaSMedicSvc", "WAS", "WacomPen", "WalletService", "wanarp", "wanarpv6", "WarpJITSvc", "WatAdminSvc", "wbengine", "WbioSrvc", "wcifs", "Wcmsvc", "wcncsvc", "wcnfs", "WcsPlugInService", "WdBoot", "Wdf01000", "WdFilter", "WdiServiceHost", "WdiSystemHost", "wdiwifi", "WdmCompanionFilter", "WdNisDrv", "WdNisSvc", "WebClient", "Wecsvc", "WEPHOSTSVC", "wercplsupport", "WerSvc", "WFDSConMgrSvc", "WFPLWFS", "WiaRpc", "WIMMount", "WinDefend", "Windows Workflow Foundation 4.0.0.0", "WindowsTrustedRT", "WindowsTrustedRTProxy", "WinHttpAutoProxySvc", "WinMad", "Winmgmt", "WinNat", "WinRM", "Winsock", "WinSock2", "WINUSB", "WinVerbs", "wisvc", "WlanSvc", "wlidsvc", "WLMS", "wlpasvc", "WManSvc", "WmiAcpi", "WmiApRpl", "wmiApSrv", "WMPNetworkSvc", "Wof", "workerdd", "workfolderssvc", "WpcMonSvc", "WPCSvc", "WPDBusEnum", "WpdUpFltr", "WpnService", "WpnUserService", "ws2ifsl", "wscsvc", "WSearch", "WSearchIdxPi", "WSService", "wuauserv", "WudfPf", "WUDFRd", "wudfsvc", "WwanSvc", "XblAuthManager", "XblGameSave", "xboxgip", "XboxGipSvc", "XboxNetApiSvc", "xinputhid", "xmlprov")
-
 function Convert-DateToString {
     <#
     .SYNOPSIS
@@ -507,50 +505,42 @@ function Convert-ServiceStartModeToString {
 }
 
 function Test-IsKnownService {
-    <#
-    .SYNOPSIS
 
-    Helper - Compares a service name against a list of known service name patterns
-
-    Author: @itm4n
-    License: BSD 3-Clause
-    
-    .DESCRIPTION
-
-    In Windows 10, a lot of services were added. Although they are the same, their name will vary 
-    from an installation to another. The pattern of their name is "service_XXXXXXXX" where 
-    "XXXXXXXX" is random hexadecimal string which is "unique" to an installation of Windows. The
-    aim of this function is to determine whether a given service name matches this pattern.
-    
-    .PARAMETER ServiceName
-
-    The name of a service as a String
-    
-    .EXAMPLE
-
-    PS C:\> Test-IsKnownService -ServiceName 'CaptureService_1fe3b73d'
-    
-    True
-    
-    #>
-    
     [CmdletBinding()] param(
-        [string]
-        $ServiceName
+        [object]$Service
     )
 
-    $KnownServices = @("AarSvc_*", "BcastDVRUserService_*", "BluetoothUserService_*", "CaptureService_*", "cbdhsvc_*", "CDPUserSvc_*", "clr_optimization_*", "ConsentUxUserSvc_*", "CredentialEnrollmentManagerUserSvc_*", "DeviceAssociationBrokerSvc_*", "DevicePickerUserSvc_*", "DevicesFlowUserSvc_*", "FontCache*", "iaLPSS*", "IpOverUsbSvc", "LxssManager*", "MessagingService_*", "MSDTC*", ".NET*", "OneSyncSvc_*", "PenService_*", "PimIndexMaintenanceSvc_*", "PrintWorkflowUserSvc_*", "UdkUserSvc_*", "UnistoreSvc_*", "UserDataSvc_*", "WpnUserService_*")
+    if ($Service) {
 
-    if ($global:IgnoredServices -contains $ServiceName) {
-        return $True 
-    } else {
-        ForEach ($KnownService in $KnownServices) {
-            if ($ServiceName -like $KnownService) {
-                return $True 
+        $ImagePath = $Service.ImagePath        
+
+        $SeparationCharacterSets = @('"', "'", ' ', "`"'", '" ', "' ", "`"' ")
+
+        ForEach($SeparationCharacterSet in $SeparationCharacterSets) {
+
+            $CandidatePaths = $ImagePath.Split($SeparationCharacterSet) | Where-Object {$_ -and ($_.trim() -ne '')}
+
+            ForEach($CandidatePath in $CandidatePaths) {
+
+                $TempPath = $([System.Environment]::ExpandEnvironmentVariables($CandidatePath))
+                $TempPathResolved = Resolve-Path -Path $TempPath -ErrorAction SilentlyContinue -ErrorVariable ErrorResolvePath 
+                if (-not $ErrorResolvePath) {
+
+                    $File = Get-Item -Path $TempPathResolved -ErrorAction SilentlyContinue -ErrorVariable ErrorGetItem 
+                    if (-not $ErrorGetItem) {
+
+                        if ($File.VersionInfo.LegalCopyright -Like "*Microsoft Corporation*") {
+                            return $True 
+                        } else {
+                            return $False
+                        }
+                    }
+                }
             }
         }
     }
-    return $False 
+
+    return $False
 }
 
 function Get-UserPrivileges {
@@ -1308,7 +1298,7 @@ function Get-ServiceList {
                     continue
                 }
 
-                if (-not (Test-IsKnownService -ServiceName $Properties.PSChildName)) {
+                if (-not (Test-IsKnownService -Service $ServiceItem)) {
                     # FilterLevel = 3 - Add the service if it's not a built-in Windows service 
                     if ($FilterLevel -le 3) {
                         $ServiceItem
@@ -3634,17 +3624,6 @@ function Invoke-UserPrivilegesCheck {
     ----                   -----   -----------
     SeImpersonatePrivilege Enabled Impersonate a client after authentication
     
-    .NOTES
-
-    Interesting privileges:
-
-        - SeAssignPrimaryTokenPrivilege
-        - SeImpersonatePrivilege
-        - SeCreateTokenPrivilege
-        - SeDebugPrivilege
-        - SeLoadDriverPrivilege
-        - SeRestorePrivilege
-        - SeTakeOwnershipPrivilege
     #>
 
     [CmdletBinding()] param()    
@@ -5875,7 +5854,7 @@ function Invoke-PrivescCheck {
         return
     }
 
-    Write-Banner -Category "user" -Name "whoami" -Type Info -Note "What's my username / SID?"
+    Write-Banner -Category "user" -Name "whoami" -Type Info -Note "Gets the name and the SID of the current user."
     $Results = Invoke-UserCheck
     if ($Results) {
         "[*] Found some info:"
@@ -5886,7 +5865,7 @@ function Invoke-PrivescCheck {
 
     "`r`n"
 
-    Write-Banner -Category "user" -Name "whoami /groups" -Type Conf -Note "Do I belong to any interesting group(s)? Additional groups give you additional privileges. Default groups are filtered out."
+    Write-Banner -Category "user" -Name "whoami /groups" -Type Conf -Note "Gets the non-default groups the current user belongs to."
     $Results = Invoke-UserGroupsCheck
     if ($Results) {
         "[+] Found $(([object[]]$Results).Length) non-default group(s)."
@@ -5897,7 +5876,7 @@ function Invoke-PrivescCheck {
 
     "`r`n"
 
-    Write-Banner -Category "user" -Name "whoami /priv" -Type Conf -Note "Do I have any interesting privilege(s)? Privileges such as SeImpersonate or SeAssignPrimaryToken might allow you to run code as SYSTEM."
+    Write-Banner -Category "user" -Name "whoami /priv" -Type Conf -Note "Gets the privileges of the current user which can be leveraged for elevation of privilege."
     $Results = Invoke-UserPrivilegesCheck
     if ($Results) {
         "[+] Found $(([object[]]$Results).Length) potentially interesting privilege(s)."
@@ -5908,7 +5887,7 @@ function Invoke-PrivescCheck {
 
     "`r`n"
 
-    Write-Banner -Category "user" -Name "Environment Variables" -Type Conf -Note "Environment variables may contain some sensitive information."
+    Write-Banner -Category "user" -Name "Environment Variables" -Type Conf -Note "Checks environment variable for sensitive data."
     $Results = Invoke-UserEnvCheck
     if ($Results) {
         "[+] Found $(([object[]]$Results).Length) potentially interesting result(s)."
@@ -5919,7 +5898,7 @@ function Invoke-PrivescCheck {
 
     "`r`n"
 
-    Write-Banner -Category "services" -Name "Non-default Services" -Type Info -Note "Is there any non-default / third-party service?"
+    Write-Banner -Category "services" -Name "Non-default Services" -Type Info -Note "Checks for third-party services."
     $Results = Invoke-InstalledServicesCheck
     if (([object[]]$Results).Length -gt 0) {
         "[*] Found $(([object[]]$Results).Length) service(s)."
@@ -5931,7 +5910,7 @@ function Invoke-PrivescCheck {
 
     "`r`n"
 
-    Write-Banner -Category "services" -Name "Service Permissions" -Type Vuln -Note "Can we modify the configuration of any service through the Service Control Manager? (sc.exe config VulnService binpath= C:\Temp\evil.exe)"
+    Write-Banner -Category "services" -Name "Service Permissions" -Type Vuln -Note "Checks for services which are modifiable through the Service Control Manager (sc.exe config VulnService binpath= C:\Temp\evil.exe)."
     $Results = Invoke-ServicesPermissionsCheck
     if ($Results) {
         "[+] Found $(([object[]]$Results).Length) vulnerable service(s)."
@@ -5942,7 +5921,7 @@ function Invoke-PrivescCheck {
 
     "`r`n"
 
-    Write-Banner -Category "services" -Name "Service Permissions (Registry)" -Type Vuln -Note "Can we modify the configuration of any service in the Registry? (reg.exe add HKLM\[...]\Services\VulnService /v ImagePath /d C:\Temp\evil.exe /f)"
+    Write-Banner -Category "services" -Name "Service Permissions (Registry)" -Type Vuln -Note "Checks for services which are modifiable through the registry (reg.exe add HKLM\[...]\Services\VulnService /v ImagePath /d C:\Temp\evil.exe /f)."
     $Results = Invoke-ServicesPermissionsRegistryCheck
     if ($Results) {
         "[+] Found $(([object[]]$Results).Length) result(s)."
@@ -5953,7 +5932,7 @@ function Invoke-PrivescCheck {
 
     "`r`n"
     
-    Write-Banner -Category "services" -Name "Service Binary Permissions" -Type Vuln -Note "Can we modify the executable itself or can we somehow control one of its arguments? (copy C:\Temp\evil.exe C:\APPS\MyCustomApp\service.exe)"
+    Write-Banner -Category "services" -Name "Service Binary Permissions" -Type Vuln -Note "Checks for modifiable service binaries (copy C:\Temp\evil.exe C:\APPS\MyCustomApp\service.exe)."
     $Results = Invoke-ServicesImagePermissionsCheck
     if ($Results) {
         "[+] Found $(([object[]]$Results).Length) result(s)."
@@ -5964,7 +5943,7 @@ function Invoke-PrivescCheck {
 
     "`r`n"
 
-    Write-Banner -Category "services" -Name "Unquoted Paths" -Type Vuln -Note "Can we hijack any service by planting a binary in one of the executable parent folders? (C:\APPS\Foo Bar\service.exe -> copy C:\Temp\evil.exe C:\APPS\Foo.exe)"
+    Write-Banner -Category "services" -Name "Unquoted Paths" -Type Vuln -Note "Checks for service unquoted image paths (C:\APPS\Foo Bar\service.exe -> copy C:\Temp\evil.exe C:\APPS\Foo.exe)."
     $Results = Invoke-ServicesUnquotedPathCheck
     if ($Results) {
         "[+] Found $(([object[]]$Results).Length) result(s)"
@@ -5975,7 +5954,7 @@ function Invoke-PrivescCheck {
 
     "`r`n"
 
-    Write-Banner -Category "DLL Hijacking" -Name "System's %PATH%" -Type Vuln -Note "Do we have write permissions in at least one of the system's %PATH% folders?"
+    Write-Banner -Category "DLL Hijacking" -Name "System's %PATH%" -Type Vuln -Note "Checks for system %PATH% folders configured with weak permissions."
     $Results = Invoke-DllHijackingCheck
     if ($Results) {
         "[+] Found $(([object[]]$Results).Length) result(s)."
@@ -5986,7 +5965,7 @@ function Invoke-PrivescCheck {
 
     "`r`n"
 
-    Write-Banner -Category "DLL Hijacking" -Name "Hijackable DLLs" -Type Info -Note "Which known DLLs can we potentially hijack on this version Windows?"
+    Write-Banner -Category "DLL Hijacking" -Name "Hijackable DLLs" -Type Info -Note "Lists known hijackable DLLs on this system."
     $Results = Invoke-HijackableDllsCheck
     if ($Results) {
         "[+] Found $(([object[]]$Results).Length) result(s)."
@@ -5997,7 +5976,7 @@ function Invoke-PrivescCheck {
 
     "`r`n"
 
-    Write-Banner -Category "Applications" -Name "Non-default Applications" -Type Info -Note "Is there any non-default / third-party software we could exploit?"
+    Write-Banner -Category "Applications" -Name "Non-default Applications" -Type Info -Note "Lists non-default and third-party applications."
     $Results = Invoke-InstalledProgramsCheck
     if ($Results) {
         "[*] Found $(([object[]]$Results).Length) non-default application(s)."
@@ -6008,7 +5987,7 @@ function Invoke-PrivescCheck {
 
     "`r`n"
     
-    Write-Banner -Category "Applications" -Name "Modifiable Applications" -Type Vuln -Note "Do we have write permissions in non-default application folders? If so, we may compromise other user accounts by planting a malicious EXE or DLL."
+    Write-Banner -Category "Applications" -Name "Modifiable Applications" -Type Vuln -Note "Checks for non-defaut applications with a modifiable executable."
     $Results = Invoke-ModifiableProgramsCheck
     if ($Results) {
         "[+] Found $(([object[]]$Results).Length) file(s)."
@@ -6019,7 +5998,7 @@ function Invoke-PrivescCheck {
 
     "`r`n"
 
-    Write-Banner -Category "Applications" -Name "Programs Run on Startup" -Type Info -Note "Which applications run automatically on startup?"
+    Write-Banner -Category "Applications" -Name "Programs Run on Startup" -Type Info -Note "Lists applications which are run on startup."
     $Results = Invoke-ApplicationsOnStartupCheck
     if ($Results) {
         "[+] Found $(([object[]]$Results).Length) application(s)."
@@ -6030,7 +6009,7 @@ function Invoke-PrivescCheck {
 
     "`r`n"
 
-    Write-Banner -Category "Applications" -Name "Scheduled Tasks" -Type Vuln -Note "Can we modify the executable used by a scheduled task? If you want to list all the scheduled tasks, use the command 'Invoke-ScheduledTasksCheck' whith no args."
+    Write-Banner -Category "Applications" -Name "Scheduled Tasks" -Type Vuln -Note "Checks for scheduled tasks with a modifiable executable."
     $Results = Invoke-ScheduledTasksCheck -Filtered
     if ($Results) {
         "[+] Found $(([object[]]$Results).Length) result(s)."
@@ -6041,7 +6020,7 @@ function Invoke-PrivescCheck {
 
     "`r`n"
 
-    Write-Banner -Category "Applications" -Name "Running Processes" -Type Info -Note "Among the processes that are not owned by the current user, is there anything interesting? In this check, typical windows processes such as 'svchost.exe' are filtered out."
+    Write-Banner -Category "Applications" -Name "Running Processes" -Type Info -Note "Lists processes which are not owned by the current user. Common processes such as 'svchost.exe' are filtered out."
     $Results = Invoke-RunningProcessCheck
     if ($Results) {
         "[*] Found $(([object[]]$Results).Length) process(es)."
@@ -6052,7 +6031,7 @@ function Invoke-PrivescCheck {
 
     "`r`n"
 
-    Write-Banner -Category "Credentials" -Name "SAM/SYSTEM Backup Files" -Type Vuln -Note "Is there any backup of the SAM/SYSTEM hives we can read?"
+    Write-Banner -Category "Credentials" -Name "SAM/SYSTEM Backup Files" -Type Vuln -Note "Checks for readable backups of the SAM/SYSTEM files."
     $Results = Invoke-SamBackupFilesCheck
     if ($Results) {
         "[+] Found $(([object[]]$Results).Length) readable file(s)."
@@ -6063,7 +6042,7 @@ function Invoke-PrivescCheck {
 
     "`r`n"
 
-    Write-Banner -Category "Credentials" -Name "Unattended Files" -Type Vuln -Note "Is there any Unattend file? Do they contain cleartext credentials?"
+    Write-Banner -Category "Credentials" -Name "Unattended Files" -Type Vuln -Note "Checks for Unattend files containing cleartext passwords."
     $Results = Invoke-UnattendFilesCheck
     if ($Results) {
         "[+] Found $(([object[]]$Results).Length) password(s)."
@@ -6074,7 +6053,7 @@ function Invoke-PrivescCheck {
 
     "`r`n"
 
-    Write-Banner -Category "Credentials" -Name "WinLogon" -Type Vuln -Note "Does the Winlogon registry key contain any cleartext password? Entries with an empty password field are filtered out."
+    Write-Banner -Category "Credentials" -Name "WinLogon" -Type Vuln -Note "Checks for cleartext passwords in the Winlogon registry key. Empty passwords are filtered out."
     $Results = Invoke-WinlogonCheck
     if ($Results) {
         "[*] Found some info:"
@@ -6085,7 +6064,7 @@ function Invoke-PrivescCheck {
 
     "`r`n"
 
-    Write-Banner -Category "Credentials" -Name "Credential Files" -Type Info -Note "Does the current user have any saved credentials?"
+    Write-Banner -Category "Credentials" -Name "Credential Files" -Type Info -Note "Lists credential files in the current user's HOME folder."
     $Results = Invoke-CredentialFilesCheck
     if ($Results) {
         "[*] Found $(([object[]]$Results).Length) file(s)."
@@ -6096,7 +6075,7 @@ function Invoke-PrivescCheck {
 
     "`r`n"
 
-    Write-Banner -Category "Credentials" -Name "Credential Manager" -Type Info -Note "Is there any credentials saved in the Credential Manager? vault::cred"
+    Write-Banner -Category "Credentials" -Name "Credential Manager" -Type Info -Note "Checks for saved credentials in Windows Vault."
     $Results = Invoke-VaultCredCheck
     if ($Results) {
         "[*] Found $(([object[]]$Results).Length) result(s)."
@@ -6107,7 +6086,7 @@ function Invoke-PrivescCheck {
 
     "`r`n"
 
-    Write-Banner -Category "Credentials" -Name "Credential Manager (web)" -Type Info -Note "Is there any web credentials saved in the Credential Manager? vault::list"
+    Write-Banner -Category "Credentials" -Name "Credential Manager (web)" -Type Info -Note "Checks for saved web credentials in Windows Vault."
     $Results = Invoke-VaultListCheck
     if ($Results) {
         "[*] Found $(([object[]]$Results).Length) result(s)."
@@ -6118,7 +6097,7 @@ function Invoke-PrivescCheck {
 
     "`r`n"
 
-    Write-Banner -Category "Credentials" -Name "GPP Passwords" -Type Vuln -Note "Is there any cached GPP containing a 'cpassword'?"
+    Write-Banner -Category "Credentials" -Name "GPP Passwords" -Type Vuln -Note "Checks for cached Group Policy Preferences containing a 'cpassword' field."
     $Results = Invoke-GPPPasswordCheck
     if ($Results) {
         "[*] Found $(([object[]]$Results).Length) credential(s)."
@@ -6129,7 +6108,7 @@ function Invoke-PrivescCheck {
 
     "`r`n"
 
-    Write-Banner -Category "Registry" -Name "UAC Settings" -Type Conf -Note "Is User Access Control enabled?"
+    Write-Banner -Category "Registry" -Name "UAC Settings" -Type Conf -Note "Checks User Access Control (UAC) configuration."
     $Results = Invoke-UacCheck
     if ($Results) {
         "[*] UAC status:"
@@ -6140,7 +6119,7 @@ function Invoke-PrivescCheck {
     
     "`r`n"
 
-    Write-Banner -Category "Registry" -Name "LSA RunAsPPL" -Type Conf -Note "Is lsass running as a Protected Process?"
+    Write-Banner -Category "Registry" -Name "LSA RunAsPPL" -Type Conf -Note "Checks whether 'lsass' runs as a Protected Process Light."
     $Results = Invoke-LsaProtectionsCheck
     if ($Results) {
         "[*] Found some info."
@@ -6151,7 +6130,7 @@ function Invoke-PrivescCheck {
 
     "`r`n"
 
-    Write-Banner -Category "Registry" -Name "LAPS Settings" -Type Conf -Note "Is the `"Local Administrator Password Solution`" enabled?"
+    Write-Banner -Category "Registry" -Name "LAPS Settings" -Type Conf -Note "Checks whether LAPS is configured and enabled."
     $Results = Invoke-LapsCheck
     if ($Results) {
         "[*] LAPS status:"
@@ -6162,7 +6141,7 @@ function Invoke-PrivescCheck {
     
     "`r`n"
 
-    Write-Banner -Category "Registry" -Name "PowerShell Transcription" -Type Conf -Note "Is PowerShell Transcription enabled or even configured?"
+    Write-Banner -Category "Registry" -Name "PowerShell Transcription" -Type Conf -Note "Checks whether PowerShell Transcription is configured and enabled."
     $Results = Invoke-PowershellTranscriptionCheck
     if ($Results) {
         "[*] PowerShell Transcription is configured (and enabled?)."
@@ -6173,7 +6152,7 @@ function Invoke-PrivescCheck {
     
     "`r`n"
 
-    Write-Banner -Category "Registry" -Name "AlwaysInstallElevated" -Type Conf -Note "Is the 'AlwaysInstallElevated' registry key enabled?"
+    Write-Banner -Category "Registry" -Name "AlwaysInstallElevated" -Type Conf -Note "Checks whether the 'AlwaysInstallElevated' registry key is configured and enabled."
     $Results = Invoke-RegistryAlwaysInstallElevatedCheck
     if ($Results) {
         "[+] AlwaysInstallElevated is enabled."
@@ -6184,7 +6163,7 @@ function Invoke-PrivescCheck {
     
     "`r`n"
 
-    Write-Banner -Category "Registry" -Name "WSUS Configuration" -Type Conf -Note "Is WSUS configured/enabled? If so, check whether it's vulnerable to the 'Wsuxploit' MITM attack (https://github.com/pimps/wsuxploit)."
+    Write-Banner -Category "Registry" -Name "WSUS Configuration" -Type Conf -Note "Checks whether WSUS is configured, enabled and vulnerable to the 'Wsuxploit' MITM attack (https://github.com/pimps/wsuxploit)."
     $Results = Invoke-WsusConfigCheck
     if ($Results) {
         "[*] Found some info."
@@ -6195,7 +6174,7 @@ function Invoke-PrivescCheck {
     
     "`r`n"
 
-    Write-Banner -Category "Network" -Name "TCP Endpoints" -Type Info -Note "Is there any interesting/unusual service? Default ports such as 445 are filtered out."    
+    Write-Banner -Category "Network" -Name "TCP Endpoints" -Type Info -Note "Lists all TCP endpoints along with the corresponding process."    
     $Results = Invoke-TcpEndpointsCheck #$Results = Invoke-TcpEndpointsCheck -Filtered
     if ($Results) {
         "[*] Found $(([object[]]$Results).Length) TCP endpoints."
@@ -6206,7 +6185,7 @@ function Invoke-PrivescCheck {
 
     "`r`n"
 
-    Write-Banner -Category "Network" -Name "UDP Endpoints" -Type Info -Note "Is there any interesting/unusual service? Showing all listening UDP endpoints (except DNS)."
+    Write-Banner -Category "Network" -Name "UDP Endpoints" -Type Info -Note "Lists all UDP endpoints along with the corresponding process. DNS is filtered out."
     $Results = Invoke-UdpEndpointsCheck #$Results = Invoke-UdpEndpointsCheck -Filtered
     if ($Results) {
         "[*] Found $(([object[]]$Results).Length) UDP endpoints."
@@ -6217,7 +6196,7 @@ function Invoke-PrivescCheck {
 
     "`r`n"
 
-    Write-Banner -Category "Network" -Name "Saved Wifi Profiles" -Type Info -Note "Can we extract any saved WEP key or PSK passphrase?"
+    Write-Banner -Category "Network" -Name "Saved Wifi Profiles" -Type Info -Note "Checks for WEP/WPA-PSK keys and passphrases in saved Wifi profiles."
     $Results = Invoke-WlanProfilesCheck
     if ($Results) {
         "[*] Found $(([object[]]$Results).Length) saved Wifi profiles."
@@ -6228,7 +6207,7 @@ function Invoke-PrivescCheck {
 
     "`r`n"
 
-    Write-Banner -Category "Misc" -Name "Last Windows Update Date" -Type Info -Note "Has the OS been updated lately? If the last update is more than 1 month old, we might be able to use some public exploits."
+    Write-Banner -Category "Misc" -Name "Last Windows Update Date" -Type Info -Note "Gets Windows update history. A system which hasn't been updated in the last 30 days is potentially vulnerable."
     $Results = Invoke-WindowsUpdateCheck 
     if ($Results) {
         "[*] Last update time:"
@@ -6239,7 +6218,7 @@ function Invoke-PrivescCheck {
 
     "`r`n"
 
-    Write-Banner -Category "Misc" -Name "OS Version" -Type Info -Note "What is the exact version number of the system? If we can't get the last system update date and time, this can be useful."
+    Write-Banner -Category "Misc" -Name "OS Version" -Type Info -Note "Gets the detailed version number of the OS. If we can't get the update history, this might be useful."
     $Results = Invoke-SystemInfoCheck
     if ($Results) {
         "[*] Found some info."
@@ -6250,7 +6229,7 @@ function Invoke-PrivescCheck {
 
     "`r`n"
 
-    Write-Banner -Category "Misc" -Name "Local Admin Group" -Type Info -Note "Who is a member of the local administator group? It might be useful to know which user account we could try to compromise next."
+    Write-Banner -Category "Misc" -Name "Local Admin Group" -Type Info -Note "Lists the members of the local 'Administrators' group."
     $Results = Invoke-LocalAdminGroupCheck
     if (([object[]]$Results).Length -gt 0) {
         "[*] The default local admin group has $(([object[]]$Results).Length) member(s)."
@@ -6261,7 +6240,7 @@ function Invoke-PrivescCheck {
     
     "`r`n"
 
-    Write-Banner -Category "Misc" -Name "User Home Folders" -Type Conf -Note "Do we have R/W access to any other home folder?"
+    Write-Banner -Category "Misc" -Name "User Home Folders" -Type Conf -Note "Lists HOME folders and checks for write access."
     $Results = Invoke-UsersHomeFolderCheck
     if ($Results) {
         "[*] Found some info."
@@ -6272,7 +6251,7 @@ function Invoke-PrivescCheck {
 
     "`r`n"
 
-    Write-Banner -Category "Misc" -Name "Machine Role" -Type Info -Note "Is it a Workstation / Server / Domain Controller?"
+    Write-Banner -Category "Misc" -Name "Machine Role" -Type Info -Note "Gets the machine's role: Workstation, Server, Domain Controller."
     $Results = Invoke-MachineRoleCheck 
     if ($Results) {
         "[*] Found some info."
@@ -6283,7 +6262,7 @@ function Invoke-PrivescCheck {
 
     "`r`n"
 
-    Write-Banner -Category "Misc" -Name "System Startup History" -Type Info -Note "Can we extract the startup history from the Event Log?"
+    Write-Banner -Category "Misc" -Name "System Startup History" -Type Info -Note "Gets the startup history. Some exploits require a reboot so this can be useful to know."
     $Results = Invoke-SystemStartupHistoryCheck
     if (([object[]]$Results).Length -gt 0) {
         "[*] Found $(([object[]]$Results).Length) startup event(s) in the last 31 days."
@@ -6295,7 +6274,7 @@ function Invoke-PrivescCheck {
 
     "`r`n"
 
-    Write-Banner -Category "Misc" -Name "Last System Startup" -Type Info -Note "Can we calculate the last system startup date based on the current tick count? /!\ This might be unreliable."
+    Write-Banner -Category "Misc" -Name "Last System Startup" -Type Info -Note "Gets the last system startup date based on the current tick count (potentially unreliable)."
     $Results = Invoke-SystemStartupCheck
     if ($Results) {
         "[*] Last startup event time:"
@@ -6306,7 +6285,7 @@ function Invoke-PrivescCheck {
 
     "`r`n"
 
-    Write-Banner -Category "Misc" -Name "Filesystem Drives" -Type Info -Note "Is there any other partition or mapped share?"
+    Write-Banner -Category "Misc" -Name "Filesystem Drives" -Type Info -Note "Lists partitions, removable storage and mapped network shares."
     $Results = Invoke-SystemDrivesCheck
     "[*] Found $(([object[]]$Results).Length) drive(s)."
     $Results | Format-Table -AutoSize
