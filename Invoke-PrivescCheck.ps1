@@ -5654,107 +5654,72 @@ function Invoke-HijackableDllsCheck {
         return $False
     }
 
+    function Test-HijackableDll {
+
+        [CmdletBinding()] param (
+            [string]$ServiceName,
+            [string]$DllName,
+            [string]$Description,
+            [boolean]$RebootRequired = $True
+        )
+
+        $Service = Get-ServiceFromRegistry -Name $ServiceName 
+        if ($Service -and ($Service.StartMode -ne "Disabled")) {
+
+            if (-not (Test-DllExists -Name $DllName)) {
+
+                $HijackableDllItem = New-Object -TypeName PSObject
+                $HijackableDllItem | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $DllName
+                $HijackableDllItem | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+                $HijackableDllItem | Add-Member -MemberType "NoteProperty" -Name "RunAs" -Value $Service.User
+                $HijackableDllItem | Add-Member -MemberType "NoteProperty" -Name "RebootRequired" -Value $RebootRequired 
+                $HijackableDllItem
+            }
+        }
+    }
+
     $OsVersion = [System.Environment]::OSVersion.Version
 
     if ($OsVersion.Major -eq 10) {
-        #$Service = Get-Service -Name "CDPSvc" -ErrorAction SilentlyContinue -ErrorVariable ErrorGetService
-        $Service = Get-ServiceFromRegistry -Name "CDPSvc"
-        if ($Service -and ($Service.StartMode -ne "Disabled")) {
-            $DllName = "cdpsgshims.dll"
-            if (-not (Test-DllExists -Name $DllName)) {
-                $ServiceItem = New-Object -TypeName PSObject
-                $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $DllName
-                $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "Description" -Value "Loaded by CDPSvc upon service startup"
-                $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "RunAs" -Value "NT AUTHORITY\LOCAL SERVICE"
-                $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "RebootRequired" -Value $True 
-                $ServiceItem
-            }
-        }
+
+        Test-HijackableDll -ServiceName "CDPSvc" -DllName "cdpsgshims.dll" -Description "Loaded by CDPSvc upon service startup"
+        Test-HijackableDll -ServiceName "Schedule" -DllName "WptsExtensions.dll" -Description "Loaded by the Task Scheduler upon servce startup"
+
     }
 
     # Windows 7, 8, 8.1
     if (($OsVersion.Major -eq 6) -and ($OsVersion.Minor -ge 1) -and ($OsVersion.Minor -le 3)) {
-        #$Service = Get-Service -Name "DiagTrack" -ErrorAction SilentlyContinue -ErrorVariable ErrorGetService
-        $Service = Get-ServiceFromRegistry -Name "DiagTrack"
-        if ($Service -and ($Service.StartMode -ne "Disabled")) {
-            $DllName = "windowsperformancerecordercontrol.dll"
-            if (-not (Test-DllExists -Name $DllName)) {
-                $ServiceItem = New-Object -TypeName PSObject
-                $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $DllName
-                $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "Description" -Value "Loaded by DiagTrack upon service startup or shutdown"
-                $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "RunAs" -Value "NT AUTHORITY\SYSTEM"
-                $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "RebootRequired" -Value $True 
-                $ServiceItem
-            }
 
-            $DllName = "diagtrack_win.dll"
-            if (-not (Test-DllExists -Name $DllName)) {
-                $ServiceItem = New-Object -TypeName PSObject
-                $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $DllName
-                $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "Description" -Value "Loaded by DiagTrack upon service startup"
-                $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "RunAs" -Value "NT AUTHORITY\SYSTEM"
-                $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "RebootRequired" -Value $True 
-                $ServiceItem
-            }
-        }
+        Test-HijackableDll -ServiceName "DiagTrack" -DllName "windowsperformancerecordercontrol.dll" -Description "Loaded by DiagTrack upon service startup or shutdown"
+        Test-HijackableDll -ServiceName "DiagTrack" -DllName "diagtrack_win.dll" -Description "Loaded by DiagTrack upon service startup"
+
     }
 
     # Windows Vista, 7, 8
     if (($OsVersion.Major -eq 6) -and ($OsVersion.Minor -ge 0) -and ($OsVersion.Minor -le 2)) {
-        #$Service = Get-Service -Name "IKEEXT" -ErrorAction SilentlyContinue -ErrorVariable ErrorGetService
-        $Service = Get-ServiceFromRegistry -Name "IKEEXT"
-        if ($Service -and ($Service.StartMode -ne "Disabled")) {
 
-            $RebootRequired = $True
-            $Service = Get-Service -Name "IKEEXT" -ErrorAction SilentlyContinue -ErrorVariable ErrorGetService
-            if ((-not $ErrorGetService) -and ($Service.Status -eq "Stopped")) {
-                $RebootRequired = $False
-            }
-
-            $DllName = "wlbsctrl.dll"
-            if (-not (Test-DllExists -Name $DllName)) {
-                $ServiceItem = New-Object -TypeName PSObject
-                $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $DllName
-                $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "Description" -Value "Loaded by IKEEXT upon service startup"
-                $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "RunAs" -Value "NT AUTHORITY\SYSTEM"
-                $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "RebootRequired" -Value $RebootRequired 
-                $ServiceItem
-            }
+        $RebootRequired = $True
+        $Service = Get-Service -Name "IKEEXT" -ErrorAction SilentlyContinue -ErrorVariable ErrorGetService
+        if ((-not $ErrorGetService) -and ($Service.Status -eq "Stopped")) {
+            $RebootRequired = $False
         }
+
+        Test-HijackableDll -ServiceName "IKEEXT" -DllName "wlbsctrl.dll" -Description "Loaded by IKEEXT upon service startup" -RebootRequired $RebootRequired
+
     }
 
     # Windows 7
     if (($OsVersion.Major -eq 6) -and ($OsVersion.Minor -eq 1)) {
-        #$Service = Get-Service -Name "NetMan" -ErrorAction SilentlyContinue -ErrorVariable ErrorGetService
-        $Service = Get-ServiceFromRegistry -Name "NetMan"
-        if ($Service -and ($Service.StartMode -ne "Disabled")) {
-            $DllName = "wlanhlp.dll"
-            if (-not (Test-DllExists -Name $DllName)) {
-                $ServiceItem = New-Object -TypeName PSObject
-                $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $DllName
-                $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "Description" -Value "Loaded by NetMan when listing network interfaces"
-                $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "RunAs" -Value "NT AUTHORITY\SYSTEM"
-                $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "RebootRequired" -Value $False 
-                $ServiceItem
-            } 
-        }
+
+        Test-HijackableDll -ServiceName "NetMan" -DllName "wlanhlp.dll" -Description "Loaded by NetMan when listing network interfaces" -RebootRequired $False
+
     }
 
     # Windows 8, 8.1, 10
     if (($OsVersion.Major -eq 10) -or (($OsVersion.Major -eq 6) -and ($OsVersion.Minor -ge 2) -and ($OsVersion.Minor -le 3))) {
-        # $Service = Get-Service -Name "NetMan" -ErrorAction SilentlyContinue -ErrorVariable ErrorGetService
-        $Service = Get-ServiceFromRegistry -Name "NetMan"
-        if ($Service -and ($Service.StartMode -ne "Disabled")) {
-            $DllName = "wlanapi.dll"
-            if (-not (Test-DllExists -Name $DllName)) {
-                $ServiceItem = New-Object -TypeName PSObject
-                $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $DllName
-                $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "Description" -Value "Loaded by NetMan when listing network interfaces"
-                $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "RunAs" -Value "NT AUTHORITY\SYSTEM"
-                $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "RebootRequired" -Value $False 
-                $ServiceItem
-            }
-        }
+
+        Test-HijackableDll -ServiceName "NetMan" -DllName "wlanapi.dll" -Description "Loaded by NetMan when listing network interfaces" -RebootRequired $False
+        
     }
 }
 # ----------------------------------------------------------------
