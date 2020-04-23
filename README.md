@@ -4,9 +4,6 @@ This script aims to __enumerate common Windows security misconfigurations__ whic
 
 I built on the amazing work done by [@harmj0y](https://twitter.com/harmj0y) and [@mattifestation](https://twitter.com/mattifestation) in [PowerUp](https://github.com/HarmJ0y/PowerUp). I added more checks and also tried to reduce the amount of false positives.
 
-It's still a Work-in-Progress because there are a few more checks I want to implement but it's already quite complete. If you have any suggestion (improvements, features), feel free to contact me on Twitter [@itm4n](https://twitter.com/itm4n).
-
-
 ## Usage 
 
 Use the script from a PowerShell prompt.
@@ -43,7 +40,7 @@ Therefore, I decided to make my own script with the following constraints in min
 
 - __It must not use built-in Windows commands__ such as `whoami.exe` or `netstat.exe`. The reason for this is that I want my script to be able to run in environments where AppLocker (or any other Application Whitelisting solution) is enforced.
 
-- __It must not use built-in Windows tools__ such as `sc.exe` or `tasklist.exe` because you'll often get an __Access denied__ error if you try to use them on __Windows Server 2016/2019__ for instance.
+- __It must not use built-in Windows tools__ such as `sc.exe` or `tasklist.exe` because you'll often get an __Access denied__ error if you try to use them from WinRM for example.
 
 - __It must not use WMI__ because its usage can be restricted to admin-only users.
 
