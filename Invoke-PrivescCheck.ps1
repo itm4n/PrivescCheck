@@ -2337,12 +2337,16 @@ function Invoke-RegistryAlwaysInstallElevatedCheck {
     
     .DESCRIPTION
 
-    AlwaysInstallElevated can be configured in both HKLM and HKCU. Therefore, this function will
-    check these two locations and return the corresponding key if it exists and is enabled. 
+    AlwaysInstallElevated can be configured in both HKLM and HKCU. "If the AlwaysInstallElevated 
+    value is not set to "1" under both of the preceding registry keys, the installer uses elevated
+    privileges to install managed applications and uses the current user's privilege level for 
+    unmanaged applications."
     
     #>
     
     [CmdletBinding()]Param()
+
+    $Result = New-Object -TypeName System.Collections.ArrayList
 
     $RegPath = "HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows\Installer"
 
@@ -2350,26 +2354,29 @@ function Invoke-RegistryAlwaysInstallElevatedCheck {
 
         $HKLMval = Get-ItemProperty -Path "Registry::$RegPath" -Name AlwaysInstallElevated -ErrorAction SilentlyContinue
         if ($HKLMval.AlwaysInstallElevated -and ($HKLMval.AlwaysInstallElevated -ne 0)){
-            $RegistryAlwaysInstallElevatedItem = New-Object -TypeName PSObject 
-            $RegistryAlwaysInstallElevatedItem | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $RegPath
-            $RegistryAlwaysInstallElevatedItem | Add-Member -MemberType "NoteProperty" -Name "AlwaysInstallElevated" -Value $HKLMval.AlwaysInstallElevated 
-            $RegistryAlwaysInstallElevatedItem | Add-Member -MemberType "NoteProperty" -Name "Enabled" -Value $True
-            $RegistryAlwaysInstallElevatedItem
-        } 
-    } 
-
-    $RegPath = "HKEY_CURRENT_USER\SOFTWARE\Policies\Microsoft\Windows\Installer"
-
-    if (Test-Path -Path "Registry::$RegPath" -ErrorAction SilentlyContinue) {
-        $HKCUval = (Get-ItemProperty -Path "Registry::$RegPath" -Name AlwaysInstallElevated -ErrorAction SilentlyContinue)
-        if ($HKCUval.AlwaysInstallElevated -and ($HKCUval.AlwaysInstallElevated -ne 0)){
-            $RegistryAlwaysInstallElevatedItem = New-Object -TypeName PSObject
-            $RegistryAlwaysInstallElevatedItem | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $RegPath
-            $RegistryAlwaysInstallElevatedItem | Add-Member -MemberType "NoteProperty" -Name "AlwaysInstallElevated" -Value $HKLMval.AlwaysInstallElevated 
-            $RegistryAlwaysInstallElevatedItem | Add-Member -MemberType "NoteProperty" -Name "Enabled" -Value $True
-            $RegistryAlwaysInstallElevatedItem
+            $Item = New-Object -TypeName PSObject 
+            $Item | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $RegPath
+            $Item | Add-Member -MemberType "NoteProperty" -Name "AlwaysInstallElevated" -Value $HKLMval.AlwaysInstallElevated 
+            $Item | Add-Member -MemberType "NoteProperty" -Name "Enabled" -Value $True
+            [void]$Result.Append($Item)
         }
-    }   
+
+        $RegPath = "HKEY_CURRENT_USER\SOFTWARE\Policies\Microsoft\Windows\Installer"
+
+        if (Test-Path -Path "Registry::$RegPath" -ErrorAction SilentlyContinue) {
+
+            $HKCUval = (Get-ItemProperty -Path "Registry::$RegPath" -Name AlwaysInstallElevated -ErrorAction SilentlyContinue)
+            if ($HKCUval.AlwaysInstallElevated -and ($HKCUval.AlwaysInstallElevated -ne 0)){
+                $Item = New-Object -TypeName PSObject
+                $Item | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $RegPath
+                $Item | Add-Member -MemberType "NoteProperty" -Name "AlwaysInstallElevated" -Value $HKLMval.AlwaysInstallElevated 
+                $Item | Add-Member -MemberType "NoteProperty" -Name "Enabled" -Value $True
+                [void]$Result.Append($Item)
+
+                $Result
+            }
+        } 
+    }
 }
 
 function Invoke-LsaProtectionsCheck {
