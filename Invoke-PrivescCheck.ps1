@@ -2484,7 +2484,7 @@ function Invoke-WsusConfigCheck {
             $Result | Add-Member -MemberType "NoteProperty" -Name "UseWUServer" -Value $WusEnabled
             $Result | Add-Member -MemberType "NoteProperty" -Name "IsVulnerable" -Value $IsVulnerable
             $Result
-        }        
+        }
     }
 }
 # ----------------------------------------------------------------
@@ -4721,20 +4721,23 @@ function Invoke-ApplicationsOnStartupCheck {
 
                 $RegKeyValueName = $_
                 $RegKeyValueData = $Item.GetValue($RegKeyValueName, "", "DoNotExpandEnvironmentNames")
-                
-                $ModifiablePaths = $RegKeyValueData | Get-ModifiablePath | Where-Object {$_ -and $_.ModifiablePath -and ($_.ModifiablePath -ne '')}
-                if (([object[]]$ModifiablePaths).Length -gt 0) {
-                    $IsModifiable = $True 
-                } else {
-                    $IsModifiable = $False 
-                }
 
-                $ResultItem = New-Object -TypeName PSObject 
-                $ResultItem | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $RegKeyValueName
-                $ResultItem | Add-Member -MemberType "NoteProperty" -Name "Path" -Value "$($RegKeyPath)\$($RegKeyValueName)"
-                $ResultItem | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $RegKeyValueData
-                $ResultItem | Add-Member -MemberType "NoteProperty" -Name "IsModifiable" -Value $IsModifiable
-                $ResultItem 
+                if ($RegKeyValueData -and ($RegKeyValueData -ne '')) {
+
+                    $ModifiablePaths = $RegKeyValueData | Get-ModifiablePath | Where-Object {$_ -and $_.ModifiablePath -and ($_.ModifiablePath -ne '')}
+                    if (([object[]]$ModifiablePaths).Length -gt 0) {
+                        $IsModifiable = $True 
+                    } else {
+                        $IsModifiable = $False 
+                    }
+    
+                    $ResultItem = New-Object -TypeName PSObject 
+                    $ResultItem | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $RegKeyValueName
+                    $ResultItem | Add-Member -MemberType "NoteProperty" -Name "Path" -Value "$($RegKeyPath)\$($RegKeyValueName)"
+                    $ResultItem | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $RegKeyValueData
+                    $ResultItem | Add-Member -MemberType "NoteProperty" -Name "IsModifiable" -Value $IsModifiable
+                    $ResultItem 
+                }
             }
         }
     }
@@ -5843,7 +5846,7 @@ function Invoke-PrivescCheck {
         "[+] Found $(([object[]]$Results).Length) non-default group(s)."
         $Results | Format-Table -AutoSize
     } else {
-        "[!] Nothing found."
+        "[!] No non-default group found."
     }
 
     "`r`n"
@@ -5854,7 +5857,7 @@ function Invoke-PrivescCheck {
         "[+] Found $(([object[]]$Results).Length) potentially interesting privilege(s)."
         $Results | Format-Table -AutoSize
     } else {
-        "[!] Nothing found."
+        "[!] No interesting privilege found."
     }
 
     "`r`n"
@@ -5865,7 +5868,7 @@ function Invoke-PrivescCheck {
         "[+] Found $(([object[]]$Results).Length) potentially interesting result(s)."
         $Results | Format-Table -AutoSize
     } else {
-        "[!] Nothing found."
+        "[!] Nothing interesting in the user's env."
     }
 
     "`r`n"
@@ -5877,7 +5880,7 @@ function Invoke-PrivescCheck {
         $Results | Select-Object -Property Name,DisplayName | Format-Table
         $Results | Format-List 
     } else {
-        "[!] Nothing found."
+        "[!] No third-party service found."
     }
 
     "`r`n"
@@ -6128,9 +6131,9 @@ function Invoke-PrivescCheck {
     $Results = Invoke-RegistryAlwaysInstallElevatedCheck
     if ($Results) {
         "[+] AlwaysInstallElevated is enabled."
-        $Result | Format-List
+        $Results | Format-List
     } else {
-        "[!] Nothing found."
+        "[!] AlwaysInstallElevated isn't enabled."
     }
     
     "`r`n"
@@ -6139,7 +6142,7 @@ function Invoke-PrivescCheck {
     $Results = Invoke-WsusConfigCheck
     if ($Results) {
         "[*] Found some info."
-        $Result | Format-List
+        $Results | Format-List
     } else {
         "[!] Nothing found."
     }
