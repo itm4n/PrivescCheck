@@ -2358,7 +2358,7 @@ function Invoke-RegistryAlwaysInstallElevatedCheck {
             $Item | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $RegPath
             $Item | Add-Member -MemberType "NoteProperty" -Name "AlwaysInstallElevated" -Value $HKLMval.AlwaysInstallElevated 
             $Item | Add-Member -MemberType "NoteProperty" -Name "Enabled" -Value $True
-            [void]$Result.Append($Item)
+            [void]$Result.Add($Item)
         }
 
         $RegPath = "HKEY_CURRENT_USER\SOFTWARE\Policies\Microsoft\Windows\Installer"
@@ -2371,7 +2371,7 @@ function Invoke-RegistryAlwaysInstallElevatedCheck {
                 $Item | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $RegPath
                 $Item | Add-Member -MemberType "NoteProperty" -Name "AlwaysInstallElevated" -Value $HKLMval.AlwaysInstallElevated 
                 $Item | Add-Member -MemberType "NoteProperty" -Name "Enabled" -Value $True
-                [void]$Result.Append($Item)
+                [void]$Result.Add($Item)
 
                 $Result
             }
