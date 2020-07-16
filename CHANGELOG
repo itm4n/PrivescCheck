@@ -1,3 +1,7 @@
+2020-07-16
+    - Added Helper > Convert-SidToName
+    - Added Misc > Invoke-HotfixCheck
+
 2020-04-09
     - Added DLL Hijacking > Invoke-HijackableDllsCheck
     - Added Applications > Invoke-ScheduledTasksCheck

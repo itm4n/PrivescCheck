@@ -139,6 +139,7 @@ Invoke-WlanProfilesCheck - Enumerates the saved Wifi profiles and extract the cl
 
 ```
 Invoke-WindowsUpdateCheck - Checks the last update time of the machine
+Invoke-HotfixCheck - Gets a list of installed updates and hotfixes
 Invoke-SystemInfoCheck - Gets the name of the operating system and the full version string
 Invoke-LocalAdminGroupCheck - Enumerates the members of the default local admin group
 Invoke-UsersHomeFolderCheck - Enumerates the local user home folders
