@@ -99,6 +99,7 @@ Invoke-HijackableDllsCheck - Lists hijackable DLLs depending on the version of t
 ```
 Invoke-InstalledProgramsCheck - Enumerates the applications that are not installed by default
 Invoke-ModifiableProgramsCheck - Enumerates applications which have a modifiable EXE of DLL file
+Invoke-ProgramDataCheck - Checks for modifiable files and folders under non default ProgramData folders
 Invoke-ApplicationsOnStartupCheck - Enumerates the applications which are run on startup
 Invoke-RunningProcessCheck - Enumerates the running processes
 Invoke-ScheduledTasksCheck - Enumrates scheduled tasks with a modifiable path

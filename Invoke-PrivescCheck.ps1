@@ -4829,6 +4829,63 @@ function Invoke-ModifiableProgramsCheck {
     }
 }
 
+function Invoke-ProgramDataCheck {
+    <#
+    .SYNOPSIS
+    
+    Checks for modifiable files and folders under non default ProgramData folders.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+    
+    .DESCRIPTION
+
+    This script first lists all the subfolders under 'C:\ProgramData\'. For each folder that
+    is not a "known" default Windows folder, it lists all the files and folders it contains. If a 
+    modifiable file or folder is found, it is reported by the script.
+    
+    .EXAMPLE
+
+    PS C:\> Invoke-ProgramDataCheck
+
+    ModifiablePath    : C:\ProgramData\chocolatey\logs
+    IdentityReference : BUILTIN\Users
+    Permissions       : {WriteAttributes, Synchronize, AppendData/AddSubdirectory, WriteExtendedAttributes...}
+
+    ModifiablePath    : C:\ProgramData\chocolatey\logs\choco.summary.log
+    IdentityReference : BUILTIN\Users
+    Permissions       : {WriteAttributes, Synchronize, AppendData/AddSubdirectory, WriteExtendedAttributes...}
+
+    ModifiablePath    : C:\ProgramData\chocolatey\logs\chocolatey.log
+    IdentityReference : BUILTIN\Users
+    Permissions       : {WriteAttributes, Synchronize, AppendData/AddSubdirectory, WriteExtendedAttributes...}
+
+    ModifiablePath    : C:\ProgramData\shimgen\generatedfiles
+    IdentityReference : BUILTIN\Users
+    Permissions       : {WriteAttributes, AppendData/AddSubdirectory, WriteExtendedAttributes, WriteData/AddFile}
+
+    ModifiablePath    : C:\ProgramData\VMware\logs
+    IdentityReference : BUILTIN\Users
+    Permissions       : {WriteAttributes, AppendData/AddSubdirectory, WriteExtendedAttributes, WriteData/AddFile}
+    
+    #>
+
+    [CmdletBinding()] param()
+
+    $IgnoredProgramData = @("Microsoft", "Microsoft OneDrive", "Package Cache", "Packages", "SoftwareDistribution", "ssh", "USOPrivate", "USOShared", "")
+
+    Get-ChildItem -Path $env:ProgramData | ForEach-Object {
+    
+        if ($_ -is [System.IO.DirectoryInfo] -and (-not ($IgnoredProgramData -contains $_.Name))) {
+    
+            $_ | Get-ChildItem -Recurse -Force -ErrorAction SilentlyContinue | ForEach-Object {
+                        
+                $_ | Get-ModifiablePath -LiteralPaths | Where-Object {$_ -and $_.ModifiablePath -and ($_.ModifiablePath -ne '')} 
+            }
+        }
+    }
+}
+
 function Invoke-ApplicationsOnStartupCheck {
     <#
     .SYNOPSIS
@@ -5940,7 +5997,7 @@ function Invoke-PrivescCheck {
     <#
     .SYNOPSIS
 
-    Enumerates common security misconfigurations that can be exploited of privilege escalation
+    Enumerates common security misconfigurations that can be exploited for privilege escalation
     pourposes. 
 
     Author: @itm4n
@@ -6117,11 +6174,22 @@ function Invoke-PrivescCheck {
 
     "`r`n"
     
-    Write-Banner -Category "Applications" -Name "Modifiable Applications" -Type Vuln -Note "Checks for non-defaut applications with a modifiable executable."
+    Write-Banner -Category "Applications" -Name "Modifiable Applications" -Type Vuln -Note "Checks for non-default applications with a modifiable executable."
     $Results = Invoke-ModifiableProgramsCheck
     if ($Results) {
         "[+] Found $(([object[]]$Results).Length) file(s)."
         $Results | Format-Table
+    } else {
+        "[!] Nothing found."
+    }
+
+    "`r`n"
+
+    Write-Banner -Category "Applications" -Name "ProgramData folders/files" -Type Info -Note "Checks for modifiable files and folders under non default ProgramData folders."
+    $Results = Invoke-ProgramDataCheck
+    if ($Results) {
+        "[+] Found $(([object[]]$Results).Length) result(s)."
+        $Results | Format-List
     } else {
         "[!] Nothing found."
     }
