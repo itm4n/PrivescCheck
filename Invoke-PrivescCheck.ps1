@@ -370,7 +370,6 @@ try {
 # Helpers 
 # ----------------------------------------------------------------
 #region Helpers 
-$global:IgnoredPrograms = @("Common Files", "Internet Explorer", "ModifiableWindowsApps", "PackageManagement", "Windows Defender", "Windows Defender Advanced Threat Protection", "Windows Mail", "Windows Media Player", "Windows Multimedia Platform", "Windows NT", "Windows Photo Viewer", "Windows Portable Devices", "Windows Security", "WindowsPowerShell", "Microsoft.NET", "Windows Portable Devices", "dotnet", "MSBuild", "Intel", "Reference Assemblies")
 
 function Convert-SidToName {
     <#
@@ -1153,6 +1152,8 @@ function Get-InstalledPrograms {
         $Filtered = $False
     )
 
+    $IgnoredPrograms = @("Common Files", "Internet Explorer", "ModifiableWindowsApps", "PackageManagement", "Windows Defender", "Windows Defender Advanced Threat Protection", "Windows Mail", "Windows Media Player", "Windows Multimedia Platform", "Windows NT", "Windows Photo Viewer", "Windows Portable Devices", "Windows Security", "WindowsPowerShell", "Microsoft.NET", "Windows Portable Devices", "dotnet", "MSBuild", "Intel", "Reference Assemblies")
+
     $InstalledProgramsResult = New-Object System.Collections.ArrayList
 
     $InstalledPrograms = New-Object System.Collections.ArrayList
@@ -1198,7 +1199,7 @@ function Get-InstalledPrograms {
     if ($Filtered) {
         $InstalledProgramsResultFiltered = New-Object -TypeName System.Collections.ArrayList
         ForEach ($InstalledProgram in $InstalledProgramsResult) {
-            if (-Not ($global:IgnoredPrograms -contains $InstalledProgram.Name)) {
+            if (-Not ($IgnoredPrograms -contains $InstalledProgram.Name)) {
                 [void]$InstalledProgramsResultFiltered.Add($InstalledProgram)
             }
         }
@@ -2545,7 +2546,7 @@ function Get-RpcRange {
     .DESCRIPTION
 
     This function is a helper for the Invoke-TcpEndpointsCheck function. Windows uses a set of 
-    RPC ports that are radomly allocated in the range 49152-65535 by default. If we want to 
+    RPC ports that are randomly allocated in the range 49152-65535 by default. If we want to 
     filter out these listening ports we must first figure out this set of ports. The aim of this 
     function is to guess this range using basic statistics on a given array of port numbers. We 
     can quite reliably identify the RPC port set because they are concentrated in a very small 
@@ -2845,12 +2846,12 @@ function Invoke-WlanProfilesCheck {
         $Authentication = $Xml.WLANProfile.MSM.security.authEncryption.authentication
         $PassPhrase = $Xml.WLANProfile.MSM.security.sharedKey.keyMaterial
 
-        $Profile = New-Object -TypeName PSObject
-        $Profile | Add-Member -MemberType "NoteProperty" -Name "Profile" -Value $Name
-        $Profile | Add-Member -MemberType "NoteProperty" -Name "SSID" -Value $Ssid
-        $Profile | Add-Member -MemberType "NoteProperty" -Name "Authentication" -Value $Authentication
-        $Profile | Add-Member -MemberType "NoteProperty" -Name "PassPhrase" -Value $PassPhrase
-        $Profile
+        $ProfileResult = New-Object -TypeName PSObject
+        $ProfileResult | Add-Member -MemberType "NoteProperty" -Name "Profile" -Value $Name
+        $ProfileResult | Add-Member -MemberType "NoteProperty" -Name "SSID" -Value $Ssid
+        $ProfileResult | Add-Member -MemberType "NoteProperty" -Name "Authentication" -Value $Authentication
+        $ProfileResult | Add-Member -MemberType "NoteProperty" -Name "PassPhrase" -Value $PassPhrase
+        $ProfileResult
     }
 
     $ERROR_SUCCESS = 0
@@ -3081,7 +3082,7 @@ function Invoke-SystemStartupHistoryCheck {
             $EventNumber += 1
         }
 
-        $SystemStartupHistoryResult
+        $SystemStartupHistoryResult | Select-Object -First 10
     } catch {
         # We might get an "acces denied"
         Write-Verbose "Error while querying the Event Log."
@@ -5040,16 +5041,6 @@ function Invoke-ScheduledTasksCheck {
         }
     }
 
-    # function Convert-SidToName {
-
-    #     param (
-    #         [string]$Sid
-    #     )
-
-    #     $SidObj = New-Object System.Security.Principal.SecurityIdentifier($Sid)
-    #     $SidObj.Translate( [System.Security.Principal.NTAccount]) | Select-Object -ExpandProperty Value
-    # }
-
     try {
 
         $ScheduleService = New-Object -ComObject("Schedule.Service")
@@ -5953,12 +5944,51 @@ function Invoke-HijackableDllsCheck {
 # Main  
 # ----------------------------------------------------------------
 #region Main
-function Write-Banner {
+
+# function Write-Banner {
+#     [CmdletBinding()] param(
+#         [string]$Category,
+#         [string]$Name,
+#         [ValidateSet("Info", "Conf", "Vuln")]$Type,
+#         [string]$Note
+#     )
+
+#     function Split-Note {
+#         param([string]$Note)
+#         $NoteSplit = New-Object System.Collections.ArrayList
+#         $Temp = $Note 
+#         do {
+#             if ($Temp.Length -gt 53) {
+#                 [void]$NoteSplit.Add([string]$Temp.Substring(0, 53))
+#                 $Temp = $Temp.Substring(53)
+#             } else {
+#                 [void]$NoteSplit.Add([string]$Temp)
+#                 break
+#             }
+#         } while ($Temp.Length -gt 0)
+#         $NoteSplit
+#     }
+
+#     $Title = "$($Category.ToUpper()) > $($Name)"
+#     if ($Title.Length -gt 46) {
+#         throw "Input title is too long."
+#     }
+
+#     $Result = ""
+#     $Result += "+------+------------------------------------------------+------+`r`n"
+#     $Result += "| TEST | $Title$(' '*(46 - $Title.Length)) | $($Type.ToUpper()) |`r`n"
+#     $Result += "+------+------------------------------------------------+------+`r`n"
+#     Split-Note -Note $Note | ForEach-Object {
+#         $Result += "| $(if ($Flag) { '    ' } else { 'DESC'; $Flag = $True }) | $($_)$(' '*(53 - ([string]$_).Length)) |`r`n"
+#     }
+#     $Result += "+------+-------------------------------------------------------+"
+#     $Result
+# }
+
+function Write-CheckBanner {
+
     [CmdletBinding()] param(
-        [string]$Category,
-        [string]$Name,
-        [ValidateSet("Info", "Conf", "Vuln")]$Type,
-        [string]$Note
+        [object]$Check
     )
 
     function Split-Note {
@@ -5977,20 +6007,51 @@ function Write-Banner {
         $NoteSplit
     }
 
-    $Title = "$($Category.ToUpper()) > $($Name)"
+    $Title = "$($Check.Category.ToUpper()) > $($Check.DisplayName)"
     if ($Title.Length -gt 46) {
         throw "Input title is too long."
     }
 
     $Result = ""
     $Result += "+------+------------------------------------------------+------+`r`n"
-    $Result += "| TEST | $Title$(' '*(46 - $Title.Length)) | $($Type.ToUpper()) |`r`n"
+    $Result += "| TEST | $Title$(' '*(46 - $Title.Length)) | $($Check.Type.ToUpper()) |`r`n"
     $Result += "+------+------------------------------------------------+------+`r`n"
-    Split-Note -Note $Note | ForEach-Object {
+    Split-Note -Note $Check.Note | ForEach-Object {
         $Result += "| $(if ($Flag) { '    ' } else { 'DESC'; $Flag = $True }) | $($_)$(' '*(53 - ([string]$_).Length)) |`r`n"
     }
     $Result += "+------+-------------------------------------------------------+"
     $Result
+}
+
+$global:ResultHashTable = @{}
+
+function Invoke-Check {
+
+    [CmdletBinding()] param(
+        [object]$HashTable,
+        [object]$Check
+    )
+
+    if (-not ($HashTable.ContainsKey($Check.Id))) {
+
+        $HashTable.Add($Check.Id, $Check)
+
+        if ($Check.Params) {
+
+            $Result = Invoke-Expression -Command "$($Check.Command) $($Check.Params)"
+            # $HashTable[$Check.Id] | Add-Member -MemberType "NoteProperty" -Name "ResultRaw" -Value $Result
+
+        } else {
+
+            $Result = Invoke-Expression -Command "$($Check.Command)"
+            # $HashTable[$Check.Id] | Add-Member -MemberType "NoteProperty" -Name "ResultRaw" -Value $Result
+
+        }
+
+        $HashTable[$Check.Id] | Add-Member -MemberType "NoteProperty" -Name "ResultRaw" -Value $Result
+    }
+
+    $HashTable[$Check.Id].ResultRaw
 }
 
 function Invoke-PrivescCheck {
@@ -5998,7 +6059,7 @@ function Invoke-PrivescCheck {
     .SYNOPSIS
 
     Enumerates common security misconfigurations that can be exploited for privilege escalation
-    pourposes. 
+    purposes.
 
     Author: @itm4n
     License: BSD 3-Clause
@@ -6010,7 +6071,15 @@ function Invoke-PrivescCheck {
     choose between several potential exploits. For example, if you find that a service is 
     vulnerable to DLL hijacking but you can't restart it manually, you will find useful to know
     hos often the machine is rebooted (in the case of a server). If you see that it is rebooted 
-    every night for instance, you may want to attempt an exploit. 
+    every night for instance, you may want to attempt an exploit.
+
+    .PARAMETER Extended
+
+    Set this flag to enable extended checks.
+
+    .PARAMETER Force
+
+    Ignore warnings.
     
     .EXAMPLE
 
@@ -6027,7 +6096,10 @@ function Invoke-PrivescCheck {
 
     #>
 
-    [CmdletBinding()] param()
+    [CmdletBinding()] param(
+        [switch]$Extended = $False,
+        [switch]$Force = $False
+    )
 
     ### This check was taken from PowerUp.ps1
     # https://github.com/PowerShellMafia/PowerSploit/blob/master/Privesc/PowerUp.ps1
@@ -6041,464 +6113,545 @@ function Invoke-PrivescCheck {
         return
     }
 
-    Write-Banner -Category "user" -Name "whoami" -Type Info -Note "Gets the name and the SID of the current user."
-    $Results = Invoke-UserCheck
-    if ($Results) {
-        "[*] Found some info:"
-        $Results | Format-Table -AutoSize
-    } else {
-        "[!] Nothing found."
-    }
+    $ResultHashTable = @{}
+    $AllChecksCsv = @"
+"Id", "Command", "Params", "Category", "DisplayName", "Type", "Note", "Format", "Extended"
+"USER_USER", "Invoke-UserCheck", "", "User", "whoami", "Info", "Gets the name and the SID of the current user.", "Table", True
+"USER_GROUPS", "Invoke-UserGroupsCheck", "", "User", "whoami /groups", "Conf", "Gets the non-default groups the current user belongs to.", "Table", True
+"USER_PRIVILEGES", "Invoke-UserPrivilegesCheck", "", "User", "whoami /priv", "Conf", "Gets the privileges of the current user which can be leveraged for elevation of privilege.", "Table", False
+"USER_ENV", "Invoke-UserEnvCheck", "", "User", "Environment Variables", "Conf", "Checks environment variable for sensitive data.", "Table", False
+"SERVICE_INSTALLED", "Invoke-InstalledServicesCheck", "", "Services", "Non-default Services", "Info", "Checks for third-party services.", "List", False
+"SERVICE_PERMISSIONS", "Invoke-ServicesPermissionsCheck", "", "Services", "Permissions - SCM", "Vuln", "Checks for services which are modifiable through the Service Control Manager (sc.exe config VulnService binpath= C:\Temp\evil.exe).", "List", False
+"SERVICE_PERMISSIONS_REGISTRY", "Invoke-ServicesPermissionsRegistryCheck", "", "Services", "Permissions - Registry", "Vuln", "Checks for services which are modifiable through the registry (reg.exe add HKLM\[...]\Services\VulnService /v ImagePath /d C:\Temp\evil.exe /f).", "List", False
+"SERVICE_IMAGE_PERMISSIONS", "Invoke-ServicesImagePermissionsCheck", "", "Services", "Binary Permissions", "Vuln", "Checks for modifiable service binaries (copy C:\Temp\evil.exe C:\APPS\MyCustomApp\service.exe).", "List", False
+"SERVICE_UNQUOTED_PATH", "Invoke-ServicesUnquotedPathCheck", "", "Services", "Unquoted Paths", "Vuln", "Checks for service unquoted image paths (C:\APPS\Foo Bar\service.exe -> copy C:\Temp\evil.exe C:\APPS\Foo.exe).", "List", False
+"SERVICE_DLL_HIJACKING", "Invoke-DllHijackingCheck", "", "Services", "System's %PATH%", "Vuln", "Checks for system %PATH% folders configured with weak permissions.", "List", False
+"SERVICE_HIJACKABLE_DLL", "Invoke-HijackableDllsCheck", "", "Services", "Hijackable DLLs", "Info", "Lists known hijackable DLLs on this system.", "List", False
+"APP_INSTALLED", "Invoke-InstalledProgramsCheck", "", "Applications", "Non-default Applications", "Info", "Lists non-default and third-party applications.", "Table", True
+"APP_MODIFIABLE", "Invoke-ModifiableProgramsCheck", "", "Applications", "Modifiable Applications", "Vuln", "Checks for non-default applications with a modifiable executable.", "Table", False
+"APP_PROGRAMDATA", "Invoke-ProgramDataCheck", "", "Applications", "ProgramData folders/files", "Info", "Checks for modifiable files and folders under non default ProgramData folders.", "List", True
+"APP_STARTUP", "Invoke-ApplicationsOnStartupCheck", "", "Applications", "Programs Run on Startup", "Info", "Lists applications which are run on startup.", "List", True
+"APP_SCHTASKS", "Invoke-ScheduledTasksCheck", "-Filtered", "Applications", "Scheduled Tasks", "Vuln", "Checks for scheduled tasks with a modifiable executable.", "List", True
+"APP_PROCESSES", "Invoke-RunningProcessCheck", "", "Applications", "Running Processes", "Info", "Lists processes which are not owned by the current user. Common processes such as 'svchost.exe' are filtered out.", "Table", True
+"CREDS_SAM_BKP", "Invoke-SamBackupFilesCheck", "", "Credentials", "SAM/SYSTEM Backup Files", "Vuln", "Checks for readable backups of the SAM/SYSTEM files.", "List", False
+"CREDS_UNATTENDED", "Invoke-UnattendFilesCheck", "", "Credentials", "Unattended Files", "Vuln", "Checks for Unattend files containing cleartext passwords.", "List", True
+"CREDS_WINLOGON", "Invoke-WinlogonCheck", "", "Credentials", "WinLogon", "Vuln", "Checks for cleartext passwords in the Winlogon registry key. Empty passwords are filtered out.", "List", False
+"CREDS_CRED_FILES", "Invoke-CredentialFilesCheck", "", "Credentials", "Credential Files", "Info", "Lists credential files in the current user's HOME folder.", "List", True
+"CREDS_VAULT_CRED", "Invoke-VaultCredCheck", "", "Credentials", "Credential Manager", "Info", "Checks for saved credentials in Windows Vault.", "List", False
+"CREDS_VAULT_LIST", "Invoke-VaultListCheck", "", "Credentials", "Credential Manager (web)", "Info", "Checks for saved web credentials in Windows Vault.", "List", False
+"CREDS_GPP", "Invoke-GPPPasswordCheck", "", "Credentials", "GPP Passwords", "Vuln", "Checks for cached Group Policy Preferences containing a 'cpassword' field.", "List", False
+"HARDEN_UAC", "Invoke-UacCheck", "", "Hardening", "UAC Settings", "Conf", "Checks User Access Control (UAC) configuration.", "List", True
+"HARDEN_LSA", "Invoke-LsaProtectionsCheck", "", "Hardening", "LSA protections", "Conf", "Checks whether 'lsass' runs as a Protected Process Light or if Credential Guard is enabled.", "Table", True
+"HARDEN_LAPS", "Invoke-LapsCheck", "", "Hardening", "LAPS Settings", "Conf", "Checks whether LAPS is configured and enabled.", "List", True
+"HARDEN_PS_TRANSCRIPT", "Invoke-PowershellTranscriptionCheck", "", "Hardening", "PowerShell Transcription", "Conf", "Checks whether PowerShell Transcription is configured and enabled.", "List", True
+"CONFIG_MSI", "Invoke-RegistryAlwaysInstallElevatedCheck", "", "Config", "AlwaysInstallElevated", "Conf", "Checks whether the 'AlwaysInstallElevated' registry key is configured and enabled.", "List", False
+"CONFIG_WSUS", "Invoke-WsusConfigCheck", "", "Config", "WSUS Configuration", "Conf", "Checks whether WSUS is configured, enabled and vulnerable to the 'Wsuxploit' MITM attack (https://github.com/pimps/wsuxploit).", "List", False
+"NET_TCP_ENDPOINTS", "Invoke-TcpEndpointsCheck", "", "Network", "TCP Endpoints", "Info", "Lists all TCP endpoints along with the corresponding process.", "Table", True
+"NET_UDP_ENDPOINTS", "Invoke-UdpEndpointsCheck", "", "Network", "UDP Endpoints", "Info", "Lists all UDP endpoints along with the corresponding process. DNS is filtered out.", "Table", True
+"NET_WLAN", "Invoke-WlanProfilesCheck", "", "Network", "Saved Wifi Profiles", "Info", "Checks for WEP/WPA-PSK keys and passphrases in saved Wifi profiles.", "List", True
+"MISC_UPDATE", "Invoke-WindowsUpdateCheck", "", "Misc", "Last Windows Update Date", "Info", "Gets Windows update history. A system which hasn't been updated in the last 30 days is potentially vulnerable.", "Table", True
+"MISC_HOTFIX", "Invoke-HotfixCheck", "", "Misc", "Installed Updates and Hotfixes", "Info", "Gets the hotfixes that are installed on the computer.", "Table", True
+"MISC_SYSINFO", "Invoke-SystemInfoCheck", "", "Misc", "OS Version", "Info", "Gets the detailed version number of the OS. If we can't get the update history, this might be useful.", "Table", True
+"MISC_ADMINS", "Invoke-LocalAdminGroupCheck", "", "Misc", "Local Admin Group", "Info", "Lists the members of the local 'Administrators' group.", "Table", True
+"MISC_HOMES", "Invoke-UsersHomeFolderCheck", "", "Misc", "User Home Folders", "Conf", "Lists HOME folders and checks for write access.", "Table", True
+"MISC_MACHINE_ROLE", "Invoke-MachineRoleCheck", "", "Misc", "Machine Role", "Info", "Gets the machine's role: Workstation, Server, Domain Controller.", "Table", True
+"MISC_STARTUP_EVENTS", "Invoke-SystemStartupHistoryCheck", "", "Misc", "System Startup History", "Info", "Gets the startup history. Some exploits require a reboot so this can be useful to know.", "Table", True
+"MISC_STARTUP_LAST", "Invoke-SystemStartupCheck", "", "Misc", "Last System Startup", "Info", "Gets the last system startup date based on the current tick count (potentially unreliable).", "Table", True
+"MISC_DRIVES", "Invoke-SystemDrivesCheck", "", "Misc", "Filesystem Drives", "Info", "Lists partitions, removable storage and mapped network shares.", "Table", True
+"@
 
-    "`r`n"
+    $AllChecksCsv | ConvertFrom-Csv | ForEach-Object {
 
-    Write-Banner -Category "user" -Name "whoami /groups" -Type Conf -Note "Gets the non-default groups the current user belongs to."
-    $Results = Invoke-UserGroupsCheck
-    if ($Results) {
-        "[+] Found $(([object[]]$Results).Length) non-default group(s)."
-        $Results | Format-Table -AutoSize
-    } else {
-        "[!] No non-default group found."
-    }
+        $ExtendedCheck = [System.Convert]::ToBoolean($_.Extended)
 
-    "`r`n"
+        # If 'Extended', run the check. If not 'Extended', run the check only if the check is not 
+        # marked as an "extended" one.
+        if ($Extended -or ((-not $Extended) -and (-not $ExtendedCheck))) {
 
-    Write-Banner -Category "user" -Name "whoami /priv" -Type Conf -Note "Gets the privileges of the current user which can be leveraged for elevation of privilege."
-    $Results = Invoke-UserPrivilegesCheck
-    if ($Results) {
-        "[+] Found $(([object[]]$Results).Length) potentially interesting privilege(s)."
-        $Results | Format-Table -AutoSize
-    } else {
-        "[!] No interesting privilege found."
-    }
-
-    "`r`n"
-
-    Write-Banner -Category "user" -Name "Environment Variables" -Type Conf -Note "Checks environment variable for sensitive data."
-    $Results = Invoke-UserEnvCheck
-    if ($Results) {
-        "[+] Found $(([object[]]$Results).Length) potentially interesting result(s)."
-        $Results | Format-Table -AutoSize
-    } else {
-        "[!] Nothing interesting in the user's env."
-    }
-
-    "`r`n"
-
-    Write-Banner -Category "services" -Name "Non-default Services" -Type Info -Note "Checks for third-party services."
-    $Results = Invoke-InstalledServicesCheck
-    if (([object[]]$Results).Length -gt 0) {
-        "[*] Found $(([object[]]$Results).Length) service(s)."
-        $Results | Select-Object -Property Name,DisplayName | Format-Table
-        $Results | Format-List 
-    } else {
-        "[!] No third-party service found."
-    }
-
-    "`r`n"
-
-    Write-Banner -Category "services" -Name "Service Permissions" -Type Vuln -Note "Checks for services which are modifiable through the Service Control Manager (sc.exe config VulnService binpath= C:\Temp\evil.exe)."
-    $Results = Invoke-ServicesPermissionsCheck
-    if ($Results) {
-        "[+] Found $(([object[]]$Results).Length) vulnerable service(s)."
-        $Results | Format-List 
-    } else {
-        "[!] Nothing found."
-    }
-
-    "`r`n"
-
-    Write-Banner -Category "services" -Name "Service Permissions (Registry)" -Type Vuln -Note "Checks for services which are modifiable through the registry (reg.exe add HKLM\[...]\Services\VulnService /v ImagePath /d C:\Temp\evil.exe /f)."
-    $Results = Invoke-ServicesPermissionsRegistryCheck
-    if ($Results) {
-        "[+] Found $(([object[]]$Results).Length) result(s)."
-        $Results | Format-List
-    } else {
-        "[!] Nothing found."
-    }
-
-    "`r`n"
+            Write-CheckBanner -Check $_
+            $Results = Invoke-Check -HashTable $ResultHashTable -Check $_
     
-    Write-Banner -Category "services" -Name "Service Binary Permissions" -Type Vuln -Note "Checks for modifiable service binaries (copy C:\Temp\evil.exe C:\APPS\MyCustomApp\service.exe)."
-    $Results = Invoke-ServicesImagePermissionsCheck
-    if ($Results) {
-        "[+] Found $(([object[]]$Results).Length) result(s)."
-        $Results | Format-List 
-    } else {
-        "[!] Nothing found."
-    }
-
-    "`r`n"
-
-    Write-Banner -Category "services" -Name "Unquoted Paths" -Type Vuln -Note "Checks for service unquoted image paths (C:\APPS\Foo Bar\service.exe -> copy C:\Temp\evil.exe C:\APPS\Foo.exe)."
-    $Results = Invoke-ServicesUnquotedPathCheck
-    if ($Results) {
-        "[+] Found $(([object[]]$Results).Length) result(s)"
-        $Results | Format-List
-    } else {
-        "[!] Nothing found."
-    }
-
-    "`r`n"
-
-    Write-Banner -Category "DLL Hijacking" -Name "System's %PATH%" -Type Vuln -Note "Checks for system %PATH% folders configured with weak permissions."
-    $Results = Invoke-DllHijackingCheck
-    if ($Results) {
-        "[+] Found $(([object[]]$Results).Length) result(s)."
-        $Results | Format-List 
-    } else {
-        "[!] Nothing found."
-    }
-
-    "`r`n"
-
-    Write-Banner -Category "DLL Hijacking" -Name "Hijackable DLLs" -Type Info -Note "Lists known hijackable DLLs on this system."
-    $Results = Invoke-HijackableDllsCheck
-    if ($Results) {
-        "[+] Found $(([object[]]$Results).Length) result(s)."
-        $Results | Format-List 
-    } else {
-        "[!] Nothing found."
-    }
-
-    "`r`n"
-
-    Write-Banner -Category "Applications" -Name "Non-default Applications" -Type Info -Note "Lists non-default and third-party applications."
-    $Results = Invoke-InstalledProgramsCheck
-    if ($Results) {
-        "[*] Found $(([object[]]$Results).Length) non-default application(s)."
-        $Results | Format-Table -AutoSize
-    } else {
-        "[!] Nothing found."
-    }
-
-    "`r`n"
+            if ($Results) {
     
-    Write-Banner -Category "Applications" -Name "Modifiable Applications" -Type Vuln -Note "Checks for non-default applications with a modifiable executable."
-    $Results = Invoke-ModifiableProgramsCheck
-    if ($Results) {
-        "[+] Found $(([object[]]$Results).Length) file(s)."
-        $Results | Format-Table
-    } else {
-        "[!] Nothing found."
+                "[*] Found $(([object[]]$Results).Length) result(s)."
+    
+                if ($_.Format -eq "Table") {
+                    $Results | Format-Table -AutoSize
+                } elseif ($_.Format -eq "List") {
+                    $Results | Format-List
+                }
+                
+            } else {
+                "[!] Nothing found."
+            }
+    
+            "`r`n"
+        }
     }
 
-    "`r`n"
+    if ((-not $Extended) -and (-not $Force)) {
 
-    Write-Banner -Category "Applications" -Name "ProgramData folders/files" -Type Info -Note "Checks for modifiable files and folders under non default ProgramData folders."
-    $Results = Invoke-ProgramDataCheck
-    if ($Results) {
-        "[+] Found $(([object[]]$Results).Length) result(s)."
-        $Results | Format-List
-    } else {
-        "[!] Nothing found."
-    }
-
-    "`r`n"
-
-    Write-Banner -Category "Applications" -Name "Programs Run on Startup" -Type Info -Note "Lists applications which are run on startup."
-    $Results = Invoke-ApplicationsOnStartupCheck
-    if ($Results) {
-        "[+] Found $(([object[]]$Results).Length) application(s)."
-        $Results | Format-List
-    } else {
-        "[!] Nothing found."
-    }
-
-    "`r`n"
-
-    Write-Banner -Category "Applications" -Name "Scheduled Tasks" -Type Vuln -Note "Checks for scheduled tasks with a modifiable executable."
-    $Results = Invoke-ScheduledTasksCheck -Filtered
-    if ($Results) {
-        "[+] Found $(([object[]]$Results).Length) result(s)."
-        $Results | Format-List
-    } else {
-        "[!] Nothing found."
-    }
-
-    "`r`n"
-
-    Write-Banner -Category "Applications" -Name "Running Processes" -Type Info -Note "Lists processes which are not owned by the current user. Common processes such as 'svchost.exe' are filtered out."
-    $Results = Invoke-RunningProcessCheck
-    if ($Results) {
-        "[*] Found $(([object[]]$Results).Length) process(es)."
-        $Results | Format-Table -AutoSize
-    } else {
-        "[!] Nothing found."
-    }
-
-    "`r`n"
-
-    Write-Banner -Category "Credentials" -Name "SAM/SYSTEM Backup Files" -Type Vuln -Note "Checks for readable backups of the SAM/SYSTEM files."
-    $Results = Invoke-SamBackupFilesCheck
-    if ($Results) {
-        "[+] Found $(([object[]]$Results).Length) readable file(s)."
-        $Results | Format-List
-    } else {
-        "[!] Nothing found."
-    }
-
-    "`r`n"
-
-    Write-Banner -Category "Credentials" -Name "Unattended Files" -Type Vuln -Note "Checks for Unattend files containing cleartext passwords."
-    $Results = Invoke-UnattendFilesCheck
-    if ($Results) {
-        "[+] Found $(([object[]]$Results).Length) password(s)."
-        $Results | Format-List
-    } else {
-        "[!] Nothing found."
-    }
-
-    "`r`n"
-
-    Write-Banner -Category "Credentials" -Name "WinLogon" -Type Vuln -Note "Checks for cleartext passwords in the Winlogon registry key. Empty passwords are filtered out."
-    $Results = Invoke-WinlogonCheck
-    if ($Results) {
-        "[*] Found some info:"
-        $Results | Format-List
-    } else {
-        "[!] Nothing found."
-    }
-
-    "`r`n"
-
-    Write-Banner -Category "Credentials" -Name "Credential Files" -Type Info -Note "Lists credential files in the current user's HOME folder."
-    $Results = Invoke-CredentialFilesCheck
-    if ($Results) {
-        "[*] Found $(([object[]]$Results).Length) file(s)."
-        $Results | Format-List
-    } else {
-        "[!] Nothing found."
-    }
-
-    "`r`n"
-
-    Write-Banner -Category "Credentials" -Name "Credential Manager" -Type Info -Note "Checks for saved credentials in Windows Vault."
-    $Results = Invoke-VaultCredCheck
-    if ($Results) {
-        "[*] Found $(([object[]]$Results).Length) result(s)."
-        $Results | Format-List
-    } else {
-        "[!] Nothing found."
-    }
-
-    "`r`n"
-
-    Write-Banner -Category "Credentials" -Name "Credential Manager (web)" -Type Info -Note "Checks for saved web credentials in Windows Vault."
-    $Results = Invoke-VaultListCheck
-    if ($Results) {
-        "[*] Found $(([object[]]$Results).Length) result(s)."
-        $Results | Format-List
-    } else {
-        "[!] Nothing found."
-    }
-
-    "`r`n"
-
-    Write-Banner -Category "Credentials" -Name "GPP Passwords" -Type Vuln -Note "Checks for cached Group Policy Preferences containing a 'cpassword' field."
-    $Results = Invoke-GPPPasswordCheck
-    if ($Results) {
-        "[*] Found $(([object[]]$Results).Length) credential(s)."
-        $Results | Format-List
-    } else {
-        "[!] Nothing found."
-    }
-
-    "`r`n"
-
-    Write-Banner -Category "Registry" -Name "UAC Settings" -Type Conf -Note "Checks User Access Control (UAC) configuration."
-    $Results = Invoke-UacCheck
-    if ($Results) {
-        "[*] UAC status:"
-        $Results | Format-List
-    } else {
-        "[!] Nothing found."
+        Write-Host -ForegroundColor Yellow "`r`nTo get more info, run this script with the flag '-Extended'.`r`n"
     }
     
-    "`r`n"
+    # Write-Banner -Category "user" -Name "whoami" -Type Info -Note "Gets the name and the SID of the current user."
+    # $Results = Invoke-UserCheck
+    # if ($Results) {
+    #     "[*] Found some info:"
+    #     $Results | Format-Table -AutoSize
+    # } else {
+    #     "[!] Nothing found."
+    # }
 
-    Write-Banner -Category "Registry" -Name "LSA RunAsPPL" -Type Conf -Note "Checks whether 'lsass' runs as a Protected Process Light."
-    $Results = Invoke-LsaProtectionsCheck
-    if ($Results) {
-        "[*] Found some info."
-        $Results | Format-Table -AutoSize
-    } else {
-        "[!] Nothing found."
-    }
+    # "`r`n"
 
-    "`r`n"
+    # Write-Banner -Category "user" -Name "whoami /groups" -Type Conf -Note "Gets the non-default groups the current user belongs to."
+    # $Results = Invoke-UserGroupsCheck
+    # if ($Results) {
+    #     "[+] Found $(([object[]]$Results).Length) non-default group(s)."
+    #     $Results | Format-Table -AutoSize
+    # } else {
+    #     "[!] No non-default group found."
+    # }
 
-    Write-Banner -Category "Registry" -Name "LAPS Settings" -Type Conf -Note "Checks whether LAPS is configured and enabled."
-    $Results = Invoke-LapsCheck
-    if ($Results) {
-        "[*] LAPS status:"
-        $Results | Format-List
-    } else {
-        "[!] Nothing found."
-    }
+    # "`r`n"
+
+    # Write-Banner -Category "user" -Name "whoami /priv" -Type Conf -Note "Gets the privileges of the current user which can be leveraged for elevation of privilege."
+    # $Results = Invoke-UserPrivilegesCheck
+    # if ($Results) {
+    #     "[+] Found $(([object[]]$Results).Length) potentially interesting privilege(s)."
+    #     $Results | Format-Table -AutoSize
+    # } else {
+    #     "[!] No interesting privilege found."
+    # }
+
+    # "`r`n"
+
+    # Write-Banner -Category "user" -Name "Environment Variables" -Type Conf -Note "Checks environment variable for sensitive data."
+    # $Results = Invoke-UserEnvCheck
+    # if ($Results) {
+    #     "[+] Found $(([object[]]$Results).Length) potentially interesting result(s)."
+    #     $Results | Format-Table -AutoSize
+    # } else {
+    #     "[!] Nothing interesting in the user's env."
+    # }
+
+    # "`r`n"
+
+    # Write-Banner -Category "services" -Name "Non-default Services" -Type Info -Note "Checks for third-party services."
+    # $Results = Invoke-InstalledServicesCheck
+    # if (([object[]]$Results).Length -gt 0) {
+    #     "[*] Found $(([object[]]$Results).Length) service(s)."
+    #     $Results | Select-Object -Property Name,DisplayName | Format-Table
+    #     $Results | Format-List 
+    # } else {
+    #     "[!] No third-party service found."
+    # }
+
+    # "`r`n"
+
+    # Write-Banner -Category "services" -Name "Service Permissions" -Type Vuln -Note "Checks for services which are modifiable through the Service Control Manager (sc.exe config VulnService binpath= C:\Temp\evil.exe)."
+    # $Results = Invoke-ServicesPermissionsCheck
+    # if ($Results) {
+    #     "[+] Found $(([object[]]$Results).Length) vulnerable service(s)."
+    #     $Results | Format-List 
+    # } else {
+    #     "[!] Nothing found."
+    # }
+
+    # "`r`n"
+
+    # Write-Banner -Category "services" -Name "Service Permissions (Registry)" -Type Vuln -Note "Checks for services which are modifiable through the registry (reg.exe add HKLM\[...]\Services\VulnService /v ImagePath /d C:\Temp\evil.exe /f)."
+    # $Results = Invoke-ServicesPermissionsRegistryCheck
+    # if ($Results) {
+    #     "[+] Found $(([object[]]$Results).Length) result(s)."
+    #     $Results | Format-List
+    # } else {
+    #     "[!] Nothing found."
+    # }
+
+    # "`r`n"
     
-    "`r`n"
+    # Write-Banner -Category "services" -Name "Service Binary Permissions" -Type Vuln -Note "Checks for modifiable service binaries (copy C:\Temp\evil.exe C:\APPS\MyCustomApp\service.exe)."
+    # $Results = Invoke-ServicesImagePermissionsCheck
+    # if ($Results) {
+    #     "[+] Found $(([object[]]$Results).Length) result(s)."
+    #     $Results | Format-List 
+    # } else {
+    #     "[!] Nothing found."
+    # }
 
-    Write-Banner -Category "Registry" -Name "PowerShell Transcription" -Type Conf -Note "Checks whether PowerShell Transcription is configured and enabled."
-    $Results = Invoke-PowershellTranscriptionCheck
-    if ($Results) {
-        "[*] PowerShell Transcription is configured (and enabled?)."
-        $Results | Format-List
-    } else {
-        "[!] Nothing found."
-    }
+    # "`r`n"
+
+    # Write-Banner -Category "services" -Name "Unquoted Paths" -Type Vuln -Note "Checks for service unquoted image paths (C:\APPS\Foo Bar\service.exe -> copy C:\Temp\evil.exe C:\APPS\Foo.exe)."
+    # $Results = Invoke-ServicesUnquotedPathCheck
+    # if ($Results) {
+    #     "[+] Found $(([object[]]$Results).Length) result(s)"
+    #     $Results | Format-List
+    # } else {
+    #     "[!] Nothing found."
+    # }
+
+    # "`r`n"
+
+    # Write-Banner -Category "DLL Hijacking" -Name "System's %PATH%" -Type Vuln -Note "Checks for system %PATH% folders configured with weak permissions."
+    # $Results = Invoke-DllHijackingCheck
+    # if ($Results) {
+    #     "[+] Found $(([object[]]$Results).Length) result(s)."
+    #     $Results | Format-List 
+    # } else {
+    #     "[!] Nothing found."
+    # }
+
+    # "`r`n"
+
+    # Write-Banner -Category "DLL Hijacking" -Name "Hijackable DLLs" -Type Info -Note "Lists known hijackable DLLs on this system."
+    # $Results = Invoke-HijackableDllsCheck
+    # if ($Results) {
+    #     "[+] Found $(([object[]]$Results).Length) result(s)."
+    #     $Results | Format-List 
+    # } else {
+    #     "[!] Nothing found."
+    # }
+
+    # "`r`n"
+
+    # Write-Banner -Category "Applications" -Name "Non-default Applications" -Type Info -Note "Lists non-default and third-party applications."
+    # $Results = Invoke-InstalledProgramsCheck
+    # if ($Results) {
+    #     "[*] Found $(([object[]]$Results).Length) non-default application(s)."
+    #     $Results | Format-Table -AutoSize
+    # } else {
+    #     "[!] Nothing found."
+    # }
+
+    # "`r`n"
     
-    "`r`n"
+    # Write-Banner -Category "Applications" -Name "Modifiable Applications" -Type Vuln -Note "Checks for non-default applications with a modifiable executable."
+    # $Results = Invoke-ModifiableProgramsCheck
+    # if ($Results) {
+    #     "[+] Found $(([object[]]$Results).Length) file(s)."
+    #     $Results | Format-Table
+    # } else {
+    #     "[!] Nothing found."
+    # }
 
-    Write-Banner -Category "Registry" -Name "AlwaysInstallElevated" -Type Conf -Note "Checks whether the 'AlwaysInstallElevated' registry key is configured and enabled."
-    $Results = Invoke-RegistryAlwaysInstallElevatedCheck
-    if ($Results) {
-        "[+] AlwaysInstallElevated is enabled."
-        $Results | Format-List
-    } else {
-        "[!] AlwaysInstallElevated isn't enabled."
-    }
+    # "`r`n"
+
+    # Write-Banner -Category "Applications" -Name "ProgramData folders/files" -Type Info -Note "Checks for modifiable files and folders under non default ProgramData folders."
+    # $Results = Invoke-ProgramDataCheck
+    # if ($Results) {
+    #     "[+] Found $(([object[]]$Results).Length) result(s)."
+    #     $Results | Format-List
+    # } else {
+    #     "[!] Nothing found."
+    # }
+
+    # "`r`n"
+
+    # Write-Banner -Category "Applications" -Name "Programs Run on Startup" -Type Info -Note "Lists applications which are run on startup."
+    # $Results = Invoke-ApplicationsOnStartupCheck
+    # if ($Results) {
+    #     "[+] Found $(([object[]]$Results).Length) application(s)."
+    #     $Results | Format-List
+    # } else {
+    #     "[!] Nothing found."
+    # }
+
+    # "`r`n"
+
+    # Write-Banner -Category "Applications" -Name "Scheduled Tasks" -Type Vuln -Note "Checks for scheduled tasks with a modifiable executable."
+    # $Results = Invoke-ScheduledTasksCheck -Filtered
+    # if ($Results) {
+    #     "[+] Found $(([object[]]$Results).Length) result(s)."
+    #     $Results | Format-List
+    # } else {
+    #     "[!] Nothing found."
+    # }
+
+    # "`r`n"
+
+    # Write-Banner -Category "Applications" -Name "Running Processes" -Type Info -Note "Lists processes which are not owned by the current user. Common processes such as 'svchost.exe' are filtered out."
+    # $Results = Invoke-RunningProcessCheck
+    # if ($Results) {
+    #     "[*] Found $(([object[]]$Results).Length) process(es)."
+    #     $Results | Format-Table -AutoSize
+    # } else {
+    #     "[!] Nothing found."
+    # }
+
+    # "`r`n"
+
+    # Write-Banner -Category "Credentials" -Name "SAM/SYSTEM Backup Files" -Type Vuln -Note "Checks for readable backups of the SAM/SYSTEM files."
+    # $Results = Invoke-SamBackupFilesCheck
+    # if ($Results) {
+    #     "[+] Found $(([object[]]$Results).Length) readable file(s)."
+    #     $Results | Format-List
+    # } else {
+    #     "[!] Nothing found."
+    # }
+
+    # "`r`n"
+
+    # Write-Banner -Category "Credentials" -Name "Unattended Files" -Type Vuln -Note "Checks for Unattend files containing cleartext passwords."
+    # $Results = Invoke-UnattendFilesCheck
+    # if ($Results) {
+    #     "[+] Found $(([object[]]$Results).Length) password(s)."
+    #     $Results | Format-List
+    # } else {
+    #     "[!] Nothing found."
+    # }
+
+    # "`r`n"
+
+    # Write-Banner -Category "Credentials" -Name "WinLogon" -Type Vuln -Note "Checks for cleartext passwords in the Winlogon registry key. Empty passwords are filtered out."
+    # $Results = Invoke-WinlogonCheck
+    # if ($Results) {
+    #     "[*] Found some info:"
+    #     $Results | Format-List
+    # } else {
+    #     "[!] Nothing found."
+    # }
+
+    # "`r`n"
+
+    # Write-Banner -Category "Credentials" -Name "Credential Files" -Type Info -Note "Lists credential files in the current user's HOME folder."
+    # $Results = Invoke-CredentialFilesCheck
+    # if ($Results) {
+    #     "[*] Found $(([object[]]$Results).Length) file(s)."
+    #     $Results | Format-List
+    # } else {
+    #     "[!] Nothing found."
+    # }
+
+    # "`r`n"
+
+    # Write-Banner -Category "Credentials" -Name "Credential Manager" -Type Info -Note "Checks for saved credentials in Windows Vault."
+    # $Results = Invoke-VaultCredCheck
+    # if ($Results) {
+    #     "[*] Found $(([object[]]$Results).Length) result(s)."
+    #     $Results | Format-List
+    # } else {
+    #     "[!] Nothing found."
+    # }
+
+    # "`r`n"
+
+    # Write-Banner -Category "Credentials" -Name "Credential Manager (web)" -Type Info -Note "Checks for saved web credentials in Windows Vault."
+    # $Results = Invoke-VaultListCheck
+    # if ($Results) {
+    #     "[*] Found $(([object[]]$Results).Length) result(s)."
+    #     $Results | Format-List
+    # } else {
+    #     "[!] Nothing found."
+    # }
+
+    # "`r`n"
+
+    # Write-Banner -Category "Credentials" -Name "GPP Passwords" -Type Vuln -Note "Checks for cached Group Policy Preferences containing a 'cpassword' field."
+    # $Results = Invoke-GPPPasswordCheck
+    # if ($Results) {
+    #     "[*] Found $(([object[]]$Results).Length) credential(s)."
+    #     $Results | Format-List
+    # } else {
+    #     "[!] Nothing found."
+    # }
+
+    # "`r`n"
+
+    # Write-Banner -Category "Registry" -Name "UAC Settings" -Type Conf -Note "Checks User Access Control (UAC) configuration."
+    # $Results = Invoke-UacCheck
+    # if ($Results) {
+    #     "[*] UAC status:"
+    #     $Results | Format-List
+    # } else {
+    #     "[!] Nothing found."
+    # }
     
-    "`r`n"
+    # "`r`n"
 
-    Write-Banner -Category "Registry" -Name "WSUS Configuration" -Type Conf -Note "Checks whether WSUS is configured, enabled and vulnerable to the 'Wsuxploit' MITM attack (https://github.com/pimps/wsuxploit)."
-    $Results = Invoke-WsusConfigCheck
-    if ($Results) {
-        "[*] Found some info."
-        $Results | Format-List
-    } else {
-        "[!] Nothing found."
-    }
+    # Write-Banner -Category "Registry" -Name "LSA RunAsPPL" -Type Conf -Note "Checks whether 'lsass' runs as a Protected Process Light."
+    # $Results = Invoke-LsaProtectionsCheck
+    # if ($Results) {
+    #     "[*] Found some info."
+    #     $Results | Format-Table -AutoSize
+    # } else {
+    #     "[!] Nothing found."
+    # }
+
+    # "`r`n"
+
+    # Write-Banner -Category "Registry" -Name "LAPS Settings" -Type Conf -Note "Checks whether LAPS is configured and enabled."
+    # $Results = Invoke-LapsCheck
+    # if ($Results) {
+    #     "[*] LAPS status:"
+    #     $Results | Format-List
+    # } else {
+    #     "[!] Nothing found."
+    # }
     
-    "`r`n"
+    # "`r`n"
 
-    Write-Banner -Category "Network" -Name "TCP Endpoints" -Type Info -Note "Lists all TCP endpoints along with the corresponding process."    
-    $Results = Invoke-TcpEndpointsCheck #$Results = Invoke-TcpEndpointsCheck -Filtered
-    if ($Results) {
-        "[*] Found $(([object[]]$Results).Length) TCP endpoints."
-        $Results | Format-Table -AutoSize
-    } else {
-        "[!] Nothing found."
-    }
-
-    "`r`n"
-
-    Write-Banner -Category "Network" -Name "UDP Endpoints" -Type Info -Note "Lists all UDP endpoints along with the corresponding process. DNS is filtered out."
-    $Results = Invoke-UdpEndpointsCheck #$Results = Invoke-UdpEndpointsCheck -Filtered
-    if ($Results) {
-        "[*] Found $(([object[]]$Results).Length) UDP endpoints."
-        $Results | Format-Table -AutoSize
-    } else {
-        "[!] Nothing found."
-    }
-
-    "`r`n"
-
-    Write-Banner -Category "Network" -Name "Saved Wifi Profiles" -Type Info -Note "Checks for WEP/WPA-PSK keys and passphrases in saved Wifi profiles."
-    $Results = Invoke-WlanProfilesCheck
-    if ($Results) {
-        "[*] Found $(([object[]]$Results).Length) saved Wifi profiles."
-        $Results | Format-List
-    } else {
-        "[!] Nothing found."
-    }
-
-    "`r`n"
-
-    Write-Banner -Category "Misc" -Name "Last Windows Update Date" -Type Info -Note "Gets Windows update history. A system which hasn't been updated in the last 30 days is potentially vulnerable."
-    $Results = Invoke-WindowsUpdateCheck 
-    if ($Results) {
-        "[*] Last update time:"
-        $Results | Format-Table -AutoSize
-    } else {
-        "[!] Nothing found."
-    }
-
-    "`r`n"
-
-    Write-Banner -Category "Misc" -Name "Installed Updates and Hotfixes" -Type Info -Note "Gets the hotfixes that are installed on the computer."
-    $Results = Invoke-HotfixCheck
-    if ($Results) {
-        "[*] Found $(([object[]]$Results).Length) hotfixes."
-        $Results | Format-Table -AutoSize
-    } else {
-        "[!] Nothing found."
-    }
-
-    "`r`n"
-
-    Write-Banner -Category "Misc" -Name "OS Version" -Type Info -Note "Gets the detailed version number of the OS. If we can't get the update history, this might be useful."
-    $Results = Invoke-SystemInfoCheck
-    if ($Results) {
-        "[*] Found some info."
-        $Results | Format-Table -AutoSize
-    } else {
-        "[!] Nothing found."
-    }
-
-    "`r`n"
-
-    Write-Banner -Category "Misc" -Name "Local Admin Group" -Type Info -Note "Lists the members of the local 'Administrators' group."
-    $Results = Invoke-LocalAdminGroupCheck
-    if (([object[]]$Results).Length -gt 0) {
-        "[*] The default local admin group has $(([object[]]$Results).Length) member(s)."
-        $Results | Format-Table -AutoSize
-    } else {
-        "[!] Nothing found."
-    }
+    # Write-Banner -Category "Registry" -Name "PowerShell Transcription" -Type Conf -Note "Checks whether PowerShell Transcription is configured and enabled."
+    # $Results = Invoke-PowershellTranscriptionCheck
+    # if ($Results) {
+    #     "[*] PowerShell Transcription is configured (and enabled?)."
+    #     $Results | Format-List
+    # } else {
+    #     "[!] Nothing found."
+    # }
     
-    "`r`n"
+    # "`r`n"
 
-    Write-Banner -Category "Misc" -Name "User Home Folders" -Type Conf -Note "Lists HOME folders and checks for write access."
-    $Results = Invoke-UsersHomeFolderCheck
-    if ($Results) {
-        "[*] Found some info."
-        $Results | Format-Table -AutoSize
-    } else {
-        "[!] Nothing found"
-    }
+    # Write-Banner -Category "Registry" -Name "AlwaysInstallElevated" -Type Conf -Note "Checks whether the 'AlwaysInstallElevated' registry key is configured and enabled."
+    # $Results = Invoke-RegistryAlwaysInstallElevatedCheck
+    # if ($Results) {
+    #     "[+] AlwaysInstallElevated is enabled."
+    #     $Results | Format-List
+    # } else {
+    #     "[!] AlwaysInstallElevated isn't enabled."
+    # }
+    
+    # "`r`n"
 
-    "`r`n"
+    # Write-Banner -Category "Registry" -Name "WSUS Configuration" -Type Conf -Note "Checks whether WSUS is configured, enabled and vulnerable to the 'Wsuxploit' MITM attack (https://github.com/pimps/wsuxploit)."
+    # $Results = Invoke-WsusConfigCheck
+    # if ($Results) {
+    #     "[*] Found some info."
+    #     $Results | Format-List
+    # } else {
+    #     "[!] Nothing found."
+    # }
+    
+    # "`r`n"
 
-    Write-Banner -Category "Misc" -Name "Machine Role" -Type Info -Note "Gets the machine's role: Workstation, Server, Domain Controller."
-    $Results = Invoke-MachineRoleCheck 
-    if ($Results) {
-        "[*] Found some info."
-        $Results | Format-Table -AutoSize
-    } else {
-        "[!] Nothing found"
-    }
+    # Write-Banner -Category "Network" -Name "TCP Endpoints" -Type Info -Note "Lists all TCP endpoints along with the corresponding process."    
+    # $Results = Invoke-TcpEndpointsCheck #$Results = Invoke-TcpEndpointsCheck -Filtered
+    # if ($Results) {
+    #     "[*] Found $(([object[]]$Results).Length) TCP endpoints."
+    #     $Results | Format-Table -AutoSize
+    # } else {
+    #     "[!] Nothing found."
+    # }
 
-    "`r`n"
+    # "`r`n"
 
-    Write-Banner -Category "Misc" -Name "System Startup History" -Type Info -Note "Gets the startup history. Some exploits require a reboot so this can be useful to know."
-    $Results = Invoke-SystemStartupHistoryCheck
-    if (([object[]]$Results).Length -gt 0) {
-        "[*] Found $(([object[]]$Results).Length) startup event(s) in the last 31 days."
-        "[*] Last startup time was: $(([object[]]$Results)[0].Time)"
-        $Results | Select-Object -First 10 | Format-Table
-    } else {
-        "[!] Nothing found."
-    }
+    # Write-Banner -Category "Network" -Name "UDP Endpoints" -Type Info -Note "Lists all UDP endpoints along with the corresponding process. DNS is filtered out."
+    # $Results = Invoke-UdpEndpointsCheck #$Results = Invoke-UdpEndpointsCheck -Filtered
+    # if ($Results) {
+    #     "[*] Found $(([object[]]$Results).Length) UDP endpoints."
+    #     $Results | Format-Table -AutoSize
+    # } else {
+    #     "[!] Nothing found."
+    # }
 
-    "`r`n"
+    # "`r`n"
 
-    Write-Banner -Category "Misc" -Name "Last System Startup" -Type Info -Note "Gets the last system startup date based on the current tick count (potentially unreliable)."
-    $Results = Invoke-SystemStartupCheck
-    if ($Results) {
-        "[*] Last startup event time:"
-        $Results | Format-Table -AutoSize
-    } else {
-        "[!] Nothing found."
-    }
+    # Write-Banner -Category "Network" -Name "Saved Wifi Profiles" -Type Info -Note "Checks for WEP/WPA-PSK keys and passphrases in saved Wifi profiles."
+    # $Results = Invoke-WlanProfilesCheck
+    # if ($Results) {
+    #     "[*] Found $(([object[]]$Results).Length) saved Wifi profiles."
+    #     $Results | Format-List
+    # } else {
+    #     "[!] Nothing found."
+    # }
 
-    "`r`n"
+    # "`r`n"
 
-    Write-Banner -Category "Misc" -Name "Filesystem Drives" -Type Info -Note "Lists partitions, removable storage and mapped network shares."
-    $Results = Invoke-SystemDrivesCheck
-    "[*] Found $(([object[]]$Results).Length) drive(s)."
-    $Results | Format-Table -AutoSize
+    # Write-Banner -Category "Misc" -Name "Last Windows Update Date" -Type Info -Note "Gets Windows update history. A system which hasn't been updated in the last 30 days is potentially vulnerable."
+    # $Results = Invoke-WindowsUpdateCheck 
+    # if ($Results) {
+    #     "[*] Last update time:"
+    #     $Results | Format-Table -AutoSize
+    # } else {
+    #     "[!] Nothing found."
+    # }
 
-    "`r`n"
+    # "`r`n"
+
+    # Write-Banner -Category "Misc" -Name "Installed Updates and Hotfixes" -Type Info -Note "Gets the hotfixes that are installed on the computer."
+    # $Results = Invoke-HotfixCheck
+    # if ($Results) {
+    #     "[*] Found $(([object[]]$Results).Length) hotfixes."
+    #     $Results | Format-Table -AutoSize
+    # } else {
+    #     "[!] Nothing found."
+    # }
+
+    # "`r`n"
+
+    # Write-Banner -Category "Misc" -Name "OS Version" -Type Info -Note "Gets the detailed version number of the OS. If we can't get the update history, this might be useful."
+    # $Results = Invoke-SystemInfoCheck
+    # if ($Results) {
+    #     "[*] Found some info."
+    #     $Results | Format-Table -AutoSize
+    # } else {
+    #     "[!] Nothing found."
+    # }
+
+    # "`r`n"
+
+    # Write-Banner -Category "Misc" -Name "Local Admin Group" -Type Info -Note "Lists the members of the local 'Administrators' group."
+    # $Results = Invoke-LocalAdminGroupCheck
+    # if (([object[]]$Results).Length -gt 0) {
+    #     "[*] The default local admin group has $(([object[]]$Results).Length) member(s)."
+    #     $Results | Format-Table -AutoSize
+    # } else {
+    #     "[!] Nothing found."
+    # }
+    
+    # "`r`n"
+
+    # Write-Banner -Category "Misc" -Name "User Home Folders" -Type Conf -Note "Lists HOME folders and checks for write access."
+    # $Results = Invoke-UsersHomeFolderCheck
+    # if ($Results) {
+    #     "[*] Found some info."
+    #     $Results | Format-Table -AutoSize
+    # } else {
+    #     "[!] Nothing found"
+    # }
+
+    # "`r`n"
+
+    # Write-Banner -Category "Misc" -Name "Machine Role" -Type Info -Note "Gets the machine's role: Workstation, Server, Domain Controller."
+    # $Results = Invoke-MachineRoleCheck 
+    # if ($Results) {
+    #     "[*] Found some info."
+    #     $Results | Format-Table -AutoSize
+    # } else {
+    #     "[!] Nothing found"
+    # }
+
+    # "`r`n"
+
+    # Write-Banner -Category "Misc" -Name "System Startup History" -Type Info -Note "Gets the startup history. Some exploits require a reboot so this can be useful to know."
+    # $Results = Invoke-SystemStartupHistoryCheck
+    # if (([object[]]$Results).Length -gt 0) {
+    #     "[*] Found $(([object[]]$Results).Length) startup event(s) in the last 31 days."
+    #     "[*] Last startup time was: $(([object[]]$Results)[0].Time)"
+    #     $Results | Select-Object -First 10 | Format-Table
+    # } else {
+    #     "[!] Nothing found."
+    # }
+
+    # "`r`n"
+
+    # Write-Banner -Category "Misc" -Name "Last System Startup" -Type Info -Note "Gets the last system startup date based on the current tick count (potentially unreliable)."
+    # $Results = Invoke-SystemStartupCheck
+    # if ($Results) {
+    #     "[*] Last startup event time:"
+    #     $Results | Format-Table -AutoSize
+    # } else {
+    #     "[!] Nothing found."
+    # }
+
+    # "`r`n"
+
+    # Write-Banner -Category "Misc" -Name "Filesystem Drives" -Type Info -Note "Lists partitions, removable storage and mapped network shares."
+    # $Results = Invoke-SystemDrivesCheck
+    # "[*] Found $(([object[]]$Results).Length) drive(s)."
+    # $Results | Format-Table -AutoSize
+
+    # "`r`n"
 }
 #endregion Main

