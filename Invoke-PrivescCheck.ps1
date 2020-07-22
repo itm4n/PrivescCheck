@@ -2369,6 +2369,38 @@ function Invoke-PowershellTranscriptionCheck {
     } 
 }
 
+function Invoke-BitlockerCheck {
+    <#
+    .SYNOPSIS
+    
+    Checks whether BitLocker is enabled
+    
+    .DESCRIPTION
+
+    When BitLocker is enabled on the system drive, the value "BootStatus" is set to 1 in the 
+    following registry key: 'HKLM\SYSTEM\CurrentControlSet\Control\BitLockerStatus'.
+    
+    .EXAMPLE
+
+    An example
+    
+    #>
+
+    [CmdletBinding()]Param()
+
+    $RegPath = "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\BitLockerStatus"
+
+    $Item = Get-ItemProperty -Path "Registry::$RegPath" -ErrorAction SilentlyContinue -ErrorVariable GetItemPropertyError 
+    if (-not $GetItemPropertyError) {
+
+        $BitlockerResult = New-Object -TypeName PSObject 
+        $BitlockerResult | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $RegPath
+        $BitlockerResult | Add-Member -MemberType "NoteProperty" -Name "BootStatus" -Value $Item.BootStatus
+        $BitlockerResult | Add-Member -MemberType "NoteProperty" -Name "Enabled" -Value $($Item.BootStatus -eq 1)
+        $BitlockerResult
+    }
+}
+
 function Invoke-RegistryAlwaysInstallElevatedCheck {
     <#
     .SYNOPSIS
@@ -6158,6 +6190,7 @@ function Invoke-PrivescCheck {
 "HARDEN_LSA", "Invoke-LsaProtectionsCheck", "", "Hardening", "LSA protections", "Conf", "Checks whether 'lsass' runs as a Protected Process Light or if Credential Guard is enabled.", "Table", True
 "HARDEN_LAPS", "Invoke-LapsCheck", "", "Hardening", "LAPS Settings", "Conf", "Checks whether LAPS is configured and enabled.", "List", True
 "HARDEN_PS_TRANSCRIPT", "Invoke-PowershellTranscriptionCheck", "", "Hardening", "PowerShell Transcription", "Conf", "Checks whether PowerShell Transcription is configured and enabled.", "List", True
+"HARDEN_BITLOCKER", "Invoke-BitlockerCheck", "", "Hardening", "BitLocker", "Conf", "Checks whether BitLocker is enabled on the system drive. This check relies on a registry value and might be unreliable.", "List", True
 "CONFIG_MSI", "Invoke-RegistryAlwaysInstallElevatedCheck", "", "Config", "AlwaysInstallElevated", "Conf", "Checks whether the 'AlwaysInstallElevated' registry key is configured and enabled.", "List", False
 "CONFIG_WSUS", "Invoke-WsusConfigCheck", "", "Config", "WSUS Configuration", "Conf", "Checks whether WSUS is configured, enabled and vulnerable to the 'Wsuxploit' MITM attack (https://github.com/pimps/wsuxploit).", "List", False
 "NET_TCP_ENDPOINTS", "Invoke-TcpEndpointsCheck", "", "Network", "TCP Endpoints", "Info", "Lists all TCP endpoints along with the corresponding process.", "Table", True

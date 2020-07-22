@@ -85,11 +85,6 @@ Invoke-ServicesPermissionsCheck - Enumerates the services the current user can m
 Invoke-ServicesPermissionsRegistryCheck - Enumerates services that can be modified by the current user in the registry
 Invoke-ServicesImagePermissionsCheck - Enumerates all the services that have a modifiable binary (or argument)
 Invoke-ServicesUnquotedPathCheck - Enumerates services with an unquoted path that can be exploited
-```
-
-### Dll Hijacking
-
-```
 Invoke-DllHijackingCheck - Checks whether any of the system path folders is modifiable
 Invoke-HijackableDllsCheck - Lists hijackable DLLs depending on the version of the OS
 ```
@@ -117,14 +112,20 @@ Invoke-VaultListCheck - Enumerates web credentials saved in the Credential Manag
 Invoke-GPPPasswordCheck - Lists Group Policy Preferences (GPP) containing a non-empty "cpassword" field
 ```
 
-### Registry
+### Hardening
 
 ```
 Invoke-UacCheck - Checks whether UAC (User Access Control) is enabled
 Invoke-LapsCheck - Checks whether LAPS (Local Admin Password Solution) is enabled
 Invoke-PowershellTranscriptionCheck - Checks whether PowerShell Transcription is configured/enabled
-Invoke-RegistryAlwaysInstallElevatedCheck - Checks whether the AlwaysInstallElevated key is set in the registry
 Invoke-LsaProtectionsCheck - Checks whether LSASS is running as a Protected Process (+ additional checks)
+Invoke-BitlockerCheck - Checks whether BitLocker is enabled on the system drive
+```
+
+### Configuration
+
+```
+Invoke-RegistryAlwaysInstallElevatedCheck - Checks whether the AlwaysInstallElevated key is set in the registry
 Invoke-WsusConfigCheck - Checks whether the WSUS is enabled and vulnerable (Wsuxploit)
 ```
 
