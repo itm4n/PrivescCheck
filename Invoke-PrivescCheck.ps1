@@ -1476,41 +1476,45 @@ function Get-ModifiablePath {
                 }
             }
             else {
+                $TargetPath = $([System.Environment]::ExpandEnvironmentVariables($TargetPath)).Trim()
+                
                 ForEach($SeparationCharacterSet in $SeparationCharacterSets) {
                     $TargetPath.Split($SeparationCharacterSet) | Where-Object {$_ -and ($_.trim() -ne '')} | ForEach-Object {
 
-                        if(($SeparationCharacterSet -notmatch ' ')) {
+                        if (-not ($_ -match "^[A-Z]:`$")) {
 
-                            $TempPath = $([System.Environment]::ExpandEnvironmentVariables($_)).Trim()
+                            if($SeparationCharacterSet -notmatch ' ') {
 
-                            # if the path is actually an option like '/svc', skip it 
-                            # it will prevent a lot of false positives but it might also skip vulnerable paths in some particular cases 
-                            # though, it's more common to see options like '/svc' than file paths like '/ProgramData/something' in Windows 
-                            if (-not ($TempPath -Like "/*")) { 
-
-                                if($TempPath -and ($TempPath -ne '')) {
-                                    if(Test-Path -Path $TempPath -ErrorAction SilentlyContinue) {
-                                        # if the path exists, resolve it and add it to the candidate list
-                                        $CandidatePaths += Resolve-Path -Path $TempPath | Select-Object -ExpandProperty Path
-                                    }
-                                    else {
-                                        # if the path doesn't exist, check if the parent folder allows for modification
-                                        try {
-                                            $ParentPath = (Split-Path -Path $TempPath -Parent -ErrorAction SilentlyContinue).Trim()
-                                            if($ParentPath -and ($ParentPath -ne '') -and (Test-Path -Path $ParentPath -ErrorAction SilentlyContinue)) {
-                                                $CandidatePaths += Resolve-Path -Path $ParentPath | Select-Object -ExpandProperty Path
+                                $TempPath = $([System.Environment]::ExpandEnvironmentVariables($_)).Trim()
+    
+                                # if the path is actually an option like '/svc', skip it 
+                                # it will prevent a lot of false positives but it might also skip vulnerable paths in some particular cases 
+                                # though, it's more common to see options like '/svc' than file paths like '/ProgramData/something' in Windows 
+                                if ((-not ($TempPath -Like "/*")) -and (-not ($TempPath -match "^[A-Z]:`$"))) { 
+    
+                                    if($TempPath -and ($TempPath -ne '')) {
+                                        if (Test-Path -Path $TempPath -ErrorAction SilentlyContinue) {
+                                            # if the path exists, resolve it and add it to the candidate list
+                                            $CandidatePaths += Resolve-Path -Path $TempPath | Select-Object -ExpandProperty Path
+                                        } else {
+                                            # if the path doesn't exist, check if the parent folder allows for modification
+                                            try {
+                                                $ParentPath = (Split-Path -Path $TempPath -Parent -ErrorAction SilentlyContinue).Trim()
+                                                if ($ParentPath -and ($ParentPath -ne '') -and (Test-Path -Path $ParentPath -ErrorAction SilentlyContinue)) {
+                                                    $CandidatePaths += Resolve-Path -Path $ParentPath | Select-Object -ExpandProperty Path
+                                                }
+                                            } catch {
+                                                # trap because Split-Path doesn't handle -ErrorAction SilentlyContinue nicely
                                             }
-                                        }
-                                        catch {
-                                            # trap because Split-Path doesn't handle -ErrorAction SilentlyContinue nicely
                                         }
                                     }
                                 }
+                            } else {
+                                # if the separator contains a space
+                                $CandidatePaths += Resolve-Path -Path $([System.Environment]::ExpandEnvironmentVariables($_)) -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Path | ForEach-Object {$_.Trim()} | Where-Object {($_ -ne '') -and (Test-Path -Path $_)}
                             }
-                        }
-                        else {
-                            # if the separator contains a space
-                            $CandidatePaths += Resolve-Path -Path $([System.Environment]::ExpandEnvironmentVariables($_)) -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Path | ForEach-Object {$_.Trim()} | Where-Object {($_ -ne '') -and (Test-Path -Path $_)}
+                        } else {
+                            Write-Verbose "DEBUG: Got a drive letter as a path: $_"
                         }
                     }
                 }
@@ -5009,7 +5013,7 @@ function Invoke-ScheduledTasksCheck {
 
     This function enumerates all the scheduled tasks which are visible by the current user. For 
     each task, it extracts the command line and checks whether it contains a path pointing to a 
-    modifiable file.
+    modifiable file. If a task is run as the current user, it is filtered out. 
     
     .EXAMPLE
 
@@ -5058,9 +5062,15 @@ function Invoke-ScheduledTasksCheck {
                 $TaskExec = $TaskXml.GetElementsByTagName("Exec")
                 $TaskCommandLine = "$($TaskExec.Command) $($TaskExec.Arguments)"
                 $Principal = $TaskXml.GetElementsByTagName("Principal")
+                
+                $CurrentUserIsOwner = $False
 
                 if ($Principal.UserId) {
                     $PrincipalName = Convert-SidToName -Sid $Principal.UserId
+                    
+                    if ($(Invoke-UserCheck).SID -eq $Principal.UserId) {
+                        $CurrentUserIsOwner = $True
+                    }
                 } elseif ($Principal.GroupId) {
                     $PrincipalName = Convert-SidToName -Sid $Principal.GroupId
                 }
@@ -5069,17 +5079,21 @@ function Invoke-ScheduledTasksCheck {
 
                     if ($Filtered) {
 
-                        $TaskCommandLine | Get-ModifiablePath | Where-Object {$_ -and $_.ModifiablePath -and ($_.ModifiablePath -ne '')} | ForEach-Object {
+                        # Filter out tasks that are run as the current user
+                        if (-not $CurrentUserIsOwner) {
+                            $TaskCommandLine | Get-ModifiablePath | Where-Object {$_ -and $_.ModifiablePath -and ($_.ModifiablePath -ne '')} | ForEach-Object {
 
-                            $ResultItem = New-Object -TypeName PSObject 
-                            $ResultItem | Add-Member -MemberType "NoteProperty" -Name "TaskName" -Value $TaskName
-                            $ResultItem | Add-Member -MemberType "NoteProperty" -Name "TaskPath" -Value $TaskPath
-                            $ResultItem | Add-Member -MemberType "NoteProperty" -Name "TaskFile" -Value $TaskFile
-                            $ResultItem | Add-Member -MemberType "NoteProperty" -Name "RunAs" -Value $PrincipalName
-                            $ResultItem | Add-Member -MemberType "NoteProperty" -Name "Command" -Value $TaskCommandLine
-                            $ResultItem | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $_.ModifiablePath
-                            $ResultItem
+                                $ResultItem = New-Object -TypeName PSObject 
+                                $ResultItem | Add-Member -MemberType "NoteProperty" -Name "TaskName" -Value $TaskName
+                                $ResultItem | Add-Member -MemberType "NoteProperty" -Name "TaskPath" -Value $TaskPath
+                                $ResultItem | Add-Member -MemberType "NoteProperty" -Name "TaskFile" -Value $TaskFile
+                                $ResultItem | Add-Member -MemberType "NoteProperty" -Name "RunAs" -Value $PrincipalName
+                                $ResultItem | Add-Member -MemberType "NoteProperty" -Name "Command" -Value $TaskCommandLine
+                                $ResultItem | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $_.ModifiablePath
+                                $ResultItem
+                            }
                         }
+
                     } else {
 
                         $ResultItem = New-Object -TypeName PSObject 
