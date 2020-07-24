@@ -3515,6 +3515,7 @@ function Invoke-WindowsUpdateCheck {
         if ($WindowsUpdate.LastInstallationSuccessDate) {
             $WindowsUpdateResult = New-Object -TypeName PSObject 
             $WindowsUpdateResult | Add-Member -MemberType "NoteProperty" -Name "Time" -Value $(Convert-DateToString -Date $WindowsUpdate.LastInstallationSuccessDate)
+            $WindowsUpdateResult | Add-Member -MemberType "NoteProperty" -Name "TimeRaw" -Value $WindowsUpdate.LastInstallationSuccessDate
             $WindowsUpdateResult
         } 
     } catch {
@@ -3630,14 +3631,14 @@ function Invoke-HotfixCheck {
                     $Entry | Add-Member -MemberType "NoteProperty" -Name "InstalledBy" -Value "$InstalledBy"
                     $Entry | Add-Member -MemberType "NoteProperty" -Name "InstalledOn" -Value "$(Convert-DateToString -Date $InstallDate)"
                     $Entry | Add-Member -MemberType "NoteProperty" -Name "URL" -Value "$($PackageInfo.SupportInformation)"
-                    $Entry | Add-Member -MemberType "NoteProperty" -Name "DateRaw" -Value $InstallDate
+                    $Entry | Add-Member -MemberType "NoteProperty" -Name "InstalledOnRaw" -Value $InstallDate
                     [void]$Results.Add($Entry)
                 }
             }
         }
     }
 
-    $Results | Sort-Object DateRaw -Descending | Select-Object HotFixID,Type,InstalledBy,InstalledOn
+    $Results | Sort-Object InstalledOnRaw -Descending | Select-Object HotFixID,Type,InstalledBy,InstalledOn,InstalledOnRaw
 }
 
 # ----------------------------------------------------------------
