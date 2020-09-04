@@ -140,6 +140,7 @@ Invoke-WlanProfilesCheck - Enumerates the saved Wifi profiles and extract the cl
 ### Misc
 
 ```
+Invoke-EndpointProtectionCheck - Gets a list of security software products
 Invoke-WindowsUpdateCheck - Checks the last update time of the machine
 Invoke-HotfixCheck - Gets a list of installed updates and hotfixes
 Invoke-SystemInfoCheck - Gets the name of the operating system and the full version string

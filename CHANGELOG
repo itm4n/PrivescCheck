@@ -1,3 +1,6 @@
+2020-09-04
+    - Added Misc > Invoke-EndpointProtectionCheck
+
 2020-07-22
     - Fixed a false positive: 'C:' resolves to the current directory
     - Fixed a false positive: scheduled tasks running as the current user

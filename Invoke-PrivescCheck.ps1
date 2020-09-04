@@ -3641,6 +3641,180 @@ function Invoke-HotfixCheck {
     $Results | Sort-Object InstalledOnRaw -Descending | Select-Object HotFixID,Type,InstalledBy,InstalledOn,InstalledOnRaw
 }
 
+function Invoke-EndpointProtectionCheck {
+    <#
+    .SYNOPSIS
+    
+    Gets a list of security software products 
+    
+    .DESCRIPTION
+
+    This check was inspired by the script Invoke-EDRChecker.ps1 (PwnDexter). It enumerates the DLLs
+    that are loaded in the current process, the processes that are currently running, the installed
+    applications and the installed services. For each one of these entries, it extracts some 
+    metadata and checks whether it contains some known strings related to a given security software
+    product. If there is a match, the corresponding entry is returned along with the data that was
+    matched.
+    
+    .EXAMPLE
+
+    PS C:\> Invoke-EndpointProtectionCheck
+
+    ProductName      Source                Pattern
+    -----------      ------                -------
+    AMSI             Loaded DLL            FileName=C:\Windows\SYSTEM32\amsi.dll
+    AMSI             Loaded DLL            InternalName=amsi.dll
+    AMSI             Loaded DLL            OriginalFilename=amsi.dll
+    Windows Defender Loaded DLL            FileName=C:\ProgramData\Microsoft\Windows Defender\platform\4.18.2008.9-0\MpOav.dll
+    Windows Defender Loaded DLL            FileName=C:\ProgramData\Microsoft\Windows Defender\platform\4.18.2008.9-0\MPCLIENT.DLL
+    Windows Defender Running process       ProcessName=MsMpEng
+    Windows Defender Running process       Name=MsMpEng
+    Windows Defender Running process       ProcessName=NisSrv
+    Windows Defender Running process       Name=NisSrv
+    Windows Defender Running process       ProcessName=SecurityHealthService
+    Windows Defender Running process       Name=SecurityHealthService
+    Windows Defender Running process       Description=Windows Defender SmartScreen
+    Windows Defender Installed application Name=Windows Defender
+    Windows Defender Installed application Name=Windows Defender
+    Windows Defender Installed application Name=Windows Defender Advanced Threat Protection
+    Windows Defender Service               Name=SecurityHealthService
+    Windows Defender Service               ImagePath=C:\Windows\system32\SecurityHealthService.exe
+    Windows Defender Service               RegistryKey=HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\SecurityHealthService
+    Windows Defender Service               RegistryPath=Microsoft.PowerShell.Core\Registry::HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\SecurityHealthService
+    Windows Defender Service               DisplayName=@C:\Program Files\Windows Defender Advanced Threat Protection\MsSense.exe,-1001
+    Windows Defender Service               ImagePath="C:\Program Files\Windows Defender Advanced Threat Protection\MsSense.exe"
+    Windows Defender Service               DisplayName=@C:\Program Files\Windows Defender\MpAsDesc.dll,-390
+    Windows Defender Service               DisplayName=@C:\Program Files\Windows Defender\MpAsDesc.dll,-330
+    Windows Defender Service               DisplayName=@C:\Program Files\Windows Defender\MpAsDesc.dll,-370
+    Windows Defender Service               DisplayName=@C:\Program Files\Windows Defender\MpAsDesc.dll,-320
+    Windows Defender Service               ImagePath="C:\ProgramData\Microsoft\Windows Defender\platform\4.18.2008.9-0\NisSrv.exe"
+    Windows Defender Service               DisplayName=@C:\Program Files\Windows Defender\MpAsDesc.dll,-310
+    Windows Defender Service               ImagePath="C:\ProgramData\Microsoft\Windows Defender\platform\4.18.2008.9-0\MsMpEng.exe"
+    
+    .NOTES
+
+    Credit goes to PwnDexter: https://github.com/PwnDexter/Invoke-EDRChecker
+    #>
+
+    [CmdletBinding()] param()
+
+    $Signatures = @{
+        "Cybereason" = "activeconsole,cramtray,crssvc,cybereason"
+        "AMSI" = "amsi.dll"
+        "Avast" = "avast"
+        "Avecto Defendpoint" = "avecto,defendpoint,pgeposervice,pgsystemtray,privilegeguard"
+        "Red Canary" = "canary"
+        "Carbon Black" = "carbon,cb.exe,logrhythm"
+        "Cisco AMP" = "ciscoamp"
+        "CounterTack" = "countertack"
+        "CrowdStrike" = "crowdstrike,csagent,csfalcon,csshell,ivanti,windowssensor"
+        "Cylance" = "cylance,cyoptics,cyupdate"
+        "Traps" = "cyvera,cyserver,cytray,PaloAltoNetworks,tda.exe,tdawork"
+        "Windows Defender" = "defender,msascuil,msmpeng,nissrv,securityhealthservice"
+        "Symantec Endpoint Protection" = "eectrl,semlaunchsvc,sepliveupdate,sisidsservice,sisipsservice,sisipsutil,smc.exe,smcgui,snac64,srtsp,symantec,symcorpui,symefasi"
+        "AppSense" = "emcoreservice,emsystem,watchdogagent"
+        "Endgame" = "endgame"
+        "FireEye" = "fireeye,mandiant,xagt"
+        "Forescout" = "forescout"
+        "eTrust EZ AV" = "groundling"
+        "ESET Endpoint Inspector" = "inspector"
+        "Kaspersky" = "kaspersky"
+        "McAfee" = "mcafee"
+        "Morphisec" = "morphisec"
+        "Trend Micro" = "ntrtscan,tmlisten,tmbmsrv,tmssclient,tmccsf,trend"
+        "Red Cloak" = "procwall,redcloak,cyclorama"
+        "Program Protector" = "protectorservice"
+        "IBM QRadar" = "qradar,wincollect"
+        "ForeScout SecureConnector" = "secureconnector"
+        "SentinelOne" = "sentinel"
+        "Sophos" = "sophos"
+        "Sysinternals Antivirus" = "sysinternal"
+        "Sysinternals Sysmon" = "sysmon"
+        "Lacuna" = "lacuna"
+        "Tanium Enforce" = "tanium,tpython"
+    }
+
+    function Find-ProtectionSoftware {
+
+        param(
+            [object]$Object
+        )
+
+        $Signatures.Keys | ForEach-Object {
+
+            $ProductName = $_
+            $ProductSignatures = $Signatures.Item($_).Split(",")
+
+            $Object | Select-String -Pattern $ProductSignatures -AllMatches | ForEach-Object {
+
+                $($_ -Replace "@{").Trim("}").Split(";") | ForEach-Object {
+
+                    $_.Trim() | Select-String -Pattern $ProductSignatures -AllMatches | ForEach-Object {
+
+                        $SignatureMatch = New-Object -TypeName PSObject 
+                        $SignatureMatch | Add-Member -MemberType "NoteProperty" -Name "ProductName" -Value "$ProductName"
+                        $SignatureMatch | Add-Member -MemberType "NoteProperty" -Name "Pattern" -Value "$($_)"
+                        $SignatureMatch
+                    }
+                }
+            }
+        }
+    }
+    
+    # Check DLLs loaded in the current process
+    Get-Process -Id $PID -Module | ForEach-Object {
+
+        $DllDetails = (Get-Item $_.FileName).VersionInfo | Select-Object -Property CompanyName,FileDescription,FileName,InternalName,LegalCopyright,OriginalFileName,ProductName
+        Find-ProtectionSoftware -Object $DllDetails | ForEach-Object {
+
+            $Result = New-Object -TypeName PSObject
+            $Result | Add-Member -MemberType "NoteProperty" -Name "ProductName" -Value "$($_.ProductName)"
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Source" -Value "Loaded DLL"
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Pattern" -Value "$($_.Pattern)"
+            $Result
+        }
+    }
+
+    # Check running processes
+    Get-Process | Select-Object -Property ProcessName,Name,Path,Company,Product,Description | ForEach-Object {
+
+        Find-ProtectionSoftware -Object $_ | ForEach-Object {
+
+            $Result = New-Object -TypeName PSObject
+            $Result | Add-Member -MemberType "NoteProperty" -Name "ProductName" -Value "$($_.ProductName)"
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Source" -Value "Running process"
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Pattern" -Value "$($_.Pattern)"
+            $Result
+        }
+    }
+
+    # Check installed applications 
+    Get-InstalledPrograms | Select-Object -Property Name | ForEach-Object {
+
+        Find-ProtectionSoftware -Object $_ | ForEach-Object {
+
+            $Result = New-Object -TypeName PSObject
+            $Result | Add-Member -MemberType "NoteProperty" -Name "ProductName" -Value "$($_.ProductName)"
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Source" -Value "Installed application"
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Pattern" -Value "$($_.Pattern)"
+            $Result
+        }
+    }
+
+    # Check installed services 
+    Get-ServiceList -FilterLevel 1 | ForEach-Object {
+
+        Find-ProtectionSoftware -Object $_ | ForEach-Object {
+
+            $Result = New-Object -TypeName PSObject
+            $Result | Add-Member -MemberType "NoteProperty" -Name "ProductName" -Value "$($_.ProductName)"
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Source" -Value "Service"
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Pattern" -Value "$($_.Pattern)"
+            $Result
+        }
+    }
+}
+
 # ----------------------------------------------------------------
 # END MISC   
 # ----------------------------------------------------------------
@@ -6197,6 +6371,7 @@ function Invoke-PrivescCheck {
 "NET_TCP_ENDPOINTS", "Invoke-TcpEndpointsCheck", "", "Network", "TCP Endpoints", "Info", "Lists all TCP endpoints along with the corresponding process.", "Table", True
 "NET_UDP_ENDPOINTS", "Invoke-UdpEndpointsCheck", "", "Network", "UDP Endpoints", "Info", "Lists all UDP endpoints along with the corresponding process. DNS is filtered out.", "Table", True
 "NET_WLAN", "Invoke-WlanProfilesCheck", "", "Network", "Saved Wifi Profiles", "Info", "Checks for WEP/WPA-PSK keys and passphrases in saved Wifi profiles.", "List", True
+"MISC_AVEDR", "Invoke-EndpointProtectionCheck", "", "Misc", "Endpoint Protection", "Info", "Checks for installed security products (AV, EDR). This check is based on keyword matching (loaded DLLs, running processes, installed applications and registered services).", "Table", True
 "MISC_UPDATE", "Invoke-WindowsUpdateCheck", "", "Misc", "Last Windows Update Date", "Info", "Gets Windows update history. A system which hasn't been updated in the last 30 days is potentially vulnerable.", "Table", True
 "MISC_HOTFIX", "Invoke-HotfixCheck", "", "Misc", "Installed Updates and Hotfixes", "Info", "Gets the hotfixes that are installed on the computer.", "Table", True
 "MISC_SYSINFO", "Invoke-SystemInfoCheck", "", "Misc", "OS Version", "Info", "Gets the detailed version number of the OS. If we can't get the update history, this might be useful.", "Table", True
