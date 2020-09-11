@@ -7,21 +7,23 @@ I built on the amazing work done by [@harmj0y](https://twitter.com/harmj0y) and 
 
 ## Usage 
 
-By default, the srcipt runs only "quick-win" checks. To get extra information, use the option `-Extended`.
+By default, the script runs only "quick-win" checks. To get extra information, use the option `-Extended`.
 
 From a PowerShell prompt:
 ```
+PS C:\Temp\> Set-ExecutionPolicy Bypass -Scope process -Force
 PS C:\Temp\> . .\Invoke-PrivescCheck.ps1; Invoke-PrivescCheck 
 PS C:\Temp\> . .\Invoke-PrivescCheck.ps1; Invoke-PrivescCheck -Extended
 ```
 
 From a PowerShell prompt + Log results to a file:
 ```
+PS C:\Temp\> Set-ExecutionPolicy Bypass -Scope process -Force
 PS C:\Temp\> . .\Invoke-PrivescCheck.ps1; Invoke-PrivescCheck | Tee-Object "result.txt"
 PS C:\Temp\> . .\Invoke-PrivescCheck.ps1; Invoke-PrivescCheck -Extended | Tee-Object "result.txt"
 ```
 
-From a command prompt:
+From a command prompt + Log results to a file:
 ```
 C:\Temp\>powershell -ep bypass -c ". .\Invoke-PrivescCheck.ps1; Invoke-PrivescCheck | Tee-Object result.txt"
 C:\Temp\>powershell -ep bypass -c ". .\Invoke-PrivescCheck.ps1; Invoke-PrivescCheck -Extended | Tee-Object result.txt"
