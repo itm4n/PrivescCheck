@@ -2373,7 +2373,7 @@ function Invoke-BitlockerCheck {
     <#
     .SYNOPSIS
     
-    Checks whether BitLocker is enabled
+    Checks whether BitLocker is enabled (workstations only).
     
     .DESCRIPTION
 
@@ -2388,16 +2388,34 @@ function Invoke-BitlockerCheck {
 
     [CmdletBinding()]Param()
 
-    $RegPath = "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\BitLockerStatus"
+    $MachineRole = Invoke-MachineRoleCheck
 
-    $Item = Get-ItemProperty -Path "Registry::$RegPath" -ErrorAction SilentlyContinue -ErrorVariable GetItemPropertyError 
-    if (-not $GetItemPropertyError) {
+    if ($MachineRole.Name -Like "WinNT") {
 
-        $BitlockerResult = New-Object -TypeName PSObject 
-        $BitlockerResult | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $RegPath
-        $BitlockerResult | Add-Member -MemberType "NoteProperty" -Name "BootStatus" -Value $Item.BootStatus
-        $BitlockerResult | Add-Member -MemberType "NoteProperty" -Name "Enabled" -Value $($Item.BootStatus -eq 1)
-        $BitlockerResult
+        $RegPath = "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\BitLockerStatus"
+
+        $Item = Get-ItemProperty -Path "Registry::$RegPath" -ErrorAction SilentlyContinue -ErrorVariable GetItemPropertyError 
+        if (-not $GetItemPropertyError) {
+
+            if (-not ($Item.BootStatus -eq 1)) {
+
+                $BitlockerResult = New-Object -TypeName PSObject 
+                $BitlockerResult | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $RegPath
+                $BitlockerResult | Add-Member -MemberType "NoteProperty" -Name "BootStatus" -Value $Item.BootStatus
+                # $BitlockerResult | Add-Member -MemberType "NoteProperty" -Name "Enabled" -Value $($Item.BootStatus -eq 1)
+                $BitlockerResult | Add-Member -MemberType "NoteProperty" -Name "Description" -Value "BitLocker isn't enabled."
+                $BitlockerResult
+            }
+
+        } else {
+
+            $BitlockerResult = New-Object -TypeName PSObject 
+            $BitlockerResult | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $RegPath
+            $BitlockerResult | Add-Member -MemberType "NoteProperty" -Name "BootStatus" -Value ""
+            # $BitlockerResult | Add-Member -MemberType "NoteProperty" -Name "Enabled" -Value $($Item.BootStatus -eq 1)
+            $BitlockerResult | Add-Member -MemberType "NoteProperty" -Name "Description" -Value "BitLocker isn't configured."
+            $BitlockerResult
+        }
     }
 }
 
@@ -3963,9 +3981,15 @@ function Invoke-UserGroupsCheck {
 
             if (-not $KnownSid) {
 
-                if ($GroupSid -notmatch '^S-1-5.*') {
+                # if ($GroupSid -notmatch '^S-1-5.*') {
+                #     $GroupName = ($Group.Translate([System.Security.Principal.NTAccount])).Value
+                # } else {
+                #     $GroupName = "N/A"
+                # }
+
+                try {
                     $GroupName = ($Group.Translate([System.Security.Principal.NTAccount])).Value
-                } else {
+                } catch {
                     $GroupName = "N/A"
                 }
 
@@ -4005,7 +4029,7 @@ function Invoke-UserPrivilegesCheck {
 
     [CmdletBinding()] param()    
 
-    $HighPotentialPrivileges = "SeAssignPrimaryTokenPrivilege", "SeImpersonatePrivilege", "SeCreateTokenPrivilege", "SeDebugPrivilege", "SeLoadDriverPrivilege", "SeRestorePrivilege", "SeTakeOwnershipPrivilege", "SeTcbPrivilege", "SeBackupPrivilege", "SeShutdownPrivilege"
+    $HighPotentialPrivileges = "SeAssignPrimaryTokenPrivilege", "SeImpersonatePrivilege", "SeCreateTokenPrivilege", "SeDebugPrivilege", "SeLoadDriverPrivilege", "SeRestorePrivilege", "SeTakeOwnershipPrivilege", "SeTcbPrivilege", "SeBackupPrivilege"
 
     $CurrentPrivileges = Get-UserPrivileges
 
@@ -6247,35 +6271,18 @@ function Write-CheckBanner {
     $Result
 }
 
-$global:ResultHashTable = @{}
+$global:ResultArrayList = New-Object -TypeName System.Collections.ArrayList
 
 function Invoke-Check {
 
     [CmdletBinding()] param(
-        [object]$HashTable,
         [object]$Check
     )
 
-    if (-not ($HashTable.ContainsKey($Check.Id))) {
-
-        $HashTable.Add($Check.Id, $Check)
-
-        if ($Check.Params) {
-
-            $Result = Invoke-Expression -Command "$($Check.Command) $($Check.Params)"
-            # $HashTable[$Check.Id] | Add-Member -MemberType "NoteProperty" -Name "ResultRaw" -Value $Result
-
-        } else {
-
-            $Result = Invoke-Expression -Command "$($Check.Command)"
-            # $HashTable[$Check.Id] | Add-Member -MemberType "NoteProperty" -Name "ResultRaw" -Value $Result
-
-        }
-
-        $HashTable[$Check.Id] | Add-Member -MemberType "NoteProperty" -Name "ResultRaw" -Value $Result
-    }
-
-    $HashTable[$Check.Id].ResultRaw
+    $Result = Invoke-Expression -Command "$($Check.Command) $($Check.Params)"
+    $Check | Add-Member -MemberType "NoteProperty" -Name "ResultRaw" -Value $Result
+    [void] $ResultArrayList.Add($Check)
+    $Check.ResultRaw
 }
 
 function Invoke-PrivescCheck {
@@ -6337,13 +6344,12 @@ function Invoke-PrivescCheck {
         return
     }
 
-    $ResultHashTable = @{}
     $AllChecksCsv = @"
 "Id", "Command", "Params", "Category", "DisplayName", "Type", "Note", "Format", "Extended"
 "USER_USER", "Invoke-UserCheck", "", "User", "whoami", "Info", "Gets the name and the SID of the current user.", "Table", True
-"USER_GROUPS", "Invoke-UserGroupsCheck", "", "User", "whoami /groups", "Conf", "Gets the non-default groups the current user belongs to.", "Table", True
-"USER_PRIVILEGES", "Invoke-UserPrivilegesCheck", "", "User", "whoami /priv", "Conf", "Gets the privileges of the current user which can be leveraged for elevation of privilege.", "Table", False
-"USER_ENV", "Invoke-UserEnvCheck", "", "User", "Environment Variables", "Conf", "Checks environment variable for sensitive data.", "Table", False
+"USER_GROUPS", "Invoke-UserGroupsCheck", "", "User", "whoami /groups", "Info", "Gets the non-default groups the current user belongs to.", "Table", True
+"USER_PRIVILEGES", "Invoke-UserPrivilegesCheck", "", "User", "whoami /priv", "Vuln", "Gets the privileges of the current user which can be leveraged for elevation of privilege.", "Table", False
+"USER_ENV", "Invoke-UserEnvCheck", "", "User", "Environment Variables", "Info", "Checks environment variable for sensitive data.", "Table", False
 "SERVICE_INSTALLED", "Invoke-InstalledServicesCheck", "", "Services", "Non-default Services", "Info", "Checks for third-party services.", "List", False
 "SERVICE_PERMISSIONS", "Invoke-ServicesPermissionsCheck", "", "Services", "Permissions - SCM", "Vuln", "Checks for services which are modifiable through the Service Control Manager (sc.exe config VulnService binpath= C:\Temp\evil.exe).", "List", False
 "SERVICE_PERMISSIONS_REGISTRY", "Invoke-ServicesPermissionsRegistryCheck", "", "Services", "Permissions - Registry", "Vuln", "Checks for services which are modifiable through the registry (reg.exe add HKLM\[...]\Services\VulnService /v ImagePath /d C:\Temp\evil.exe /f).", "List", False
@@ -6358,19 +6364,19 @@ function Invoke-PrivescCheck {
 "APP_SCHTASKS", "Invoke-ScheduledTasksCheck", "-Filtered", "Applications", "Scheduled Tasks", "Vuln", "Checks for scheduled tasks with a modifiable executable.", "List", True
 "APP_PROCESSES", "Invoke-RunningProcessCheck", "", "Applications", "Running Processes", "Info", "Lists processes which are not owned by the current user. Common processes such as 'svchost.exe' are filtered out.", "Table", True
 "CREDS_SAM_BKP", "Invoke-SamBackupFilesCheck", "", "Credentials", "SAM/SYSTEM Backup Files", "Vuln", "Checks for readable backups of the SAM/SYSTEM files.", "List", False
-"CREDS_UNATTENDED", "Invoke-UnattendFilesCheck", "", "Credentials", "Unattended Files", "Vuln", "Checks for Unattend files containing cleartext passwords.", "List", True
+"CREDS_UNATTENDED", "Invoke-UnattendFilesCheck", "", "Credentials", "Unattended Files", "Vuln", "Checks for Unattend files containing cleartext passwords.", "List", False
 "CREDS_WINLOGON", "Invoke-WinlogonCheck", "", "Credentials", "WinLogon", "Vuln", "Checks for cleartext passwords in the Winlogon registry key. Empty passwords are filtered out.", "List", False
 "CREDS_CRED_FILES", "Invoke-CredentialFilesCheck", "", "Credentials", "Credential Files", "Info", "Lists credential files in the current user's HOME folder.", "List", True
 "CREDS_VAULT_CRED", "Invoke-VaultCredCheck", "", "Credentials", "Credential Manager", "Info", "Checks for saved credentials in Windows Vault.", "List", False
 "CREDS_VAULT_LIST", "Invoke-VaultListCheck", "", "Credentials", "Credential Manager (web)", "Info", "Checks for saved web credentials in Windows Vault.", "List", False
 "CREDS_GPP", "Invoke-GPPPasswordCheck", "", "Credentials", "GPP Passwords", "Vuln", "Checks for cached Group Policy Preferences containing a 'cpassword' field.", "List", False
-"HARDEN_UAC", "Invoke-UacCheck", "", "Hardening", "UAC Settings", "Conf", "Checks User Access Control (UAC) configuration.", "List", True
-"HARDEN_LSA", "Invoke-LsaProtectionsCheck", "", "Hardening", "LSA protections", "Conf", "Checks whether 'lsass' runs as a Protected Process Light or if Credential Guard is enabled.", "Table", True
-"HARDEN_LAPS", "Invoke-LapsCheck", "", "Hardening", "LAPS Settings", "Conf", "Checks whether LAPS is configured and enabled.", "List", True
-"HARDEN_PS_TRANSCRIPT", "Invoke-PowershellTranscriptionCheck", "", "Hardening", "PowerShell Transcription", "Conf", "Checks whether PowerShell Transcription is configured and enabled.", "List", True
-"HARDEN_BITLOCKER", "Invoke-BitlockerCheck", "", "Hardening", "BitLocker", "Conf", "Checks whether BitLocker is enabled on the system drive. This check relies on a registry value and might be unreliable.", "List", True
-"CONFIG_MSI", "Invoke-RegistryAlwaysInstallElevatedCheck", "", "Config", "AlwaysInstallElevated", "Conf", "Checks whether the 'AlwaysInstallElevated' registry key is configured and enabled.", "List", False
-"CONFIG_WSUS", "Invoke-WsusConfigCheck", "", "Config", "WSUS Configuration", "Conf", "Checks whether WSUS is configured, enabled and vulnerable to the 'Wsuxploit' MITM attack (https://github.com/pimps/wsuxploit).", "List", False
+"HARDEN_UAC", "Invoke-UacCheck", "", "Hardening", "UAC Settings", "Info", "Checks User Access Control (UAC) configuration.", "List", True
+"HARDEN_LSA", "Invoke-LsaProtectionsCheck", "", "Hardening", "LSA protections", "Info", "Checks whether 'lsass' runs as a Protected Process Light or if Credential Guard is enabled.", "Table", True
+"HARDEN_LAPS", "Invoke-LapsCheck", "", "Hardening", "LAPS Settings", "Info", "Checks whether LAPS is configured and enabled.", "List", True
+"HARDEN_PS_TRANSCRIPT", "Invoke-PowershellTranscriptionCheck", "", "Hardening", "PowerShell Transcription", "Info", "Checks whether PowerShell Transcription is configured and enabled.", "List", True
+"HARDEN_BITLOCKER", "Invoke-BitlockerCheck", "", "Hardening", "BitLocker", "Vuln", "Checks whether BitLocker is enabled on the system drive. This check relies on a registry value and might be unreliable.", "List", False
+"CONFIG_MSI", "Invoke-RegistryAlwaysInstallElevatedCheck", "", "Config", "AlwaysInstallElevated", "Vuln", "Checks whether the 'AlwaysInstallElevated' registry key is configured and enabled.", "List", False
+"CONFIG_WSUS", "Invoke-WsusConfigCheck", "", "Config", "WSUS Configuration", "Vuln", "Checks whether WSUS is configured, enabled and vulnerable to the 'Wsuxploit' MITM attack (https://github.com/pimps/wsuxploit).", "List", False
 "NET_TCP_ENDPOINTS", "Invoke-TcpEndpointsCheck", "", "Network", "TCP Endpoints", "Info", "Lists all TCP endpoints along with the corresponding process.", "Table", True
 "NET_UDP_ENDPOINTS", "Invoke-UdpEndpointsCheck", "", "Network", "UDP Endpoints", "Info", "Lists all UDP endpoints along with the corresponding process. DNS is filtered out.", "Table", True
 "NET_WLAN", "Invoke-WlanProfilesCheck", "", "Network", "Saved Wifi Profiles", "Info", "Checks for WEP/WPA-PSK keys and passphrases in saved Wifi profiles.", "List", True
@@ -6379,7 +6385,7 @@ function Invoke-PrivescCheck {
 "MISC_HOTFIX", "Invoke-HotfixCheck", "", "Misc", "Installed Updates and Hotfixes", "Info", "Gets the hotfixes that are installed on the computer.", "Table", True
 "MISC_SYSINFO", "Invoke-SystemInfoCheck", "", "Misc", "OS Version", "Info", "Gets the detailed version number of the OS. If we can't get the update history, this might be useful.", "Table", True
 "MISC_ADMINS", "Invoke-LocalAdminGroupCheck", "", "Misc", "Local Admin Group", "Info", "Lists the members of the local 'Administrators' group.", "Table", True
-"MISC_HOMES", "Invoke-UsersHomeFolderCheck", "", "Misc", "User Home Folders", "Conf", "Lists HOME folders and checks for write access.", "Table", True
+"MISC_HOMES", "Invoke-UsersHomeFolderCheck", "", "Misc", "User Home Folders", "Info", "Lists HOME folders and checks for write access.", "Table", True
 "MISC_MACHINE_ROLE", "Invoke-MachineRoleCheck", "", "Misc", "Machine Role", "Info", "Gets the machine's role: Workstation, Server, Domain Controller.", "Table", True
 "MISC_STARTUP_EVENTS", "Invoke-SystemStartupHistoryCheck", "", "Misc", "System Startup History", "Info", "Gets the startup history. Some exploits require a reboot so this can be useful to know.", "Table", True
 "MISC_STARTUP_LAST", "Invoke-SystemStartupCheck", "", "Misc", "Last System Startup", "Info", "Gets the last system startup date based on the current tick count (potentially unreliable).", "Table", True
@@ -6395,7 +6401,7 @@ function Invoke-PrivescCheck {
         if ($Extended -or ((-not $Extended) -and (-not $ExtendedCheck))) {
 
             Write-CheckBanner -Check $_
-            $Results = Invoke-Check -HashTable $ResultHashTable -Check $_
+            $Results = Invoke-Check -Check $_
     
             if ($Results) {
     
@@ -6415,9 +6421,41 @@ function Invoke-PrivescCheck {
         }
     }
 
+    Invoke-AnalyzeResults 
+
     if ((-not $Extended) -and (-not $Force)) {
 
         Write-Host -ForegroundColor Yellow "`r`nTo get more info, run this script with the flag '-Extended'.`r`n"
+    }
+}
+
+function Invoke-AnalyzeResults {
+
+    [CmdletBinding()] param(
+        
+    )
+
+    Write-Host "+--------------------------------------------------------------+"
+    Write-Host "|                      Vulnerability Report                    |"
+    Write-Host "+--------------------------------------------------------------+"
+
+    $ResultArrayList | ForEach-Object {
+
+        if ($_.Type -Like "vuln") {
+
+            Write-Host -NoNewLine "[$($_.Category.ToUpper())] Check: $($_.DisplayName) ->"
+
+            if ($_.ResultRaw) {
+
+                Write-Host -NoNewLine -ForegroundColor "Red" " KO"
+                Write-Host " - $(([object[]]$_.ResultRaw).Length) result(s)."
+
+            } else {
+
+                Write-Host -ForegroundColor "Green" " OK"
+
+            }
+        }
     }
 }
 #endregion Main
