@@ -3659,6 +3659,51 @@ function Invoke-HotfixCheck {
     $Results | Sort-Object InstalledOnRaw -Descending | Select-Object HotFixID,Type,InstalledBy,InstalledOn,InstalledOnRaw
 }
 
+function Invoke-HotfixVulnCheck {
+    <#
+    .SYNOPSIS
+
+    Checks whether hotfixes were installed in the last 31 days.
+    
+    .DESCRIPTION
+
+    This script first lists all the installed hotfixes. If no result is returned, this will be
+    reported as a finding. If at least one result is returned, the script will check the first 
+    one (which corresponds to the latest hotfix). If it is more than 31 days old, it will be 
+    returned as a finding. 
+    
+    .EXAMPLE
+
+    An example
+
+    #>
+
+    [CmdletBinding()] param()
+
+    $Hotfixes = Invoke-HotfixCheck
+
+    if ($(([object[]]$Hotfixes).Length) -gt 0) {
+
+        $LatestHotfix = $Hotfixes | Select-Object -First 1
+        $LatestHotfixDate = $LatestHotfix.InstalledOnRaw
+        $CurrentDate = Get-Date 
+        $TimeSpan = New-TimeSpan -Start $LatestHotfixDate -End $CurrentDate
+
+        if ($TimeSpan.TotalDays -gt 31) {
+            $Result = New-Object -TypeName PSObject
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value "The last hotfix was installed $($TimeSpan.TotalDays) days ago."
+            $Result
+        } else {
+            Write-Verbose "A hotfix was installed in the last 31 days."
+        }
+
+    } else {
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value "The hotfix history is empty."
+        $Result
+    }
+}
+
 function Invoke-EndpointProtectionCheck {
     <#
     .SYNOPSIS
@@ -5468,7 +5513,6 @@ function Invoke-RunningProcessCheck {
 # END INSTALLED PROGRAMS   
 # ----------------------------------------------------------------
 
-
 # ----------------------------------------------------------------
 # BEGIN SERVICES   
 # ----------------------------------------------------------------
@@ -6193,46 +6237,6 @@ function Invoke-HijackableDllsCheck {
 # ----------------------------------------------------------------
 #region Main
 
-# function Write-Banner {
-#     [CmdletBinding()] param(
-#         [string]$Category,
-#         [string]$Name,
-#         [ValidateSet("Info", "Conf", "Vuln")]$Type,
-#         [string]$Note
-#     )
-
-#     function Split-Note {
-#         param([string]$Note)
-#         $NoteSplit = New-Object System.Collections.ArrayList
-#         $Temp = $Note 
-#         do {
-#             if ($Temp.Length -gt 53) {
-#                 [void]$NoteSplit.Add([string]$Temp.Substring(0, 53))
-#                 $Temp = $Temp.Substring(53)
-#             } else {
-#                 [void]$NoteSplit.Add([string]$Temp)
-#                 break
-#             }
-#         } while ($Temp.Length -gt 0)
-#         $NoteSplit
-#     }
-
-#     $Title = "$($Category.ToUpper()) > $($Name)"
-#     if ($Title.Length -gt 46) {
-#         throw "Input title is too long."
-#     }
-
-#     $Result = ""
-#     $Result += "+------+------------------------------------------------+------+`r`n"
-#     $Result += "| TEST | $Title$(' '*(46 - $Title.Length)) | $($Type.ToUpper()) |`r`n"
-#     $Result += "+------+------------------------------------------------+------+`r`n"
-#     Split-Note -Note $Note | ForEach-Object {
-#         $Result += "| $(if ($Flag) { '    ' } else { 'DESC'; $Flag = $True }) | $($_)$(' '*(53 - ([string]$_).Length)) |`r`n"
-#     }
-#     $Result += "+------+-------------------------------------------------------+"
-#     $Result
-# }
-
 function Write-CheckBanner {
 
     [CmdletBinding()] param(
@@ -6380,9 +6384,10 @@ function Invoke-PrivescCheck {
 "NET_TCP_ENDPOINTS", "Invoke-TcpEndpointsCheck", "", "Network", "TCP Endpoints", "Info", "Lists all TCP endpoints along with the corresponding process.", "Table", True
 "NET_UDP_ENDPOINTS", "Invoke-UdpEndpointsCheck", "", "Network", "UDP Endpoints", "Info", "Lists all UDP endpoints along with the corresponding process. DNS is filtered out.", "Table", True
 "NET_WLAN", "Invoke-WlanProfilesCheck", "", "Network", "Saved Wifi Profiles", "Info", "Checks for WEP/WPA-PSK keys and passphrases in saved Wifi profiles.", "List", True
+"UPDATE_HISTORY", "Invoke-WindowsUpdateCheck", "", "Updates", "Last Windows Update Date", "Info", "Gets Windows update history. A system which hasn't been updated in the last 30 days is potentially vulnerable.", "Table", True
+"UPDATE_HOTFIX", "Invoke-HotfixCheck", "", "Updates", "Installed Updates and Hotfixes", "Info", "Gets the hotfixes that are installed on the computer.", "Table", True
+"UPDATE_HOTFIX_VULN", "Invoke-HotfixVulnCheck", "", "Updates", "System up to date?", "Vuln", "Checks whether hotfixes have been installed in the past 31 days.", "List", False
 "MISC_AVEDR", "Invoke-EndpointProtectionCheck", "", "Misc", "Endpoint Protection", "Info", "Checks for installed security products (AV, EDR). This check is based on keyword matching (loaded DLLs, running processes, installed applications and registered services).", "Table", True
-"MISC_UPDATE", "Invoke-WindowsUpdateCheck", "", "Misc", "Last Windows Update Date", "Info", "Gets Windows update history. A system which hasn't been updated in the last 30 days is potentially vulnerable.", "Table", True
-"MISC_HOTFIX", "Invoke-HotfixCheck", "", "Misc", "Installed Updates and Hotfixes", "Info", "Gets the hotfixes that are installed on the computer.", "Table", True
 "MISC_SYSINFO", "Invoke-SystemInfoCheck", "", "Misc", "OS Version", "Info", "Gets the detailed version number of the OS. If we can't get the update history, this might be useful.", "Table", True
 "MISC_ADMINS", "Invoke-LocalAdminGroupCheck", "", "Misc", "Local Admin Group", "Info", "Lists the members of the local 'Administrators' group.", "Table", True
 "MISC_HOMES", "Invoke-UsersHomeFolderCheck", "", "Misc", "User Home Folders", "Info", "Lists HOME folders and checks for write access.", "Table", True
@@ -6436,26 +6441,38 @@ function Invoke-AnalyzeResults {
     )
 
     Write-Host "+--------------------------------------------------------------+"
-    Write-Host "|                      Vulnerability Report                    |"
-    Write-Host "+--------------------------------------------------------------+"
+    Write-Host "|                     VULNERABILITY REPORT                     |"
+    Write-Host "+----+---------------------------------------------------------+"
 
     $ResultArrayList | ForEach-Object {
 
         if ($_.Type -Like "vuln") {
 
-            Write-Host -NoNewLine "[$($_.Category.ToUpper())] Check: $($_.DisplayName) ->"
-
+            Write-Host -NoNewline "| "
             if ($_.ResultRaw) {
-
-                Write-Host -NoNewLine -ForegroundColor "Red" " KO"
-                Write-Host " - $(([object[]]$_.ResultRaw).Length) result(s)."
-
+                Write-Host -NoNewline -ForegroundColor "Red" "KO"
             } else {
-
-                Write-Host -ForegroundColor "Green" " OK"
-
+                Write-Host -NoNewline -ForegroundColor "Green" "OK"
             }
+            Write-Host -NoNewline " |"
+
+            $Message = "$($_.Category.ToUpper()) > $($_.DisplayName)"
+            if ($_.ResultRaw) {
+                $Message = "$($Message) -> $(([object[]]$_.ResultRaw).Length) result(s)"
+            }
+            $Padding = ' ' * $(55 - $Message.Length)
+
+            Write-Host -NoNewline " $($_.Category.ToUpper()) > $($_.DisplayName)"
+            
+            if ($_.ResultRaw) {
+                Write-Host -NoNewLine " ->"
+                Write-Host -NoNewLine -ForegroundColor "Red" " $(([object[]]$_.ResultRaw).Length) result(s)"
+            }
+            
+            Write-Host "$($Padding) |"
         }
     }
+
+    Write-Host "+----+---------------------------------------------------------+"
 }
 #endregion Main
