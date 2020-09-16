@@ -139,12 +139,18 @@ Invoke-UdpEndpointsCheck - Enumerates unusual UDP endpoints on the local machine
 Invoke-WlanProfilesCheck - Enumerates the saved Wifi profiles and extract the cleartext key/passphrase when applicable
 ```
 
+### Updates 
+
+```
+Invoke-WindowsUpdateCheck - Checks the last update time of the machine
+Invoke-HotfixCheck - Gets a list of installed updates and hotfixes
+Invoke-HotfixVulnCheck - Checks whether hotfixes have been installed in the past 31 days
+```
+
 ### Misc
 
 ```
 Invoke-EndpointProtectionCheck - Gets a list of security software products
-Invoke-WindowsUpdateCheck - Checks the last update time of the machine
-Invoke-HotfixCheck - Gets a list of installed updates and hotfixes
 Invoke-SystemInfoCheck - Gets the name of the operating system and the full version string
 Invoke-LocalAdminGroupCheck - Enumerates the members of the default local admin group
 Invoke-UsersHomeFolderCheck - Enumerates the local user home folders
