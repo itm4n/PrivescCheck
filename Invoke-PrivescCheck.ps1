@@ -1236,6 +1236,8 @@ function Get-ServiceFromRegistry {
     }
 }
 
+$global:CachedServiceList = New-Object -TypeName System.Collections.ArrayList
+
 function Get-ServiceList {
     <#
     .SYNOPSIS
@@ -1294,28 +1296,39 @@ function Get-ServiceList {
         $FilterLevel
     )
 
-    $ServicesRegPath = "Registry::HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services" 
-    $RegAllServices = Get-ChildItem -Path $ServicesRegPath
+    if ($CachedServiceList.Count -eq 0) {
 
-    ForEach ($RegService in $RegAllServices) {
+        # If the cached service list hasn't been initialized yet, enumerate all services and 
+        # populate the cache.
 
-        $Properties = Get-ItemProperty -Path $RegService.PSPath -ErrorAction SilentlyContinue -ErrorVariable GetItemPropertyError
-        if ($GetItemPropertyError) {
-            # If an error occurred, skip the current item 
-            continue 
-        } 
+        $ServicesRegPath = "Registry::HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services" 
+        $RegAllServices = Get-ChildItem -Path $ServicesRegPath
 
-        $DisplayName = [System.Environment]::ExpandEnvironmentVariables($Properties.DisplayName)
+        ForEach ($RegService in $RegAllServices) {
 
-        $ServiceItem = New-Object -TypeName PSObject 
-        $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $Properties.PSChildName
-        $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "DisplayName" -Value $DisplayName
-        $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "User" -Value $Properties.ObjectName 
-        $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "ImagePath" -Value $Properties.ImagePath 
-        $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "StartMode" -Value $(Convert-ServiceStartModeToString -StartMode $Properties.Start)
-        $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "Type" -Value $(Convert-ServiceTypeToString -ServiceType $Properties.Type)
-        $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "RegistryKey" -Value $RegService.Name
-        $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "RegistryPath" -Value $RegService.PSPath 
+            $Properties = Get-ItemProperty -Path $RegService.PSPath -ErrorAction SilentlyContinue -ErrorVariable GetItemPropertyError
+            if ($GetItemPropertyError) {
+                # If an error occurred, skip the current item 
+                continue 
+            }
+
+            $DisplayName = [System.Environment]::ExpandEnvironmentVariables($Properties.DisplayName)
+
+            $ServiceItem = New-Object -TypeName PSObject 
+            $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $Properties.PSChildName
+            $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "DisplayName" -Value $DisplayName
+            $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "User" -Value $Properties.ObjectName 
+            $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "ImagePath" -Value $Properties.ImagePath 
+            $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "StartMode" -Value $(Convert-ServiceStartModeToString -StartMode $Properties.Start)
+            $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "Type" -Value $(Convert-ServiceTypeToString -ServiceType $Properties.Type)
+            $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "RegistryKey" -Value $RegService.Name
+            $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "RegistryPath" -Value $RegService.PSPath 
+
+            [void] $CachedServiceList.Add($ServiceItem)
+        }
+    }
+
+    ForEach ($ServiceItem in $CachedServiceList) {
 
         # FilterLevel = 0 - Add the service to the list and go to the next one 
         if ($FilterLevel -eq 0) {
@@ -1323,14 +1336,16 @@ function Get-ServiceList {
             continue 
         }
 
-        if ($Properties.ImagePath -and (-not ($Properties.ImagePath.trim() -eq ''))) {
+        if ($ServiceItem.ImagePath -and (-not ($ServiceItem.ImagePath.trim() -eq ''))) {
+
             # FilterLevel = 1 - Add the service to the list of its ImagePath is not empty
             if ($FilterLevel -le 1) {
                 $ServiceItem
                 continue 
             }
 
-            if ($Properties.Type -gt 8) {
+            if (@("Win32OwnProcess", "Win32ShareProcess", "InteractiveProcess") -contains $ServiceItem.Type) {
+
                 # FilterLevel = 2 - Add the service to the list if it's not a driver 
                 if ($FilterLevel -le 2) {
                     $ServiceItem
@@ -1338,6 +1353,7 @@ function Get-ServiceList {
                 }
 
                 if (-not (Test-IsKnownService -Service $ServiceItem)) {
+
                     # FilterLevel = 3 - Add the service if it's not a built-in Windows service 
                     if ($FilterLevel -le 3) {
                         $ServiceItem
@@ -1345,7 +1361,7 @@ function Get-ServiceList {
                     }
                 }
             }
-        } 
+        }
     }
 }
 
@@ -3610,7 +3626,9 @@ function Invoke-HotfixCheck {
     $InstalledKBs = New-Object -TypeName System.Collections.ArrayList
     $Results = New-Object -TypeName System.Collections.ArrayList
 
-    Get-ChildItem -Path "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\Packages" | ForEach-Object {
+    $AllPackages = Get-ChildItem -Path "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\Packages"
+
+    $AllPackages | ForEach-Object {
     
         # Filter only KB-related packages
         if (($_.Name | Split-Path -Leaf) -Like "Package_*_for_KB*") {
@@ -5731,6 +5749,7 @@ function Invoke-InstalledServicesCheck {
 
     # Get only third-party services 
     $FilteredServices = Get-ServiceList -FilterLevel 3
+    Write-Verbose "Enumerating $($FilteredServices.Count) services..."
 
     ForEach ($Service in $FilteredServices) {
         # Make a simplified version of the Service object, we only basic information for ths check.
@@ -5783,6 +5802,7 @@ function Invoke-ServicesPermissionsRegistryCheck {
     
     # Get all services except the ones with an empty ImagePath or Drivers 
     $AllServices = Get-ServiceList -FilterLevel 2 
+    Write-Verbose "Enumerating $($AllServices.Count) services..."
 
     ForEach ($Service in $AllServices) {
 
@@ -5848,8 +5868,9 @@ function Invoke-ServicesUnquotedPathCheck {
     
     [CmdletBinding()] param()
 
-    # Get all services which have a non-empty ImagePath
-    $Services = Get-ServiceList -FilterLevel 1
+    # Get all services which have a non-empty ImagePath (exclude drivers as well)
+    $Services = Get-ServiceList -FilterLevel 2
+    Write-Verbose "Enumerating $($Services.Count) services..."
     
     $PermissionsAddFile = @("WriteData/AddFile", "DeleteChild", "WriteDAC", "WriteOwner")
     $PermissionsAddFolder = @("AppendData/AddSubdirectory", "DeleteChild", "WriteDAC", "WriteOwner")
@@ -5963,6 +5984,7 @@ function Invoke-ServicesImagePermissionsCheck {
     [CmdletBinding()] param()
     
     $Services = Get-ServiceList -FilterLevel 1
+    Write-Verbose "Enumerating $($Services.Count) services..."
 
     ForEach ($Service in $Services) {
 
@@ -6018,6 +6040,7 @@ function Invoke-ServicesPermissionsCheck {
     # The properties of a custom Service object are: Name, DisplayName, User, ImagePath, StartMode, Type, RegsitryKey, RegistryPath 
     # We also apply the FilterLevel 1 to filter out services which have an empty ImagePath 
     $Services = Get-ServiceList -FilterLevel 1
+    Write-Verbose "Enumerating $($Services.Count) services..."
 
     # For each custom Service object in the list 
     ForEach ($Service in $Services) {
