@@ -2551,9 +2551,9 @@ function Invoke-WsusConfigCheck {
     
     .DESCRIPTION
     
-    A system can be compromise if the updates are not requested using HTTPS but HTTP. If the URL of
-    the update server (WUServer) starts with HTTP and UseWUServer=1, then the update requests are
-    vulnerable to MITM attacks.
+    A system can be compromised if the updates are not requested using HTTPS but HTTP. If the URL
+    of the update server (WUServer) starts with HTTP and UseWUServer=1, then the update requests 
+    are vulnerable to MITM attacks.
     
     .EXAMPLE
     
@@ -2561,7 +2561,6 @@ function Invoke-WsusConfigCheck {
 
     WUServer     : http://acme-upd01.corp.internal.com:8535
     UseWUServer  : 1
-    IsVulnerable : True
     
     .LINK
 
@@ -2583,16 +2582,12 @@ function Invoke-WsusConfigCheck {
             $WusEnabled = $UseWUServerValue.UseWUServer
             
             if ($WusUrl -Like "http://*" -and $WusEnabled -eq 1) {
-                $IsVulnerable = $True
-            } else {
-                $IsVulnerable = $False
-            }
-
-            $Result = New-Object -TypeName PSObject
-            $Result | Add-Member -MemberType "NoteProperty" -Name "WUServer" -Value $WusUrl
-            $Result | Add-Member -MemberType "NoteProperty" -Name "UseWUServer" -Value $WusEnabled
-            $Result | Add-Member -MemberType "NoteProperty" -Name "IsVulnerable" -Value $IsVulnerable
-            $Result
+                
+                $Result = New-Object -TypeName PSObject
+                $Result | Add-Member -MemberType "NoteProperty" -Name "WUServer" -Value $WusUrl
+                $Result | Add-Member -MemberType "NoteProperty" -Name "UseWUServer" -Value $WusEnabled
+                $Result
+            } 
         }
     }
 }
