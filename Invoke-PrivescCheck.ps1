@@ -1991,28 +1991,19 @@ function Get-CredentialGuardStatus {
     $OsVersion = [System.Environment]::OSVersion.Version
 
     if ($OsVersion.Major -ge 10) {
+        
+        if (((Get-ComputerInfo).DeviceGuardSecurityServicesConfigured) -match 'CredentialGuard') {
 
-        $RegPath = "HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\LSA"
-        $Result = Get-ItemProperty -Path "Registry::$($RegPath)" -ErrorAction SilentlyContinue -ErrorVariable GetItemPropertyError 
-    
-        if (-not $GetItemPropertyError) {
-    
-            if (-not ($Null -eq $Result.LsaCfgFlags)) {
-    
-                if ($Result.LsaCfgFlags -eq 0) {
-                    $Status = $False 
-                    $Description = "Credential Guard is disabled"
-                } elseif ($Result.LsaCfgFlags -eq 1) {
-                    $Status = $True 
-                    $Description = "Credential Guard is enabled with UEFI lock"
-                } elseif ($Result.LsaCfgFlags -eq 2) {
-                    $Status = $True
-                    $Description = "Credential Guard is enabled without UEFI lock"
-                } 
-            } else {
-                $Status = $False 
-                $Description = "Credential Guard is not configured"
+            $Status = $False
+            $Description = "Credential Guard is configured but is not running"
+
+            if (((Get-ComputerInfo).DeviceGuardSecurityServicesRunning) -match 'CredentialGuard') {
+                $Status = $True
+                $Description = "Credential Guard is configured and running"
             }
+        } else {
+            $Status = $False
+            $Description = "Credential Guard is not configured"
         }
     } else {
         $Status = $False
