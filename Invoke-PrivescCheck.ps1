@@ -3667,14 +3667,14 @@ function Invoke-HotfixVulnCheck {
     <#
     .SYNOPSIS
 
-    Checks whether hotfixes were installed in the last 31 days.
+    Checks whether any hotfix has been installed in the last 31 days.
     
     .DESCRIPTION
 
     This script first lists all the installed hotfixes. If no result is returned, this will be
     reported as a finding. If at least one result is returned, the script will check the first 
     one (which corresponds to the latest hotfix). If it is more than 31 days old, it will be 
-    returned as a finding. 
+    returned as a finding.
     
     .EXAMPLE
 
@@ -3695,16 +3695,14 @@ function Invoke-HotfixVulnCheck {
 
         if ($TimeSpan.TotalDays -gt 31) {
             $Result = New-Object -TypeName PSObject
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value "The last hotfix was installed $($TimeSpan.TotalDays) days ago."
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value "The last hotfix was installed $([Math]::Floor($TimeSpan.TotalDays)) days ago."
             $Result
         } else {
             Write-Verbose "A hotfix was installed in the last 31 days."
         }
 
     } else {
-        $Result = New-Object -TypeName PSObject
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value "The hotfix history is empty."
-        $Result
+        Write-Verbose "The hotfix history is empty."
     }
 }
 
