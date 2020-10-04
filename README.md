@@ -112,6 +112,7 @@ Invoke-CredentialFilesCheck - Lists the Credential files that are stored in the 
 Invoke-VaultCredCheck - Enumerates credentials saved in the Credential Manager
 Invoke-VaultListCheck - Enumerates web credentials saved in the Credential Manager
 Invoke-GPPPasswordCheck - Lists Group Policy Preferences (GPP) containing a non-empty "cpassword" field
+Invoke-PowerShellHistoryCheck - Searches for interesting keywords in the PowerShell history of the current user
 ```
 
 ### Hardening

@@ -19,6 +19,16 @@
 #Requires -Version 2
 
 # ----------------------------------------------------------------
+# BEGIN Global variables
+# ----------------------------------------------------------------
+$global:CachedServiceList = New-Object -TypeName System.Collections.ArrayList
+$global:ResultArrayList = New-Object -TypeName System.Collections.ArrayList
+[string[]] $global:KeywordsOfInterest = "key", "passw", "secret", "pwd", "creds", "credential", "api"
+# ----------------------------------------------------------------
+# END Global variables
+# ----------------------------------------------------------------
+
+# ----------------------------------------------------------------
 # Win32 stuff  
 # ----------------------------------------------------------------
 #region Win32
@@ -364,7 +374,6 @@ try {
     Add-Type -MemberDefinition $CSharpSource -Name 'Win32' -Namespace 'PrivescCheck' -Language CSharp -CompilerParameters $CompilerParameters
 }
 #endregion Win32
-
 
 # ----------------------------------------------------------------
 # Helpers 
@@ -1235,8 +1244,6 @@ function Get-ServiceFromRegistry {
         $ServiceItem
     }
 }
-
-$global:CachedServiceList = New-Object -TypeName System.Collections.ArrayList
 
 function Get-ServiceList {
     <#
@@ -4896,6 +4903,50 @@ function Invoke-GPPPasswordCheck {
         }
     }
 }
+
+function Invoke-PowerShellHistoryCheck {
+    <#
+    .SYNOPSIS
+
+    Searches for interesting keywords in the PowerShell history of the current user.
+    
+    .DESCRIPTION
+
+    PowerShell commands are saved in a file (ConsoleHost_history.txt), in a subdirectory of the 
+    current user's AppData folder. This script extracts the content of this file and also checks 
+    whether it contains some keywords such as "password".
+    
+    .EXAMPLE
+
+    PS C:\> Invoke-PowerShellHistoryCheck
+
+    Path          : C:\Users\lab-user\AppData\Roaming\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt
+    CreationTime  : 11/11/2019 11:01:55
+    LastWriteTime : 04/10/2020 22:40:30
+    Lines         : 634
+    Matches       : 12
+    
+    #>
+
+    $HistoryFilePath = "$env:APPDATA\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt"
+    $HistoryFileContent = Get-Content -Path $HistoryFilePath -ErrorAction SilentlyContinue -ErrorVariable ErrorGetContent
+
+    if (-not $ErrorGetContent) {
+
+        $HistoryCount = $HistoryFileContent.Count
+        $AllMatches = $HistoryFileContent | Select-String -Pattern $KeywordsOfInterest -AllMatches
+        $AllMatchesCount = $AllMatches.Count
+        $FileItem = Get-Item -Path $HistoryFilePath
+
+        $Item = New-Object -TypeName PSObject
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $HistoryFilePath
+        $Item | Add-Member -MemberType "NoteProperty" -Name "CreationTime" -Value $FileItem.CreationTime
+        $Item | Add-Member -MemberType "NoteProperty" -Name "LastWriteTime" -Value $FileItem.LastWriteTime
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Lines" -Value $HistoryCount
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Matches" -Value $AllMatchesCount
+        $Item
+    }
+}
 # ----------------------------------------------------------------
 # END CREDENTIALS     
 # ----------------------------------------------------------------
@@ -6282,8 +6333,6 @@ function Write-CheckBanner {
     $Result
 }
 
-$global:ResultArrayList = New-Object -TypeName System.Collections.ArrayList
-
 function Invoke-Check {
 
     [CmdletBinding()] param(
@@ -6381,6 +6430,7 @@ function Invoke-PrivescCheck {
 "CREDS_VAULT_CRED", "Invoke-VaultCredCheck", "", "Credentials", "Credential Manager", "Info", "Checks for saved credentials in Windows Vault.", "List", False
 "CREDS_VAULT_LIST", "Invoke-VaultListCheck", "", "Credentials", "Credential Manager (web)", "Info", "Checks for saved web credentials in Windows Vault.", "List", False
 "CREDS_GPP", "Invoke-GPPPasswordCheck", "", "Credentials", "GPP Passwords", "Vuln", "Checks for cached Group Policy Preferences containing a 'cpassword' field.", "List", False
+"CREDS_PS_HIST", "Invoke-PowerShellHistoryCheck", "", "Credentials", "PowerShell History", "Info", "Checks for saved credentials in the PowerShell history file of the current user.", "List", True
 "HARDEN_UAC", "Invoke-UacCheck", "", "Hardening", "UAC Settings", "Info", "Checks User Access Control (UAC) configuration.", "List", True
 "HARDEN_LSA", "Invoke-LsaProtectionsCheck", "", "Hardening", "LSA protections", "Info", "Checks whether 'lsass' runs as a Protected Process Light or if Credential Guard is enabled.", "Table", True
 "HARDEN_LAPS", "Invoke-LapsCheck", "", "Hardening", "LAPS Settings", "Info", "Checks whether LAPS is configured and enabled.", "List", True
