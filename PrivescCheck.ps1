@@ -1309,7 +1309,7 @@ function Get-ServiceList {
         # populate the cache.
 
         $ServicesRegPath = "Registry::HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services" 
-        $RegAllServices = Get-ChildItem -Path $ServicesRegPath
+        $RegAllServices = Get-ChildItem -Path $ServicesRegPath -ErrorAction SilentlyContinue
 
         ForEach ($RegService in $RegAllServices) {
 
