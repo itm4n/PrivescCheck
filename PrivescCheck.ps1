@@ -3892,7 +3892,7 @@ function Invoke-EndpointProtectionCheck {
         }
     }
 
-    $Results | Sort-Object -Property ProductName
+    $Results | Sort-Object -Property ProductName,Source
 }
 
 # ----------------------------------------------------------------
