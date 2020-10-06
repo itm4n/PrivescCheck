@@ -1,3 +1,6 @@
+2020-10-06
+    - Added Apps > Invoke-ApplicationsOnStartupVulnCheck
+
 2020-10-04
     - Added Credentials > PowerShell History
 

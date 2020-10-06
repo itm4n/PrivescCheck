@@ -5298,7 +5298,9 @@ function Invoke-ApplicationsOnStartupCheck {
 
     $Root = (Get-Item -Path $env:windir).PSDrive.Root
     
-    [string[]]$FileSystemPaths = "\Users\All Users\Start Menu\Programs\Startup", "\Users\$env:USERNAME\Start Menu\Programs\Startup"
+    # We want to check only startup applications that affect all users
+    # [string[]]$FileSystemPaths = "\Users\All Users\Start Menu\Programs\Startup", "\Users\$env:USERNAME\Start Menu\Programs\Startup"
+    [string[]]$FileSystemPaths = "\Users\All Users\Start Menu\Programs\Startup"
 
     $FileSystemPaths | ForEach-Object {
 
@@ -5335,6 +5337,31 @@ function Invoke-ApplicationsOnStartupCheck {
             }
         }
     }
+}
+
+function Invoke-ApplicationsOnStartupVulnCheck {
+    <#
+    .SYNOPSIS
+
+    Enumerates startup applications that can be modified by the current user
+
+    Author: @itm4n
+    License: BSD 3-Clause
+    
+    .DESCRIPTION
+
+    Some applications can be set as "startup" applications for all users. If a user can modify one
+    of these apps, they would potentially be able to run arbitrary code in the context of other 
+    users. Therefore, low-privileged users should not be able to modify the files used by such
+    application.
+    
+    .EXAMPLE
+
+    An example
+    
+    #>
+
+    Invoke-ApplicationsOnStartupCheck | Where-Object { $_.IsModifiable }
 }
 
 function Invoke-ScheduledTasksCheck {
@@ -6422,20 +6449,21 @@ function Invoke-PrivescCheck {
 "SERVICE_UNQUOTED_PATH", "Invoke-ServicesUnquotedPathCheck", "", "Services", "Unquoted Paths", "Vuln", "Checks for service unquoted image paths (C:\APPS\Foo Bar\service.exe -> copy C:\Temp\evil.exe C:\APPS\Foo.exe).", "List", False
 "SERVICE_DLL_HIJACKING", "Invoke-DllHijackingCheck", "", "Services", "System's %PATH%", "Vuln", "Checks for system %PATH% folders configured with weak permissions.", "List", False
 "SERVICE_HIJACKABLE_DLL", "Invoke-HijackableDllsCheck", "", "Services", "Hijackable DLLs", "Info", "Lists known hijackable DLLs on this system.", "List", False
-"APP_INSTALLED", "Invoke-InstalledProgramsCheck", "", "Applications", "Non-default Applications", "Info", "Lists non-default and third-party applications.", "Table", True
-"APP_MODIFIABLE", "Invoke-ModifiableProgramsCheck", "", "Applications", "Modifiable Applications", "Vuln", "Checks for non-default applications with a modifiable executable.", "Table", False
-"APP_PROGRAMDATA", "Invoke-ProgramDataCheck", "", "Applications", "ProgramData folders/files", "Info", "Checks for modifiable files and folders under non default ProgramData folders.", "List", True
-"APP_STARTUP", "Invoke-ApplicationsOnStartupCheck", "", "Applications", "Programs Run on Startup", "Info", "Lists applications which are run on startup.", "List", True
-"APP_SCHTASKS", "Invoke-ScheduledTasksCheck", "-Filtered", "Applications", "Scheduled Tasks", "Vuln", "Checks for scheduled tasks with a modifiable executable.", "List", True
-"APP_PROCESSES", "Invoke-RunningProcessCheck", "", "Applications", "Running Processes", "Info", "Lists processes which are not owned by the current user. Common processes such as 'svchost.exe' are filtered out.", "Table", True
-"CREDS_SAM_BKP", "Invoke-SamBackupFilesCheck", "", "Credentials", "SAM/SYSTEM Backup Files", "Vuln", "Checks for readable backups of the SAM/SYSTEM files.", "List", False
-"CREDS_UNATTENDED", "Invoke-UnattendFilesCheck", "", "Credentials", "Unattended Files", "Vuln", "Checks for Unattend files containing cleartext passwords.", "List", False
-"CREDS_WINLOGON", "Invoke-WinlogonCheck", "", "Credentials", "WinLogon", "Vuln", "Checks for cleartext passwords in the Winlogon registry key. Empty passwords are filtered out.", "List", False
-"CREDS_CRED_FILES", "Invoke-CredentialFilesCheck", "", "Credentials", "Credential Files", "Info", "Lists credential files in the current user's HOME folder.", "List", True
-"CREDS_VAULT_CRED", "Invoke-VaultCredCheck", "", "Credentials", "Credential Manager", "Info", "Checks for saved credentials in Windows Vault.", "List", False
-"CREDS_VAULT_LIST", "Invoke-VaultListCheck", "", "Credentials", "Credential Manager (web)", "Info", "Checks for saved web credentials in Windows Vault.", "List", False
-"CREDS_GPP", "Invoke-GPPPasswordCheck", "", "Credentials", "GPP Passwords", "Vuln", "Checks for cached Group Policy Preferences containing a 'cpassword' field.", "List", False
-"CREDS_PS_HIST", "Invoke-PowerShellHistoryCheck", "", "Credentials", "PowerShell History", "Info", "Checks for saved credentials in the PowerShell history file of the current user.", "List", True
+"APP_INSTALLED", "Invoke-InstalledProgramsCheck", "", "Apps", "Non-default Apps", "Info", "Lists non-default and third-party applications.", "Table", True
+"APP_MODIFIABLE", "Invoke-ModifiableProgramsCheck", "", "Apps", "Modifiable Apps", "Vuln", "Checks for non-default applications with a modifiable executable.", "Table", False
+"APP_PROGRAMDATA", "Invoke-ProgramDataCheck", "", "Apps", "ProgramData folders/files", "Info", "Checks for modifiable files and folders under non default ProgramData folders.", "List", True
+"APP_STARTUP", "Invoke-ApplicationsOnStartupCheck", "", "Apps", "Apps Run on Startup", "Info", "Lists applications which are run on startup.", "List", True
+"APP_STARTUP_VULN", "Invoke-ApplicationsOnStartupVulnCheck", "", "Apps", "Modifiable Apps Run on Startup", "Vuln", "Lists startup applications that can be modified by the current user.", "List", False
+"APP_SCHTASKS", "Invoke-ScheduledTasksCheck", "-Filtered", "Apps", "Scheduled Tasks", "Vuln", "Checks for scheduled tasks with a modifiable executable.", "List", True
+"APP_PROCESSES", "Invoke-RunningProcessCheck", "", "Apps", "Running Processes", "Info", "Lists processes which are not owned by the current user. Common processes such as 'svchost.exe' are filtered out.", "Table", True
+"CREDS_SAM_BKP", "Invoke-SamBackupFilesCheck", "", "Creds", "SAM/SYSTEM Backup Files", "Vuln", "Checks for readable backups of the SAM/SYSTEM files.", "List", False
+"CREDS_UNATTENDED", "Invoke-UnattendFilesCheck", "", "Creds", "Unattended Files", "Vuln", "Checks for Unattend files containing cleartext passwords.", "List", False
+"CREDS_WINLOGON", "Invoke-WinlogonCheck", "", "Creds", "WinLogon", "Vuln", "Checks for cleartext passwords in the Winlogon registry key. Empty passwords are filtered out.", "List", False
+"CREDS_CRED_FILES", "Invoke-CredentialFilesCheck", "", "Creds", "Credential Files", "Info", "Lists credential files in the current user's HOME folder.", "List", True
+"CREDS_VAULT_CRED", "Invoke-VaultCredCheck", "", "Creds", "Credential Manager", "Info", "Checks for saved credentials in Windows Vault.", "List", False
+"CREDS_VAULT_LIST", "Invoke-VaultListCheck", "", "Creds", "Credential Manager (web)", "Info", "Checks for saved web credentials in Windows Vault.", "List", False
+"CREDS_GPP", "Invoke-GPPPasswordCheck", "", "Creds", "GPP Passwords", "Vuln", "Checks for cached Group Policy Preferences containing a 'cpassword' field.", "List", False
+"CREDS_PS_HIST", "Invoke-PowerShellHistoryCheck", "", "Creds", "PowerShell History", "Info", "Checks for saved credentials in the PowerShell history file of the current user.", "List", True
 "HARDEN_UAC", "Invoke-UacCheck", "", "Hardening", "UAC Settings", "Info", "Checks User Access Control (UAC) configuration.", "List", True
 "HARDEN_LSA", "Invoke-LsaProtectionsCheck", "", "Hardening", "LSA protections", "Info", "Checks whether 'lsass' runs as a Protected Process Light or if Credential Guard is enabled.", "Table", True
 "HARDEN_LAPS", "Invoke-LapsCheck", "", "Hardening", "LAPS Settings", "Info", "Checks whether LAPS is configured and enabled.", "List", True
