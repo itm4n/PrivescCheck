@@ -3832,6 +3832,9 @@ function Invoke-EndpointProtectionCheck {
             }
         }
     }
+
+    # Need to store all the results into one arraylist so we can sort them on the product name.
+    $Results = New-Object System.Collections.ArrayList
     
     # Check DLLs loaded in the current process
     Get-Process -Id $PID -Module | ForEach-Object {
@@ -3845,7 +3848,7 @@ function Invoke-EndpointProtectionCheck {
                 $Result | Add-Member -MemberType "NoteProperty" -Name "ProductName" -Value "$($_.ProductName)"
                 $Result | Add-Member -MemberType "NoteProperty" -Name "Source" -Value "Loaded DLL"
                 $Result | Add-Member -MemberType "NoteProperty" -Name "Pattern" -Value "$($_.Pattern)"
-                $Result
+                [void] $Results.Add($Result)
             }
         }
     }
@@ -3859,7 +3862,7 @@ function Invoke-EndpointProtectionCheck {
             $Result | Add-Member -MemberType "NoteProperty" -Name "ProductName" -Value "$($_.ProductName)"
             $Result | Add-Member -MemberType "NoteProperty" -Name "Source" -Value "Running process"
             $Result | Add-Member -MemberType "NoteProperty" -Name "Pattern" -Value "$($_.Pattern)"
-            $Result
+            [void] $Results.Add($Result)
         }
     }
 
@@ -3872,7 +3875,7 @@ function Invoke-EndpointProtectionCheck {
             $Result | Add-Member -MemberType "NoteProperty" -Name "ProductName" -Value "$($_.ProductName)"
             $Result | Add-Member -MemberType "NoteProperty" -Name "Source" -Value "Installed application"
             $Result | Add-Member -MemberType "NoteProperty" -Name "Pattern" -Value "$($_.Pattern)"
-            $Result
+            [void] $Results.Add($Result)
         }
     }
 
@@ -3885,9 +3888,11 @@ function Invoke-EndpointProtectionCheck {
             $Result | Add-Member -MemberType "NoteProperty" -Name "ProductName" -Value "$($_.ProductName)"
             $Result | Add-Member -MemberType "NoteProperty" -Name "Source" -Value "Service"
             $Result | Add-Member -MemberType "NoteProperty" -Name "Pattern" -Value "$($_.Pattern)"
-            $Result
+            [void] $Results.Add($Result)
         }
     }
+
+    $Results | Sort-Object -Property ProductName
 }
 
 # ----------------------------------------------------------------
