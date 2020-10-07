@@ -21,6 +21,7 @@
 # ----------------------------------------------------------------
 # BEGIN Global variables
 # ----------------------------------------------------------------
+$global:ScriptPath = $MyInvocation.MyCommand.Definition
 $global:CachedServiceList = New-Object -TypeName System.Collections.ArrayList
 $global:ResultArrayList = New-Object -TypeName System.Collections.ArrayList
 [string[]] $global:KeywordsOfInterest = "key", "passw", "secret", "pwd", "creds", "credential", "api"
@@ -2246,7 +2247,7 @@ function Get-UnattendSensitiveData {
 #region Checks 
 
 # ----------------------------------------------------------------
-# BEGIN REGISTRY SETTINGS   
+# BEGIN CONFIG   
 # ----------------------------------------------------------------
 function Invoke-UacCheck {
     <#
@@ -2589,8 +2590,59 @@ function Invoke-WsusConfigCheck {
         }
     }
 }
+
+function Invoke-SccmCacheFolderCheck {
+    <#
+    .SYNOPSIS
+
+    Checks whether the ccmcache folder is accessible
+    
+    .DESCRIPTION
+
+    When SCCM is used to remotely install packages, a cache folder is created in the Windows 
+    directory: 'C:\Windows\ccmcache'. MSI packages contained in this folder may contain some
+    cleartext credentials. Therefore, normal users shouldn't be allowed to browse this 
+    directory.
+    
+    .EXAMPLE
+
+    PS C:\> Invoke-SccmCacheFolderCheck
+
+    Path         : C:\Windows\ccmcache
+    Description  : The CCMCache folder is accessible
+    
+    #>
+
+    [CmdletBinding()] param ()
+
+    $CcmCachePath = Join-Path -Path $env:windir -ChildPath "CCMCache"
+    if (Test-Path -Path $CcmCachePath) {
+
+        Get-ChildItem -Path $CcmCachePath -ErrorAction SilentlyContinue -ErrorVariable ErrorGetChildItem
+        if (-not $ErrorGetChildItem) {
+            $IsVulnerable = $True 
+            $Message = "The CCMCache folder is accessible"
+        } else {
+            $IsVulnerable = $False 
+            $Message = "The CCMCache folder exists but cannot be accessed"
+        }
+    } else {
+        $IsVulnerable = $False
+        $Message = "CCMCache folder not found"
+    }
+
+    Write-Verbose "$($Message)"
+
+    if ($IsVulnerable) {
+
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $CcmCachePath
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Message
+        $Result
+    }
+}
 # ----------------------------------------------------------------
-# END REGISTRY SETTINGS   
+# END CONFIG   
 # ----------------------------------------------------------------
 
 
@@ -6403,6 +6455,10 @@ function Invoke-PrivescCheck {
     .PARAMETER Force
 
     Ignore warnings.
+
+    .PARAMETER Silent
+
+    Don't output test results, show only the final vulnerability report.
     
     .EXAMPLE
 
@@ -6421,7 +6477,8 @@ function Invoke-PrivescCheck {
 
     [CmdletBinding()] param(
         [switch]$Extended = $False,
-        [switch]$Force = $False
+        [switch]$Force = $False,
+        [switch]$Silent = $False
     )
 
     ### This check was taken from PowerUp.ps1
@@ -6437,57 +6494,88 @@ function Invoke-PrivescCheck {
     }
 
     $AllChecksCsv = @"
-"Id", "Command", "Params", "Category", "DisplayName", "Type", "Note", "Format", "Extended"
-"USER_USER", "Invoke-UserCheck", "", "User", "whoami", "Info", "Gets the name and the SID of the current user.", "Table", True
-"USER_GROUPS", "Invoke-UserGroupsCheck", "", "User", "whoami /groups", "Info", "Gets the non-default groups the current user belongs to.", "Table", True
-"USER_PRIVILEGES", "Invoke-UserPrivilegesCheck", "", "User", "whoami /priv", "Vuln", "Gets the privileges of the current user which can be leveraged for elevation of privilege.", "Table", False
-"USER_ENV", "Invoke-UserEnvCheck", "", "User", "Environment Variables", "Info", "Checks environment variable for sensitive data.", "Table", False
-"SERVICE_INSTALLED", "Invoke-InstalledServicesCheck", "", "Services", "Non-default Services", "Info", "Checks for third-party services.", "List", False
-"SERVICE_PERMISSIONS", "Invoke-ServicesPermissionsCheck", "", "Services", "Permissions - SCM", "Vuln", "Checks for services which are modifiable through the Service Control Manager (sc.exe config VulnService binpath= C:\Temp\evil.exe).", "List", False
-"SERVICE_PERMISSIONS_REGISTRY", "Invoke-ServicesPermissionsRegistryCheck", "", "Services", "Permissions - Registry", "Vuln", "Checks for services which are modifiable through the registry (reg.exe add HKLM\[...]\Services\VulnService /v ImagePath /d C:\Temp\evil.exe /f).", "List", False
-"SERVICE_IMAGE_PERMISSIONS", "Invoke-ServicesImagePermissionsCheck", "", "Services", "Binary Permissions", "Vuln", "Checks for modifiable service binaries (copy C:\Temp\evil.exe C:\APPS\MyCustomApp\service.exe).", "List", False
-"SERVICE_UNQUOTED_PATH", "Invoke-ServicesUnquotedPathCheck", "", "Services", "Unquoted Paths", "Vuln", "Checks for service unquoted image paths (C:\APPS\Foo Bar\service.exe -> copy C:\Temp\evil.exe C:\APPS\Foo.exe).", "List", False
-"SERVICE_DLL_HIJACKING", "Invoke-DllHijackingCheck", "", "Services", "System's %PATH%", "Vuln", "Checks for system %PATH% folders configured with weak permissions.", "List", False
-"SERVICE_HIJACKABLE_DLL", "Invoke-HijackableDllsCheck", "", "Services", "Hijackable DLLs", "Info", "Lists known hijackable DLLs on this system.", "List", False
-"APP_INSTALLED", "Invoke-InstalledProgramsCheck", "", "Apps", "Non-default Apps", "Info", "Lists non-default and third-party applications.", "Table", True
-"APP_MODIFIABLE", "Invoke-ModifiableProgramsCheck", "", "Apps", "Modifiable Apps", "Vuln", "Checks for non-default applications with a modifiable executable.", "Table", False
-"APP_PROGRAMDATA", "Invoke-ProgramDataCheck", "", "Apps", "ProgramData folders/files", "Info", "Checks for modifiable files and folders under non default ProgramData folders.", "List", True
-"APP_STARTUP", "Invoke-ApplicationsOnStartupCheck", "", "Apps", "Apps Run on Startup", "Info", "Lists applications which are run on startup.", "List", True
-"APP_STARTUP_VULN", "Invoke-ApplicationsOnStartupVulnCheck", "", "Apps", "Modifiable Apps Run on Startup", "Vuln", "Lists startup applications that can be modified by the current user.", "List", False
-"APP_SCHTASKS", "Invoke-ScheduledTasksCheck", "-Filtered", "Apps", "Scheduled Tasks", "Vuln", "Checks for scheduled tasks with a modifiable executable.", "List", True
-"APP_PROCESSES", "Invoke-RunningProcessCheck", "", "Apps", "Running Processes", "Info", "Lists processes which are not owned by the current user. Common processes such as 'svchost.exe' are filtered out.", "Table", True
-"CREDS_SAM_BKP", "Invoke-SamBackupFilesCheck", "", "Creds", "SAM/SYSTEM Backup Files", "Vuln", "Checks for readable backups of the SAM/SYSTEM files.", "List", False
-"CREDS_UNATTENDED", "Invoke-UnattendFilesCheck", "", "Creds", "Unattended Files", "Vuln", "Checks for Unattend files containing cleartext passwords.", "List", False
-"CREDS_WINLOGON", "Invoke-WinlogonCheck", "", "Creds", "WinLogon", "Vuln", "Checks for cleartext passwords in the Winlogon registry key. Empty passwords are filtered out.", "List", False
-"CREDS_CRED_FILES", "Invoke-CredentialFilesCheck", "", "Creds", "Credential Files", "Info", "Lists credential files in the current user's HOME folder.", "List", True
-"CREDS_VAULT_CRED", "Invoke-VaultCredCheck", "", "Creds", "Credential Manager", "Info", "Checks for saved credentials in Windows Vault.", "List", False
-"CREDS_VAULT_LIST", "Invoke-VaultListCheck", "", "Creds", "Credential Manager (web)", "Info", "Checks for saved web credentials in Windows Vault.", "List", False
-"CREDS_GPP", "Invoke-GPPPasswordCheck", "", "Creds", "GPP Passwords", "Vuln", "Checks for cached Group Policy Preferences containing a 'cpassword' field.", "List", False
-"CREDS_PS_HIST", "Invoke-PowerShellHistoryCheck", "", "Creds", "PowerShell History", "Info", "Checks for saved credentials in the PowerShell history file of the current user.", "List", True
-"HARDEN_UAC", "Invoke-UacCheck", "", "Hardening", "UAC Settings", "Info", "Checks User Access Control (UAC) configuration.", "List", True
-"HARDEN_LSA", "Invoke-LsaProtectionsCheck", "", "Hardening", "LSA protections", "Info", "Checks whether 'lsass' runs as a Protected Process Light or if Credential Guard is enabled.", "Table", True
-"HARDEN_LAPS", "Invoke-LapsCheck", "", "Hardening", "LAPS Settings", "Info", "Checks whether LAPS is configured and enabled.", "List", True
-"HARDEN_PS_TRANSCRIPT", "Invoke-PowershellTranscriptionCheck", "", "Hardening", "PowerShell Transcription", "Info", "Checks whether PowerShell Transcription is configured and enabled.", "List", True
-"HARDEN_BITLOCKER", "Invoke-BitlockerCheck", "", "Hardening", "BitLocker", "Vuln", "Checks whether BitLocker is enabled on the system drive. This check relies on a registry value and might be unreliable.", "List", False
-"CONFIG_MSI", "Invoke-RegistryAlwaysInstallElevatedCheck", "", "Config", "AlwaysInstallElevated", "Vuln", "Checks whether the 'AlwaysInstallElevated' registry key is configured and enabled.", "List", False
-"CONFIG_WSUS", "Invoke-WsusConfigCheck", "", "Config", "WSUS Configuration", "Vuln", "Checks whether WSUS is configured, enabled and vulnerable to the 'Wsuxploit' MITM attack (https://github.com/pimps/wsuxploit).", "List", False
-"NET_TCP_ENDPOINTS", "Invoke-TcpEndpointsCheck", "", "Network", "TCP Endpoints", "Info", "Lists all TCP endpoints along with the corresponding process.", "Table", True
-"NET_UDP_ENDPOINTS", "Invoke-UdpEndpointsCheck", "", "Network", "UDP Endpoints", "Info", "Lists all UDP endpoints along with the corresponding process. DNS is filtered out.", "Table", True
-"NET_WLAN", "Invoke-WlanProfilesCheck", "", "Network", "Saved Wifi Profiles", "Info", "Checks for WEP/WPA-PSK keys and passphrases in saved Wifi profiles.", "List", True
-"UPDATE_HISTORY", "Invoke-WindowsUpdateCheck", "", "Updates", "Last Windows Update Date", "Info", "Gets Windows update history. A system which hasn't been updated in the last 30 days is potentially vulnerable.", "Table", True
-"UPDATE_HOTFIX", "Invoke-HotfixCheck", "", "Updates", "Installed Updates and Hotfixes", "Info", "Gets the hotfixes that are installed on the computer.", "Table", True
-"UPDATE_HOTFIX_VULN", "Invoke-HotfixVulnCheck", "", "Updates", "System up to date?", "Vuln", "Checks whether hotfixes have been installed in the past 31 days.", "List", False
-"MISC_AVEDR", "Invoke-EndpointProtectionCheck", "", "Misc", "Endpoint Protection", "Info", "Checks for installed security products (AV, EDR). This check is based on keyword matching (loaded DLLs, running processes, installed applications and registered services).", "Table", True
-"MISC_SYSINFO", "Invoke-SystemInfoCheck", "", "Misc", "OS Version", "Info", "Gets the detailed version number of the OS. If we can't get the update history, this might be useful.", "Table", True
-"MISC_ADMINS", "Invoke-LocalAdminGroupCheck", "", "Misc", "Local Admin Group", "Info", "Lists the members of the local 'Administrators' group.", "Table", True
-"MISC_HOMES", "Invoke-UsersHomeFolderCheck", "", "Misc", "User Home Folders", "Info", "Lists HOME folders and checks for write access.", "Table", True
-"MISC_MACHINE_ROLE", "Invoke-MachineRoleCheck", "", "Misc", "Machine Role", "Info", "Gets the machine's role: Workstation, Server, Domain Controller.", "Table", True
-"MISC_STARTUP_EVENTS", "Invoke-SystemStartupHistoryCheck", "", "Misc", "System Startup History", "Info", "Gets the startup history. Some exploits require a reboot so this can be useful to know.", "Table", True
-"MISC_STARTUP_LAST", "Invoke-SystemStartupCheck", "", "Misc", "Last System Startup", "Info", "Gets the last system startup date based on the current tick count (potentially unreliable).", "Table", True
-"MISC_DRIVES", "Invoke-SystemDrivesCheck", "", "Misc", "Filesystem Drives", "Info", "Lists partitions, removable storage and mapped network shares.", "Table", True
+"Id", "File", "Command", "Params", "Category", "DisplayName", "Type", "Note", "Format", "Extended"
+"USER_USER", "", "Invoke-UserCheck", "", "User", "whoami", "Info", "Gets the name and the SID of the current user.", "Table", True
+"USER_GROUPS", "", "Invoke-UserGroupsCheck", "", "User", "whoami /groups", "Info", "Gets the non-default groups the current user belongs to.", "Table", True
+"USER_PRIVILEGES", "", "Invoke-UserPrivilegesCheck", "", "User", "Privileges", "Vuln", "Gets the privileges of the current user which can be leveraged for elevation of privilege.", "Table", False
+"USER_ENV", "", "Invoke-UserEnvCheck", "", "User", "Environment Variables", "Info", "Checks environment variable for sensitive data.", "Table", False
+"SERVICE_INSTALLED", "", "Invoke-InstalledServicesCheck", "", "Services", "Non-default Services", "Info", "Checks for third-party services.", "List", False
+"SERVICE_PERMISSIONS", "", "Invoke-ServicesPermissionsCheck", "", "Services", "Permissions - SCM", "Vuln", "Checks for services which are modifiable through the Service Control Manager (sc.exe config VulnService binpath= C:\Temp\evil.exe).", "List", False
+"SERVICE_PERMISSIONS_REGISTRY", "", "Invoke-ServicesPermissionsRegistryCheck", "", "Services", "Permissions - Registry", "Vuln", "Checks for services which are modifiable through the registry (reg.exe add HKLM\[...]\Services\VulnService /v ImagePath /d C:\Temp\evil.exe /f).", "List", False
+"SERVICE_IMAGE_PERMISSIONS", "", "Invoke-ServicesImagePermissionsCheck", "", "Services", "Binary Permissions", "Vuln", "Checks for modifiable service binaries (copy C:\Temp\evil.exe C:\APPS\MyCustomApp\service.exe).", "List", False
+"SERVICE_UNQUOTED_PATH", "", "Invoke-ServicesUnquotedPathCheck", "", "Services", "Unquoted Paths", "Vuln", "Checks for service unquoted image paths (C:\APPS\Foo Bar\service.exe -> copy C:\Temp\evil.exe C:\APPS\Foo.exe).", "List", False
+"SERVICE_DLL_HIJACKING", "", "Invoke-DllHijackingCheck", "", "Services", "System's %PATH%", "Vuln", "Checks for system %PATH% folders configured with weak permissions.", "List", False
+"SERVICE_HIJACKABLE_DLL", "", "Invoke-HijackableDllsCheck", "", "Services", "Hijackable DLLs", "Info", "Lists known hijackable DLLs on this system.", "List", False
+"APP_INSTALLED", "", "Invoke-InstalledProgramsCheck", "", "Apps", "Non-default Apps", "Info", "Lists non-default and third-party applications.", "Table", True
+"APP_MODIFIABLE", "", "Invoke-ModifiableProgramsCheck", "", "Apps", "Modifiable Apps", "Vuln", "Checks for non-default applications with a modifiable executable.", "Table", False
+"APP_PROGRAMDATA", "", "Invoke-ProgramDataCheck", "", "Apps", "ProgramData folders/files", "Info", "Checks for modifiable files and folders under non default ProgramData folders.", "List", True
+"APP_STARTUP", "", "Invoke-ApplicationsOnStartupCheck", "", "Apps", "Apps Run on Startup", "Info", "Lists applications which are run on startup.", "List", True
+"APP_STARTUP_VULN", "", "Invoke-ApplicationsOnStartupVulnCheck", "", "Apps", "Modifiable Apps Run on Startup", "Vuln", "Lists startup applications that can be modified by the current user.", "List", False
+"APP_SCHTASKS", "", "Invoke-ScheduledTasksCheck", "-Filtered", "Apps", "Scheduled Tasks", "Vuln", "Checks for scheduled tasks with a modifiable executable.", "List", True
+"APP_PROCESSES", "", "Invoke-RunningProcessCheck", "", "Apps", "Running Processes", "Info", "Lists processes which are not owned by the current user. Common processes such as 'svchost.exe' are filtered out.", "Table", True
+"CREDS_SAM_BKP", "", "Invoke-SamBackupFilesCheck", "", "Creds", "SAM/SYSTEM Backup Files", "Vuln", "Checks for readable backups of the SAM/SYSTEM files.", "List", False
+"CREDS_UNATTENDED", "", "Invoke-UnattendFilesCheck", "", "Creds", "Unattended Files", "Vuln", "Checks for Unattend files containing cleartext passwords.", "List", False
+"CREDS_WINLOGON", "", "Invoke-WinlogonCheck", "", "Creds", "WinLogon", "Vuln", "Checks for cleartext passwords in the Winlogon registry key. Empty passwords are filtered out.", "List", False
+"CREDS_CRED_FILES", "", "Invoke-CredentialFilesCheck", "", "Creds", "Credential Files", "Info", "Lists credential files in the current user's HOME folder.", "List", True
+"CREDS_VAULT_CRED", "", "Invoke-VaultCredCheck", "", "Creds", "Credential Manager", "Info", "Checks for saved credentials in Windows Vault.", "List", False
+"CREDS_VAULT_LIST", "", "Invoke-VaultListCheck", "", "Creds", "Credential Manager (web)", "Info", "Checks for saved web credentials in Windows Vault.", "List", False
+"CREDS_GPP", "", "Invoke-GPPPasswordCheck", "", "Creds", "GPP Passwords", "Vuln", "Checks for cached Group Policy Preferences containing a 'cpassword' field.", "List", False
+"CREDS_PS_HIST", "", "Invoke-PowerShellHistoryCheck", "", "Creds", "PowerShell History", "Info", "Checks for saved credentials in the PowerShell history file of the current user.", "List", True
+"HARDEN_UAC", "", "Invoke-UacCheck", "", "Hardening", "UAC Settings", "Info", "Checks User Access Control (UAC) configuration.", "List", True
+"HARDEN_LSA", "", "Invoke-LsaProtectionsCheck", "", "Hardening", "LSA protections", "Info", "Checks whether 'lsass' runs as a Protected Process Light or if Credential Guard is enabled.", "Table", True
+"HARDEN_LAPS", "", "Invoke-LapsCheck", "", "Hardening", "LAPS Settings", "Info", "Checks whether LAPS is configured and enabled.", "List", True
+"HARDEN_PS_TRANSCRIPT", "", "Invoke-PowershellTranscriptionCheck", "", "Hardening", "PowerShell Transcription", "Info", "Checks whether PowerShell Transcription is configured and enabled.", "List", True
+"HARDEN_BITLOCKER", "", "Invoke-BitlockerCheck", "", "Hardening", "BitLocker", "Vuln", "Checks whether BitLocker is enabled on the system drive. This check relies on a registry value and might be unreliable.", "List", False
+"CONFIG_MSI", "", "Invoke-RegistryAlwaysInstallElevatedCheck", "", "Config", "AlwaysInstallElevated", "Vuln", "Checks whether the 'AlwaysInstallElevated' registry key is configured and enabled.", "List", False
+"CONFIG_WSUS", "", "Invoke-WsusConfigCheck", "", "Config", "WSUS Configuration", "Vuln", "Checks whether WSUS is configured, enabled and vulnerable to the 'Wsuxploit' MITM attack (https://github.com/pimps/wsuxploit).", "List", False
+"CONFIG_SCCM", "", "Invoke-SccmCacheFolderCheck", "", "Config", "SCCM Cache Folder", "Vuln", "Checks whether the current user can browse the SCCM cache folder. If so, hardcoded credentials might be extracted from MSI package files.", "List", False
+"NET_TCP_ENDPOINTS", "", "Invoke-TcpEndpointsCheck", "", "Network", "TCP Endpoints", "Info", "Lists all TCP endpoints along with the corresponding process.", "Table", True
+"NET_UDP_ENDPOINTS", "", "Invoke-UdpEndpointsCheck", "", "Network", "UDP Endpoints", "Info", "Lists all UDP endpoints along with the corresponding process. DNS is filtered out.", "Table", True
+"NET_WLAN", "", "Invoke-WlanProfilesCheck", "", "Network", "Saved Wifi Profiles", "Info", "Checks for WEP/WPA-PSK keys and passphrases in saved Wifi profiles.", "List", True
+"UPDATE_HISTORY", "", "Invoke-WindowsUpdateCheck", "", "Updates", "Last Windows Update Date", "Info", "Gets Windows update history. A system which hasn't been updated in the last 30 days is potentially vulnerable.", "Table", True
+"UPDATE_HOTFIX", "", "Invoke-HotfixCheck", "", "Updates", "Installed Updates and Hotfixes", "Info", "Gets the hotfixes that are installed on the computer.", "Table", True
+"UPDATE_HOTFIX_VULN", "", "Invoke-HotfixVulnCheck", "", "Updates", "System up to date?", "Vuln", "Checks whether hotfixes have been installed in the past 31 days.", "List", False
+"MISC_AVEDR", "", "Invoke-EndpointProtectionCheck", "", "Misc", "Endpoint Protection", "Info", "Checks for installed security products (AV, EDR). This check is based on keyword matching (loaded DLLs, running processes, installed applications and registered services).", "Table", True
+"MISC_SYSINFO", "", "Invoke-SystemInfoCheck", "", "Misc", "OS Version", "Info", "Gets the detailed version number of the OS. If we can't get the update history, this might be useful.", "Table", True
+"MISC_ADMINS", "", "Invoke-LocalAdminGroupCheck", "", "Misc", "Local Admin Group", "Info", "Lists the members of the local 'Administrators' group.", "Table", True
+"MISC_HOMES", "", "Invoke-UsersHomeFolderCheck", "", "Misc", "User Home Folders", "Info", "Lists HOME folders and checks for write access.", "Table", True
+"MISC_MACHINE_ROLE", "", "Invoke-MachineRoleCheck", "", "Misc", "Machine Role", "Info", "Gets the machine's role: Workstation, Server, Domain Controller.", "Table", True
+"MISC_STARTUP_EVENTS", "", "Invoke-SystemStartupHistoryCheck", "", "Misc", "System Startup History", "Info", "Gets the startup history. Some exploits require a reboot so this can be useful to know.", "Table", True
+"MISC_STARTUP_LAST", "", "Invoke-SystemStartupCheck", "", "Misc", "Last System Startup", "Info", "Gets the last system startup date based on the current tick count (potentially unreliable).", "Table", True
+"MISC_DRIVES", "", "Invoke-SystemDrivesCheck", "", "Misc", "Filesystem Drives", "Info", "Lists partitions, removable storage and mapped network shares.", "Table", True
 "@
 
+    $AllChecks = New-Object System.Collections.ArrayList
+
+    # Load default checks
     $AllChecksCsv | ConvertFrom-Csv | ForEach-Object {
+        [void] $AllChecks.Add($_)
+    }
+
+    # Load plugins if any
+    Write-Verbose "Script path: $($ScriptPath)"
+    $ScriptLocation = Split-Path -Parent $ScriptPath
+    # $ScriptLocation = Split-Path -Parent $MyInvocation.MyCommand.Definition
+    $PrivescCheckPluginsCsvPath = Join-Path $ScriptLocation -ChildPath "\PrivescCheckPlugins\PrivescCheckPlugins.csv"
+    Write-Verbose "Plugin definition file: '$($PrivescCheckPluginsCsvPath)'"
+    if (Test-Path -Path $PrivescCheckPluginsCsvPath) {
+        Write-Verbose "Found plugin definition file: $($PrivescCheckPluginsCsvPath)"
+        Get-Content -Path $PrivescCheckPluginsCsvPath -Raw -ErrorAction Stop | ConvertFrom-Csv | ForEach-Object {
+            [void] $AllChecks.Add($_)
+        }
+    } else {
+        Write-Verbose "No plugin definition file found."
+    }
+    
+    # Load plugin scripts if any
+    $AllChecks | Where-Object { $_.File -ne "" } | Select-Object -ExpandProperty File | Sort-Object -Unique | ForEach-Object {
+        Write-Verbose "Plugin required: $($_)"
+        $FilePath = Join-Path $ScriptLocation -ChildPath "\PrivescCheckPlugins\$($_)"
+        Get-Content -Path $FilePath -Raw -ErrorAction Stop | Invoke-Expression
+    }
+
+    $CheckCounter = 0
+    $AllChecks | ForEach-Object {
 
         $ExtendedCheck = [System.Convert]::ToBoolean($_.Extended)
 
@@ -6495,24 +6583,31 @@ function Invoke-PrivescCheck {
         # marked as an "extended" one.
         if ($Extended -or ((-not $Extended) -and (-not $ExtendedCheck))) {
 
-            Write-CheckBanner -Check $_
-            $Results = Invoke-Check -Check $_
-    
-            if ($Results) {
-    
-                "[*] Found $(([object[]]$Results).Length) result(s)."
-    
-                if ($_.Format -eq "Table") {
-                    $Results | Format-Table -AutoSize
-                } elseif ($_.Format -eq "List") {
-                    $Results | Format-List
-                }
-                
+            if ($Silent) {
+                $CheckCounter += 1
+                $Percentage = ($CheckCounter * 100) / ($AllChecks.Count)
+                Write-Progress -Activity "$($_.Category.ToUpper()) > $($_.DisplayName)" -PercentComplete $Percentage
+                $Results = Invoke-Check -Check $_
             } else {
-                "[!] Nothing found."
+                Write-CheckBanner -Check $_
+                $Results = Invoke-Check -Check $_
+        
+                if ($Results) {
+        
+                    "[*] Found $(([object[]]$Results).Length) result(s)."
+        
+                    if ($_.Format -eq "Table") {
+                        $Results | Format-Table -AutoSize
+                    } elseif ($_.Format -eq "List") {
+                        $Results | Format-List
+                    }
+                    
+                } else {
+                    "[!] Nothing found."
+                }
+        
+                "`r`n"
             }
-    
-            "`r`n"
         }
     }
 
@@ -6534,7 +6629,7 @@ function Invoke-AnalyzeResults {
     Write-Host "|                     VULNERABILITY REPORT                     |"
     Write-Host "+----+---------------------------------------------------------+"
 
-    $ResultArrayList | ForEach-Object {
+    $ResultArrayList | Sort-Object -Property Category | ForEach-Object {
 
         if ($_.Type -Like "vuln") {
 

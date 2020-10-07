@@ -1,3 +1,7 @@
+2020-10-07
+    - Additional custom checks can now be added as plugins
+    - Added a "silent" mode (only the final vulnerability report is displayed)
+
 2020-10-06
     - Added Apps > Invoke-ApplicationsOnStartupVulnCheck
 
