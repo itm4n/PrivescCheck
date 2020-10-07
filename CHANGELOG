@@ -1,6 +1,8 @@
 2020-10-07
     - Additional custom checks can now be added as plugins
     - Added a "silent" mode (only the final vulnerability report is displayed)
+    - Added Config > Invoke-SccmCacheFolderCheck
+    - Added some report generation functions (HTML, CSV)
 
 2020-10-06
     - Added Apps > Invoke-ApplicationsOnStartupVulnCheck

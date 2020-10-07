@@ -6425,6 +6425,14 @@ function Invoke-Check {
 
     $Result = Invoke-Expression -Command "$($Check.Command) $($Check.Params)"
     $Check | Add-Member -MemberType "NoteProperty" -Name "ResultRaw" -Value $Result
+    $Check | Add-Member -MemberType "NoteProperty" -Name "ResultRawString" -Value $($Result | Format-List | Out-String)
+    if ($($_.Type -Like "vuln")) {
+        if ($Result) {
+            $Check | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $False
+        } else {
+            $Check | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $True
+        }
+    }
     [void] $ResultArrayList.Add($Check)
     $Check.ResultRaw
 }
@@ -6459,6 +6467,14 @@ function Invoke-PrivescCheck {
     .PARAMETER Silent
 
     Don't output test results, show only the final vulnerability report.
+
+    .PARAMETER OutFile
+
+    Path of an output file.
+
+    .PARAMETER OutFormat
+
+    Select the format of the output file (e.g.: HTML or CSV).
     
     .EXAMPLE
 
@@ -6478,7 +6494,9 @@ function Invoke-PrivescCheck {
     [CmdletBinding()] param(
         [switch]$Extended = $False,
         [switch]$Force = $False,
-        [switch]$Silent = $False
+        [switch]$Silent = $False,
+        [string]$OutFile,
+        [ValidateSet("HTML", "CSV")][string]$OutFormat
     )
 
     ### This check was taken from PowerUp.ps1
@@ -6554,17 +6572,18 @@ function Invoke-PrivescCheck {
 
     # Load plugins if any
     Write-Verbose "Script path: $($ScriptPath)"
-    $ScriptLocation = Split-Path -Parent $ScriptPath
-    # $ScriptLocation = Split-Path -Parent $MyInvocation.MyCommand.Definition
-    $PrivescCheckPluginsCsvPath = Join-Path $ScriptLocation -ChildPath "\PrivescCheckPlugins\PrivescCheckPlugins.csv"
-    Write-Verbose "Plugin definition file: '$($PrivescCheckPluginsCsvPath)'"
-    if (Test-Path -Path $PrivescCheckPluginsCsvPath) {
-        Write-Verbose "Found plugin definition file: $($PrivescCheckPluginsCsvPath)"
-        Get-Content -Path $PrivescCheckPluginsCsvPath -Raw -ErrorAction Stop | ConvertFrom-Csv | ForEach-Object {
-            [void] $AllChecks.Add($_)
+    $ScriptLocation = Split-Path -Parent $ScriptPath -ErrorAction SilentlyContinue -ErrorVariable ErrorSplitPath
+    if (-not $ErrorSplitPath) {
+        $PrivescCheckPluginsCsvPath = Join-Path $ScriptLocation -ChildPath "\PrivescCheckPlugins\PrivescCheckPlugins.csv"
+        Write-Verbose "Plugin definition file: '$($PrivescCheckPluginsCsvPath)'"
+        if (Test-Path -Path $PrivescCheckPluginsCsvPath) {
+            Write-Verbose "Found plugin definition file: $($PrivescCheckPluginsCsvPath)"
+            Get-Content -Path $PrivescCheckPluginsCsvPath -Raw -ErrorAction Stop | ConvertFrom-Csv | ForEach-Object {
+                [void] $AllChecks.Add($_)
+            }
+        } else {
+            Write-Verbose "No plugin definition file found."
         }
-    } else {
-        Write-Verbose "No plugin definition file found."
     }
     
     # Load plugin scripts if any
@@ -6613,10 +6632,127 @@ function Invoke-PrivescCheck {
 
     Invoke-AnalyzeResults 
 
-    if ((-not $Extended) -and (-not $Force)) {
+    if ($OutFile) {
+        if ($OutFormat -eq "HTML") {
+            Write-HtmlReport -AllResults $ResultArrayList | Out-File $OutFile
+        } elseif ($OutFormat -eq "CSV") {
+            Write-CsvReport -AllResults $ResultArrayList | Out-File $OutFile
+        }
+    }
+
+    if ((-not $Extended) -and (-not $Force) -and (-not $Silent)) {
 
         Write-Host -ForegroundColor Yellow "`r`nTo get more info, run this script with the flag '-Extended'.`r`n"
     }
+}
+
+function Write-CsvReport {
+
+    [CmdletBinding()] param(
+        [object[]]$AllResults
+    )
+    
+    $AllResults | Where-Object { $_.Type -like "vuln" } | Sort-Object -Property Category | Select-Object Category,DisplayName,Note,Compliance,ResultRawString | ConvertTo-Csv -NoTypeInformation
+}
+
+function Write-HtmlReport {
+
+    [CmdletBinding()] param(
+        [object[]]$AllResults
+    )
+
+    $JavaScript = @"
+var cells = document.getElementsByTagName('td');
+
+for (var i=0; i<cells.length; i++) {
+    if (cells[i].innerHTML == "True") {
+        //cells[i].className = 'green';
+        cells[i].style.backgroundColor = '#00ff99';
+    } else if(cells[i].innerHTML == "False") {
+        //cells[i].className = 'red';
+        cells[i].style.backgroundColor = '#ff5050';
+    }
+}
+"@
+
+    $Css = @"
+    body{
+        font:1.2em normal Arial,sans-serif;
+        color:#34495E;
+      }
+      
+      h1{
+        text-align:center;
+        text-transform:uppercase;
+        letter-spacing:-2px;
+        font-size:2.5em;
+        margin:20px 0;
+      }
+      
+      table{
+        border-collapse:collapse;
+        width:100%;
+        border:2px solid #6699ff;
+      }
+      
+      th{
+        color:white;
+        background:#6699ff;
+        text-align:center;
+        padding:5px 0;
+      }
+
+      td{
+        text-align:center;
+        padding:5px 5px 5px 5px;
+      }
+
+      tbody td:nth-child(3){
+        text-align:left;
+      }
+
+      tbody td:nth-child(5){
+        white-space: pre;
+        margin: 1em 0px;
+        padding: .2rem .4rem;
+        font-size: 87.5%;
+        font-family: SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
+        //max-width: 40em;
+        //overflow: auto;
+        text-align:left;
+      }
+      
+      tbody tr:nth-child(even){
+        background:#ECF0F1;
+      }
+      
+      tbody tr:hover{
+      background:#BDC3C7;
+        color:#FFFFFF;
+      }
+      
+"@
+
+    $Html = @"
+<html>
+<head>
+<style>
+$($Css)
+</style>
+</head>
+<body>
+BODY_TO_REPLACE
+<script>
+$($JavaScript)
+</script>
+</body>
+</html>
+"@
+
+    $TableHtml = $AllResults | Where-Object { $_.Type -like "vuln" } | Sort-Object -Property Category | ConvertTo-Html -Property "Category","DisplayName","Note","Compliance","ResultRawString" -Fragment 
+    # $TableHtml = $AllResults | ConvertTo-Html -Property "Category","DisplayName","Note","Compliance","ResultRawString" -Fragment 
+    $Html = $Html.Replace("BODY_TO_REPLACE", $TableHtml)
+    $Html
 }
 
 function Invoke-AnalyzeResults {
@@ -6636,8 +6772,10 @@ function Invoke-AnalyzeResults {
             Write-Host -NoNewline "| "
             if ($_.ResultRaw) {
                 Write-Host -NoNewline -ForegroundColor "Red" "KO"
+                # $_ | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $False
             } else {
                 Write-Host -NoNewline -ForegroundColor "Green" "OK"
+                # $_ | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $True
             }
             Write-Host -NoNewline " |"
 

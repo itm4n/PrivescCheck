@@ -131,6 +131,7 @@ Invoke-BitlockerCheck - Checks whether BitLocker is enabled on the system drive
 ```
 Invoke-RegistryAlwaysInstallElevatedCheck - Checks whether the AlwaysInstallElevated key is set in the registry
 Invoke-WsusConfigCheck - Checks whether the WSUS is enabled and vulnerable (Wsuxploit)
+Invoke-SccmCacheFolderCheck - Checks whether the ccmcache folder is accessible
 ```
 
 ### Network
