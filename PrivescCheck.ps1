@@ -6578,7 +6578,7 @@ function Invoke-PrivescCheck {
         Write-Verbose "Plugin definition file: '$($PrivescCheckPluginsCsvPath)'"
         if (Test-Path -Path $PrivescCheckPluginsCsvPath) {
             Write-Verbose "Found plugin definition file: $($PrivescCheckPluginsCsvPath)"
-            Get-Content -Path $PrivescCheckPluginsCsvPath -Raw -ErrorAction Stop | ConvertFrom-Csv | ForEach-Object {
+            Get-Content -Path $PrivescCheckPluginsCsvPath -ErrorAction Stop | Out-String | ConvertFrom-Csv | ForEach-Object {
                 [void] $AllChecks.Add($_)
             }
         } else {
@@ -6590,7 +6590,7 @@ function Invoke-PrivescCheck {
     $AllChecks | Where-Object { $_.File -ne "" } | Select-Object -ExpandProperty File | Sort-Object -Unique | ForEach-Object {
         Write-Verbose "Plugin required: $($_)"
         $FilePath = Join-Path $ScriptLocation -ChildPath "\PrivescCheckPlugins\$($_)"
-        Get-Content -Path $FilePath -Raw -ErrorAction Stop | Invoke-Expression
+        Get-Content -Path $FilePath -ErrorAction Stop | Out-String | Invoke-Expression
     }
 
     $CheckCounter = 0
