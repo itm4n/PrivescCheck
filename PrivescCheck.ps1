@@ -6622,7 +6622,11 @@ function Invoke-PrivescCheck {
                     }
                     
                 } else {
-                    "[!] Nothing found."
+                    if ($_.Type -eq "Vuln") {
+                        "[!] Not vulnerable."
+                    } else {
+                        "[!] Nothing found."
+                    }
                 }
         
                 "`r`n"
