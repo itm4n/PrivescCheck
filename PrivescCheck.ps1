@@ -4140,7 +4140,7 @@ function Invoke-UserPrivilegesCheck {
 
     [CmdletBinding()] param()    
 
-    $HighPotentialPrivileges = "SeAssignPrimaryTokenPrivilege", "SeImpersonatePrivilege", "SeCreateTokenPrivilege", "SeDebugPrivilege", "SeLoadDriverPrivilege", "SeRestorePrivilege", "SeTakeOwnershipPrivilege", "SeTcbPrivilege", "SeBackupPrivilege"
+    $HighPotentialPrivileges = "SeAssignPrimaryTokenPrivilege", "SeImpersonatePrivilege", "SeCreateTokenPrivilege", "SeDebugPrivilege", "SeLoadDriverPrivilege", "SeRestorePrivilege", "SeTakeOwnershipPrivilege", "SeTcbPrivilege", "SeBackupPrivilege", "SeManageVolumePrivilege"
 
     $CurrentPrivileges = Get-UserPrivileges
 
@@ -6525,7 +6525,7 @@ function Invoke-PrivescCheck {
 "SERVICE_DLL_HIJACKING", "", "Invoke-DllHijackingCheck", "", "Services", "System's %PATH%", "Vuln", "Checks for system %PATH% folders configured with weak permissions.", "List", False
 "SERVICE_HIJACKABLE_DLL", "", "Invoke-HijackableDllsCheck", "", "Services", "Hijackable DLLs", "Info", "Lists known hijackable DLLs on this system.", "List", False
 "APP_INSTALLED", "", "Invoke-InstalledProgramsCheck", "", "Apps", "Non-default Apps", "Info", "Lists non-default and third-party applications.", "Table", True
-"APP_MODIFIABLE", "", "Invoke-ModifiableProgramsCheck", "", "Apps", "Modifiable Apps", "Vuln", "Checks for non-default applications with a modifiable executable.", "Table", False
+"APP_MODIFIABLE", "", "Invoke-ModifiableProgramsCheck", "", "Apps", "Modifiable Apps", "Vuln", "Checks for non-default applications with a modifiable executable.", "List", False
 "APP_PROGRAMDATA", "", "Invoke-ProgramDataCheck", "", "Apps", "ProgramData folders/files", "Info", "Checks for modifiable files and folders under non default ProgramData folders.", "List", True
 "APP_STARTUP", "", "Invoke-ApplicationsOnStartupCheck", "", "Apps", "Apps Run on Startup", "Info", "Lists applications which are run on startup.", "List", True
 "APP_STARTUP_VULN", "", "Invoke-ApplicationsOnStartupVulnCheck", "", "Apps", "Modifiable Apps Run on Startup", "Vuln", "Lists startup applications that can be modified by the current user.", "List", False
