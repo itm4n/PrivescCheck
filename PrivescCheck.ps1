@@ -2361,6 +2361,23 @@ function Get-HotFixList {
         Get-HotFix | Select-Object HotFixID,Description,InstalledBy,InstalledOn
     }
 }
+
+function Get-SccmCacheFolder {
+    <#
+    .SYNOPSIS
+    
+    Get the SCCM cache folder as a PowerShell object if it exists.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+    
+    #>
+
+    [CmdletBinding()] param ()
+
+    $CcmCachePath = Join-Path -Path $env:windir -ChildPath "CCMCache"
+    Get-Item -Path $CcmCachePath -ErrorAction SilentlyContinue | Select-Object -Property FullName,Attributes,Exists
+}
 #endregion Helpers 
 
 
@@ -2717,8 +2734,47 @@ function Invoke-WsusConfigCheck {
 function Invoke-SccmCacheFolderCheck {
     <#
     .SYNOPSIS
+    
+    Gets some information about the SCCM cache folder if it exists.
 
-    Checks whether the ccmcache folder is accessible
+    Author: @itm4n
+    License: BSD 3-Clause
+    
+    .DESCRIPTION
+
+    If the SCCM cache folder exists ('C:\Windows\CCMCache'), this check will return some information
+    about the item, such as the ACL. This allows for further manual analysis.
+    
+    .EXAMPLE
+
+    TODO
+    
+    #>
+
+    [CmdletBinding()] param ()
+
+    $SccmCacheFolderItem = Get-SccmCacheFolder
+    if ($SccmCacheFolderItem) {
+
+        $Result = $SccmCacheFolderItem
+        try {
+            # We need a try/catch block because ErrorAction doesn't catch access denied errors
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Acl" -Value $($SccmCacheFolderItem | Get-Acl -ErrorAction SilentlyContinue | Select-Object -ExpandProperty AccessToString) 
+        } catch {
+            # Access denied, do nothing
+        }
+        $Result
+    }
+}
+
+function Invoke-SccmCacheFolderVulnCheck {
+    <#
+    .SYNOPSIS
+
+    Checks whether the ccmcache folder is accessible.
+
+    Author: @itm4n
+    License: BSD 3-Clause
     
     .DESCRIPTION
 
@@ -2729,39 +2785,23 @@ function Invoke-SccmCacheFolderCheck {
     
     .EXAMPLE
 
-    PS C:\> Invoke-SccmCacheFolderCheck
+    PS C:\> Invoke-SccmCacheFolderVulnCheck
 
-    Path         : C:\Windows\ccmcache
-    Description  : The CCMCache folder is accessible
+    FullName   : C:\WINDOWS\CCMCache
+    Attributes : Directory
+    Exists     : True
     
     #>
 
     [CmdletBinding()] param ()
 
-    $CcmCachePath = Join-Path -Path $env:windir -ChildPath "CCMCache"
-    if (Test-Path -Path $CcmCachePath) {
+    $SccmCacheFolder = Get-SccmCacheFolder
+    if ($SccmCacheFolder) {
 
-        Get-ChildItem -Path $CcmCachePath -ErrorAction SilentlyContinue -ErrorVariable ErrorGetChildItem
+        Get-ChildItem -Path $SccmCacheFolder.FullName -ErrorAction SilentlyContinue -ErrorVariable ErrorGetChildItem | Out-Null
         if (-not $ErrorGetChildItem) {
-            $IsVulnerable = $True 
-            $Message = "The CCMCache folder is accessible"
-        } else {
-            $IsVulnerable = $False 
-            $Message = "The CCMCache folder exists but cannot be accessed"
+            $SccmCacheFolder
         }
-    } else {
-        $IsVulnerable = $False
-        $Message = "CCMCache folder not found"
-    }
-
-    Write-Verbose "$($Message)"
-
-    if ($IsVulnerable) {
-
-        $Result = New-Object -TypeName PSObject
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $CcmCachePath
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Message
-        $Result
     }
 }
 # ----------------------------------------------------------------
@@ -6585,7 +6625,8 @@ function Invoke-PrivescCheck {
 "HARDEN_BITLOCKER", "", "Invoke-BitlockerCheck", "", "Hardening", "BitLocker", "Vuln", "Check whether BitLocker is configured and enabled on the system drive. Note that this check will yield a false positive if another encryption software is in use.", "List", False
 "CONFIG_MSI", "", "Invoke-RegistryAlwaysInstallElevatedCheck", "", "Config", "AlwaysInstallElevated", "Vuln", "Check whether the 'AlwaysInstallElevated' registry keys are configured and enabled. If so any user might be able to run arbitary MSI files with SYSTEM privileges.", "List", False
 "CONFIG_WSUS", "", "Invoke-WsusConfigCheck", "", "Config", "WSUS Configuration", "Vuln", "If WSUS is in use, this check will determine whether or not it uses a secure URL. If not, it might be vulnerable to MitM attacks (c.f. 'WSUXploit' / 'WSuspicious').", "List", False
-"CONFIG_SCCM", "", "Invoke-SccmCacheFolderCheck", "", "Config", "SCCM Cache Folder", "Vuln", "Checks whether the current user can browse the SCCM cache folder. If so, hardcoded credentials might be extracted from MSI package files.", "List", False
+"CONFIG_SCCM", "", "Invoke-SccmCacheFolderCheck", "", "Config", "SCCM Cache Folder", "Info", "Checks whether the SCCM cache folder exists. Manual investigation might be required during post-exploitation.", "List", True
+"CONFIG_SCCM_VULN", "", "Invoke-SccmCacheFolderVulnCheck", "", "Config", "SCCM Cache Folder", "Vuln", "Checks whether the current user can browse the SCCM cache folder. If so, hardcoded credentials might be extracted from MSI package files or scripts.", "List", False
 "NET_TCP_ENDPOINTS", "", "Invoke-TcpEndpointsCheck", "", "Network", "TCP Endpoints", "Info", "List all TCP ports that are in a LISTEN state. For each one, the corresponding process is also returned.", "Table", True
 "NET_UDP_ENDPOINTS", "", "Invoke-UdpEndpointsCheck", "", "Network", "UDP Endpoints", "Info", "List all UDP ports that are in a LISTEN state. For each one, the corresponding process is also returned. DNS is filtered out to minimize the output.", "Table", True
 "NET_WLAN", "", "Invoke-WlanProfilesCheck", "", "Network", "Saved Wifi Profiles", "Info", "Enumerate saved Wifi profiles and extract clear-text WEP/WPA pre-shared keys and passphrases (if applicable).", "List", True
