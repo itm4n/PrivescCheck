@@ -90,8 +90,8 @@ The directory structure should now look like this:
 3. Populate the `PrivescCheckPlugins.csv` using the following structure:
 
 ```csv
-"Id", "File", "Command", "Params", "Category", "DisplayName", "Type", "Note", "Format", "Extended", "RunIfAdmin"
-"TEST_ID", "Custom.ps1", "Invoke-SomeCheck", "", "MyCategory", "Test Title", "Vuln", "Description of the test", "List", False, False
+"Id", "File", "Command", "Params", "Category", "DisplayName", "Type", "Severity", "Description", "Format", "Extended", "RunIfAdmin"
+"TEST_ID", "Custom.ps1", "Invoke-SomeCheck", "", "MyCategory", "Test Title", "Vuln", "High", "Description of the test", "List", False, False
 ```
 
 4. Implement your check (e.g.: `Invoke-SomeCheck`) in a dedicated script (e.g.: `Custom.ps1`)
