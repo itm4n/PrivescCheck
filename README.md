@@ -73,7 +73,7 @@ Custom vulnerability checks can now be included dynamically. It's particularly i
 
 ### Procedure
 
-1. Create the folder ̀`PrivescCheckPlugins` in the same location as the the script `PrivescCheck.ps1`.
+1. Create the folder `PrivescCheckPlugins` in the same location as the the script `PrivescCheck.ps1`.
 
 2. Create a CSV file `PrivescCheckPlugins.csv` in the folder `PrivescCheckPlugins`.
 
@@ -90,8 +90,8 @@ The directory structure should now look like this:
 3. Populate the `PrivescCheckPlugins.csv` using the following structure:
 
 ```csv
-"Id", "File", "Command", "Params", "Category", "DisplayName", "Type", "Note", "Format", "Extended"
-"TEST_ID", "Custom.ps1", "Invoke-SomeCheck", "", "MyCategory", "Test Title", "Vuln", "Description of the test", "List", False
+"Id", "File", "Command", "Params", "Category", "DisplayName", "Type", "Note", "Format", "Extended", "RunIfAdmin"
+"TEST_ID", "Custom.ps1", "Invoke-SomeCheck", "", "MyCategory", "Test Title", "Vuln", "Description of the test", "List", False, False
 ```
 
 4. Implement your check (e.g.: `Invoke-SomeCheck`) in a dedicated script (e.g.: `Custom.ps1`)
