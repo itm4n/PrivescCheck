@@ -6920,39 +6920,61 @@ function Invoke-AnalyzeResults {
         
     )
 
-    Write-Host "+--------------------------------------------------------------+"
-    Write-Host "|                     VULNERABILITY REPORT                     |"
-    Write-Host "+----+---------------------------------------------------------+"
+    Write-Host "+------------------------------------------------------------------------------+"
+    Write-Host "|                         ~~~ PrivescCheck Report ~~~                          |"
+    Write-Host "+----+------+------------------------------------------------------------------+"
 
     $ResultArrayList | Sort-Object -Property Category | ForEach-Object {
 
+        Write-Host -NoNewline "| "
         if ($_.Type -Like "vuln") {
-
-            Write-Host -NoNewline "| "
             if ($_.ResultRaw) {
                 Write-Host -NoNewline -ForegroundColor "Red" "KO"
             } else {
                 Write-Host -NoNewline -ForegroundColor "Green" "OK"
             }
-            Write-Host -NoNewline " |"
-
-            $Message = "$($_.Category.ToUpper()) > $($_.DisplayName)"
-            if ($_.ResultRaw) {
-                $Message = "$($Message) -> $(([object[]]$_.ResultRaw).Length) result(s)"
-            }
-            $Padding = ' ' * $(55 - $Message.Length)
-
-            Write-Host -NoNewline " $($_.Category.ToUpper()) > $($_.DisplayName)"
-            
-            if ($_.ResultRaw) {
-                Write-Host -NoNewLine " ->"
-                Write-Host -NoNewLine -ForegroundColor "Red" " $(([object[]]$_.ResultRaw).Length) result(s)"
-            }
-            
-            Write-Host "$($Padding) |"
+        } else {
+            Write-Host -NoNewline -ForegroundColor "DarkGray" "NA"
         }
+        Write-Host -NoNewline " | "
+
+        if ($_.Severity -Like "None") {
+            $SeverityColor = "DarkGray"
+            Write-Host -NoNewline -ForegroundColor $SeverityColor "None"
+        } elseif ($_.Severity -Like "Low") {
+            $SeverityColor = "DarkGreen"
+            Write-Host -NoNewline -ForegroundColor $SeverityColor "Low "
+        } elseif ($_.Severity -Like "Medium") {
+            $SeverityColor = "DarkYellow"
+            Write-Host -NoNewline -ForegroundColor $SeverityColor "Med."
+        } elseif ($_.Severity -Like "High") {
+            $SeverityColor = "DarkRed"
+            Write-Host -NoNewline -ForegroundColor $SeverityColor "High"
+        } elseif ($_.Severity -Like "Info") {
+            $SeverityColor = "DarkBlue"
+            Write-Host -NoNewline -ForegroundColor $SeverityColor "Info"
+        } else {
+            $SeverityColor = "White"
+            Write-Host -NoNewline "    "
+        }
+        Write-Host -NoNewline " |"
+
+        $Message = "$($_.Category.ToUpper()) > $($_.DisplayName)"
+        if ($_.ResultRaw) {
+            $Message = "$($Message) -> $(([object[]]$_.ResultRaw).Length) result(s)"
+        }
+        $Padding = ' ' * $(64 - $Message.Length)
+
+        Write-Host -NoNewline " $($_.Category.ToUpper()) > $($_.DisplayName)"
+        
+        if ($_.ResultRaw) {
+            Write-Host -NoNewLine " ->"
+            Write-Host -NoNewLine -ForegroundColor $SeverityColor " $(([object[]]$_.ResultRaw).Length) result(s)"
+        }
+        
+        Write-Host "$($Padding) |"
     }
 
-    Write-Host "+----+---------------------------------------------------------+"
+    Write-Host "+----+------+------------------------------------------------------------------+"
 }
 #endregion Main
