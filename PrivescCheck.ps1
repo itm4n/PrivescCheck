@@ -6605,7 +6605,7 @@ function Invoke-PrivescCheck {
 "USER_ENV", "", "Invoke-UserEnvCheck", "", "User", "Environment Variables", "Info", "Info", "List the environment variables of the current process and try to identify any potentially sensitive information such as passwords or API secrets. This check is simply based on keyword matching and might not be entirely reliable.", "Table", False, True
 "SERVICE_INSTALLED", "", "Invoke-InstalledServicesCheck", "", "Services", "Non-default Services", "Info", "Info", "List all registered services and filter out the ones that are built into Windows. It does so by parsing the target executable's metadata.", "List", False, True
 "SERVICE_PERMISSIONS", "", "Invoke-ServicesPermissionsCheck", "", "Services", "Permissions - SCM", "Vuln", "High", "Interact with the Service Control Manager (SCM) and check whether the current user can modify any registered service.", "List", False, False
-"SERVICE_PERMISSIONS_REGISTRY", "", "Invoke-ServicesPermissionsRegistryCheck", "", "Services", "Permissions - Registry", "Vuln", "Medium", "Parse the registry and check whether the current user can modify the configuration of any registered service.", "List", False, False
+"SERVICE_PERMISSIONS_REGISTRY", "", "Invoke-ServicesPermissionsRegistryCheck", "", "Services", "Permissions - Registry", "Vuln", "High", "Parse the registry and check whether the current user can modify the configuration of any registered service.", "List", False, False
 "SERVICE_IMAGE_PERMISSIONS", "", "Invoke-ServicesImagePermissionsCheck", "", "Services", "Binary Permissions", "Vuln", "High", "List all services and check whether the current user can modify the target executable or write files in its parent folder.", "List", False, False
 "SERVICE_UNQUOTED_PATH", "", "Invoke-ServicesUnquotedPathCheck", "", "Services", "Unquoted Paths", "Vuln", "Medium", "List registered services and check whether any of them is configured with an unquoted path that can be exploited.", "List", False, False
 "SERVICE_DLL_HIJACKING", "", "Invoke-DllHijackingCheck", "", "Services", "System's %PATH%", "Vuln", "High", "Retrieve the list of SYSTEM %PATH% folders and check whether the current user has some write permissions in any of them.", "List", False, False
@@ -6920,9 +6920,9 @@ function Invoke-AnalyzeResults {
         
     )
 
-    Write-Host "+------------------------------------------------------------------------------+"
-    Write-Host "|                         ~~~ PrivescCheck Report ~~~                          |"
-    Write-Host "+----+------+------------------------------------------------------------------+"
+    Write-Host "+-----------------------------------------------------------------------------+"
+    Write-Host "|                         ~~~ PrivescCheck Report ~~~                         |"
+    Write-Host "+----+------+-----------------------------------------------------------------+"
 
     $ResultArrayList | Sort-Object -Property Category | ForEach-Object {
 
@@ -6963,7 +6963,7 @@ function Invoke-AnalyzeResults {
         if ($_.ResultRaw) {
             $Message = "$($Message) -> $(([object[]]$_.ResultRaw).Length) result(s)"
         }
-        $Padding = ' ' * $(64 - $Message.Length)
+        $Padding = ' ' * $(63 - $Message.Length)
 
         Write-Host -NoNewline " $($_.Category.ToUpper()) > $($_.DisplayName)"
         
@@ -6975,6 +6975,6 @@ function Invoke-AnalyzeResults {
         Write-Host "$($Padding) |"
     }
 
-    Write-Host "+----+------+------------------------------------------------------------------+"
+    Write-Host "+----+------+-----------------------------------------------------------------+"
 }
 #endregion Main
