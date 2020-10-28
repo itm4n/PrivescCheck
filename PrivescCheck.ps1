@@ -23,6 +23,7 @@
 # ----------------------------------------------------------------
 $global:ScriptPath = $MyInvocation.MyCommand.Definition
 $global:CachedServiceList = New-Object -TypeName System.Collections.ArrayList
+$global:CachedHotFixList = New-Object -TypeName System.Collections.ArrayList
 $global:ResultArrayList = New-Object -TypeName System.Collections.ArrayList
 [string[]] $global:KeywordsOfInterest = "key", "passw", "secret", "pwd", "creds", "credential", "api"
 # ----------------------------------------------------------------
@@ -2303,63 +2304,71 @@ function Get-HotFixList {
         }
     }
 
-    # In the registry, one KB may have multiple entries because it can be split up into multiple
-    # packages. This array will help keep track of KBs that have already been checked by the 
-    # script.
-    $InstalledKBs = New-Object -TypeName System.Collections.ArrayList
+    if ($CachedHotFixList.Count -eq 0) {
 
-    $AllPackages = Get-ChildItem -Path "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\Packages" -ErrorAction SilentlyContinue -ErrorVariable ErrorGetChildItem
+        # In the registry, one KB may have multiple entries because it can be split up into multiple
+        # packages. This array will help keep track of KBs that have already been checked by the 
+        # script.
+        $InstalledKBs = New-Object -TypeName System.Collections.ArrayList
 
-    if (-not $ErrorGetChildItem) {
+        $AllPackages = Get-ChildItem -Path "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\Packages" -ErrorAction SilentlyContinue -ErrorVariable ErrorGetChildItem
 
-        $AllPackages | ForEach-Object {
-    
-            # Filter only KB-related packages
-            if (($_.Name | Split-Path -Leaf) -Like "Package_*_for_KB*") {
+        if (-not $ErrorGetChildItem) {
+
+            $AllPackages | ForEach-Object {
         
-                $PackageProperties = $_ | Get-ItemProperty
-    
-                # Get the KB id, e.g.: KBXXXXXXX
-                $PackageName = $PackageProperties.InstallName.Split('~')[0].Split('_') | Where-Object { $_ -Like "KB*" }
-                if ($PackageName) {
-    
-                    # Check whether this KB has already been handled
-                    if (-not ($InstalledKBs -contains $PackageName)) {
-    
-                        # Add the KB id to the list so we don't check it multiple times
-                        [void]$InstalledKBs.Add($PackageName)
-    
-                        # Who installed this update?
-                        $InstalledBy = Convert-SidToName -Sid $PackageProperties.InstallUser
-                        
-                        # Get the install date. It's stored in the registry just like a FILETIME structure.
-                        # So, we have to combine the low part and the high part and convert the result 
-                        # to a DateTime object.
-                        $DateHigh = $PackageProperties.InstallTimeHigh
-                        $DateLow = $PackageProperties.InstallTimeLow
-                        $FileTime = $DateHigh * [Math]::Pow(2, 32) + $DateLow
-                        $InstallDate = [DateTime]::FromFileTime($FileTime)
-    
-                        # Parse the package metadata file and extract some useful information...
-                        $ServicingPackagesPath = Join-Path -Path $env:windir -ChildPath "servicing\Packages"
-                        $PackagePath = Join-Path -Path $ServicingPackagesPath -ChildPath $PackageProperties.InstallName
-                        $PackageInfo = Get-PackageInfo -Path $PackagePath
-    
-                        $Entry = New-Object -TypeName PSObject 
-                        $Entry | Add-Member -MemberType "NoteProperty" -Name "HotFixID" -Value "$PackageName"
-                        $Entry | Add-Member -MemberType "NoteProperty" -Name "Description" -Value "$($PackageInfo.ReleaseType)"
-                        $Entry | Add-Member -MemberType "NoteProperty" -Name "InstalledBy" -Value "$InstalledBy"
-                        $Entry | Add-Member -MemberType "NoteProperty" -Name "InstalledOn" -Value $InstallDate
-                        $Entry
+                # Filter only KB-related packages
+                if (($_.Name | Split-Path -Leaf) -Like "Package_*_for_KB*") {
+            
+                    $PackageProperties = $_ | Get-ItemProperty
+        
+                    # Get the KB id, e.g.: KBXXXXXXX
+                    $PackageName = $PackageProperties.InstallName.Split('~')[0].Split('_') | Where-Object { $_ -Like "KB*" }
+                    if ($PackageName) {
+        
+                        # Check whether this KB has already been handled
+                        if (-not ($InstalledKBs -contains $PackageName)) {
+        
+                            # Add the KB id to the list so we don't check it multiple times
+                            [void]$InstalledKBs.Add($PackageName)
+        
+                            # Who installed this update?
+                            $InstalledBy = Convert-SidToName -Sid $PackageProperties.InstallUser
+                            
+                            # Get the install date. It's stored in the registry just like a FILETIME structure.
+                            # So, we have to combine the low part and the high part and convert the result 
+                            # to a DateTime object.
+                            $DateHigh = $PackageProperties.InstallTimeHigh
+                            $DateLow = $PackageProperties.InstallTimeLow
+                            $FileTime = $DateHigh * [Math]::Pow(2, 32) + $DateLow
+                            $InstallDate = [DateTime]::FromFileTime($FileTime)
+        
+                            # Parse the package metadata file and extract some useful information...
+                            $ServicingPackagesPath = Join-Path -Path $env:windir -ChildPath "servicing\Packages"
+                            $PackagePath = Join-Path -Path $ServicingPackagesPath -ChildPath $PackageProperties.InstallName
+                            $PackageInfo = Get-PackageInfo -Path $PackagePath
+        
+                            $Entry = New-Object -TypeName PSObject 
+                            $Entry | Add-Member -MemberType "NoteProperty" -Name "HotFixID" -Value "$PackageName"
+                            $Entry | Add-Member -MemberType "NoteProperty" -Name "Description" -Value "$($PackageInfo.ReleaseType)"
+                            $Entry | Add-Member -MemberType "NoteProperty" -Name "InstalledBy" -Value "$InstalledBy"
+                            $Entry | Add-Member -MemberType "NoteProperty" -Name "InstalledOn" -Value $InstallDate
+                            [void]$CachedHotFixList.Add($Entry)
+                        }
                     }
                 }
             }
-        }
-    } else {
+        } else {
 
-        # If we can't read the registry, fall back to the built-in 'Get-HotFix' cmdlet
-        Get-HotFix | Select-Object HotFixID,Description,InstalledBy,InstalledOn
+            # If we can't read the registry, fall back to the built-in 'Get-HotFix' cmdlet
+            #Get-HotFix | Select-Object HotFixID,Description,InstalledBy,InstalledOn
+            Get-HotFix | Select-Object HotFixID,Description,InstalledBy,InstalledOn | ForEach-Object {
+                [void]$CachedHotFixList.Add($_)
+            }
+        }
     }
+
+    $CachedHotFixList
 }
 
 function Get-SccmCacheFolder {
