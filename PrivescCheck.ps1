@@ -707,9 +707,6 @@ function Get-UserPrivileges {
 
                 # Convert the unmanaged memory at offset $TokenPrivilegesPtr to a TOKEN_PRIVILEGES managed type 
                 $TokenPrivileges = [System.Runtime.InteropServices.Marshal]::PtrToStructure($TokenPrivilegesPtr, [type] [PrivescCheck.Win32+TOKEN_PRIVILEGES])
-                #$Offset = [System.IntPtr]::Add($TokenPrivilegesPtr, 4)
-                # Properly Incrementing an IntPtr
-                # https://docs.microsoft.com/en-us/archive/blogs/jaredpar/properly-incrementing-an-intptr
                 $Offset = [IntPtr] ($TokenPrivilegesPtr.ToInt64() + 4)
                 
                 Write-Verbose "GetTokenInformation() OK - Privilege count: $($TokenPrivileges.PrivilegeCount)"
@@ -724,7 +721,6 @@ function Get-UserPrivileges {
                     [IntPtr]$LuidPtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($LuidSize)
                     [System.Runtime.InteropServices.Marshal]::StructureToPtr($LuidAndAttributes.Luid, $LuidPtr, $True)
 
-                    # public static extern bool LookupPrivilegeName(string lpSystemName, IntPtr lpLuid, System.Text.StringBuilder lpName, ref int cchName );
                     [int]$Length = 0
                     $Success = [PrivescCheck.Win32]::LookupPrivilegeName($Null, $LuidPtr, $Null, [ref]$Length)
                     $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
@@ -765,9 +761,6 @@ function Get-UserPrivileges {
                     [System.Runtime.InteropServices.Marshal]::FreeHGlobal($LuidPtr)
 
                     # Update the offset to point to the next LUID_AND_ATTRIBUTES structure in the unmanaged buffer
-                    #$Offset = [System.IntPtr]::Add($Offset, [System.Runtime.InteropServices.Marshal]::SizeOf($LuidAndAttributes))
-                    # Properly Incrementing an IntPtr
-                    # https://docs.microsoft.com/en-us/archive/blogs/jaredpar/properly-incrementing-an-intptr
                     $Offset = [IntPtr] ($Offset.ToInt64() + [System.Runtime.InteropServices.Marshal]::SizeOf($LuidAndAttributes))
                 }
 
@@ -1437,8 +1430,6 @@ function Get-ModifiablePath {
     )
 
     BEGIN {
-        # # false positives ?
-        # $Excludes = @("MsMpEng.exe", "NisSrv.exe")
 
         # from http://stackoverflow.com/questions/28029872/retrieving-security-descriptor-and-getting-number-for-filesystemrights
         $AccessMask = @{
@@ -1709,7 +1700,7 @@ function Add-ServiceDacl {
     <#
     .SYNOPSIS
 
-    Adds a Dacl field to a service object returned by Get-Service.
+    Helper - Adds a Dacl field to a service object returned by Get-Service.
 
     Author: Matthew Graeber (@mattifestation)
     License: BSD 3-Clause
@@ -2244,7 +2235,7 @@ function Get-HotFixList {
     <#
     .SYNOPSIS
 
-    Gets a list of installed updates and hotfixes.
+    Helper - Gets a list of installed updates and hotfixes.
     
     .DESCRIPTION
 
@@ -2361,21 +2352,22 @@ function Get-HotFixList {
         } else {
 
             # If we can't read the registry, fall back to the built-in 'Get-HotFix' cmdlet
-            #Get-HotFix | Select-Object HotFixID,Description,InstalledBy,InstalledOn
             Get-HotFix | Select-Object HotFixID,Description,InstalledBy,InstalledOn | ForEach-Object {
                 [void]$CachedHotFixList.Add($_)
             }
         }
     }
 
-    $CachedHotFixList
+    $CachedHotFixList | ForEach-Object {
+        $_
+    }
 }
 
 function Get-SccmCacheFolder {
     <#
     .SYNOPSIS
     
-    Get the SCCM cache folder as a PowerShell object if it exists.
+    Helper - Get the SCCM cache folder as a PowerShell object if it exists.
 
     Author: @itm4n
     License: BSD 3-Clause
@@ -2566,7 +2558,6 @@ function Invoke-BitlockerCheck {
                 $BitlockerResult = New-Object -TypeName PSObject 
                 $BitlockerResult | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $RegPath
                 $BitlockerResult | Add-Member -MemberType "NoteProperty" -Name "BootStatus" -Value $Item.BootStatus
-                # $BitlockerResult | Add-Member -MemberType "NoteProperty" -Name "Enabled" -Value $($Item.BootStatus -eq 1)
                 $BitlockerResult | Add-Member -MemberType "NoteProperty" -Name "Description" -Value "BitLocker isn't enabled."
                 $BitlockerResult
             }
@@ -2576,7 +2567,6 @@ function Invoke-BitlockerCheck {
             $BitlockerResult = New-Object -TypeName PSObject 
             $BitlockerResult | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $RegPath
             $BitlockerResult | Add-Member -MemberType "NoteProperty" -Name "BootStatus" -Value ""
-            # $BitlockerResult | Add-Member -MemberType "NoteProperty" -Name "Enabled" -Value $($Item.BootStatus -eq 1)
             $BitlockerResult | Add-Member -MemberType "NoteProperty" -Name "Description" -Value "BitLocker isn't configured."
             $BitlockerResult
         }
@@ -3364,7 +3354,6 @@ function Invoke-SystemStartupHistoryCheck {
             $SystemStartupHistoryItem = New-Object -TypeName PSObject 
             $SystemStartupHistoryItem | Add-Member -MemberType "NoteProperty" -Name "Index" -Value $EventNumber
             $SystemStartupHistoryItem | Add-Member -MemberType "NoteProperty" -Name "Time" -Value "$(Convert-DateToString -Date $Event.TimeGenerated)"
-            #$SystemStartupHistoryItem | Add-Member -MemberType "NoteProperty" -Name "Message" -Value "$($Event.Message)"
             [void]$SystemStartupHistoryResult.Add($SystemStartupHistoryItem)
             $EventNumber += 1
         }
@@ -3770,7 +3759,7 @@ function Invoke-WindowsUpdateCheck {
             $WindowsUpdateResult
         } 
     } catch {
-        # We migh get an access denied when querying this COM object
+        # We might get an access denied when querying this COM object
         Write-Verbose "Error while requesting COM object Microsoft.Update.AutoUpdate."
     }
 }
@@ -4173,12 +4162,6 @@ function Invoke-UserGroupsCheck {
             }
 
             if (-not $KnownSid) {
-
-                # if ($GroupSid -notmatch '^S-1-5.*') {
-                #     $GroupName = ($Group.Translate([System.Security.Principal.NTAccount])).Value
-                # } else {
-                #     $GroupName = "N/A"
-                # }
 
                 try {
                     $GroupName = ($Group.Translate([System.Security.Principal.NTAccount])).Value
@@ -5277,7 +5260,6 @@ function Invoke-ModifiableProgramsCheck {
         [void]$SearchPath.Add([string]$(Join-Path -Path $Item.FullName -ChildPath "\*\*")) # Do this to avoid the use of -Depth which is PSH5+
         
         $ChildItems = Get-ChildItem -Path $SearchPath -ErrorAction SilentlyContinue -ErrorVariable GetChildItemError 
-        #$ChildItems = $Item | Get-ChildItem -Recurse -Depth 2 -ErrorAction SilentlyContinue -ErrorVariable GetChildItemError 
         
         if (-not $GetChildItemError) {
 
