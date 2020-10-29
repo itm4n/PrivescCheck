@@ -6581,6 +6581,12 @@ function Invoke-PrivescCheck {
         [void] $AllChecks.Add($_)
     }
 
+    # Test for in memory execution or decoding at runtime
+    if (!(Test-path $ScriptPath))
+    {
+        $ScriptPath = (Get-Item -Path ".\" -Verbose).FullName
+    }
+
     # Load plugins if any
     Write-Verbose "Script path: $($ScriptPath)"
     $ScriptLocation = Split-Path -Parent $ScriptPath -ErrorAction SilentlyContinue -ErrorVariable ErrorSplitPath
@@ -6596,6 +6602,7 @@ function Invoke-PrivescCheck {
             Write-Verbose "No plugin definition file found."
         }
     }
+
     
     # Load plugin scripts if any
     $AllChecks | Where-Object { $_.File -ne "" } | Select-Object -ExpandProperty File | Sort-Object -Unique | ForEach-Object {
@@ -6703,7 +6710,6 @@ function Invoke-Check {
     $Result = Invoke-Expression -Command "$($Check.Command) $($Check.Params)"
     $Check | Add-Member -MemberType "NoteProperty" -Name "ResultRaw" -Value $Result
     $Check | Add-Member -MemberType "NoteProperty" -Name "ResultRawString" -Value $($Result | Format-List | Out-String)
-
     if ($($Check.Type -Like "vuln")) {
         if ($Result) {
             $Check | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value "KO"
@@ -6713,11 +6719,9 @@ function Invoke-Check {
         }
     } else {
         $Check | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value "N/A"
-        if (-not $Result) {
-            $Check.Severity = "None"
-        }
     }
     [void] $ResultArrayList.Add($Check)
+    # $Check.ResultRaw
     $Check
 }
 
