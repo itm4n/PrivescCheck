@@ -206,7 +206,7 @@ Invoke-DllHijackingCheck - Checks whether any of the system path folders is modi
 Invoke-HijackableDllsCheck - Lists hijackable DLLs depending on the version of the OS
 ```
 
-### Programs
+### Applications
 
 ```
 Invoke-InstalledProgramsCheck - Enumerates the applications that are not installed by default
@@ -215,7 +215,13 @@ Invoke-ProgramDataCheck - Checks for modifiable files and folders under non defa
 Invoke-ApplicationsOnStartupCheck - Enumerates the applications which are run on startup
 Invoke-ApplicationsOnStartupVulnCheck - Enumerates startup applications that can be modified by the current user
 Invoke-RunningProcessCheck - Enumerates the running processes
-Invoke-ScheduledTasksCheck - Enumerates scheduled tasks with a modifiable path
+```
+
+### Scheduled tasks
+
+```
+Invoke-ScheduledTasksImagePermissionsCheck - Enumerates scheduled tasks with a modifiable path
+Invoke-ScheduledTasksUnquotedPathCheck - Enumerates scheduled tasks with an exploitable unquoted path
 ```
 
 ### Credentials

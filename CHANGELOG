@@ -1,5 +1,7 @@
 2020-10-29
     - Refactored the report generation feature
+    - Refacted scheduled tasks check
+    - Added Scheduled Tasks > Invoke-ScheduledTasksUnquotedPathCheck
 
 2020-10-28
     - Added an 'RunIfAdmin' mode. Some checks are now run even if the script is executed as an administrator.

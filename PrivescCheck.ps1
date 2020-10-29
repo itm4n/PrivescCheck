@@ -1586,7 +1586,10 @@ function Get-ExploitableUnquotedPath {
     <#
     .SYNOPSIS
 
-    Parse a path, determine if it's "unquoted" and check whether it's exploitable.
+    Helper - Parse a path, determine if it's "unquoted" and check whether it's exploitable.
+
+    Author: @itm4n
+    License: BSD 3-Clause
     
     .DESCRIPTION
 
@@ -1611,8 +1614,12 @@ function Get-ExploitableUnquotedPath {
         # Extract the binpath from the ImagePath
         $BinPath = $Path.SubString(0, $Path.ToLower().IndexOf(".exe") + 4)
 
+        # Write-Verbose "Unquoted path binary: $($BinPath)"
+
         # If the binpath contains spaces
         If ($BinPath -match ".* .*") {
+
+            # Write-Verbose "Unquoted path with spaces: $($BinPath)"
 
             $BinPath.split(' ') | Get-ModifiablePath | Where-Object {$_ -and $_.ModifiablePath -and ($_.ModifiablePath -ne '')} | Foreach-Object {
                 
@@ -5650,7 +5657,7 @@ function Invoke-ApplicationsOnStartupVulnCheck {
     Invoke-ApplicationsOnStartupCheck | Where-Object { $_.IsModifiable }
 }
 
-function Invoke-ScheduledTasksCheck {
+function Invoke-ScheduledTasksImagePermissionsCheck {
     <#
     .SYNOPSIS
     
@@ -5668,7 +5675,7 @@ function Invoke-ScheduledTasksCheck {
     
     .EXAMPLE
 
-    PS C:\> Invoke-ScheduledTasksCheck
+    PS C:\> Invoke-ScheduledTasksImagePermissionsCheck
 
     TaskName           : DummyTask
     TaskPath           : \CustomTasks\DummyTask
@@ -5677,32 +5684,70 @@ function Invoke-ScheduledTasksCheck {
     Command            : C:\APPS\MyTask.exe
     CurrentUserIsOwner : False
     ModifiablePath     : C:\APPS\
+    IdentityReference  : NT AUTHORITY\Authenticated Users
+    Permissions        : {Delete, WriteAttributes, Synchronize, ReadControl...}
     
     #>
 
     [CmdletBinding()] param()
 
-    Get-ScheduledTaskList | ForEach-Object {
+    Get-ScheduledTaskList | Where-Object { -not $_.CurrentUserIsOwner } | ForEach-Object {
 
         $CurrentTask = $_
 
-        if (-not $CurrentTask.CurrentUserIsOwner) {
+        $CurrentTask.Command | Get-ModifiablePath | Where-Object {$_ -and $_.ModifiablePath -and ($_.ModifiablePath -ne '')} | ForEach-Object {
 
-            $CurrentTask.Command | Get-ModifiablePath | Where-Object {$_ -and $_.ModifiablePath -and ($_.ModifiablePath -ne '')} | ForEach-Object {
-
-                $CurrentTask | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $_.ModifiablePath
-                $CurrentTask
-            }
+            $CurrentTask | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $_.ModifiablePath
+            $CurrentTask | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $_.IdentityReference
+            $CurrentTask | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value $_.Permissions
+            $CurrentTask
         }
     }
 }
 
 function Invoke-ScheduledTasksUnquotedPathCheck {
+    <#
+    .SYNOPSIS
+
+    Enumerates scheduled tasks with an exploitable unquoted path
+
+    Author: @itm4n
+    License: BSD 3-Clause
+    
+    .DESCRIPTION
+
+    This script first enumerates all the tasks that are visible to the current user. Then, it checks the 'Command' value to see if it is not surrounded by quotes (unquoted path). If so, it checks whether the path contains spaces and if one of the intermediate directories is exploitable. Note that, as a low privileged user, not all the tasks are visible.
+    
+    .EXAMPLE
+
+    PS C:\> Invoke-ScheduledTasksUnquotedPathCheck
+
+    TaskName           : VulnTask
+    TaskPath           : \CustomTasks\VulnTask
+    TaskFile           : C:\WINDOWS\System32\Tasks\CustomTasks\VulnTask
+    RunAs              : NT AUTHORITY\SYSTEM
+    Command            : C:\APPS\Custom Tasks\task.exe
+    CurrentUserIsOwner : False
+    ModifiablePath     : C:\APPS
+    IdentityReference  : NT AUTHORITY\Authenticated Users
+    Permissions        : {Delete, WriteAttributes, Synchronize, ReadControl...}
+    
+    #>
 
     [CmdletBinding()] param()
 
+    Get-ScheduledTaskList | Where-Object { -not $_.CurrentUserIsOwner } | ForEach-Object {
 
+        $CurrentTask = $_
 
+        Get-ExploitableUnquotedPath -Path $CurrentTask.Command | ForEach-Object {
+
+            $CurrentTask | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $_.ModifiablePath
+            $CurrentTask | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $_.IdentityReference
+            $CurrentTask | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value $_.Permissions
+            $CurrentTask
+        }
+    }
 }
 
 function Invoke-RunningProcessCheck {
@@ -6594,7 +6639,7 @@ function Invoke-PrivescCheck {
 "SERVICE_PERMISSIONS", "", "Invoke-ServicesPermissionsCheck", "", "Services", "Permissions - SCM", "Vuln", "High", "Interact with the Service Control Manager (SCM) and check whether the current user can modify any registered service.", "List", False, False
 "SERVICE_PERMISSIONS_REGISTRY", "", "Invoke-ServicesPermissionsRegistryCheck", "", "Services", "Permissions - Registry", "Vuln", "High", "Parse the registry and check whether the current user can modify the configuration of any registered service.", "List", False, False
 "SERVICE_IMAGE_PERMISSIONS", "", "Invoke-ServicesImagePermissionsCheck", "", "Services", "Binary Permissions", "Vuln", "High", "List all services and check whether the current user can modify the target executable or write files in its parent folder.", "List", False, False
-"SERVICE_UNQUOTED_PATH", "", "Invoke-ServicesUnquotedPathCheck", "", "Services", "Unquoted Paths", "Vuln", "Medium", "List registered services and check whether any of them is configured with an unquoted path that can be exploited.", "List", False, False
+"SERVICE_UNQUOTED_PATH", "", "Invoke-ServicesUnquotedPathCheck", "", "Services", "Unquoted Path", "Vuln", "Medium", "List registered services and check whether any of them is configured with an unquoted path that can be exploited.", "List", False, False
 "SERVICE_DLL_HIJACKING", "", "Invoke-DllHijackingCheck", "", "Services", "System's %PATH%", "Vuln", "High", "Retrieve the list of SYSTEM %PATH% folders and check whether the current user has some write permissions in any of them.", "List", False, False
 "SERVICE_HIJACKABLE_DLL", "", "Invoke-HijackableDllsCheck", "", "Services", "Hijackable DLLs", "Info", "Info", "List Windows services that are prone to Ghost DLL hijacking. This is particularly relevant if the current user can create files in one of the SYSTEM %PATH% folders.", "List", False, False
 "APP_INSTALLED", "", "Invoke-InstalledProgramsCheck", "", "Apps", "Non-default Apps", "Info", "Info", "Enumerate non-default and third-party applications by parsing the registry.", "Table", True, True
@@ -6602,8 +6647,9 @@ function Invoke-PrivescCheck {
 "APP_PROGRAMDATA", "", "Invoke-ProgramDataCheck", "", "Apps", "ProgramData folders/files", "Info", "Info", "List the non-default ProgramData folders and check whether the current user has write permissions. This check is purely informative and the results require manual analysis.", "List", True, False
 "APP_STARTUP", "", "Invoke-ApplicationsOnStartupCheck", "", "Apps", "Apps Run on Startup", "Info", "Info", "Enumerate the system-wide applications that are run on start-up.", "List", True, True
 "APP_STARTUP_VULN", "", "Invoke-ApplicationsOnStartupVulnCheck", "", "Apps", "Modifiable Apps Run on Startup", "Vuln", "Medium", "Enumerate the system-wide applications that are run on start-up and check whether they can be modified by the current user.", "List", False, False
-"APP_SCHTASKS", "", "Invoke-ScheduledTasksCheck", "", "Apps", "Scheduled Tasks", "Vuln", "Medium", "Enumerate the scheduled tasks that are not owned by the current user and checks whether the target binary can be modified. Note that, as a low-privileged user, it's not possible to enumerate all the scheduled tasks.", "List", True, False
 "APP_PROCESSES", "", "Invoke-RunningProcessCheck", "", "Apps", "Running Processes", "Info", "Info", "List processes that are not owned by the current user and filter out common processes such as 'svchost.exe'.", "Table", True, True
+"SCHTASKS_IMAGE_PERMISSIONS", "", "Invoke-ScheduledTasksImagePermissionsCheck", "", "Scheduled Tasks", "Binary Permissions", "Vuln", "Medium", "Enumerate the scheduled tasks that are not owned by the current user and checks whether the target binary can be modified. Note that, as a low-privileged user, it's not possible to enumerate all the scheduled tasks.", "List", False, False
+"SCHTASKS_UNQUOTED_PATH", "", "Invoke-ScheduledTasksUnquotedPathCheck", "", "Scheduled Tasks", "Unquoted Path", "Vuln", "Medium", "Enumerate the scheduled tasks that are not owned by the current user and checks whether the corresponding command uses an exploitable unquoted path. Note that, as a low-privileged user, it's not possible to enumerate all the scheduled tasks.", "List", False, False
 "CREDS_SAM_BKP", "", "Invoke-SamBackupFilesCheck", "", "Creds", "SAM/SYSTEM Backup Files", "Vuln", "Medium", Check whether some backup files of the SAM/SYSTEM hives were created with insecure permissions.", "List", False, False
 "CREDS_UNATTENDED", "", "Invoke-UnattendFilesCheck", "", "Creds", "Unattended Files", "Vuln", "Medium", "Locate 'Unattend' files and check whether they contain any clear-text credentials.", "List", False, True
 "CREDS_WINLOGON", "", "Invoke-WinlogonCheck", "", "Creds", "WinLogon", "Vuln", "Medium", "Parse the Winlogon registry keys and check whether they contain any clear-text password. Entries that have an empty password field are filtered out.", "List", False, True
