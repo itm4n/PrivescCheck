@@ -6606,17 +6606,19 @@ function Invoke-PrivescCheck {
 
     # Load plugins if any
     Write-Verbose "Script path: $($ScriptPath)"
-    $ScriptLocation = Split-Path -Parent $ScriptPath -ErrorAction SilentlyContinue -ErrorVariable ErrorSplitPath
-    if (-not $ErrorSplitPath) {
-        $PrivescCheckPluginsCsvPath = Join-Path $ScriptLocation -ChildPath "\PrivescCheckPlugins\PrivescCheckPlugins.csv"
-        Write-Verbose "Plugin definition file: '$($PrivescCheckPluginsCsvPath)'"
-        if (Test-Path -Path $PrivescCheckPluginsCsvPath) {
-            Write-Verbose "Found plugin definition file: $($PrivescCheckPluginsCsvPath)"
-            Get-Content -Path $PrivescCheckPluginsCsvPath -ErrorAction Stop | Out-String | ConvertFrom-Csv | ForEach-Object {
-                [void] $AllChecks.Add($_)
+    if (Test-Path $ScriptPath) {
+        $ScriptLocation = Split-Path -Parent $ScriptPath -ErrorAction SilentlyContinue -ErrorVariable ErrorSplitPath
+        if (-not $ErrorSplitPath) {
+            $PrivescCheckPluginsCsvPath = Join-Path $ScriptLocation -ChildPath "\PrivescCheckPlugins\PrivescCheckPlugins.csv"
+            Write-Verbose "Plugin definition file: '$($PrivescCheckPluginsCsvPath)'"
+            if (Test-Path -Path $PrivescCheckPluginsCsvPath) {
+                Write-Verbose "Found plugin definition file: $($PrivescCheckPluginsCsvPath)"
+                Get-Content -Path $PrivescCheckPluginsCsvPath -ErrorAction Stop | Out-String | ConvertFrom-Csv | ForEach-Object {
+                    [void] $AllChecks.Add($_)
+                }
+            } else {
+                Write-Verbose "No plugin definition file found."
             }
-        } else {
-            Write-Verbose "No plugin definition file found."
         }
     }
     
