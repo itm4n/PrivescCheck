@@ -6589,7 +6589,14 @@ function Invoke-PrivescCheck {
 
     # Load plugins if any
     Write-Verbose "Script path: $($ScriptPath)"
-    $ScriptLocation = Split-Path -Parent $ScriptPath -ErrorAction SilentlyContinue -ErrorVariable ErrorSplitPath
+    if ($ScriptPath -imatch ".ps1")
+    {
+        $ScriptLocation = Split-Path -Parent $ScriptPath -ErrorAction SilentlyContinue -ErrorVariable ErrorSplitPath
+    }
+    else
+    {
+        $ScriptLocation = $ScriptPath
+    }
     if (-not $ErrorSplitPath) {
         $PrivescCheckPluginsCsvPath = Join-Path $ScriptLocation -ChildPath "\PrivescCheckPlugins\PrivescCheckPlugins.csv"
         Write-Verbose "Plugin definition file: '$($PrivescCheckPluginsCsvPath)'"
