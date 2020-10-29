@@ -6703,6 +6703,7 @@ function Invoke-Check {
     $Result = Invoke-Expression -Command "$($Check.Command) $($Check.Params)"
     $Check | Add-Member -MemberType "NoteProperty" -Name "ResultRaw" -Value $Result
     $Check | Add-Member -MemberType "NoteProperty" -Name "ResultRawString" -Value $($Result | Format-List | Out-String)
+
     if ($($Check.Type -Like "vuln")) {
         if ($Result) {
             $Check | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value "KO"
@@ -6712,9 +6713,11 @@ function Invoke-Check {
         }
     } else {
         $Check | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value "N/A"
+        if (-not $Result) {
+            $Check.Severity = "None"
+        }
     }
     [void] $ResultArrayList.Add($Check)
-    # $Check.ResultRaw
     $Check
 }
 
