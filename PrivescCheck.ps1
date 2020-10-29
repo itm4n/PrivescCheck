@@ -24,6 +24,7 @@
 $global:ScriptPath = $MyInvocation.MyCommand.Definition
 $global:CachedServiceList = New-Object -TypeName System.Collections.ArrayList
 $global:CachedHotFixList = New-Object -TypeName System.Collections.ArrayList
+$global:CachedScheduledTaskList = New-Object -TypeName System.Collections.ArrayList
 $global:ResultArrayList = New-Object -TypeName System.Collections.ArrayList
 [string[]] $global:KeywordsOfInterest = "key", "passw", "secret", "pwd", "creds", "credential", "api"
 # ----------------------------------------------------------------
@@ -2378,6 +2379,102 @@ function Get-SccmCacheFolder {
 
     $CcmCachePath = Join-Path -Path $env:windir -ChildPath "CCMCache"
     Get-Item -Path $CcmCachePath -ErrorAction SilentlyContinue | Select-Object -Property FullName,Attributes,Exists
+}
+
+function Get-ScheduledTaskList {
+    <#
+    .SYNOPSIS
+    
+    Helper - Enumerate all the scheduled task that are not disabled and that are visible to the current user.
+    
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+
+    Connect to the task scheduler service and retrieve a list of all the scheduled tasks that are 
+    visible to the current user.
+    
+    .EXAMPLE
+
+    An example
+    
+    #>
+
+    function Get-ScheduledTasks {
+
+        param (
+            [object]$Service,
+            [string]$TaskPath
+        )
+
+        ($CurrentFolder = $Service.GetFolder($TaskPath)).GetTasks(0)
+        $CurrentFolder.GetFolders(0) | ForEach-Object {
+            Get-ScheduledTasks -Service $Service -TaskPath $(Join-Path -Path $TaskPath -ChildPath $_.Name )
+        }
+    }
+
+    try {
+
+        if ($CachedScheduledTaskList.Count -eq 0) {
+
+            # If the cache is empty, enumerate scheduled tasks and populate the cache.
+
+            $ScheduleService = New-Object -ComObject("Schedule.Service")
+            $ScheduleService.Connect()
+    
+            Get-ScheduledTasks -Service $ScheduleService -TaskPath "\" | ForEach-Object {
+    
+                if ($_.Enabled) {
+    
+                    $TaskName = $_.Name
+                    $TaskPath = $_.Path
+                    $TaskFile = Join-Path -Path $(Join-Path -Path $env:windir -ChildPath "System32\Tasks") -ChildPath $TaskPath
+    
+                    [xml]$TaskXml = $_.Xml
+                    $TaskExec = $TaskXml.GetElementsByTagName("Exec")
+                    $TaskCommandLine = "$($TaskExec.Command) $($TaskExec.Arguments)"
+                    $Principal = $TaskXml.GetElementsByTagName("Principal")
+                    
+                    $CurrentUserIsOwner = $False
+    
+                    if ($Principal.UserId) {
+                        $PrincipalName = Convert-SidToName -Sid $Principal.UserId
+                        
+                        if ($(Invoke-UserCheck).SID -eq $Principal.UserId) {
+                            $CurrentUserIsOwner = $True
+                        }
+                    } elseif ($Principal.GroupId) {
+                        $PrincipalName = Convert-SidToName -Sid $Principal.GroupId
+                    }
+    
+                    if ($TaskExec.Command.Length -gt 0) {
+    
+                        $ResultItem = New-Object -TypeName PSObject 
+                        $ResultItem | Add-Member -MemberType "NoteProperty" -Name "TaskName" -Value $TaskName
+                        $ResultItem | Add-Member -MemberType "NoteProperty" -Name "TaskPath" -Value $TaskPath
+                        $ResultItem | Add-Member -MemberType "NoteProperty" -Name "TaskFile" -Value $TaskFile
+                        $ResultItem | Add-Member -MemberType "NoteProperty" -Name "RunAs" -Value $PrincipalName
+                        $ResultItem | Add-Member -MemberType "NoteProperty" -Name "Command" -Value $TaskCommandLine
+                        $ResultItem | Add-Member -MemberType "NoteProperty" -Name "CurrentUserIsOwner" -Value $CurrentUserIsOwner
+                        [void] $CachedScheduledTaskList.Add($ResultItem)
+    
+                    } else {
+                        Write-Verbose "Task '$($_.Name)' has an empty cmd line"
+                    }
+                } else {
+                    Write-Verbose "Task '$($_.Name)' is disabled"
+                }
+            }
+        }
+
+        $CachedScheduledTaskList | ForEach-Object { 
+            $_
+        }
+
+    } catch {
+        Write-Verbose $_
+    }
 }
 #endregion Helpers 
 
@@ -5471,10 +5568,6 @@ function Invoke-ApplicationsOnStartupVulnCheck {
     users. Therefore, low-privileged users should not be able to modify the files used by such
     application.
     
-    .EXAMPLE
-
-    An example
-    
     #>
 
     Invoke-ApplicationsOnStartupCheck | Where-Object { $_.IsModifiable }
@@ -5491,109 +5584,39 @@ function Invoke-ScheduledTasksCheck {
     
     .DESCRIPTION
 
-    This function enumerates all the scheduled tasks which are visible by the current user. For 
-    each task, it extracts the command line and checks whether it contains a path pointing to a 
-    modifiable file. If a task is run as the current user, it is filtered out. 
+    This function enumerates all the scheduled tasks which are visible by the current user but are
+    not owned by the current user. For each task, it extracts the command line and checks whether 
+    it contains a path pointing to a modifiable file. If a task is run as the current user, it is 
+    filtered out. 
     
     .EXAMPLE
 
     PS C:\> Invoke-ScheduledTasksCheck
 
-    TaskName       : DummyTask
-    TaskPath       : \CustomTasks\DummyTask
-    TaskFile       : C:\Windows\System32\Tasks\CustomTasks\DummyTask
-    RunAs          : NT AUTHORITY\SYSTEM
-    Command        : C:\APPS\MyTask.exe
-    ModifiablePath : C:\APPS\
+    TaskName           : DummyTask
+    TaskPath           : \CustomTasks\DummyTask
+    TaskFile           : C:\Windows\System32\Tasks\CustomTasks\DummyTask
+    RunAs              : NT AUTHORITY\SYSTEM
+    Command            : C:\APPS\MyTask.exe
+    CurrentUserIsOwner : False
+    ModifiablePath     : C:\APPS\
     
     #>
 
-    [CmdletBinding()] param(
-        [switch]$Filtered
-    )
+    [CmdletBinding()] param()
 
-    function Get-ScheduledTasks {
+    Get-ScheduledTaskList | ForEach-Object {
 
-        param (
-            [object]$Service,
-            [string]$TaskPath
-        )
+        $CurrentTask = $_
 
-        ($CurrentFolder = $Service.GetFolder($TaskPath)).GetTasks(0)
-        $CurrentFolder.GetFolders(0) | ForEach-Object {
-            Get-ScheduledTasks -Service $Service -TaskPath $(Join-Path -Path $TaskPath -ChildPath $_.Name )
-        }
-    }
+        if (-not $CurrentTask.CurrentUserIsOwner) {
 
-    try {
+            $CurrentTask.Command | Get-ModifiablePath | Where-Object {$_ -and $_.ModifiablePath -and ($_.ModifiablePath -ne '')} | ForEach-Object {
 
-        $ScheduleService = New-Object -ComObject("Schedule.Service")
-        $ScheduleService.Connect()
-
-        Get-ScheduledTasks -Service $ScheduleService -TaskPath "\" | ForEach-Object {
-
-            if ($_.Enabled) {
-
-                $TaskName = $_.Name
-                $TaskPath = $_.Path
-                $TaskFile = Join-Path -Path $(Join-Path -Path $env:windir -ChildPath "System32\Tasks") -ChildPath $TaskPath
-
-                [xml]$TaskXml = $_.Xml
-                $TaskExec = $TaskXml.GetElementsByTagName("Exec")
-                $TaskCommandLine = "$($TaskExec.Command) $($TaskExec.Arguments)"
-                $Principal = $TaskXml.GetElementsByTagName("Principal")
-                
-                $CurrentUserIsOwner = $False
-
-                if ($Principal.UserId) {
-                    $PrincipalName = Convert-SidToName -Sid $Principal.UserId
-                    
-                    if ($(Invoke-UserCheck).SID -eq $Principal.UserId) {
-                        $CurrentUserIsOwner = $True
-                    }
-                } elseif ($Principal.GroupId) {
-                    $PrincipalName = Convert-SidToName -Sid $Principal.GroupId
-                }
-
-                if ($TaskExec.Command.Length -gt 0) {
-
-                    if ($Filtered) {
-
-                        # Filter out tasks that are run as the current user
-                        if (-not $CurrentUserIsOwner) {
-                            $TaskCommandLine | Get-ModifiablePath | Where-Object {$_ -and $_.ModifiablePath -and ($_.ModifiablePath -ne '')} | ForEach-Object {
-
-                                $ResultItem = New-Object -TypeName PSObject 
-                                $ResultItem | Add-Member -MemberType "NoteProperty" -Name "TaskName" -Value $TaskName
-                                $ResultItem | Add-Member -MemberType "NoteProperty" -Name "TaskPath" -Value $TaskPath
-                                $ResultItem | Add-Member -MemberType "NoteProperty" -Name "TaskFile" -Value $TaskFile
-                                $ResultItem | Add-Member -MemberType "NoteProperty" -Name "RunAs" -Value $PrincipalName
-                                $ResultItem | Add-Member -MemberType "NoteProperty" -Name "Command" -Value $TaskCommandLine
-                                $ResultItem | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $_.ModifiablePath
-                                $ResultItem
-                            }
-                        }
-
-                    } else {
-
-                        $ResultItem = New-Object -TypeName PSObject 
-                        $ResultItem | Add-Member -MemberType "NoteProperty" -Name "TaskName" -Value $TaskName
-                        $ResultItem | Add-Member -MemberType "NoteProperty" -Name "TaskPath" -Value $TaskPath
-                        $ResultItem | Add-Member -MemberType "NoteProperty" -Name "TaskFile" -Value $TaskFile
-                        $ResultItem | Add-Member -MemberType "NoteProperty" -Name "Command" -Value $TaskCommandLine
-                        $ResultItem | Add-Member -MemberType "NoteProperty" -Name "RunAs" -Value $PrincipalName
-                        $ResultItem
-                    }
-
-                } else {
-                    Write-Verbose "Task '$($_.Name)' has an empty cmd line"
-                }
-            } else {
-                Write-Verbose "Task '$($_.Name)' is disabled"
+                $CurrentTask | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $_.ModifiablePath
+                $CurrentTask
             }
         }
-    } catch {
-        Write-Verbose $_
     }
 }
 
@@ -6539,7 +6562,7 @@ function Invoke-PrivescCheck {
 "APP_PROGRAMDATA", "", "Invoke-ProgramDataCheck", "", "Apps", "ProgramData folders/files", "Info", "Info", "List the non-default ProgramData folders and check whether the current user has write permissions. This check is purely informative and the results require manual analysis.", "List", True, False
 "APP_STARTUP", "", "Invoke-ApplicationsOnStartupCheck", "", "Apps", "Apps Run on Startup", "Info", "Info", "Enumerate the system-wide applications that are run on start-up.", "List", True, True
 "APP_STARTUP_VULN", "", "Invoke-ApplicationsOnStartupVulnCheck", "", "Apps", "Modifiable Apps Run on Startup", "Vuln", "Medium", "Enumerate the system-wide applications that are run on start-up and check whether they can be modified by the current user.", "List", False, False
-"APP_SCHTASKS", "", "Invoke-ScheduledTasksCheck", "-Filtered", "Apps", "Scheduled Tasks", "Vuln", "Medium", "Enumerate the scheduled tasks and checks whether they can be modified by the current user. Note that, as a low-privileged user, it's not possible to enumerate all the scheduled tasks.", "List", True, False
+"APP_SCHTASKS", "", "Invoke-ScheduledTasksCheck", "", "Apps", "Scheduled Tasks", "Vuln", "Medium", "Enumerate the scheduled tasks that are not owned by the current user and checks whether the target binary can be modified. Note that, as a low-privileged user, it's not possible to enumerate all the scheduled tasks.", "List", True, False
 "APP_PROCESSES", "", "Invoke-RunningProcessCheck", "", "Apps", "Running Processes", "Info", "Info", "List processes that are not owned by the current user and filter out common processes such as 'svchost.exe'.", "Table", True, True
 "CREDS_SAM_BKP", "", "Invoke-SamBackupFilesCheck", "", "Creds", "SAM/SYSTEM Backup Files", "Vuln", "Medium", Check whether some backup files of the SAM/SYSTEM hives were created with insecure permissions.", "List", False, False
 "CREDS_UNATTENDED", "", "Invoke-UnattendFilesCheck", "", "Creds", "Unattended Files", "Vuln", "Medium", "Locate 'Unattend' files and check whether they contain any clear-text credentials.", "List", False, True
