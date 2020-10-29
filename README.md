@@ -54,6 +54,8 @@ PS C:\Temp\> . .\PrivescCheck.ps1; Invoke-PrivescCheck -Report MyReport
 PS C:\Temp\> . .\PrivescCheck.ps1; Invoke-PrivescCheck -Report MyReport -Format TXT,CSV,HTML
 ```
 
+In the above examples, the script will create the files `MyReport.txt`, `MyReport.csv` and `MyReport.html`.
+
 
 ## Yet another Windows Privilege escalation tool, why?
 
