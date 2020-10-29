@@ -1,32 +1,55 @@
 # PrivescCheck
 
-This script aims to __enumerate common Windows security misconfigurations__ which can be leveraged for privilege escalation and __gather various information__ which might be useful for __exploitation__ and/or __post-exploitation__.
+This script aims to __enumerate common Windows security misconfigurations__ that can be leveraged for privilege escalation. It also __gathers various information__ that might be useful for __exploitation__ and/or __post-exploitation__.
 
 I built on the amazing work done by [@harmj0y](https://twitter.com/harmj0y) and [@mattifestation](https://twitter.com/mattifestation) in [PowerUp](https://github.com/HarmJ0y/PowerUp). I added more checks and also tried to reduce the amount of false positives.
 
 
 ## Usage 
 
-By default, the script runs only "quick-win" checks. To get extra information, use the option `-Extended`.
+### Basic usage 
+
+From a command prompt:
+```
+C:\Temp\>powershell -ep bypass -c ". .\PrivescCheck.ps1; Invoke-PrivescCheck"
+```
 
 From a PowerShell prompt:
-```
+```powershell
 PS C:\Temp\> Set-ExecutionPolicy Bypass -Scope process -Force
-PS C:\Temp\> . .\PrivescCheck.ps1; Invoke-PrivescCheck 
+PS C:\Temp\> . .\PrivescCheck.ps1; Invoke-PrivescCheck
+```
+
+### Extended mode
+
+By default, the scope is limited to vulnerability discovery but, you can get a lot more information with the `-Extended` option:
+
+From a command prompt:
+```
+C:\Temp\>powershell -ep bypass -c ". .\PrivescCheck.ps1; Invoke-PrivescCheck -Extended"
+```
+
+From a PowerShell prompt:
+```powershell
+PS C:\Temp\> Set-ExecutionPolicy Bypass -Scope process -Force
 PS C:\Temp\> . .\PrivescCheck.ps1; Invoke-PrivescCheck -Extended
 ```
 
-From a PowerShell prompt + Log results to a file:
+### Generate report files
+
+You can use the `-Report` and `-Format` options to save the results of the script to files in various formats. Accepted formats are TXT, CSV and HTML for now. If `-Format` is empty, the default format is `TXT`, which is a simple copy of what is printed on the terminal.
+
+From a command prompt:
 ```
-PS C:\Temp\> Set-ExecutionPolicy Bypass -Scope process -Force
-PS C:\Temp\> . .\PrivescCheck.ps1; Invoke-PrivescCheck | Tee-Object "result.txt"
-PS C:\Temp\> . .\PrivescCheck.ps1; Invoke-PrivescCheck -Extended | Tee-Object "result.txt"
+C:\Temp\>powershell -ep bypass -c ". .\PrivescCheck.ps1; Invoke-PrivescCheck -Report MyReport"
+C:\Temp\>powershell -ep bypass -c ". .\PrivescCheck.ps1; Invoke-PrivescCheck -Report MyReport -Format TXT,CSV,HTML"
 ```
 
-From a command prompt + Log results to a file:
-```
-C:\Temp\>powershell -ep bypass -c ". .\PrivescCheck.ps1; Invoke-PrivescCheck | Tee-Object result.txt"
-C:\Temp\>powershell -ep bypass -c ". .\PrivescCheck.ps1; Invoke-PrivescCheck -Extended | Tee-Object result.txt"
+From a PowerShell prompt:
+```powershell
+PS C:\Temp\> Set-ExecutionPolicy Bypass -Scope process -Force
+PS C:\Temp\> . .\PrivescCheck.ps1; Invoke-PrivescCheck -Report MyReport
+PS C:\Temp\> . .\PrivescCheck.ps1; Invoke-PrivescCheck -Report MyReport -Format TXT,CSV,HTML
 ```
 
 

