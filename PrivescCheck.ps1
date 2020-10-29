@@ -1582,6 +1582,83 @@ function Get-ModifiablePath {
     }
 }
 
+function Get-ExploitableUnquotedPath {
+    <#
+    .SYNOPSIS
+
+    Parse a path, determine if it's "unquoted" and check whether it's exploitable.
+    
+    .DESCRIPTION
+
+    Parse a path, determine if it's "unquoted" and check whether it's exploitable.
+    
+    .PARAMETER Path
+
+    A path (or a command line for example)
+    
+    #>
+
+    [CmdletBinding()] param(
+        [string] $Path
+    )
+
+    $PermissionsAddFile = @("WriteData/AddFile", "DeleteChild", "WriteDAC", "WriteOwner")
+    $PermissionsAddFolder = @("AppendData/AddSubdirectory", "DeleteChild", "WriteDAC", "WriteOwner")
+
+    # If the Path doesn't start with a " or a ' 
+    if (-not ($Path.StartsWith("`"") -or $Path.StartsWith("'"))) {
+                
+        # Extract the binpath from the ImagePath
+        $BinPath = $Path.SubString(0, $Path.ToLower().IndexOf(".exe") + 4)
+
+        # If the binpath contains spaces
+        If ($BinPath -match ".* .*") {
+
+            $BinPath.split(' ') | Get-ModifiablePath | Where-Object {$_ -and $_.ModifiablePath -and ($_.ModifiablePath -ne '')} | Foreach-Object {
+                
+                $TempPath = $([System.Environment]::ExpandEnvironmentVariables($BinPath))
+                $TempPath = Split-Path -Path $TempPath -Parent 
+                while ($TempPath) 
+                {
+                    try {
+
+                        $ParentPath = Split-Path -Path $TempPath -Parent 
+                        if ($ParentPath -eq $_.ModifiablePath) {
+
+                            $PermissionsSet = $Null 
+                            if (Test-Path -Path $TempPath -ErrorAction SilentlyContinue) {
+                                # If the current folder exists, can we create files in it?
+                                #"Folder $($TempPath) exists, can we create files in $($ParentPath)???"
+                                $PermissionsSet = $PermissionsAddFile
+                            } else {
+                                # The current folder doesn't exist, can we create it? 
+                                #"Folder $($TempPath) doesn't exist, can we create the folder $($ParentPath)???"
+                                $PermissionsSet = $PermissionsAddFolder 
+                            }
+
+                            ForEach ($Permission in $_.Permissions) {
+
+                                if ($PermissionsSet -contains $Permission) {
+
+                                    $_
+                                    # break
+                                }
+                            }
+                            # We found the path returned by Get-ModifiablePath so we can exit the while loop 
+                            break
+                        }
+                    } catch {
+                        # because Split-Path doesn't handle -ErrorAction SilentlyContinue nicely
+                        # exit safely to avoid an infinite loop 
+                        break 
+                    }
+                    $TempPath = $ParentPath
+                }
+            }
+        }
+    }
+}
+
 function Get-ModifiableRegistryPath {
     <#
     .SYNOPSIS
@@ -5620,6 +5697,14 @@ function Invoke-ScheduledTasksCheck {
     }
 }
 
+function Invoke-ScheduledTasksUnquotedPathCheck {
+
+    [CmdletBinding()] param()
+
+
+
+}
+
 function Invoke-RunningProcessCheck {
     <#
     .SYNOPSIS
@@ -6078,80 +6163,35 @@ function Invoke-ServicesUnquotedPathCheck {
     $Services = Get-ServiceList -FilterLevel 2
     Write-Verbose "Enumerating $($Services.Count) services..."
     
-    $PermissionsAddFile = @("WriteData/AddFile", "DeleteChild", "WriteDAC", "WriteOwner")
-    $PermissionsAddFolder = @("AppendData/AddSubdirectory", "DeleteChild", "WriteDAC", "WriteOwner")
+    # $PermissionsAddFile = @("WriteData/AddFile", "DeleteChild", "WriteDAC", "WriteOwner")
+    # $PermissionsAddFolder = @("AppendData/AddSubdirectory", "DeleteChild", "WriteDAC", "WriteOwner")
 
     ForEach ($Service in $Services) {
+
         $ImagePath = $Service.ImagePath.trim()
 
-        # If the ImagePath doesn't start with a " or a ' 
-        if (-not ($ImagePath.StartsWith("`"") -or $ImagePath.StartsWith("'"))) {
-            
-            # Extract the binpath from the ImagePath
-            $BinPath = $ImagePath.SubString(0, $ImagePath.ToLower().IndexOf(".exe") + 4)
+        Get-ExploitableUnquotedPath -Path $ImagePath | ForEach-Object {
 
-            # If the binpath contains spaces 
-            If ($BinPath -match ".* .*") {
-                $ModifiableFiles = $BinPath.split(' ') | Get-ModifiablePath
+            $Status = "Unknown"
+            # Can we restart the service?
+            $ServiceRestart = Test-ServiceDaclPermission -Name $Service.Name -PermissionSet 'Restart'
+            if ($ServiceRestart) { $UserCanRestart = $True; $Status = $ServiceRestart.Status } else { $UserCanRestart = $False }
+    
+            # Can we start the service?
+            $ServiceStart = Test-ServiceDaclPermission -Name $Service.Name -Permissions 'Start'
+            if ($ServiceStart) { $UserCanStart = $True; $Status = $ServiceStart.Status } else { $UserCanStart = $False }
 
-                $ModifiableFiles | Where-Object {$_ -and $_.ModifiablePath -and ($_.ModifiablePath -ne '')} | Foreach-Object {
-                     
-                    $TempPath = $([System.Environment]::ExpandEnvironmentVariables($BinPath))
-                    $TempPath = Split-Path -Path $TempPath -Parent 
-                    while ($TempPath) 
-                    {
-                        try {
-                            $ParentPath = Split-Path -Path $TempPath -Parent 
-                            if ($ParentPath -eq $_.ModifiablePath) {
-                                $PermissionsSet = $Null 
-                                if (Test-Path -Path $TempPath -ErrorAction SilentlyContinue) {
-                                    # If the current folder exists, can we create files in it?
-                                    #"Folder $($TempPath) exists, can we create files in $($ParentPath)???"
-                                    $PermissionsSet = $PermissionsAddFile
-                                } else {
-                                    # The current folder doesn't exist, can we create it? 
-                                    #"Folder $($TempPath) doesn't exist, can we create the folder $($ParentPath)???"
-                                    $PermissionsSet = $PermissionsAddFolder 
-                                }
-                                ForEach ($Permission in $_.Permissions) {
-                                    if ($PermissionsSet -contains $Permission) {
-
-                                        $Status = "Unknown"
-                                        # Can we restart the service?
-                                        $ServiceRestart = Test-ServiceDaclPermission -Name $Service.Name -PermissionSet 'Restart'
-                                        if ($ServiceRestart) { $UserCanRestart = $True; $Status = $ServiceRestart.Status } else { $UserCanRestart = $False }
-                                
-                                        # Can we start the service?
-                                        $ServiceStart = Test-ServiceDaclPermission -Name $Service.Name -Permissions 'Start'
-                                        if ($ServiceStart) { $UserCanStart = $True; $Status = $ServiceStart.Status } else { $UserCanStart = $False }
-
-                                        $ServiceItem = New-Object -TypeName PSObject 
-                                        $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $Service.Name
-                                        $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "ImagePath" -Value $Service.ImagePath
-                                        $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "User" -Value $Service.User
-                                        $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $_.ModifiablePath
-                                        $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $_.IdentityReference
-                                        $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value $_.Permissions
-                                        $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $Status
-                                        $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "UserCanStart" -Value $UserCanStart
-                                        $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "UserCanRestart" -Value $UserCanRestart
-                                        $ServiceItem
-
-                                        break
-                                    }
-                                }
-                                # We found the path returned by Get-ModifiablePath so we can exit the while loop 
-                                break
-                            }
-                        } catch {
-                            # because Split-Path doesn't handle -ErrorAction SilentlyContinue nicely
-                            # exit safely to avoid an infinite loop 
-                            break 
-                        }
-                        $TempPath = $ParentPath
-                    }
-                }
-            }
+            $ServiceItem = New-Object -TypeName PSObject 
+            $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $Service.Name
+            $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "ImagePath" -Value $Service.ImagePath
+            $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "User" -Value $Service.User
+            $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $_.ModifiablePath
+            $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $_.IdentityReference
+            $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value $_.Permissions
+            $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $Status
+            $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "UserCanStart" -Value $UserCanStart
+            $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "UserCanRestart" -Value $UserCanRestart
+            $ServiceItem
         }
     }
 }
