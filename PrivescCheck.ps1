@@ -6726,9 +6726,12 @@ function Invoke-Check {
         }
     } else {
         $Check | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value "N/A"
+        if (-not $Result) {
+            $Check.Severity = "None"
+        }
     }
     [void] $ResultArrayList.Add($Check)
-    # $Check.ResultRaw
+    
     $Check
 }
 
