@@ -5,9 +5,11 @@ This script aims to __enumerate common Windows security misconfigurations__ that
 I built on the amazing work done by [@harmj0y](https://twitter.com/harmj0y) and [@mattifestation](https://twitter.com/mattifestation) in [PowerUp](https://github.com/HarmJ0y/PowerUp). I added more checks and also tried to reduce the amount of false positives.
 
 
-## Usage 
+## Usage
 
-### Basic usage 
+:warning: In all the following command examples, the first `.` (dot) is __important__! More information about "Script Dot Sourcing" [here](https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_scripts#script-scope-and-dot-sourcing).
+
+### Basic usage
 
 From a command prompt:
 ```
@@ -15,14 +17,14 @@ C:\Temp\>powershell -ep bypass -c ". .\PrivescCheck.ps1; Invoke-PrivescCheck"
 ```
 
 From a PowerShell prompt:
-```powershell
+```
 PS C:\Temp\> Set-ExecutionPolicy Bypass -Scope process -Force
 PS C:\Temp\> . .\PrivescCheck.ps1; Invoke-PrivescCheck
 ```
 
 ### Extended mode
 
-By default, the scope is limited to vulnerability discovery but, you can get a lot more information with the `-Extended` option:
+By default, the scope is limited to __vulnerability discovery__ but, you can get a lot more information with the `-Extended` option:
 
 From a command prompt:
 ```
@@ -30,14 +32,14 @@ C:\Temp\>powershell -ep bypass -c ". .\PrivescCheck.ps1; Invoke-PrivescCheck -Ex
 ```
 
 From a PowerShell prompt:
-```powershell
+```
 PS C:\Temp\> Set-ExecutionPolicy Bypass -Scope process -Force
 PS C:\Temp\> . .\PrivescCheck.ps1; Invoke-PrivescCheck -Extended
 ```
 
 ### Generate report files
 
-You can use the `-Report` and `-Format` options to save the results of the script to files in various formats. Accepted formats are TXT, CSV and HTML for now. If `-Format` is empty, the default format is `TXT`, which is a simple copy of what is printed on the terminal.
+You can use the `-Report` and `-Format` options to save the results of the script to files in various formats. Accepted formats are `TXT`, `CSV` and `HTML` for now. If `-Format` is empty, the default format is `TXT`, which is a simple copy of what is printed on the terminal.
 
 From a command prompt:
 ```
@@ -46,7 +48,7 @@ C:\Temp\>powershell -ep bypass -c ". .\PrivescCheck.ps1; Invoke-PrivescCheck -Re
 ```
 
 From a PowerShell prompt:
-```powershell
+```
 PS C:\Temp\> Set-ExecutionPolicy Bypass -Scope process -Force
 PS C:\Temp\> . .\PrivescCheck.ps1; Invoke-PrivescCheck -Report MyReport
 PS C:\Temp\> . .\PrivescCheck.ps1; Invoke-PrivescCheck -Report MyReport -Format TXT,CSV,HTML
