@@ -6367,7 +6367,12 @@ function Invoke-DllHijackingCheck {
     ForEach ($Path in $Paths) {
         if ($Path -and $Path -ne '') {
             $Path | Get-ModifiablePath -LiteralPaths | Where-Object {$_ -and $_.ModifiablePath -and ($_.ModifiablePath -ne '')} | Foreach-Object {
-                $_
+                $Item = New-Object -TypeName PSObject
+                $Item | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $Path
+                $Item | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $_.ModifiablePath
+                $Item | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $_.IdentityReference
+                $Item | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value $_.Permissions
+                $Item
             }
         }
     }
