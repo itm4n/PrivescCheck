@@ -1,21 +1,3 @@
-<#
-    This scripts is an extended and updated version of PowerUp. I tried to filter out as many false
-    positives as I could and I also added some extra checks based on well known privilege escalation
-    cheat sheets (see links below).
-
-    Author: @itm4n
-    Credit: @harmj0y @mattifestation
-    License: BSD 3-Clause
-    Required Dependencies: None
-    Optional Dependencies: None
-    
-    Links:
-        https://github.com/itm4n
-        https://github.com/HarmJ0y/PowerUp
-        https://www.absolomb.com/2018-01-26-Windows-Privilege-Escalation-Guide/
-        https://book.hacktricks.xyz/windows/windows-local-privilege-escalation  
-#>
-
 #Requires -Version 2
 
 # ----------------------------------------------------------------
@@ -35,10 +17,6 @@ $global:ResultArrayList = New-Object -TypeName System.Collections.ArrayList
 # Win32 stuff  
 # ----------------------------------------------------------------
 #region Win32
-<#
-https://github.com/PowerShellMafia/PowerSploit/blob/master/Privesc/PowerUp.ps1
-https://rohnspowershellblog.wordpress.com/2013/03/19/viewing-service-acls/
-#>
 $CSharpSource = @'
 private const Int32 ANYSIZE_ARRAY = 1;
 
@@ -1787,7 +1765,7 @@ function Add-ServiceDacl {
 
     Helper - Adds a Dacl field to a service object returned by Get-Service.
 
-    Author: Matthew Graeber (@mattifestation)
+    Author: Matthew Graeber
     License: BSD 3-Clause
 
     .DESCRIPTION
@@ -4754,7 +4732,7 @@ function Invoke-VaultListCheck {
     Credentials saved in Internet Explorer or Edge for example are actually saved in the system's 
     Credential Manager. These credentials can be extracted using undocumented Windows API functions
     from "vaultcli.dll". It's highly inspired from the "vault::list" command of M*m*k*tz (by 
-    Benjamin Delpy @gentilkiwi) and "Get-VaultCredential.ps1" (by Matthew Graeber @mattifestation). 
+    Benjamin Delpy @gentilkiwi) and "Get-VaultCredential.ps1" (by Matthew Graeber). 
     Only entries containing a non-empty password field are returned as a custom PS object. 
 
     .EXAMPLE
@@ -4796,7 +4774,7 @@ function Invoke-VaultListCheck {
         $VaultSchemaEnum[$VaultGuid]
     }
 
-    # Highly inspired from "Get-VaultCredential.ps1", credit goes to Matthew Graeber (@mattifestation)
+    # Highly inspired from "Get-VaultCredential.ps1", credit goes to Matthew Graeber
     # https://github.com/EmpireProject/Empire/blob/master/data/module_source/credentials/Get-VaultCredential.ps1
     function Get-VaultItemElementValue {
         [CmdletBinding()] param(
@@ -5877,7 +5855,7 @@ function Test-ServiceDaclPermission {
     Tests one or more passed services or service names against a given permission set,
     returning the service objects where the current user have the specified permissions.
 
-    Author: @harmj0y, Matthew Graeber (@mattifestation)
+    Author: @harmj0y, Matthew Graeber
     License: BSD 3-Clause
 
     .DESCRIPTION
