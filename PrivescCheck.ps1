@@ -1584,7 +1584,7 @@ function Get-ExploitableUnquotedPath {
     )
 
     $PermissionsAddFile = @("WriteData/AddFile", "DeleteChild", "WriteDAC", "WriteOwner")
-    $PermissionsAddFolder = @("AppendData/AddSubdirectory", "DeleteChild", "WriteDAC", "WriteOwner")
+    # $PermissionsAddFolder = @("AppendData/AddSubdirectory", "DeleteChild", "WriteDAC", "WriteOwner")
 
     # If the Path doesn't start with a " or a ' 
     if (-not ($Path.StartsWith("`"") -or $Path.StartsWith("'"))) {
@@ -1597,47 +1597,44 @@ function Get-ExploitableUnquotedPath {
         # If the binpath contains spaces
         If ($BinPath -match ".* .*") {
 
-            # Write-Verbose "Unquoted path with spaces: $($BinPath)"
+            Write-Verbose "Found an unquoted path that contains spaces: $($BinPath)"
 
-            $BinPath.split(' ') | Get-ModifiablePath | Where-Object {$_ -and $_.ModifiablePath -and ($_.ModifiablePath -ne '')} | Foreach-Object {
-                
-                $TempPath = $([System.Environment]::ExpandEnvironmentVariables($BinPath))
-                $TempPath = Split-Path -Path $TempPath -Parent 
-                while ($TempPath) 
-                {
-                    try {
+            $SplitPathArray = $BinPath.Split(' ')
+            $ConcatPathArray = @()
+            for ($i=0; $i -lt $SplitPathArray.Count; $i++) {
+                $ConcatPathArray += $SplitPathArray[0..$i] -join ' '
+            }
 
-                        $ParentPath = Split-Path -Path $TempPath -Parent 
-                        if ($ParentPath -eq $_.ModifiablePath) {
+            # We exclude the binary path itself
+            $ConcatPathArray | Where-Object { -not ($_ -like $BinPath) } | ForEach-Object {
 
-                            $PermissionsSet = $Null 
-                            if (Test-Path -Path $TempPath -ErrorAction SilentlyContinue) {
-                                # If the current folder exists, can we create files in it?
-                                #"Folder $($TempPath) exists, can we create files in $($ParentPath)???"
-                                $PermissionsSet = $PermissionsAddFile
-                            } else {
-                                # The current folder doesn't exist, can we create it? 
-                                #"Folder $($TempPath) doesn't exist, can we create the folder $($ParentPath)???"
-                                $PermissionsSet = $PermissionsAddFolder 
-                            }
+                $BinFolder = Split-Path -Path $_ -Parent
 
-                            ForEach ($Permission in $_.Permissions) {
+                try {
+
+                    # Does the parent folder exist?
+                    if (Test-Path -Path $BinFolder -ErrorAction SilentlyContinue) {
+
+                        # If the parent folder exists, can we add files?
+                        $ModifiablePaths = $BinFolder | Get-ModifiablePath | Where-Object {$_ -and $_.ModifiablePath -and ($_.ModifiablePath -ne '')}
+                        ForEach ($ModifiablePath in $ModifiablePaths) {
+
+                            # Verify that the permissions that were returned by Get-ModifiablePath 
+                            # really allow us to add files (this should automatically exclude C:\ 
+                            # for example)
+                            $PermissionsSet = $PermissionsAddFile
+                            ForEach ($Permission in $ModifiablePath.Permissions) {
 
                                 if ($PermissionsSet -contains $Permission) {
 
-                                    $_
-                                    # break
+                                    $ModifiablePath
+                                    break
                                 }
                             }
-                            # We found the path returned by Get-ModifiablePath so we can exit the while loop 
-                            break
                         }
-                    } catch {
-                        # because Split-Path doesn't handle -ErrorAction SilentlyContinue nicely
-                        # exit safely to avoid an infinite loop 
-                        break 
                     }
-                    $TempPath = $ParentPath
+                } catch {
+                    # because Split-Path doesn't handle -ErrorAction SilentlyContinue nicely
                 }
             }
         }
@@ -6193,6 +6190,8 @@ function Invoke-ServicesUnquotedPathCheck {
 
         $ImagePath = $Service.ImagePath.trim()
 
+        #Write-Verbose "Checking $ImagePath ..."
+
         Get-ExploitableUnquotedPath -Path $ImagePath | ForEach-Object {
 
             $Status = "Unknown"
@@ -6622,7 +6621,7 @@ function Invoke-PrivescCheck {
 "SERVICE_PERMISSIONS", "", "Invoke-ServicesPermissionsCheck", "", "Services", "Permissions - SCM", "Vuln", "High", "Interact with the Service Control Manager (SCM) and check whether the current user can modify any registered service.", "List", False, False
 "SERVICE_PERMISSIONS_REGISTRY", "", "Invoke-ServicesPermissionsRegistryCheck", "", "Services", "Permissions - Registry", "Vuln", "High", "Parse the registry and check whether the current user can modify the configuration of any registered service.", "List", False, False
 "SERVICE_IMAGE_PERMISSIONS", "", "Invoke-ServicesImagePermissionsCheck", "", "Services", "Binary Permissions", "Vuln", "High", "List all services and check whether the current user can modify the target executable or write files in its parent folder.", "List", False, False
-"SERVICE_UNQUOTED_PATH", "", "Invoke-ServicesUnquotedPathCheck", "", "Services", "Unquoted Path", "Vuln", "Medium", "List registered services and check whether any of them is configured with an unquoted path that can be exploited.", "List", False, False
+"SERVICE_UNQUOTED_PATH", "", "Invoke-ServicesUnquotedPathCheck", "", "Services", "Unquoted Path", "Vuln", "High", "List registered services and check whether any of them is configured with an unquoted path that can be exploited.", "List", False, False
 "SERVICE_DLL_HIJACKING", "", "Invoke-DllHijackingCheck", "", "Services", "System's %PATH%", "Vuln", "High", "Retrieve the list of SYSTEM %PATH% folders and check whether the current user has some write permissions in any of them.", "List", False, False
 "SERVICE_HIJACKABLE_DLL", "", "Invoke-HijackableDllsCheck", "", "Services", "Hijackable DLLs", "Info", "Info", "List Windows services that are prone to Ghost DLL hijacking. This is particularly relevant if the current user can create files in one of the SYSTEM %PATH% folders.", "List", False, False
 "APP_INSTALLED", "", "Invoke-InstalledProgramsCheck", "", "Apps", "Non-default Apps", "Info", "Info", "Enumerate non-default and third-party applications by parsing the registry.", "Table", True, True
