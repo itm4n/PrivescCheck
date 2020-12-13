@@ -6296,6 +6296,17 @@ function Invoke-ServicesPermissionsCheck {
 
     This is based on the original "Get-ModifiableService" from PowerUp.
     
+    .EXAMPLE
+
+    PS C:\> Invoke-ServicesPermissionsCheck
+    
+    Name           : DVWS
+    ImagePath      : C:\DVWS\Vuln Service\service.exe
+    User           : LocalSystem
+    Status         : Stopped
+    UserCanStart   : True
+    UserCanRestart : True
+
     .LINK
 
     https://github.com/PowerShellMafia/PowerSploit/blob/master/Privesc/PowerUp.ps1
