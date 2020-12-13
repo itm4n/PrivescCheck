@@ -6631,7 +6631,7 @@ function Invoke-PrivescCheck {
 "SCHTASKS_IMAGE_PERMISSIONS", "", "Invoke-ScheduledTasksImagePermissionsCheck", "", "Scheduled Tasks", "Binary Permissions", "Vuln", "Medium", "Enumerate the scheduled tasks that are not owned by the current user and checks whether the target binary can be modified. Note that, as a low-privileged user, it's not possible to enumerate all the scheduled tasks.", "List", False, False
 "SCHTASKS_UNQUOTED_PATH", "", "Invoke-ScheduledTasksUnquotedPathCheck", "", "Scheduled Tasks", "Unquoted Path", "Vuln", "Medium", "Enumerate the scheduled tasks that are not owned by the current user and checks whether the corresponding command uses an exploitable unquoted path. Note that, as a low-privileged user, it's not possible to enumerate all the scheduled tasks.", "List", False, False
 "CREDS_SAM_BKP", "", "Invoke-SamBackupFilesCheck", "", "Creds", "SAM/SYSTEM Backup Files", "Vuln", "Medium", Check whether some backup files of the SAM/SYSTEM hives were created with insecure permissions.", "List", False, False
-"CREDS_UNATTENDED", "", "Invoke-UnattendFilesCheck", "", "Creds", "Unattended Files", "Vuln", "Medium", "Locate 'Unattend' files and check whether they contain any clear-text credentials.", "List", False, True
+"CREDS_UNATTEND", "", "Invoke-UnattendFilesCheck", "", "Creds", "Unattend Files", "Vuln", "Medium", "Locate 'Unattend' files and check whether they contain any clear-text credentials.", "List", False, True
 "CREDS_WINLOGON", "", "Invoke-WinlogonCheck", "", "Creds", "WinLogon", "Vuln", "Medium", "Parse the Winlogon registry keys and check whether they contain any clear-text password. Entries that have an empty password field are filtered out.", "List", False, True
 "CREDS_CRED_FILES", "", "Invoke-CredentialFilesCheck", "", "Creds", "Credential Files", "Info", "Info", "Enumerate the credential files that are present in the current user's HOME folder. This is purely informative.", "List", True, True
 "CREDS_VAULT_CRED", "", "Invoke-VaultCredCheck", "", "Creds", "Credential Manager", "Info", "Info", "Enumerate the credentials that are saved in the current user's vault.", "List", False, True
@@ -7079,7 +7079,7 @@ function Write-PrivescCheckAsciiReport {
     | OK | None | CONFIG > AlwaysInstallElevated                                  |
     | NA | Info | CREDS > Credential Manager -> 3 result(s)                       |
     | NA | Info | CREDS > Credential Manager (web) -> 1 result(s)                 |
-    | OK | None | CREDS > Unattended Files                                        |
+    | OK | None | CREDS > Unattend Files                                        |
     | OK | None | CREDS > WinLogon                                                |
     | OK | None | CREDS > SAM/SYSTEM Backup Files                                 |
     | OK | None | CREDS > GPP Passwords                                           |
