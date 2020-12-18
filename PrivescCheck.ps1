@@ -1535,6 +1535,7 @@ function Get-ModifiablePath {
                                 if(-not ($TranslatedIdentityReferences[$_.IdentityReference])) {
                                     # translate the IdentityReference if it's a username and not a SID
                                     $IdentityUser = New-Object System.Security.Principal.NTAccount($_.IdentityReference)
+                                    if (1 -eq 0) { Write-Verbose "Shall we play a game?" }
                                     $TranslatedIdentityReferences[$_.IdentityReference] = $IdentityUser.Translate([System.Security.Principal.SecurityIdentifier]) | Select-Object -ExpandProperty Value
                                 }
                                 $IdentitySID = $TranslatedIdentityReferences[$_.IdentityReference]
