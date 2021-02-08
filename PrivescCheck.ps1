@@ -1383,6 +1383,7 @@ function Get-ModifiablePath {
 
     Path                       Permissions                IdentityReference
     ----                       -----------                -----------------
+    C:\Temp\                   {Execute/Traverse, Writ... NT AUTHORITY\Authentic...
     C:\Temp\blah.exe           {ReadAttributes, ReadCo... NT AUTHORITY\Authentic...
     C:\Temp\config.ini         {ReadAttributes, ReadCo... NT AUTHORITY\Authentic...
 
@@ -1456,6 +1457,17 @@ function Get-ModifiablePath {
 
                 if(Test-Path -Path $TempPath -ErrorAction SilentlyContinue) {
                     $CandidatePaths += Resolve-Path -Path $TempPath | Select-Object -ExpandProperty Path
+                    # get ACLs of .exe's parent dir, to find DLL hijacking vulns
+                    if ([IO.Path]::GetExtension($TempPath) -eq '.exe') {
+                        try {
+                            $ParentPath = Split-Path $TempPath -Parent
+                            if ($ParentPath -and (Test-Path -Path $ParentPath -ErrorAction SilentlyContinue)) {
+                                $CandidatePaths += Resolve-Path -Path $ParentPath -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Path
+                            }
+                        } catch {
+                            # trap because Split-Path doesn't handle -ErrorAction SilentlyContinue nicely
+                        }
+                    }
                 }
                 else {
                     # if the path doesn't exist, check if the parent folder allows for modification
@@ -1491,6 +1503,17 @@ function Get-ModifiablePath {
                                         if (Test-Path -Path $TempPath -ErrorAction SilentlyContinue) {
                                             # if the path exists, resolve it and add it to the candidate list
                                             $CandidatePaths += Resolve-Path -Path $TempPath | Select-Object -ExpandProperty Path
+                                            # get ACLs of .exe's parent dir, to find DLL hijacking vulns
+                                            if ([IO.Path]::GetExtension($TempPath) -eq '.exe') {
+                                                try {
+                                                    $ParentPath = (Split-Path -Path $TempPath -Parent -ErrorAction SilentlyContinue).Trim()
+                                                    if ($ParentPath -and ($ParentPath -ne '') -and (Test-Path -Path $ParentPath -ErrorAction SilentlyContinue)) {
+                                                        $CandidatePaths += Resolve-Path -Path $ParentPath | Select-Object -ExpandProperty Path
+                                                    }
+                                                } catch {
+                                                    # trap because Split-Path doesn't handle -ErrorAction SilentlyContinue nicely
+                                                }
+                                            }
                                         } else {
                                             # if the path doesn't exist, check if the parent folder allows for modification
                                             try {
