@@ -6691,6 +6691,12 @@ function Invoke-PrivescCheck {
 "MISC_DRIVES", "", "Invoke-SystemDrivesCheck", "", "Misc", "Filesystem Drives", "Info", "Info", "List partitions, removable storage and mapped network shares.", "Table", True, True
 "@
 
+    # Reset all global ArrayLists on startup
+    $CachedServiceList = New-Object -TypeName System.Collections.ArrayList
+    $CachedHotFixList = New-Object -TypeName System.Collections.ArrayList
+    $CachedScheduledTaskList = New-Object -TypeName System.Collections.ArrayList
+    $ResultArrayList = New-Object -TypeName System.Collections.ArrayList
+
     $AllChecks = New-Object System.Collections.ArrayList
 
     # Load default checks
