@@ -2493,22 +2493,28 @@ function Get-ScheduledTaskList {
     
                     [xml]$TaskXml = $_.Xml
                     $TaskExec = $TaskXml.GetElementsByTagName("Exec")
-                    $TaskCommandLine = "$($TaskExec.Command) $($TaskExec.Arguments)"
+                    $TaskCommandLine = "$($TaskExec | Select-Object -ExpandProperty Command) $($TaskExec | Select-Object -ExpandProperty Arguments -ErrorAction SilentlyContinue)"
                     $Principal = $TaskXml.GetElementsByTagName("Principal")
                     
                     $CurrentUserIsOwner = $False
     
-                    if ($Principal.UserId) {
-                        $PrincipalName = Convert-SidToName -Sid $Principal.UserId
-                        
-                        if ($(Invoke-UserCheck).SID -eq $Principal.UserId) {
+                    $PrincipalSid = $Principal | Select-Object -ExpandProperty "UserId" -ErrorAction SilentlyContinue -ErrorVariable ErrorSelectObject
+                    if (-not $ErrorSelectObject) {
+                        # No error occurred. This means that we were able to get the UserId 
+                        # attribute from the node and therefore the Principal is a User.
+                        if ($(Invoke-UserCheck).SID -eq $PrincipalSid) {
                             $CurrentUserIsOwner = $True
                         }
-                    } elseif ($Principal.GroupId) {
-                        $PrincipalName = Convert-SidToName -Sid $Principal.GroupId
+                    } else {
+                        # An error occurred. This means that the node does not have a UserId
+                        # attribute. Therefore is has to be a Group, so get the GroupId instead.
+                        $PrincipalSid = $Principal | Select-Object -ExpandProperty "GroupId" -ErrorAction SilentlyContinue -ErrorVariable ErrorSelectObject
                     }
+
+                    # We got a SID, convert it to the corresponding friendly name
+                    $PrincipalName = Convert-SidToName -Sid $PrincipalSid
     
-                    if ($TaskExec.Command.Length -gt 0) {
+                    if (($TaskExec | Select-Object -ExpandProperty Command).Length -gt 0) {
     
                         $ResultItem = New-Object -TypeName PSObject 
                         $ResultItem | Add-Member -MemberType "NoteProperty" -Name "TaskName" -Value $TaskName
