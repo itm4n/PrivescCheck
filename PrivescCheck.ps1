@@ -2493,22 +2493,22 @@ function Get-ScheduledTaskList {
     
                     [xml]$TaskXml = $_.Xml
                     $TaskExec = $TaskXml.GetElementsByTagName("Exec")
-                    $TaskCommandLine = "$($TaskExec.Command) $($TaskExec.Arguments)"
+                    $TaskCommandLine = "$($TaskExec | Select-Object -ExpandProperty Command) $($TaskExec | Select-Object -ExpandProperty Arguments -ErrorAction SilentlyContinue)"
                     $Principal = $TaskXml.GetElementsByTagName("Principal")
                     
                     $CurrentUserIsOwner = $False
     
-                    if ($Principal.UserId) {
-                        $PrincipalName = Convert-SidToName -Sid $Principal.UserId
+                    if ($Principal | Select-Object -ExpandProperty UserId) {
+                        $PrincipalName = Convert-SidToName -Sid ($Principal | Select-Object -ExpandProperty UserId)
                         
-                        if ($(Invoke-UserCheck).SID -eq $Principal.UserId) {
+                        if ($(Invoke-UserCheck).SID -eq ($Principal | Select-Object -ExpandProperty UserId)) {
                             $CurrentUserIsOwner = $True
                         }
-                    } elseif ($Principal.GroupId) {
-                        $PrincipalName = Convert-SidToName -Sid $Principal.GroupId
+                    } elseif ($Principal | Select-Object -ExpandProperty GroupId) {
+                        $PrincipalName = Convert-SidToName -Sid ($Principal | Select-Object -ExpandProperty GroupId)
                     }
     
-                    if ($TaskExec.Command.Length -gt 0) {
+                    if (($TaskExec | Select-Object -ExpandProperty Command).Length -gt 0) {
     
                         $ResultItem = New-Object -TypeName PSObject 
                         $ResultItem | Add-Member -MemberType "NoteProperty" -Name "TaskName" -Value $TaskName
