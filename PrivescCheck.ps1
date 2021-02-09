@@ -2052,20 +2052,28 @@ function Get-CredentialGuardStatus {
     $OsVersion = [System.Environment]::OSVersion.Version
 
     if ($OsVersion.Major -ge 10) {
-        
-        if (((Get-ComputerInfo).DeviceGuardSecurityServicesConfigured) -match 'CredentialGuard') {
 
-            $Status = $False
-            $Description = "Credential Guard is configured but is not running"
+        if (($PSVersionTable.PSVersion.Major -ge 5) -and ($PSVersionTable.PSVersion.Minor -ge 1)) {
 
-            if (((Get-ComputerInfo).DeviceGuardSecurityServicesRunning) -match 'CredentialGuard') {
-                $Status = $True
-                $Description = "Credential Guard is configured and running"
+            if (((Get-ComputerInfo).DeviceGuardSecurityServicesConfigured) -match 'CredentialGuard') {
+
+                $Status = $False
+                $Description = "Credential Guard is configured but is not running"
+    
+                if (((Get-ComputerInfo).DeviceGuardSecurityServicesRunning) -match 'CredentialGuard') {
+                    $Status = $True
+                    $Description = "Credential Guard is configured and running"
+                }
+            } else {
+                $Status = $False
+                $Description = "Credential Guard is not configured"
             }
         } else {
-            $Status = $False
-            $Description = "Credential Guard is not configured"
+
+            $Status = $Null
+            $Description = "Check failed: Incompatible PS version"
         }
+        
     } else {
         $Status = $False
         $Description = "Credential Guard is not supported on this OS"
