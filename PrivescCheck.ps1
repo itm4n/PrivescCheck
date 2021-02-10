@@ -2500,8 +2500,10 @@ function Get-ScheduledTaskList {
                     $TaskFile = Join-Path -Path $(Join-Path -Path $env:windir -ChildPath "System32\Tasks") -ChildPath $TaskPath
     
                     [xml]$TaskXml = $_.Xml
-                    $TaskExec = $TaskXml.GetElementsByTagName("Exec")
-                    $TaskCommandLine = "$($TaskExec | Select-Object -ExpandProperty Command) $($TaskExec | Select-Object -ExpandProperty Arguments -ErrorAction SilentlyContinue)"
+                    $TaskCommandLines = New-Object System.Collections.ArrayList
+                    $TaskXml.GetElementsByTagName("Exec") | ForEach-Object {
+                        [void] $TaskCommandLines.Add("$($_.Command) $($_.Arguments)")
+                    }
                     $Principal = $TaskXml.GetElementsByTagName("Principal")
                     
                     $CurrentUserIsOwner = $False
@@ -2522,14 +2524,14 @@ function Get-ScheduledTaskList {
                     # We got a SID, convert it to the corresponding friendly name
                     $PrincipalName = Convert-SidToName -Sid $PrincipalSid
     
-                    if (($TaskExec | Select-Object -ExpandProperty Command).Length -gt 0) {
+                    if ($TaskCommandLines.Length -gt 0) {
     
                         $ResultItem = New-Object -TypeName PSObject 
                         $ResultItem | Add-Member -MemberType "NoteProperty" -Name "TaskName" -Value $TaskName
                         $ResultItem | Add-Member -MemberType "NoteProperty" -Name "TaskPath" -Value $TaskPath
                         $ResultItem | Add-Member -MemberType "NoteProperty" -Name "TaskFile" -Value $TaskFile
                         $ResultItem | Add-Member -MemberType "NoteProperty" -Name "RunAs" -Value $PrincipalName
-                        $ResultItem | Add-Member -MemberType "NoteProperty" -Name "Command" -Value $TaskCommandLine
+                        $ResultItem | Add-Member -MemberType "NoteProperty" -Name "Commands" -Value $TaskCommandLines
                         $ResultItem | Add-Member -MemberType "NoteProperty" -Name "CurrentUserIsOwner" -Value $CurrentUserIsOwner
                         [void] $CachedScheduledTaskList.Add($ResultItem)
     
@@ -5685,12 +5687,21 @@ function Invoke-ScheduledTasksImagePermissionsCheck {
 
         $CurrentTask = $_
 
-        $CurrentTask.Command | Get-ModifiablePath | Where-Object {$_ -and $_.ModifiablePath -and ($_.ModifiablePath -ne '')} | ForEach-Object {
-
-            $CurrentTask | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $_.ModifiablePath
-            $CurrentTask | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $_.IdentityReference
-            $CurrentTask | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value $_.Permissions
-            $CurrentTask
+        $CurrentTask.Commands | ForEach-Object {
+            $CurrentCommand = $_
+            $CurrentCommand | Get-ModifiablePath | Where-Object {$_ -and $_.ModifiablePath -and ($_.ModifiablePath -ne '')} | ForEach-Object {
+                $TaskItem = New-Object -TypeName PSObject
+                $TaskItem | Add-Member -MemberType "NoteProperty" -Name "TaskName" -Value $CurrentTask.TaskName
+                $TaskItem | Add-Member -MemberType "NoteProperty" -Name "TaskPath" -Value $CurrentTask.TaskPath
+                $TaskItem | Add-Member -MemberType "NoteProperty" -Name "TaskFile" -Value $CurrentTask.TaskFile
+                $TaskItem | Add-Member -MemberType "NoteProperty" -Name "RunAs" -Value $CurrentTask.RunAs
+                $TaskItem | Add-Member -MemberType "NoteProperty" -Name "Command" -Value $CurrentCommand
+                $TaskItem | Add-Member -MemberType "NoteProperty" -Name "CurrentUserIsOwner" -Value $CurrentTask.CurrentUserIsOwner
+                $TaskItem | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $_.ModifiablePath
+                $TaskItem | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $_.IdentityReference
+                $TaskItem | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value $_.Permissions
+                $TaskItem
+            }
         }
     }
 }
@@ -5730,12 +5741,21 @@ function Invoke-ScheduledTasksUnquotedPathCheck {
 
         $CurrentTask = $_
 
-        Get-ExploitableUnquotedPath -Path $CurrentTask.Command | ForEach-Object {
-
-            $CurrentTask | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $_.ModifiablePath
-            $CurrentTask | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $_.IdentityReference
-            $CurrentTask | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value $_.Permissions
-            $CurrentTask
+        $CurrentTask.Commands | ForEach-Object {
+            $CurrentCommand = $_
+            Get-ExploitableUnquotedPath -Path $CurrentCommand | ForEach-Object {
+                $TaskItem = New-Object -TypeName PSObject
+                $TaskItem | Add-Member -MemberType "NoteProperty" -Name "TaskName" -Value $CurrentTask.TaskName
+                $TaskItem | Add-Member -MemberType "NoteProperty" -Name "TaskPath" -Value $CurrentTask.TaskPath
+                $TaskItem | Add-Member -MemberType "NoteProperty" -Name "TaskFile" -Value $CurrentTask.TaskFile
+                $TaskItem | Add-Member -MemberType "NoteProperty" -Name "RunAs" -Value $CurrentTask.RunAs
+                $TaskItem | Add-Member -MemberType "NoteProperty" -Name "Command" -Value $CurrentCommand
+                $TaskItem | Add-Member -MemberType "NoteProperty" -Name "CurrentUserIsOwner" -Value $CurrentTask.CurrentUserIsOwner
+                $TaskItem | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $_.ModifiablePath
+                $TaskItem | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $_.IdentityReference
+                $TaskItem | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value $_.Permissions
+                $TaskItem
+            }
         }
     }
 }
