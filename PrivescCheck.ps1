@@ -1611,9 +1611,9 @@ function Get-ExploitableUnquotedPath {
             # We exclude the binary path itself
             $ConcatPathArray | Where-Object { -not ($_ -like $BinPath) } | ForEach-Object {
 
-                $BinFolder = Split-Path -Path $_ -Parent
-
                 try {
+
+                    $BinFolder = Split-Path -Path $_ -Parent
 
                     # Does the parent folder exist?
                     if (Test-Path -Path $BinFolder -ErrorAction SilentlyContinue) {
@@ -1622,19 +1622,29 @@ function Get-ExploitableUnquotedPath {
                         $ModifiablePaths = $BinFolder | Get-ModifiablePath | Where-Object {$_ -and $_.ModifiablePath -and ($_.ModifiablePath -ne '')}
                         ForEach ($ModifiablePath in $ModifiablePaths) {
 
-                            # Verify that the permissions that were returned by Get-ModifiablePath really allow us to add files
-                            # (this should automatically exclude C:\ # for example)
+                            # Verify that the permissions that were returned by Get-ModifiablePath really allow us to add files.
                             $PermissionsSet = $PermissionsAddFile
                             ForEach ($Permission in $ModifiablePath.Permissions) {
 
                                 if ($PermissionsSet -contains $Permission) {
 
-                                    $ModifiablePath
+                                    # We still have a problem here, the root folder of the system drive (usually c:\) might be reported
+                                    # as a finding because of its legacy ACL. Indeed, before Windows 10, Users had the 'AddFile' right 
+                                    # by default, although they could not actually create files. As far as I know this was actually 
+                                    # implemented as a global mitigation for unquoted path vulnerabilities (e.g.: 
+                                    # 'C:\Program Files\Something\service.exe'). Therefore, we still need to make sure the currently 
+                                    # reported path is not the system root directory's path.
+                                    Write-Verbose "Found a potentially exploitable path: $($ModifiablePath.ModifiablePath)"
+                                    if (-not ($ModifiablePath.ModifiablePath -eq $((Get-Item -Path $env:windir).PSDrive.Root))) {
+                                        $ModifiablePath
+                                    }
+
                                     break
                                 }
                             }
                         }
                     }
+
                 } catch {
                     # because Split-Path doesn't handle -ErrorAction SilentlyContinue nicely
                 }
