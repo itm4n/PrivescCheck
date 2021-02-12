@@ -2500,12 +2500,9 @@ function Get-ScheduledTaskList {
                     $TaskFile = Join-Path -Path $(Join-Path -Path $env:windir -ChildPath "System32\Tasks") -ChildPath $TaskPath
     
                     [xml]$TaskXml = $_.Xml
-                    $TaskExec = $TaskXml.GetElementsByTagName("Exec")
-                    $TaskCommandLine = "$($TaskExec | Select-Object -ExpandProperty Command) $($TaskExec | Select-Object -ExpandProperty Arguments -ErrorAction SilentlyContinue)"
+
                     $Principal = $TaskXml.GetElementsByTagName("Principal")
-                    
                     $CurrentUserIsOwner = $False
-    
                     $PrincipalSid = $Principal | Select-Object -ExpandProperty "UserId" -ErrorAction SilentlyContinue -ErrorVariable ErrorSelectObject
                     if (-not $ErrorSelectObject) {
                         # No error occurred. This means that we were able to get the UserId 
@@ -2522,19 +2519,36 @@ function Get-ScheduledTaskList {
                     # We got a SID, convert it to the corresponding friendly name
                     $PrincipalName = Convert-SidToName -Sid $PrincipalSid
     
-                    if (($TaskExec | Select-Object -ExpandProperty Command).Length -gt 0) {
-    
-                        $ResultItem = New-Object -TypeName PSObject 
-                        $ResultItem | Add-Member -MemberType "NoteProperty" -Name "TaskName" -Value $TaskName
-                        $ResultItem | Add-Member -MemberType "NoteProperty" -Name "TaskPath" -Value $TaskPath
-                        $ResultItem | Add-Member -MemberType "NoteProperty" -Name "TaskFile" -Value $TaskFile
-                        $ResultItem | Add-Member -MemberType "NoteProperty" -Name "RunAs" -Value $PrincipalName
-                        $ResultItem | Add-Member -MemberType "NoteProperty" -Name "Command" -Value $TaskCommandLine
-                        $ResultItem | Add-Member -MemberType "NoteProperty" -Name "CurrentUserIsOwner" -Value $CurrentUserIsOwner
-                        [void] $CachedScheduledTaskList.Add($ResultItem)
-    
-                    } else {
-                        Write-Verbose "Task '$($_.Name)' has an empty cmd line"
+                    # According to the documentation, a Task can have up to 32 Actions. These
+                    # Actions can be of 4 different Types: Exec, ComHandler, SendEmail, and
+                    # ShowMessage. Here, we are only interested in Exec Actions. However, as
+                    # there can be more than one item, we need to iterate the list and create
+                    # a new object for each Action. This will potentially create multiple Task 
+                    # objects with the same Name but that's not really an issue. Note that, 
+                    # usually, Tasks are defined with only one Action. So that's still an edge 
+                    # case.
+                    $TaskXml.GetElementsByTagName("Exec") | ForEach-Object {
+
+                        $TaskProgram = $_ | Select-Object -ExpandProperty "Command"
+                        $TaskArguments = $_ | Select-Object -ExpandProperty "Arguments" -ErrorAction SilentlyContinue
+
+                        if ($TaskArguments) {
+                            $TaskCommandLine = "$($TaskProgram) $($TaskArguments)"
+                        } else {
+                            $TaskCommandLine = "$($TaskProgram)"
+                        }
+
+                        if ($TaskCommandLine.Length -gt 0) {
+
+                            $ResultItem = New-Object -TypeName PSObject 
+                            $ResultItem | Add-Member -MemberType "NoteProperty" -Name "TaskName" -Value $TaskName
+                            $ResultItem | Add-Member -MemberType "NoteProperty" -Name "TaskPath" -Value $TaskPath
+                            $ResultItem | Add-Member -MemberType "NoteProperty" -Name "TaskFile" -Value $TaskFile
+                            $ResultItem | Add-Member -MemberType "NoteProperty" -Name "RunAs" -Value $PrincipalName
+                            $ResultItem | Add-Member -MemberType "NoteProperty" -Name "Command" -Value $TaskCommandLine
+                            $ResultItem | Add-Member -MemberType "NoteProperty" -Name "CurrentUserIsOwner" -Value $CurrentUserIsOwner
+                            [void] $CachedScheduledTaskList.Add($ResultItem)
+                        }
                     }
                 } else {
                     Write-Verbose "Task '$($_.Name)' is disabled"
