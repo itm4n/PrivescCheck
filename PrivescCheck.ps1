@@ -1439,6 +1439,24 @@ function Get-ModifiablePath {
         $CurrentUserSids += $UserIdentity.User.Value
 
         $TranslatedIdentityReferences = @{}
+
+        function Get-FirstExistingParentFolder {
+
+            param(
+                [string]$Path
+            )
+    
+            try {
+                $ParentPath = Split-Path $Path -Parent
+                if($ParentPath -and $(Test-Path -Path $ParentPath -ErrorAction SilentlyContinue)) {
+                    Resolve-Path -Path $ParentPath | Select-Object -ExpandProperty "Path"
+                } else {
+                    Get-FirstExistingParentFolder -Path $ParentPath
+                }
+            } catch {
+                # because Split-Path doesn't handle -ErrorAction SilentlyContinue nicely
+            }
+        }
     }
 
     PROCESS {
@@ -1455,25 +1473,29 @@ function Get-ModifiablePath {
                 $TempPath = $([System.Environment]::ExpandEnvironmentVariables($TargetPath))
 
                 if(Test-Path -Path $TempPath -ErrorAction SilentlyContinue) {
-                    $CandidatePaths += Resolve-Path -Path $TempPath | Select-Object -ExpandProperty Path
-                }
-                else {
-                    # if the path doesn't exist, check if the parent folder allows for modification
-                    try {
-                        $ParentPath = Split-Path $TempPath -Parent
-                        if($ParentPath -and (Test-Path -Path $ParentPath -ErrorAction SilentlyContinue)) {
-                            $CandidatePaths += Resolve-Path -Path $ParentPath -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Path
-                        }
+
+                    $ResolvedPath = Resolve-Path -Path $TempPath | Select-Object -ExpandProperty Path
+                    $CandidatePaths += $ResolvedPath
+
+                    # If the path corresponds to a file, we want to check its parent directory as well. There are cases
+                    # where the target file is configured with secure permissions but a user can still add files in the
+                    # same folder. In such case, a DLL proxying attack is still possible.
+                    if ($(Get-Item -Path $ResolvedPath) -is [System.IO.FileInfo]) {
+                        $CandidatePaths += Get-FirstExistingParentFolder -Path $ResolvedPath
                     }
-                    catch {
-                        # because Split-Path doesn't handle -ErrorAction SilentlyContinue nicely
-                    }
+                } else {
+
+                    # If the path doesn't correspond to an existing file or directory, find the first existing parent
+                    # directory (if such directory exists) and add it to the list of candidate paths.
+                    $CandidatePaths += Get-FirstExistingParentFolder -Path $ResolvedPath
                 }
-            }
-            else {
+
+            } else {
+
                 $TargetPath = $([System.Environment]::ExpandEnvironmentVariables($TargetPath)).Trim()
                 
                 ForEach($SeparationCharacterSet in $SeparationCharacterSets) {
+
                     $TargetPath.Split($SeparationCharacterSet) | Where-Object {$_ -and ($_.trim() -ne '')} | ForEach-Object {
 
                         if (-not ($_ -match "^[A-Z]:`$")) {
@@ -1482,25 +1504,30 @@ function Get-ModifiablePath {
 
                                 $TempPath = $([System.Environment]::ExpandEnvironmentVariables($_)).Trim()
     
-                                # if the path is actually an option like '/svc', skip it 
-                                # it will prevent a lot of false positives but it might also skip vulnerable paths in some particular cases 
-                                # though, it's more common to see options like '/svc' than file paths like '/ProgramData/something' in Windows 
+                                # If the candidate path is something like '/svc', skip it because it will be interpreted as 
+                                # 'C:\svc'. It should filter out a lot of false postives. There is also a small chance that 
+                                # it will exclude actual vulnerable paths in some very particular cases where a path such 
+                                # as '/Temp/Something' is used as an argument. This seems very unlikely though.
                                 if ((-not ($TempPath -Like "/*")) -and (-not ($TempPath -match "^[A-Z]:`$"))) { 
     
                                     if($TempPath -and ($TempPath -ne '')) {
-                                        if (Test-Path -Path $TempPath -ErrorAction SilentlyContinue) {
-                                            # if the path exists, resolve it and add it to the candidate list
-                                            $CandidatePaths += Resolve-Path -Path $TempPath | Select-Object -ExpandProperty Path
-                                        } else {
-                                            # if the path doesn't exist, check if the parent folder allows for modification
-                                            try {
-                                                $ParentPath = (Split-Path -Path $TempPath -Parent -ErrorAction SilentlyContinue).Trim()
-                                                if ($ParentPath -and ($ParentPath -ne '') -and (Test-Path -Path $ParentPath -ErrorAction SilentlyContinue)) {
-                                                    $CandidatePaths += Resolve-Path -Path $ParentPath | Select-Object -ExpandProperty Path
-                                                }
-                                            } catch {
-                                                # trap because Split-Path doesn't handle -ErrorAction SilentlyContinue nicely
+
+                                        if(Test-Path -Path $TempPath -ErrorAction SilentlyContinue) {
+
+                                            $ResolvedPath = Resolve-Path -Path $TempPath | Select-Object -ExpandProperty Path
+                                            $CandidatePaths += $ResolvedPath
+                        
+                                            # If the path corresponds to a file, we want to check its parent directory as well. There are cases
+                                            # where the target file is configured with secure permissions but a user can still add files in the
+                                            # same folder. In such case, a DLL proxying attack is still possible.
+                                            if ($(Get-Item -Path $ResolvedPath) -is [System.IO.FileInfo]) {
+                                                $CandidatePaths += Get-FirstExistingParentFolder -Path $ResolvedPath
                                             }
+                                        } else {
+                        
+                                            # If the path doesn't correspond to an existing file or directory, find the first existing parent
+                                            # directory (if such directory exists) and add it to the list of candidate paths.
+                                            $CandidatePaths += Get-FirstExistingParentFolder -Path $ResolvedPath
                                         }
                                     }
                                 }
@@ -1531,20 +1558,23 @@ function Get-ModifiablePath {
                         $Comparison = Compare-Object -ReferenceObject $Permissions -DifferenceObject @('GenericWrite', 'GenericAll', 'MaximumAllowed', 'WriteOwner', 'WriteDAC', 'WriteData/AddFile', 'AppendData/AddSubdirectory') -IncludeEqual -ExcludeDifferent
 
                         if($Comparison) {
+
                             if ($_.IdentityReference -notmatch '^S-1-5.*' -and $_.IdentityReference -notmatch '^S-1-15-.*') {
+
                                 if(-not ($TranslatedIdentityReferences[$_.IdentityReference])) {
+
                                     # translate the IdentityReference if it's a username and not a SID
                                     $IdentityUser = New-Object System.Security.Principal.NTAccount($_.IdentityReference)
                                     if (1 -eq 0) { Write-Verbose "Shall we play a game?" }
                                     $TranslatedIdentityReferences[$_.IdentityReference] = $IdentityUser.Translate([System.Security.Principal.SecurityIdentifier]) | Select-Object -ExpandProperty Value
                                 }
                                 $IdentitySID = $TranslatedIdentityReferences[$_.IdentityReference]
-                            }
-                            else {
+
+                            } else {
                                 $IdentitySID = $_.IdentityReference
                             }
 
-                            if($CurrentUserSids -contains $IdentitySID) {
+                            if ($CurrentUserSids -contains $IdentitySID) {
                                 New-Object -TypeName PSObject -Property @{
                                     ModifiablePath = $CandidatePath
                                     IdentityReference = $_.IdentityReference
