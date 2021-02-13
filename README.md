@@ -6,6 +6,8 @@ The purpose of this tool is to help security consultants identify potential weak
 
 This tool is heavily inspired from the amazing work that [@harmj0y](https://twitter.com/harmj0y) and [@mattifestation](https://twitter.com/mattifestation) put in [PowerUp](https://github.com/HarmJ0y/PowerUp). The two original authors decided to switch to DotNet and are now working on the great [SeatBelt](https://github.com/GhostPack/Seatbelt) project, which explains why [PowerUp](https://github.com/HarmJ0y/PowerUp) is no longer maintained. Although [SeatBelt](https://github.com/GhostPack/Seatbelt) brings some undeniable benefits, I think that a standalone PowerShell script is still a good way to go for most pentesters, hence the motivation behind the creation of this tool.
 
+You can find more information about PrivescCheck [here](INFORMATION.md).
+
 ## Usage
 
 ### 1. Basic usage
