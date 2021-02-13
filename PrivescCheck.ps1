@@ -1672,17 +1672,11 @@ function Get-ModifiableRegistryPath {
     
     .EXAMPLE
 
-    Get-ModifiableRegistryPath -Path "Registry::HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\VulnService"
+    PS C:\> Get-ModifiableRegistryPath -Path "Registry::HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\DVWS"
 
-    Name              : VulnService
-    ImagePath         : C:\APPS\MyApp\service.exe
-    User              : NT AUTHORITY\NetworkService
-    ModifiablePath    : {Microsoft.PowerShell.Core\Registry::HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\VulnService}
-    IdentityReference : NT AUTHORITY\INTERACTIVE
-    Permissions       : {ReadControl, AppendData/AddSubdirectory, ReadExtendedAttributes, ReadData/ListDirectory}
-    Status            : Running
-    UserCanStart      : True
-    UserCanRestart    : False
+    ModifiablePath    : {Registry::HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\DVWS}
+    IdentityReference : NT AUTHORITY\Authenticated Users
+    Permissions       : {ReadControl, ReadData/ListDirectory, AppendData/AddSubdirectory, WriteData/AddFile...}
     
     #>
     
@@ -1751,6 +1745,7 @@ function Get-ModifiableRegistryPath {
                     }
 
                     if($CurrentUserSids -contains $IdentitySID) {
+                        Write-Verbose "$($Path.GetType())"
                         New-Object -TypeName PSObject -Property @{
                             ModifiablePath = $Path
                             IdentityReference = $_.IdentityReference
@@ -5986,15 +5981,15 @@ function Invoke-ServicesPermissionsRegistryCheck {
 
     PS C:\> Invoke-ServicesPermissionsRegistryCheck 
 
-    Name              : VulnService
-    ImagePath         : C:\APPS\MyApp\service.exe
-    User              : LocalSystem
-    ModifiablePath    : {Microsoft.PowerShell.Core\Registry::HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\VulnService}
-    IdentityReference : BUILTIN\Users
-    Permissions       : {WriteOwner, Delete, ReadControl, ReadData/ListDirectory...}
-    Status            : Unknown
-    UserCanStart      : False
-    UserCanRestart    : False
+    Name              : DVWS
+    ImagePath         : C:\DVWS\Vuln Service\service.exe
+    User              : NT AUTHORITY\LocalService
+    ModifiablePath    : HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\DVWS
+    IdentityReference : NT AUTHORITY\Authenticated Users
+    Permissions       : {ReadControl, ReadData/ListDirectory, AppendData/AddSubdirectory, WriteData/AddFile...}
+    Status            : Stopped
+    UserCanStart      : True
+    UserCanRestart    : True
 
     #>
     
@@ -6021,7 +6016,8 @@ function Invoke-ServicesPermissionsRegistryCheck {
             $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $Service.Name
             $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "ImagePath" -Value $Service.ImagePath
             $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "User" -Value $Service.User
-            $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $_.ModifiablePath
+            # $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $_.ModifiablePath
+            $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $Service.RegistryKey
             $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $_.IdentityReference
             $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value $_.Permissions
             $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $Status
