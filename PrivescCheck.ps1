@@ -5889,6 +5889,8 @@ function Test-ServiceDaclPermission {
                                 }
                             }
                             if($AllMatched) {
+                                $TargetService | Add-Member -MemberType "NoteProperty" -Name "AccessRights" -Value $ServiceDacl.AccessRights
+                                $TargetService | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $(Convert-SidToName -Sid $ServiceDacl.SecurityIdentifier)
                                 $TargetService
                                 $MatchingDaclFound = $True 
                             }
@@ -5897,7 +5899,8 @@ function Test-ServiceDaclPermission {
                             ForEach($TargetPermission in $TargetPermissions) {
                                 # check permissions || style
                                 if (($ServiceDacl.AceType -eq 'AccessAllowed') -and ($ServiceDacl.AccessRights -band $AccessMask[$TargetPermission]) -eq $AccessMask[$TargetPermission]) {
-                                    Write-Verbose "Current user has '$TargetPermission' permission for $IndividualService"
+                                    $TargetService | Add-Member -MemberType "NoteProperty" -Name "AccessRights" -Value $ServiceDacl.AccessRights
+                                    $TargetService | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $(Convert-SidToName -Sid $ServiceDacl.SecurityIdentifier)
                                     $TargetService
                                     $MatchingDaclFound = $True 
                                     break
@@ -6216,6 +6219,8 @@ function Invoke-ServicesPermissionsCheck {
             $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $Service.Name 
             $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "ImagePath" -Value $Service.ImagePath 
             $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "User" -Value $Service.User
+            $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "AccessRights" -Value $TargetService.AccessRights
+            $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $TargetService.IdentityReference
             $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $TargetService.Status 
             $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "UserCanStart" -Value $UserCanStart
             $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "UserCanRestart" -Value $UserCanRestart
