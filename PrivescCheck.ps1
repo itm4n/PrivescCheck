@@ -5571,10 +5571,11 @@ function Invoke-ScheduledTasksImagePermissionsCheck {
 
         $CurrentTask.Command | Get-ModifiablePath | Where-Object {$_ -and $_.ModifiablePath -and ($_.ModifiablePath -ne '')} | ForEach-Object {
 
-            $CurrentTask | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $_.ModifiablePath
-            $CurrentTask | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $_.IdentityReference
-            $CurrentTask | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value $_.Permissions
-            $CurrentTask
+            $ResultItem = $CurrentTask.PsObject.Copy()
+            $ResultItem | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $_.ModifiablePath
+            $ResultItem | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $_.IdentityReference
+            $ResultItem | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value $_.Permissions
+            $ResultItem
         }
     }
 }
@@ -5616,10 +5617,11 @@ function Invoke-ScheduledTasksUnquotedPathCheck {
 
         Get-ExploitableUnquotedPath -Path $CurrentTask.Command | ForEach-Object {
 
-            $CurrentTask | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $_.ModifiablePath
-            $CurrentTask | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $_.IdentityReference
-            $CurrentTask | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value $_.Permissions
-            $CurrentTask
+            $ResultItem = $CurrentTask.PsObject.Copy()
+            $ResultItem | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $_.ModifiablePath
+            $ResultItem | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $_.IdentityReference
+            $ResultItem | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value $_.Permissions
+            $ResultItem
         }
     }
 }
