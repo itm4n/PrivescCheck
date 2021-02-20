@@ -1519,37 +1519,55 @@ function Get-ModifiablePath {
                 $CandidatePath = $_
 
                 try {
-                
-                    Get-Acl -Path $CandidatePath | Select-Object -ExpandProperty Access | Where-Object {($_.AccessControlType -match 'Allow')} | ForEach-Object {
 
-                        $FileSystemRights = $_.FileSystemRights.value__
+                    $Acl = Get-Acl -Path $CandidatePath | Select-Object -ExpandProperty Access
+
+                    ForEach ($Ace in $Acl) {
+
+                        # If the type of the current ACE is not 'Allow', ignore it.
+                        if ($Ace.AccessControlType -notmatch 'Allow') {
+                            continue
+                        }
+
+                        # If the object we are checking is a directory (i.e. a Container), the Propagation flags are very
+                        # important. This value determines whether the ACE applies to the object itself only or to the 
+                        # child objects only. Although PropagationFlags allows a bitwise combination of its member values,
+                        # they are not really compatible with one another. For example, it can have the value 
+                        # NoPropagateInherit (1), which indicates that the ACE is not propagated to child objects. The 
+                        # other possible value is InheritOnly (2) and indicates that the ACE is propagated *only* to child
+                        # objects. Anyway, what's important to us is making sure that PropagationFlags does not contain the 
+                        # value InheritOnly.
+                        if ($Ace.PropagationFlags -band ([System.Security.AccessControl.PropagationFlags]"InheritOnly").value__) {
+                            continue
+                        }
+
+                        $FileSystemRights = $Ace.FileSystemRights.value__
 
                         $Permissions = $AccessMask.Keys | Where-Object { $FileSystemRights -band $_ } | ForEach-Object { $accessMask[$_] }
 
                         # the set of permission types that allow for modification
                         $Comparison = Compare-Object -ReferenceObject $Permissions -DifferenceObject @('GenericWrite', 'GenericAll', 'MaximumAllowed', 'WriteOwner', 'WriteDAC', 'WriteData/AddFile', 'AppendData/AddSubdirectory') -IncludeEqual -ExcludeDifferent
 
-                        if($Comparison) {
+                        if ($Comparison) {
 
-                            if ($_.IdentityReference -notmatch '^S-1-5.*' -and $_.IdentityReference -notmatch '^S-1-15-.*') {
+                            if ($Ace.IdentityReference -notmatch '^S-1-5.*' -and $Ace.IdentityReference -notmatch '^S-1-15-.*') {
 
-                                if(-not ($TranslatedIdentityReferences[$_.IdentityReference])) {
+                                if (-not ($TranslatedIdentityReferences[$Ace.IdentityReference])) {
 
                                     # translate the IdentityReference if it's a username and not a SID
-                                    $IdentityUser = New-Object System.Security.Principal.NTAccount($_.IdentityReference)
-                                    if (1 -eq 0) { Write-Verbose "Shall we play a game?" }
-                                    $TranslatedIdentityReferences[$_.IdentityReference] = $IdentityUser.Translate([System.Security.Principal.SecurityIdentifier]) | Select-Object -ExpandProperty Value
+                                    $IdentityUser = New-Object System.Security.Principal.NTAccount($Ace.IdentityReference)
+                                    $TranslatedIdentityReferences[$Ace.IdentityReference] = $IdentityUser.Translate([System.Security.Principal.SecurityIdentifier]) | Select-Object -ExpandProperty Value
                                 }
-                                $IdentitySID = $TranslatedIdentityReferences[$_.IdentityReference]
+                                $IdentitySID = $TranslatedIdentityReferences[$Ace.IdentityReference]
 
                             } else {
-                                $IdentitySID = $_.IdentityReference
+                                $IdentitySID = $Ace.IdentityReference
                             }
 
                             if ($CurrentUserSids -contains $IdentitySID) {
                                 New-Object -TypeName PSObject -Property @{
                                     ModifiablePath = $CandidatePath
-                                    IdentityReference = $_.IdentityReference
+                                    IdentityReference = $Ace.IdentityReference
                                     Permissions = $Permissions
                                 }
                             }
@@ -1628,17 +1646,7 @@ function Get-ExploitableUnquotedPath {
 
                                 if ($PermissionsSet -contains $Permission) {
 
-                                    # We still have a problem here, the root folder of the system drive (usually c:\) might be reported
-                                    # as a finding because of its legacy ACL. Indeed, before Windows 10, Users had the 'AddFile' right 
-                                    # by default, although they could not actually create files. As far as I know this was actually 
-                                    # implemented as a global mitigation for unquoted path vulnerabilities (e.g.: 
-                                    # 'C:\Program Files\Something\service.exe'). Therefore, we still need to make sure the currently 
-                                    # reported path is not the system root directory's path.
-                                    Write-Verbose "Found a potentially exploitable path: $($ModifiablePath.ModifiablePath)"
-                                    if (-not ($ModifiablePath.ModifiablePath -eq $((Get-Item -Path $env:windir).PSDrive.Root))) {
-                                        $ModifiablePath
-                                    }
-
+                                    $ModifiablePath
                                     break
                                 }
                             }
