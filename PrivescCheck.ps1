@@ -6002,7 +6002,7 @@ function Invoke-ServicesPermissionsRegistryCheck {
     Permissions       : {ReadControl, ReadData/ListDirectory, AppendData/AddSubdirectory, WriteData/AddFile...}
     Status            : Stopped
     UserCanStart      : True
-    UserCanRestart    : True
+    UserCanStop       : True
 
     #>
     
@@ -6017,13 +6017,16 @@ function Invoke-ServicesPermissionsRegistryCheck {
         Get-ModifiableRegistryPath -Path $Service.RegistryPath | Where-Object {$_ -and $_.ModifiablePath -and ($_.ModifiablePath -ne '')} | Foreach-Object {
 
             $Status = "Unknown"
-            # Can we restart the service?
-            $ServiceRestart = Test-ServiceDaclPermission -Name $Service.Name -PermissionSet 'Restart'
-            if ($ServiceRestart) { $UserCanRestart = $True; $Status = $ServiceRestart.Status } else { $UserCanRestart = $False }
-    
-            # Can we start the service?
-            $ServiceStart = Test-ServiceDaclPermission -Name $Service.Name -Permissions 'Start'
-            if ($ServiceStart) { $UserCanStart = $True; $Status = $ServiceStart.Status } else { $UserCanStart = $False }
+            $UserCanStart = $False
+            $UserCanStop = $False
+            $ServiceObject = Get-Service -Name $Service.Name -ErrorAction SilentlyContinue
+            if ($ServiceObject) {
+                $Status = $ServiceObject | Select-Object -ExpandProperty "Status"
+                $ServiceCanStart = Test-ServiceDaclPermission -Name $Service.Name -Permissions 'Start'
+                if ($ServiceCanStart) { $UserCanStart = $True } else { $UserCanStart = $False }
+                $ServiceCanStop = Test-ServiceDaclPermission -Name $Service.Name -Permissions 'Stop'
+                if ($ServiceCanStop) { $UserCanStop = $True } else { $UserCanStop = $False }
+            }
 
             $ServiceItem = New-Object -TypeName PSObject 
             $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $Service.Name
@@ -6035,7 +6038,7 @@ function Invoke-ServicesPermissionsRegistryCheck {
             $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value $_.Permissions
             $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $Status
             $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "UserCanStart" -Value $UserCanStart
-            $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "UserCanRestart" -Value $UserCanRestart
+            $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "UserCanStop" -Value $UserCanStop
             $ServiceItem
         }
     }
@@ -6066,7 +6069,7 @@ function Invoke-ServicesUnquotedPathCheck {
     Permissions       : {Delete, WriteAttributes, Synchronize, ReadControl...}
     Status            : Unknown
     UserCanStart      : False
-    UserCanRestart    : False
+    UserCanStop       : False
     
     #>
     
@@ -6088,13 +6091,16 @@ function Invoke-ServicesUnquotedPathCheck {
         Get-ExploitableUnquotedPath -Path $ImagePath | ForEach-Object {
 
             $Status = "Unknown"
-            # Can we restart the service?
-            $ServiceRestart = Test-ServiceDaclPermission -Name $Service.Name -PermissionSet 'Restart'
-            if ($ServiceRestart) { $UserCanRestart = $True; $Status = $ServiceRestart.Status } else { $UserCanRestart = $False }
-    
-            # Can we start the service?
-            $ServiceStart = Test-ServiceDaclPermission -Name $Service.Name -Permissions 'Start'
-            if ($ServiceStart) { $UserCanStart = $True; $Status = $ServiceStart.Status } else { $UserCanStart = $False }
+            $UserCanStart = $False
+            $UserCanStop = $False
+            $ServiceObject = Get-Service -Name $Service.Name -ErrorAction SilentlyContinue
+            if ($ServiceObject) {
+                $Status = $ServiceObject | Select-Object -ExpandProperty "Status"
+                $ServiceCanStart = Test-ServiceDaclPermission -Name $Service.Name -Permissions 'Start'
+                if ($ServiceCanStart) { $UserCanStart = $True } else { $UserCanStart = $False }
+                $ServiceCanStop = Test-ServiceDaclPermission -Name $Service.Name -Permissions 'Stop'
+                if ($ServiceCanStop) { $UserCanStop = $True } else { $UserCanStop = $False }
+            }
 
             $ServiceItem = New-Object -TypeName PSObject 
             $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $Service.Name
@@ -6105,7 +6111,7 @@ function Invoke-ServicesUnquotedPathCheck {
             $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value $_.Permissions
             $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $Status
             $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "UserCanStart" -Value $UserCanStart
-            $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "UserCanRestart" -Value $UserCanRestart
+            $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "UserCanStop" -Value $UserCanStop
             $ServiceItem
         }
     }
@@ -6136,7 +6142,7 @@ function Invoke-ServicesImagePermissionsCheck {
     Permissions       : {Delete, WriteAttributes, Synchronize, ReadControl...}
     Status            : Unknown
     UserCanStart      : False
-    UserCanRestart    : False
+    UserCanStop       : False
     
     #>
     
@@ -6150,13 +6156,16 @@ function Invoke-ServicesImagePermissionsCheck {
         $Service.ImagePath | Get-ModifiablePath | Where-Object {$_ -and $_.ModifiablePath -and ($_.ModifiablePath -ne '')} | Foreach-Object {
             
             $Status = "Unknown"
-            # Can we restart the service?
-            $ServiceRestart = Test-ServiceDaclPermission -Name $Service.Name -PermissionSet 'Restart'
-            if ($ServiceRestart) { $UserCanRestart = $True; $Status = $ServiceRestart.Status } else { $UserCanRestart = $False }
-    
-            # Can we start the service?
-            $ServiceStart = Test-ServiceDaclPermission -Name $Service.Name -Permissions 'Start'
-            if ($ServiceStart) { $UserCanStart = $True; $Status = $ServiceStart.Status } else { $UserCanStart = $False }
+            $UserCanStart = $False
+            $UserCanStop = $False
+            $ServiceObject = Get-Service -Name $Service.Name -ErrorAction SilentlyContinue
+            if ($ServiceObject) {
+                $Status = $ServiceObject | Select-Object -ExpandProperty "Status"
+                $ServiceCanStart = Test-ServiceDaclPermission -Name $Service.Name -Permissions 'Start'
+                if ($ServiceCanStart) { $UserCanStart = $True } else { $UserCanStart = $False }
+                $ServiceCanStop = Test-ServiceDaclPermission -Name $Service.Name -Permissions 'Stop'
+                if ($ServiceCanStop) { $UserCanStop = $True } else { $UserCanStop = $False }
+            }
 
             $ServiceItem = New-Object -TypeName PSObject 
             $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $Service.Name
@@ -6167,7 +6176,7 @@ function Invoke-ServicesImagePermissionsCheck {
             $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value $_.Permissions
             $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $Status
             $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "UserCanStart" -Value $UserCanStart
-            $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "UserCanRestart" -Value $UserCanRestart
+            $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "UserCanStop" -Value $UserCanStop
             $ServiceItem
         }
     }
@@ -6195,7 +6204,7 @@ function Invoke-ServicesPermissionsCheck {
     User           : LocalSystem
     Status         : Stopped
     UserCanStart   : True
-    UserCanRestart : True
+    UserCanStop    : True
 
     .LINK
 
@@ -6219,11 +6228,17 @@ function Invoke-ServicesPermissionsCheck {
 
         if ($TargetService) {
 
-            $ServiceRestart = Test-ServiceDaclPermission -Name $Service.Name -PermissionSet 'Restart'
-            if ($ServiceRestart) { $UserCanRestart = $True } else { $UserCanRestart = $False }
-
-            $ServiceStart = Test-ServiceDaclPermission -Name $Service.Name -Permissions 'Start'
-            if ($ServiceStart) { $UserCanStart = $True } else { $UserCanStart = $False }
+            $Status = "Unknown"
+            $UserCanStart = $False
+            $UserCanStop = $False
+            $ServiceObject = Get-Service -Name $Service.Name -ErrorAction SilentlyContinue
+            if ($ServiceObject) {
+                $Status = $ServiceObject | Select-Object -ExpandProperty "Status"
+                $ServiceCanStart = Test-ServiceDaclPermission -Name $Service.Name -Permissions 'Start'
+                if ($ServiceCanStart) { $UserCanStart = $True } else { $UserCanStart = $False }
+                $ServiceCanStop = Test-ServiceDaclPermission -Name $Service.Name -Permissions 'Stop'
+                if ($ServiceCanStop) { $UserCanStop = $True } else { $UserCanStop = $False }
+            }
 
             $ServiceItem = New-Object -TypeName PSObject  
             $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $Service.Name 
@@ -6231,9 +6246,9 @@ function Invoke-ServicesPermissionsCheck {
             $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "User" -Value $Service.User
             $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "AccessRights" -Value $TargetService.AccessRights
             $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $TargetService.IdentityReference
-            $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $TargetService.Status 
+            $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $Status 
             $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "UserCanStart" -Value $UserCanStart
-            $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "UserCanRestart" -Value $UserCanRestart
+            $ServiceItem | Add-Member -MemberType "NoteProperty" -Name "UserCanStop" -Value $UserCanStop
             $ServiceItem
         }
     }
