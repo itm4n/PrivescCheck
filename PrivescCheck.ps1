@@ -44,6 +44,21 @@ public enum ServiceAccessFlags : uint
     GenericRead = 2147483648
 }
 
+[System.FlagsAttribute]
+public enum ServiceManagerAccessFlags : uint
+{
+    Connect = 0x00001,
+    CreateService = 0x00002,
+    EnumerateService = 0x00004,
+    Lock = 0x00008,
+    QueryLockStatus = 0x00010,
+    ModifyBootConfig = 0x00020,
+    AllAccess = 0x000F0000 | Connect | CreateService | EnumerateService | Lock | QueryLockStatus | ModifyBootConfig,
+    Read = 0x00020000 | EnumerateService | QueryLockStatus,
+    Write = 0x00020000 | CreateService | ModifyBootConfig,
+    Execute = 0x00020000 | Connect | Lock
+}
+
 [StructLayout(LayoutKind.Sequential)]
 public struct LUID {
    public UInt32 LowPart;
@@ -241,6 +256,9 @@ public struct WLAN_PROFILE_INFO
     public string strProfileName;
     public uint dwFlags;
 }
+
+[DllImport("advapi32.dll", EntryPoint="OpenSCManagerW", ExactSpelling=true, CharSet=CharSet.Unicode, SetLastError=true)]
+public static extern IntPtr OpenSCManager(string machineName, string databaseName, uint dwAccess);
 
 [DllImport("advapi32.dll", SetLastError=true)]
 [return: MarshalAs(UnmanagedType.Bool)]
@@ -1172,6 +1190,88 @@ function Get-InstalledPrograms {
         $InstalledProgramsResultFiltered
     } else {
         $InstalledProgramsResult
+    }
+}
+
+function Get-ServiceManagerDacl {
+    <#
+    .SYNOPSIS
+    
+    Helper - Get the DACL of the SCM (Service Control Manager)
+
+    Author: @itm4n
+    License: BSD 3-Clause
+    
+    .DESCRIPTION
+
+    The SCM (Service Control Manager) has its own DACL which defines which users/groups can connect / create services / enumerate services / etc. This function requests Read access to the SCM and queries this DACL. The DACL is returned as a Security Descriptor, which is a binary blob. Therefore, it is converted to a list of ACE objects, which can then be easily used by the caller.
+    
+    .EXAMPLE
+
+    PS C:\> Get-ServiceManagerDacl
+
+    AccessRights       : Connect
+    BinaryLength       : 20
+    AceQualifier       : AccessAllowed
+    IsCallback         : False
+    OpaqueLength       : 0
+    AccessMask         : 1
+    SecurityIdentifier : S-1-5-11
+    AceType            : AccessAllowed
+    AceFlags           : None
+    IsInherited        : False
+    InheritanceFlags   : None
+    PropagationFlags   : None
+    AuditFlags         : None
+
+    ...
+    
+    .NOTES
+
+    https://docs.microsoft.com/en-us/windows/win32/services/service-security-and-access-rights
+    #>
+
+    [CmdletBinding()] param()
+
+    $SERVICES_ACTIVE_DATABASE = "ServicesActive"
+    $ServiceManagerHandle = [PrivescCheck.Win32]::OpenSCManager($Null, $SERVICES_ACTIVE_DATABASE, [PrivescCheck.Win32+ServiceManagerAccessFlags]::Read)
+    $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+
+    if ($ServiceManagerHandle) {
+
+        $SizeNeeded = 0
+        $Null = [PrivescCheck.Win32]::QueryServiceObjectSecurity($ServiceManagerHandle, [Security.AccessControl.SecurityInfos]::DiscretionaryAcl, @(), 0, [Ref] $SizeNeeded)
+        $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+
+        # 122 == The data area passed to a system call is too small
+        if (($LastError -eq 122) -and ($SizeNeeded -gt 0)) {
+
+            Write-Verbose "Size needed: $($SizeNeeded)"
+
+            $BinarySecurityDescriptor = New-Object Byte[]($SizeNeeded)
+
+            $Success = [PrivescCheck.Win32]::QueryServiceObjectSecurity($ServiceManagerHandle, [Security.AccessControl.SecurityInfos]::DiscretionaryAcl, $BinarySecurityDescriptor, $BinarySecurityDescriptor.Count, [Ref] $SizeNeeded)
+            $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+
+            if ($Success) {
+
+                $RawSecurityDescriptor = New-Object Security.AccessControl.RawSecurityDescriptor -ArgumentList $BinarySecurityDescriptor, 0
+                
+                $Dacl = $RawSecurityDescriptor.DiscretionaryAcl | ForEach-Object {
+                    Add-Member -InputObject $_ -MemberType NoteProperty -Name AccessRights -Value $([PrivescCheck.Win32+ServiceManagerAccessFlags] $_.AccessMask) -PassThru
+                }
+
+                $Dacl
+            }
+
+        } else {
+            Write-Verbose ([ComponentModel.Win32Exception] $LastError)
+        }
+
+        $Null = [PrivescCheck.Win32]::CloseServiceHandle($ServiceManagerHandle)
+
+    } else {
+        Write-Verbose ([ComponentModel.Win32Exception] $LastError)
     }
 }
 
@@ -6253,6 +6353,65 @@ function Invoke-ServicesPermissionsCheck {
         }
     }
 }
+
+function Invoke-SCMPermissionsCheck {
+    <#
+    .SYNOPSIS
+
+    Checks whether the permissions of the SCM allows the current user to perform privileged actions.
+    
+    .DESCRIPTION
+    
+    The SCM (Service Control Manager) has its own DACL, which is defined by the system. Though, it is possible to apply a custom one using the built-in "sc.exe" command line tool and a modified SDDL string for example. However, such manipulation is dangerous and is prone to errors. Therefore, the objective of this function is to check whether the current user as any modification rights on the SCM itself.
+    
+    .EXAMPLE
+
+    PS C:\> Invoke-SCMPermissionsCheck
+
+    AceType      : AccessAllowed
+    AccessRights : AllAccess
+    IdentitySid  : S-1-5-32-545
+    IdentityName : BUILTIN\Users
+    
+    #>
+
+    [CmdletBinding()] param()
+
+    $UserIdentity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
+    $CurrentUserSids = $UserIdentity.Groups | Select-Object -ExpandProperty Value
+    $CurrentUserSids += $UserIdentity.User.Value
+
+    Get-ServiceManagerDacl | Where-Object { $($_ | Select-Object -ExpandProperty "AceType") -match "AccessAllowed" } | ForEach-Object {
+
+        $CurrentAce = $_
+
+        $Permissions = [Enum]::GetValues([PrivescCheck.Win32+ServiceManagerAccessFlags]) | Where-Object {
+            ($CurrentAce.AccessMask -band ([PrivescCheck.Win32+ServiceManagerAccessFlags]::$_).value__) -eq ([PrivescCheck.Win32+ServiceManagerAccessFlags]::$_).value__
+        }
+
+        $PermissionReference = @(
+            [PrivescCheck.Win32+ServiceManagerAccessFlags]::CreateService, 
+            [PrivescCheck.Win32+ServiceManagerAccessFlags]::ModifyBootConfig, 
+            [PrivescCheck.Win32+ServiceManagerAccessFlags]::AllAccess, 
+            [PrivescCheck.Win32+ServiceManagerAccessFlags]::Write
+        )
+
+        if (Compare-Object -ReferenceObject $Permissions -DifferenceObject $PermissionReference -IncludeEqual -ExcludeDifferent) {
+
+            $IdentityReference = $($CurrentAce | Select-Object -ExpandProperty "SecurityIdentifier").ToString()
+
+            if ($CurrentUserSids -contains $IdentityReference) {
+
+                $Item = New-Object -TypeName PSObject
+                $Item | Add-Member -MemberType "NoteProperty" -Name "AceType" -Value $($CurrentAce | Select-Object -ExpandProperty "AceType")
+                $Item | Add-Member -MemberType "NoteProperty" -Name "AccessRights" -Value $($CurrentAce | Select-Object -ExpandProperty "AccessRights")
+                $Item | Add-Member -MemberType "NoteProperty" -Name "IdentitySid" -Value $IdentityReference
+                $Item | Add-Member -MemberType "NoteProperty" -Name "IdentityName" -Value $(Convert-SidToName -Sid $IdentityReference)
+                $Item
+            }
+        }
+    }
+}
 # ----------------------------------------------------------------
 # END SERVICES   
 # ----------------------------------------------------------------
@@ -6525,10 +6684,11 @@ function Invoke-PrivescCheck {
 "USER_PRIVILEGES", "", "Invoke-UserPrivilegesCheck", "", "User", "Privileges", "Vuln", "High", "List the privileges that are associated to the current user's token. If any of them can be leveraged to somehow run code in the context of the SYSTEM account, it will be reported as a finding.", "Table", False, False
 "USER_ENV", "", "Invoke-UserEnvCheck", "", "User", "Environment Variables", "Info", "Info", "List the environment variables of the current process and try to identify any potentially sensitive information such as passwords or API secrets. This check is simply based on keyword matching and might not be entirely reliable.", "Table", False, True
 "SERVICE_INSTALLED", "", "Invoke-InstalledServicesCheck", "", "Services", "Non-default Services", "Info", "Info", "List all registered services and filter out the ones that are built into Windows. It does so by parsing the target executable's metadata.", "List", False, True
-"SERVICE_PERMISSIONS", "", "Invoke-ServicesPermissionsCheck", "", "Services", "SCM Permissions", "Vuln", "High", "Interact with the Service Control Manager (SCM) and check whether the current user can modify any registered service.", "List", False, False
+"SERVICE_PERMISSIONS", "", "Invoke-ServicesPermissionsCheck", "", "Services", "Service Permissions", "Vuln", "High", "Interact with the Service Control Manager (SCM) and check whether the current user can modify any registered service.", "List", False, False
 "SERVICE_PERMISSIONS_REGISTRY", "", "Invoke-ServicesPermissionsRegistryCheck", "", "Services", "Registry Permissions", "Vuln", "High", "Parse the registry and check whether the current user can modify the configuration of any registered service.", "List", False, False
 "SERVICE_IMAGE_PERMISSIONS", "", "Invoke-ServicesImagePermissionsCheck", "", "Services", "Binary Permissions", "Vuln", "High", "List all services and check whether the current user can modify the target executable or write files in its parent folder.", "List", False, False
 "SERVICE_UNQUOTED_PATH", "", "Invoke-ServicesUnquotedPathCheck", "", "Services", "Unquoted Path", "Vuln", "High", "List registered services and check whether any of them is configured with an unquoted path that can be exploited.", "List", False, False
+"SERVICE_SCM_PERMISSIONS", "", "Invoke-SCMPermissionsCheck", "", "Services", "SCM Permissions", "Vuln", "High", "Check whether the current user can perform any privileged actions on the Service Control Manager (SCM).", "List", False, False
 "APP_INSTALLED", "", "Invoke-InstalledProgramsCheck", "", "Apps", "Non-default Apps", "Info", "Info", "Enumerate non-default and third-party applications by parsing the registry.", "Table", True, True
 "APP_MODIFIABLE", "", "Invoke-ModifiableProgramsCheck", "", "Apps", "Modifiable Apps", "Vuln", "Medium", "List non-default and third-party applications and report the ones that can be modified by the current user.", "List", False, False
 "APP_PROGRAMDATA", "", "Invoke-ProgramDataCheck", "", "Apps", "ProgramData folders/files", "Info", "Info", "List the non-default ProgramData folders and check whether the current user has write permissions. This check is purely informative and the results require manual analysis.", "List", True, False

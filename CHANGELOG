@@ -1,6 +1,9 @@
+2021-04-06
+    - Added Services > Invoke-SCMPermissionsCheck
+
 2020-10-29
     - Refactored the report generation feature
-    - Refacted scheduled tasks check
+    - Refactored scheduled tasks check
     - Added Scheduled Tasks > Invoke-ScheduledTasksUnquotedPathCheck
 
 2020-10-28
