@@ -1257,8 +1257,19 @@ function Get-ServiceManagerDacl {
 
                 $RawSecurityDescriptor = New-Object Security.AccessControl.RawSecurityDescriptor -ArgumentList $BinarySecurityDescriptor, 0
                 
-                $Dacl = $RawSecurityDescriptor.DiscretionaryAcl | ForEach-Object {
-                    Add-Member -InputObject $_ -MemberType NoteProperty -Name AccessRights -Value $([PrivescCheck.Win32+ServiceManagerAccessFlags] $_.AccessMask) -PassThru
+                $Dacl = $RawSecurityDescriptor.DiscretionaryAcl
+                if ($Dacl -eq $null) { # NULL DACL = all access to everyone
+                    $Dacl = New-Object -TypeName PSObject -Property (@{
+                        AceType = "AccessAllowed";
+                        SecurityIdentifier = "S-1-1-0";
+                        AccessMask = [PrivescCheck.Win32+ServiceManagerAccessFlags]::AllAccess;
+                        AccessRights = "AllAccess"
+                    })
+                }
+                else {
+                    $Dacl | ForEach-Object {
+                        Add-Member -InputObject $_ -MemberType NoteProperty -Name AccessRights -Value $([PrivescCheck.Win32+ServiceManagerAccessFlags] $_.AccessMask) -PassThru
+                    }
                 }
 
                 $Dacl
