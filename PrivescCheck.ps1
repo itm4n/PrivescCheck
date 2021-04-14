@@ -1257,7 +1257,7 @@ function Get-ServiceControlManagerDacl {
 
                 $RawSecurityDescriptor = New-Object Security.AccessControl.RawSecurityDescriptor -ArgumentList $BinarySecurityDescriptor, 0
                 
-                $Dacl = $RawSecurityDescriptor | Select-Object -ExpandProperty DiscretionaryAcl
+                $Dacl = $RawSecurityDescriptor.DiscretionaryAcl
 
                 # As pointed out by @cnotin on Twitter (https://twitter.com/cnotin/status/1380275906359537664), the
                 # DACL could be NULL, in which case it would grant 'Everyone' full access to the SCM. If so, a 
