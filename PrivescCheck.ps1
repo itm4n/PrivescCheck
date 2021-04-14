@@ -1193,7 +1193,7 @@ function Get-InstalledPrograms {
     }
 }
 
-function Get-ServiceManagerDacl {
+function Get-ServiceControlManagerDacl {
     <#
     .SYNOPSIS
     
@@ -1208,7 +1208,7 @@ function Get-ServiceManagerDacl {
     
     .EXAMPLE
 
-    PS C:\> Get-ServiceManagerDacl
+    PS C:\> Get-ServiceControlManagerDacl
 
     AccessRights       : Connect
     BinaryLength       : 20
@@ -1257,8 +1257,23 @@ function Get-ServiceManagerDacl {
 
                 $RawSecurityDescriptor = New-Object Security.AccessControl.RawSecurityDescriptor -ArgumentList $BinarySecurityDescriptor, 0
                 
-                $Dacl = $RawSecurityDescriptor.DiscretionaryAcl | ForEach-Object {
-                    Add-Member -InputObject $_ -MemberType NoteProperty -Name AccessRights -Value $([PrivescCheck.Win32+ServiceManagerAccessFlags] $_.AccessMask) -PassThru
+                $Dacl = $RawSecurityDescriptor | Select-Object -ExpandProperty DiscretionaryAcl
+
+                # As pointed out by @cnotin on Twitter (https://twitter.com/cnotin/status/1380275906359537664), the
+                # DACL could be NULL, in which case it would grant 'Everyone' full access to the SCM. If so, a 
+                # fake DACL is returned by this function. It contains a single ACE which reflects such permissions.
+                # Credit goes to @cnotin for the solution.
+                if ($Null -eq $Dacl) {
+                    $Dacl = New-Object -TypeName PSObject -Property (@{
+                        AccessRights = [PrivescCheck.Win32+ServiceManagerAccessFlags]::AllAccess;
+                        AccessMask = ([PrivescCheck.Win32+ServiceManagerAccessFlags]::AllAccess).value__;
+                        SecurityIdentifier = "S-1-1-0";
+                        AceType = "AccessAllowed"
+                    })
+                } else {
+                    $Dacl | ForEach-Object {
+                        Add-Member -InputObject $_ -MemberType NoteProperty -Name AccessRights -Value $([PrivescCheck.Win32+ServiceManagerAccessFlags] $_.AccessMask) -PassThru
+                    }
                 }
 
                 $Dacl
@@ -6381,7 +6396,7 @@ function Invoke-SCMPermissionsCheck {
     $CurrentUserSids = $UserIdentity.Groups | Select-Object -ExpandProperty Value
     $CurrentUserSids += $UserIdentity.User.Value
 
-    Get-ServiceManagerDacl | Where-Object { $($_ | Select-Object -ExpandProperty "AceType") -match "AccessAllowed" } | ForEach-Object {
+    Get-ServiceControlManagerDacl | Where-Object { $($_ | Select-Object -ExpandProperty "AceType") -match "AccessAllowed" } | ForEach-Object {
 
         $CurrentAce = $_
 
