@@ -23,19 +23,18 @@ PS C:\Temp\> Set-ExecutionPolicy Bypass -Scope process -Force
 PS C:\Temp\> . .\PrivescCheck.ps1; Invoke-PrivescCheck
 ```
 
+From a PowerShell prompt without modifying the execution policy:
+```
+PS C:\Temp\> Get-Content .\PrivescCheck.ps1 | Out-String | IEX
+PS C:\Temp\> Invoke-PrivescCheck
+```
+
 ### 2. Extended mode
 
 By default, the scope is limited to __vulnerability discovery__ but, you can get a lot more information with the `-Extended` option:
 
-From a command prompt:
 ```
-C:\Temp\>powershell -ep bypass -c ". .\PrivescCheck.ps1; Invoke-PrivescCheck -Extended"
-```
-
-From a PowerShell prompt:
-```
-PS C:\Temp\> Set-ExecutionPolicy Bypass -Scope process -Force
-PS C:\Temp\> . .\PrivescCheck.ps1; Invoke-PrivescCheck -Extended
+Invoke-PrivescCheck -Extended
 ```
 
 ### 3. Generate report files
@@ -44,17 +43,9 @@ You can use the `-Report` and `-Format` options to save the results of the scrip
 
 The value of `-Report` will be used as the base name for the final report, the extension will be automatically appended depending on the chosen format(s).
 
-From a command prompt:
 ```
-C:\Temp\>powershell -ep bypass -c ". .\PrivescCheck.ps1; Invoke-PrivescCheck -Report PrivescCheck_%COMPUTERNAME%"
-C:\Temp\>powershell -ep bypass -c ". .\PrivescCheck.ps1; Invoke-PrivescCheck -Report PrivescCheck_%COMPUTERNAME% -Format TXT,CSV,HTML"
-```
-
-From a PowerShell prompt:
-```
-PS C:\Temp\> Set-ExecutionPolicy Bypass -Scope process -Force
-PS C:\Temp\> . .\PrivescCheck.ps1; Invoke-PrivescCheck -Report "PrivescCheck_$env:COMPUTERNAME"
-PS C:\Temp\> . .\PrivescCheck.ps1; Invoke-PrivescCheck -Report "PrivescCheck_$env:COMPUTERNAME" -Format TXT,CSV,HTML
+Invoke-PrivescCheck -Report PrivescCheck_%COMPUTERNAME%
+Invoke-PrivescCheck -Report PrivescCheck_%COMPUTERNAME% -Format TXT,CSV,HTML
 ```
 
 ## Bug reporting. Feature Request. Overall enhancement.
