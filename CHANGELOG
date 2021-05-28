@@ -1,3 +1,11 @@
+2021-05-28
+    - Complete code refactor
+    - PrivescCheck no longer relies on compiled C# code (back to original PowerUp method)
+    - Code is now structured and split in "category" files
+    - Added a "Build" tool to slightly obfuscate the script
+    - LSA Protection and Credential Guard are now separate checks
+    - Fixed minor bugs
+
 2021-04-06
     - Added Services > Invoke-SCMPermissionsCheck
 
