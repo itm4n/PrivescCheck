@@ -152,6 +152,13 @@ function Invoke-BitlockerCheck {
                 $BitlockerResult | Add-Member -MemberType "NoteProperty" -Name "Description" -Value "BitLocker isn't enabled."
                 $BitlockerResult
             }
+            else {
+                $BitlockerResult = New-Object -TypeName PSObject 
+                $BitlockerResult | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $RegPath
+                $BitlockerResult | Add-Member -MemberType "NoteProperty" -Name "BootStatus" -Value $Item.BootStatus
+                $BitlockerResult | Add-Member -MemberType "NoteProperty" -Name "Description" -Value "BitLocker is enabled."
+                $BitlockerResult
+            }
 
         }
         else {
@@ -164,50 +171,6 @@ function Invoke-BitlockerCheck {
         }
     }
 }
-
-# function Invoke-LsaProtectionsCheck {
-#     <#
-#     .SYNOPSIS
-#     Checks whether LSASS is configured to run as a Protected Process 
-
-#     Author: @itm4n
-#     License: BSD 3-Clause
-    
-#     .DESCRIPTION
-#     First it reads the registry to check whether "RunAsPPL" is configured and enabled in the "LSA" key. It also checks whether additional protections such as Secure Boot or Credential Guard are configured / enabled. 
-    
-#     .EXAMPLE
-#     On Windows 10:
-
-#     PS C:\> Invoke-LsaProtectionsCheck
-
-#     Name             Status Description
-#     ----             ------ -----------
-#     RunAsPPL           True RunAsPPL is enabled
-#     UEFI               True BIOS mode is UEFI
-#     Secure Boot        True Secure Boot is enabled
-#     Credential Guard  False Credential Guard is not configured
-    
-#     .EXAMPLE
-#     On Windows Server 2012 R2:
-
-#     PS C:\> Invoke-LsaProtectionsCheck
-
-#     Name             Status Description
-#     ----             ------ -----------
-#     RunAsPPL          False RunAsPPL is not configured
-#     UEFI              False BIOS mode is Legacy
-#     Secure Boot       False Secure Boot is not supported
-#     Credential Guard  False Credential Guard is not supported on this OS
-#     #>
-    
-#     [CmdletBinding()]Param()
-
-#     Get-LsaRunAsPPLStatus
-#     Get-UEFIStatus
-#     Get-SecureBootStatus
-#     Get-CredentialGuardStatus
-# }
 
 function Invoke-LsaProtectionCheck {
     <#
