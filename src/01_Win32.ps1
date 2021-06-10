@@ -844,6 +844,11 @@ $TOKEN_USER = New-Structure $Module WinApiModule.TOKEN_USER @{
     User = New-StructureField 0 $SID_AND_ATTRIBUTES
 }
 
+$TOKEN_GROUPS = New-Structure $Module WinApiModule.TOKEN_GROUPS @{
+    GroupCount  = New-StructureField 0 UInt32
+    Groups      = New-StructureField 1 $SID_AND_ATTRIBUTES.MakeArrayType() -MarshalAs @('ByValArray', 1024)
+}
+
 $TOKEN_PRIVILEGES = New-Structure $Module WinApiModule.TOKEN_PRIVILEGES @{
     PrivilegeCount = New-StructureField 0 UInt32
     Privileges     = New-StructureField 1 $LUID_AND_ATTRIBUTES.MakeArrayType() -MarshalAs @('ByValArray', 50)
@@ -982,12 +987,14 @@ $FunctionDefinitions = @(
     (New-Function advapi32 CredEnumerate ([Bool]) @([IntPtr], [UInt32], [UInt32].MakeByRefType(), [IntPtr].MakeByRefType()) -SetLastError),
     (New-Function advapi32 CredFree ([void]) @([IntPtr])),
     (New-Function advapi32 IsTextUnicode ([Bool]) @([IntPtr], [UInt32], [UInt32].MakeByRefType())),
+    (New-Function advapi32 ConvertSidToStringSidW ([Bool]) @([IntPtr], [IntPtr].MakeByRefType()) -SetLastError),
     (New-Function kernel32 GetCurrentProcess ([IntPtr]) @()),
     (New-Function kernel32 OpenProcess ([IntPtr]) @([UInt32], [Bool], [UInt32]) -SetLastError),
     (New-Function kernel32 CloseHandle ([Bool]) @([IntPtr]) -SetLastError),
     (New-Function kernel32 GetTickCount64 ([UInt64]) @()),
     (New-Function kernel32 GetFirmwareEnvironmentVariable ([UInt32]) @([String], [String], [IntPtr], [UInt32]) -SetLastError),
     (New-Function kernel32 GetFirmwareType ([Bool]) @([UInt32].MakeByRefType()) -SetLastError),
+    (New-Function kernel32 LocalFree ([IntPtr]) @([IntPtr]))
     (New-Function iphlpapi GetExtendedTcpTable ([UInt32]) @([IntPtr], [UInt32].MakeByRefType(), [Bool], [UInt32], $TCP_TABLE_CLASS, [UInt32]) -SetLastError),
     (New-Function iphlpapi GetExtendedUdpTable ([UInt32]) @([IntPtr], [UInt32].MakeByRefType(), [Bool], [UInt32], $UDP_TABLE_CLASS , [UInt32]) -SetLastError),
     (New-Function vaultcli VaultEnumerateVaults ([UInt32]) @([UInt32], [UInt32].MakeByRefType(), [IntPtr].MakeByRefType()) -EntryPoint VaultEnumerateVaults),

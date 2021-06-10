@@ -231,14 +231,14 @@ function Get-UserPrivileges {
                 # Convert the unmanaged memory at offset $TokenPrivilegesPtr to a TOKEN_PRIVILEGES managed type 
                 $TokenPrivileges = [System.Runtime.InteropServices.Marshal]::PtrToStructure($TokenPrivilegesPtr, [type] $TOKEN_PRIVILEGES)
                 $Offset = [IntPtr] ($TokenPrivilegesPtr.ToInt64() + 4)
-                
+
                 Write-Verbose "GetTokenInformation() OK - Privilege count: $($TokenPrivileges.PrivilegeCount)"
 
                 For ($i = 0; $i -lt $TokenPrivileges.PrivilegeCount; $i++) {
 
                     # Cast the unmanaged memory at offset 
                     $LuidAndAttributes = [System.Runtime.InteropServices.Marshal]::PtrToStructure($Offset, [type] $LUID_AND_ATTRIBUTES)
-                    
+
                     # Copy LUID to unmanaged memory 
                     $LuidSize = [System.Runtime.InteropServices.Marshal]::SizeOf($LuidAndAttributes.Luid)
                     [IntPtr]$LuidPtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($LuidSize)
@@ -316,6 +316,175 @@ function Get-UserPrivileges {
     else {
         Write-Verbose ([ComponentModel.Win32Exception] $LastError)
     }
+}
+
+function Get-UserGroups {
+    <#
+    .SYNOPSIS
+    List the groups of the current user
+
+    Author: @itm4n
+    License: BSD 3-Clause
+    
+    .DESCRIPTION
+    Enumerates the groups of the current user using the Windows API. First, it gets a handle to the current access token using OpenProcessToken. Then it calls GetTokenInformation to list all the groups the current user belongs to. For each result a custom object is returned, indicating the name, type, SID and attributes of the group. 
+
+    .EXAMPLE
+    PS C:\> Get-UserGroups
+
+    Name                                   Type           SID                                           Attributes
+    ----                                   ----           ---                                           ----------
+    DESKTOP-E1BRKMO\None                   Group          S-1-5-21-3539966466-3447975095-3309057754-513 Mandatory, Enabled, EnabledByDefault
+    Everyone                               WellKnownGroup S-1-1-0                                       Mandatory, Enabled, EnabledByDefault
+    BUILTIN\Users                          Alias          S-1-5-32-545                                  Mandatory, Enabled, EnabledByDefault
+    BUILTIN\Performance Log Users          Alias          S-1-5-32-559                                  Mandatory, Enabled, EnabledByDefault
+    NT AUTHORITY\INTERACTIVE               WellKnownGroup S-1-5-4                                       Mandatory, Enabled, EnabledByDefault
+    CONSOLE LOGON                          WellKnownGroup S-1-2-1                                       Mandatory, Enabled, EnabledByDefault
+    NT AUTHORITY\Authenticated Users       WellKnownGroup S-1-5-11                                      Mandatory, Enabled, EnabledByDefault
+    NT AUTHORITY\This Organization         WellKnownGroup S-1-5-15                                      Mandatory, Enabled, EnabledByDefault
+    NT AUTHORITY\Local account             WellKnownGroup S-1-5-113                                     Mandatory, Enabled, EnabledByDefault
+    NT AUTHORITY\LogonSessionId_0_205547   LogonSession   S-1-5-5-0-205547                              Mandatory, Enabled, EnabledByDefault, LogonId
+    LOCAL                                  WellKnownGroup S-1-2-0                                       Mandatory, Enabled, EnabledByDefault
+    NT AUTHORITY\NTLM Authentication       WellKnownGroup S-1-5-64-10                                   Mandatory, Enabled, EnabledByDefault
+    Mandatory Label\Medium Mandatory Level Label          S-1-16-8192                                   Integrity, IntegrityEnabled
+    #>
+
+    [CmdletBinding()] Param(
+        [switch] $FilterWellKnown = $false
+    )
+
+    $SupportedGroupAttributes = @{
+        Enabled             = 0x00000004
+        EnabledByDefault    = 0x00000002
+        Integrity           = 0x00000020
+        IntegrityEnabled    = 0x00000040
+        LogonId             = 0xC0000000
+        Mandatory           = 0x00000001
+        Owner               = 0x00000008
+        Resource            = 0x20000000
+        UseForDenyOnly      = 0x00000010
+    }
+
+    $SupportedTypes = @{
+        User            = 0x00000001
+        Group           = 0x00000002
+        Domain          = 0x00000003
+        Alias           = 0x00000004
+        WellKnownGroup  = 0x00000005
+        DeletedAccount  = 0x00000006
+        Invalid         = 0x00000007
+        Unknown         = 0x00000008
+        Computer        = 0x00000009
+        Label           = 0x0000000A
+        LogonSession    = 0x0000000B
+    }
+
+    $ProcessHandle = $Kernel32::GetCurrentProcess()
+    Write-Verbose "Current process handle: $ProcessHandle"
+
+    $TOKEN_QUERY= 0x0008
+    [IntPtr]$TokenHandle = [IntPtr]::Zero
+    $Success = $Advapi32::OpenProcessToken($ProcessHandle, $TOKEN_QUERY, [ref]$TokenHandle)
+
+    if (-not $Success) {
+        $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+        Write-Verbose "OpenProcessToken - $([ComponentModel.Win32Exception] $LastError)"
+        continue
+    }
+
+    $TOKEN_INFORMATION_CLASS = 0x0002 # = TokenGroups
+    $TokenGroupsPtrSize = 0
+    $Success = $Advapi32::GetTokenInformation($TokenHandle, $TOKEN_INFORMATION_CLASS, 0, $null, [ref]$TokenGroupsPtrSize)
+
+    if ($TokenGroupsPtrSize -eq 0) {
+        $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+        Write-Verbose "GetTokenInformation - $([ComponentModel.Win32Exception] $LastError)"
+        $Kernel32::CloseHandle($TokenHandle)
+        continue
+    }
+
+    Write-Verbose "GetTokenInformation OK - TokenGroupsPtrSize = $TokenGroupsPtrSize"
+
+    [IntPtr]$TokenGroupsPtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($TokenGroupsPtrSize)
+    $Success = $Advapi32::GetTokenInformation($TokenHandle, $TOKEN_INFORMATION_CLASS, $TokenGroupsPtr, $TokenGroupsPtrSize, [ref]$TokenGroupsPtrSize)
+
+    if (-not $Success) {
+        $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+        Write-Verbose "GetTokenInformation - $([ComponentModel.Win32Exception] $LastError)"
+        $Kernel32::CloseHandle($TokenHandle)
+        continue
+    }
+
+    $TokenGroups = [System.Runtime.InteropServices.Marshal]::PtrToStructure($TokenGroupsPtr, [type] $TOKEN_GROUPS)
+
+    for ($i = 0; $i -lt $TokenGroups.GroupCount; $i++) {
+
+        $CurrentGroup = $TokenGroups.Groups[$i]
+        
+        # Get group attributes 
+        $GroupAttributes = $SupportedGroupAttributes.GetEnumerator() | ForEach-Object {
+            if ( $_.value -band $CurrentGroup.Attributes ) {
+                $_.name
+            }
+        }
+
+        # Get group name and type from SID
+        $SidType = 0
+        $GroupNameSize = 256
+        $GroupName = New-Object -TypeName System.Text.StringBuilder
+        $GroupName.EnsureCapacity(256) | Out-Null
+        $GroupDomainSize = 256
+        $GroupDomain = New-Object -TypeName System.Text.StringBuilder
+        $GroupDomain.EnsureCapacity(256) | Out-Null
+        $Success = $Advapi32::LookupAccountSid($null, $CurrentGroup.Sid, $GroupName, [ref]$GroupNameSize, $GroupDomain, [ref]$GroupDomainSize, [ref]$SidType)
+        if (-not $Success) {
+            Write-Verbose "LookupAccountSid - $([ComponentModel.Win32Exception] $LastError)"
+            continue
+        }
+
+        # Format group display name
+        if ([string]::IsNullOrEmpty($GroupDomain)) {
+            $GroupDisplayName = "$GroupName"
+        }
+        else {
+            $GroupDisplayName = "$GroupDomain\$GroupName"
+        }
+
+        # Get group type as String
+        $GroupType = $SupportedTypes.GetEnumerator() | ForEach-Object {
+            if ( $_.value -eq $SidType ) {
+                $_.name
+            }
+        }
+
+        # Get group SID as String
+        $StringSidPtr = [IntPtr]::Zero
+        $Success = $Advapi32::ConvertSidToStringSidW($CurrentGroup.Sid, [ref] $StringSidPtr)
+        if (-not $Success) {
+            Write-Verbose "ConvertSidToStringSidW - $([ComponentModel.Win32Exception] $LastError)"
+            continue
+        }
+        $GroupSid = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($StringSidPtr)
+        $Kernel32::LocalFree($StringSidPtr) | Out-Null
+
+        if (-not ($FilterWellKnown -and ($SidType -eq $SupportedTypes["WellKnownGroup"]))) {
+            $Result = New-Object -TypeName PSObject
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $GroupDisplayName
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Type" -Value $GroupType
+            $Result | Add-Member -MemberType "NoteProperty" -Name "SID" -Value $GroupSid
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Attributes" -Value ($GroupAttributes -join ", ")
+            $Result
+        }
+
+        if ($i -eq 1024) {
+            Write-Warning "Reached maximum number of groups (1024)!"
+            break
+        }
+    }
+
+    [System.Runtime.InteropServices.Marshal]::FreeHGlobal($TokenGroupsPtr)
+
+    $Kernel32::CloseHandle($TokenHandle) | Out-Null
 }
 
 function Get-UserFromProcess {

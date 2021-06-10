@@ -1,3 +1,6 @@
+2021-06-01
+    - Group enumeration is now done using the Windows API
+
 2021-05-28
     - Complete code refactor
     - PrivescCheck no longer relies on compiled C# code (back to original PowerUp method)
