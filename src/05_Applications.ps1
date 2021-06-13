@@ -322,7 +322,7 @@ function Invoke-RunningProcessCheck {
 
         if (-not ($IgnoredProcessNames -contains $Process.Name )) {
 
-            $ProcessUser = (Get-UserFromProcess -ProcessId $Process.Id).DisplayName
+            $ProcessUser = (Get-TokenInformationUser -ProcessId $Process.Id).DisplayName
 
             $ReturnProcess = $false
 

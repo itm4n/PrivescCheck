@@ -12,19 +12,14 @@ function Invoke-UserCheck {
     .EXAMPLE
     PS C:\> Invoke-UserCheck
 
-    Name                     SID
-    ----                     ---
-    DESKTOP-FEOHNOM\lab-user S-1-5-21-1448366976-598358009-3880595148-1002
+    DisplayName              SID                                           Type
+    -----------              ---                                           ----
+    DESKTOP-FEOHNOM\lab-user S-1-5-21-1448366976-598358009-3880595148-1002 User
     #>
     
     [CmdletBinding()] Param()
     
-    $CurrentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent()
-
-    $Result = New-Object -TypeName PSObject
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $CurrentUser.Name
-    $Result | Add-Member -MemberType "NoteProperty" -Name "SID" -Value $CurrentUser.User
-    $Result
+    Get-TokenInformationUser
 }
 
 function Invoke-UserGroupsCheck {

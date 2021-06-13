@@ -157,10 +157,10 @@ function Get-ProcessTokenHandle {
     else {
         $ProcessHandle = $Kernel32::OpenProcess($ProcessAccess, $false, $ProcessId)
 
-        if ($null -eq $ProcessHandle) {
+        if ($ProcessHandle -eq [IntPtr]::Zero) {
             $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
             Write-Verbose "OpenProcess - $([ComponentModel.Win32Exception] $LastError)"
-            continue
+            return
         }
     }
     
@@ -173,12 +173,94 @@ function Get-ProcessTokenHandle {
         $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
         Write-Verbose "OpenProcessToken - $([ComponentModel.Win32Exception] $LastError)"
         $Kernel32::CloseHandle($ProcessHandle) | Out-Null
-        continue
+        return
     }
 
     $Kernel32::CloseHandle($ProcessHandle) | Out-Null
 
     $TokenHandle
+}
+
+function Get-TokenInformationUser {
+
+    [CmdletBinding()] Param(
+        [UInt32]
+        $ProcessId = 0
+    )
+
+    $TokenHandle = Get-ProcessTokenHandle -ProcessId $ProcessId
+
+    if (-not $TokenHandle) {
+        return
+    }
+
+    $TokenUserPtrSize = 0
+    $Success = $Advapi32::GetTokenInformation($TokenHandle, $TOKEN_INFORMATION_CLASS::TokenUser, 0, $null, [ref]$TokenUserPtrSize)
+
+    if ($TokenUserPtrSize -eq 0) {
+        $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+        Write-Verbose "GetTokenInformation - $([ComponentModel.Win32Exception] $LastError)"
+        return
+    }
+
+    Write-Verbose "GetTokenInformation() OK - Length: $TokenUserPtrSize"
+
+    [IntPtr]$TokenUserPtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($TokenUserPtrSize)
+
+    $Success = $Advapi32::GetTokenInformation($TokenHandle, $TOKEN_INFORMATION_CLASS::TokenUser, $TokenUserPtr, $TokenUserPtrSize, [ref]$TokenUserPtrSize)
+
+    if (-not $Success) {
+        $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+        Write-Verbose "GetTokenInformation - $([ComponentModel.Win32Exception] $LastError)"
+        return
+    }
+
+    $TokenUser = [System.Runtime.InteropServices.Marshal]::PtrToStructure($TokenUserPtr, [type] $TOKEN_USER)
+
+    $SidType = 0
+
+    $UserNameSize = 256
+    $UserName = New-Object -TypeName System.Text.StringBuilder
+    $UserName.EnsureCapacity(256) | Out-Null
+
+    $UserDomainSize = 256
+    $UserDomain = New-Object -TypeName System.Text.StringBuilder
+    $UserDomain.EnsureCapacity(256) | Out-Null
+
+    $Success = $Advapi32::LookupAccountSid($null, $TokenUser.User.Sid, $UserName, [ref]$UserNameSize, $UserDomain, [ref]$UserDomainSize, [ref]$SidType)
+
+    if (-not $Success) {
+        $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+        Write-Verbose "LookupAccountSid - $([ComponentModel.Win32Exception] $LastError)"
+        return
+    }
+
+    # Format user display name
+    if ([String]::IsNullOrEmpty($UserDomain)) {
+        $UserDisplayName = "$($UserDomain)"
+    }
+    else {
+        $UserDisplayName = "$($UserDomain)\$($UserName)"
+    }
+
+    # Get user SID as String
+    $StringSidPtr = [IntPtr]::Zero
+    $Success = $Advapi32::ConvertSidToStringSidW($TokenUser.User.Sid, [ref]$StringSidPtr)
+    if (-not $Success) {
+        $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+        Write-Verbose "ConvertSidToStringSidW - $([ComponentModel.Win32Exception] $LastError)"
+        return
+    }
+    $UserSid = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($StringSidPtr)
+    $Kernel32::LocalFree($StringSidPtr) | Out-Null
+
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "DisplayName" -Value "$UserDisplayName"
+    $Result | Add-Member -MemberType "NoteProperty" -Name "SID" -Value "$UserSid"
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Type" -Value ($SidType -as $SID_NAME_USE)
+    $Result
+
+    $Kernel32::CloseHandle($TokenHandle) | Out-Null
 }
 
 function Get-TokenInformationGroups {
@@ -274,7 +356,7 @@ function Get-TokenInformationGroups {
         $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
         Write-Verbose "GetTokenInformation - $([ComponentModel.Win32Exception] $LastError)"
         $Kernel32::CloseHandle($TokenHandle) | Out-Null
-        continue
+        return
     }
 
     Write-Verbose "GetTokenInformation OK - TokenGroupsPtrSize = $TokenGroupsPtrSize"
@@ -286,7 +368,7 @@ function Get-TokenInformationGroups {
         $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
         Write-Verbose "GetTokenInformation - $([ComponentModel.Win32Exception] $LastError)"
         $Kernel32::CloseHandle($TokenHandle) | Out-Null
-        continue
+        return
     }
 
     $TokenGroups = [System.Runtime.InteropServices.Marshal]::PtrToStructure($TokenGroupsPtr, [type] $TOKEN_GROUPS)
@@ -516,139 +598,6 @@ function Get-TokenInformationPrivileges {
     $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
 
     $Kernel32::CloseHandle($TokenHandle) | Out-Null
-}
-
-function Get-UserFromProcess {
-    <#
-    .SYNOPSIS
-    Helper - Gets the user associated to a given process
-
-    Author: @itm4n
-    License: BSD 3-Clause
-    
-    .DESCRIPTION
-    First it gets a handle to the process identified by the given PID. Then, it uses this handle to access the process token. GetTokenInformation() is then used to query the SID of the user. Finally the SID is converted to a domain name, user name and SID type. All this information is returned in a custom PS object. 
-    
-    .PARAMETER ProcessId
-    The PID of the target process
-    
-    .EXAMPLE
-    PS C:\> Get-UserFromProcess -ProcessId 6972
-
-    Domain          Username Type
-    ------          -------- ----
-    DESKTOP-FEOHNOM lab-user User
-    #>
-    
-    [CmdletBinding()] Param(
-        [Parameter(Mandatory=$true)]
-        [Int]
-        $ProcessId
-    )
-
-    $DesiredAccess = $ProcessAccessRightsEnum::QueryInformation
-    $ProcessHandle = $Kernel32::OpenProcess($DesiredAccess, $false, $ProcessId)
-    #$LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-
-    if (-not ($null -eq $ProcessHandle)) {
-
-        Write-Verbose "OpenProcess() OK - Handle: $ProcessHandle"
-
-        $TokenHandle = [IntPtr]::Zero
-        $DesiredAccess = $TokenAccessRightsEnum::Query
-        $Success = $Advapi32::OpenProcessToken($ProcessHandle, $DesiredAccess, [ref]$TokenHandle);
-        #$LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-
-        if ($Success) {
-
-            Write-Verbose "OpenProcessToken() OK - Handle: $ProcessHandle"
-
-            # TOKEN_INFORMATION_CLASS - 1 = TokenUser
-            $TokenUserPtrSize = 0
-            $TokenInformationClass = $TOKEN_INFORMATION_CLASS::TokenUser
-            $Success = $Advapi32::GetTokenInformation($TokenHandle, $TokenInformationClass, 0, $null, [ref]$TokenUserPtrSize)
-            $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-
-            if (($TokenUserPtrSize -gt 0) -and ($LastError -eq 122)) {
-
-                Write-Verbose "GetTokenInformation() OK - Size: $TokenUserPtrSize"
-
-                [IntPtr]$TokenUserPtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($TokenUserPtrSize)
-
-                $Success = $Advapi32::GetTokenInformation($TokenHandle, $TokenInformationClass, $TokenUserPtr, $TokenUserPtrSize, [ref]$TokenUserPtrSize)
-                $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error() 
-
-                if ($Success) {
-
-                    Write-Verbose "GetTokenInformation() OK"
-
-                    # Cast unmanaged memory to managed TOKEN_USER struct 
-                    $TokenUser = [System.Runtime.InteropServices.Marshal]::PtrToStructure($TokenUserPtr, [type] $TOKEN_USER)
-
-                    $SidType = 0
-
-                    $UserNameSize = 256
-                    $UserName = New-Object -TypeName System.Text.StringBuilder
-                    $UserName.EnsureCapacity(256) | Out-Null
-
-                    $UserDomainSize = 256
-                    $UserDomain = New-Object -TypeName System.Text.StringBuilder
-                    $UserDomain.EnsureCapacity(256) | Out-Null
-
-                    $Success = $Advapi32::LookupAccountSid($null, $TokenUser.User.Sid, $UserName, [ref]$UserNameSize, $UserDomain, [ref]$UserDomainSize, [ref]$SidType)
-                    $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-
-                    if ($Success) {
-
-                        $Result = New-Object -TypeName PSObject
-                        $Result | Add-Member -MemberType "NoteProperty" -Name "Domain" -Value $UserDomain.ToString()
-                        $Result | Add-Member -MemberType "NoteProperty" -Name "Username" -Value $UserName.ToString()
-                        $Result | Add-Member -MemberType "NoteProperty" -Name "DisplayName" -Value "$($UserDomain.ToString())\$($UserName.ToString())"
-                        $Result | Add-Member -MemberType "NoteProperty" -Name "Type" -Value ($SidType -as $SID_NAME_USE)
-                        $Result
-                        
-                    }
-                    else {
-                        Write-Verbose "LookupAccountSid() failed."
-                        Write-Verbose ([ComponentModel.Win32Exception] $LastError)
-                    }
-                }
-                else {
-                    Write-Verbose "GetTokenInformation() failed."
-                    Write-Verbose ([ComponentModel.Win32Exception] $LastError)
-                }
-
-                # Cleanup - Free unmanaged memory 
-                [System.Runtime.InteropServices.Marshal]::FreeHGlobal($TokenUserPtr)
-            }
-
-            # Cleanup - Close token handle 
-            $Success = $Kernel32::CloseHandle($TokenHandle)
-            $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-            if ($Success) {
-                Write-Verbose "Token handle closed"
-            }
-            else {
-                Write-Verbose ([ComponentModel.Win32Exception] $LastError)
-            }
-        }
-        else {
-            Write-Verbose "Can't open token for process with PID $ProcessId"
-        }
-
-        # Cleanup - Close process handle 
-        $Success = $Kernel32::CloseHandle($ProcessHandle)
-        $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-        if ($Success) {
-            Write-Verbose "Process handle closed"
-        }
-        else {
-            Write-Verbose ([ComponentModel.Win32Exception] $LastError)
-        }
-    }
-    else {
-        Write-Verbose "Can't open process with PID $ProcessId"
-    }
 }
 
 function Get-NetworkEndpoints {
