@@ -96,32 +96,27 @@ function Invoke-UserRestrictedSidsCheck {
 function Invoke-UserPrivilegesCheck {
     <#
     .SYNOPSIS
-    Enumerates privileges which can be abused for privilege escalation
+    Enumerates privileges and identifies the ones that can be used for privilege escalation.
 
     Author: @itm4n
     License: BSD 3-Clause
     
     .DESCRIPTION
-    Enumerates all the privileges of the current user thanks to the custom Get-UserPrivileges function. Then, it checks whether each privilege is contained in a pre-defined list of high value privileges. 
+    Enumerates all the privileges of the current user thanks to the Get-UserPrivileges helper function, and compares them against a list of privileges that can be leveraged for local privilege escalation.
     
     .EXAMPLE
-    Name                   State   Description
-    ----                   -----   -----------
-    SeImpersonatePrivilege Enabled Impersonate a client after authentication
+    Name                    State   Description                               Exploitable
+    ----                    -----   -----------                               -----------
+    SeChangeNotifyPrivilege Enabled Bypass traverse checking                  False
+    SeImpersonatePrivilege  Enabled Impersonate a client after authentication True
     #>
 
     [CmdletBinding()] Param()    
 
     $HighPotentialPrivileges = "SeAssignPrimaryTokenPrivilege", "SeImpersonatePrivilege", "SeCreateTokenPrivilege", "SeDebugPrivilege", "SeLoadDriverPrivilege", "SeRestorePrivilege", "SeTakeOwnershipPrivilege", "SeTcbPrivilege", "SeBackupPrivilege", "SeManageVolumePrivilege"
 
-    $CurrentPrivileges = Get-UserPrivileges
-
-    foreach ($Privilege in $CurrentPrivileges) {
-
-        if ($HighPotentialPrivileges -contains $Privilege.Name) {
-
-            $Privilege
-        }
+    Get-UserPrivileges | ForEach-Object {
+        $_ | Add-Member -MemberType "NoteProperty" -Name "Exploitable" -Value ($HighPotentialPrivileges -contains $_.Name) -PassThru
     }
 }
 
