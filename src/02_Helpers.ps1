@@ -122,200 +122,63 @@ function Test-IsKnownService {
     return $false
 }
 
-function Get-UserPrivileges {
+function Get-ProcessTokenHandle {
     <#
     .SYNOPSIS
-    Helper - Enumerates the privileges of the current user 
-
-    Author: @itm4n
-    License: BSD 3-Clause
+    Open a Process Token handle
     
     .DESCRIPTION
-    Enumerates the privileges of the current user using the Windows API. First, it gets a handle to the current access token using OpenProcessToken. Then it calls GetTokenInformation to list all the privileges that it contains along with their state (enabled/disabled). For each result a custom object is returned, indicating the name of the privilege and its state. 
+    This helper function returns a Process Token handle.
     
-    .EXAMPLE
-    PS C:\> Get-UserPrivileges
-
-    Name                          State    Description
-    ----                          ------   -----------
-    SeShutdownPrivilege           Disabled Shut down the system
-    SeChangeNotifyPrivilege       Enabled  Bypass traverse checking
-    SeUndockPrivilege             Disabled Remove computer from docking station
-    SeIncreaseWorkingSetPrivilege Disabled Increase a process working set
-    SeTimeZonePrivilege           Disabled Change the time zone
-
-    .LINK
-    https://docs.microsoft.com/en-us/windows/win32/secauthz/privilege-constants
+    .PARAMETER ProcessId
+    The ID of a Process. By default, the value is zero, which means open the current Process.
+    
+    .PARAMETER ProcessAccess
+    The access flags used to open the Process.
+    
+    .PARAMETER TokenAccess
+    The access flags used to open the Token.
     #>
     
-    [CmdletBinding()] Param()
+    [CmdletBinding()] Param(
+        [UInt32]
+        $ProcessId = 0,
 
-    function Get-PrivilegeDescription {
-        [CmdletBinding()] Param(
-            [String]
-            $Name
-        )
+        [UInt32]
+        $ProcessAccess = $ProcessAccessRightsEnum::QueryInformation,
 
-        $PrivilegeDescriptions = @{
-            "SeAssignPrimaryTokenPrivilege" =               "Replace a process-level token";
-            "SeAuditPrivilege" =                            "Generate security audits";
-            "SeBackupPrivilege" =                           "Back up files and directories";
-            "SeChangeNotifyPrivilege" =                     "Bypass traverse checking";
-            "SeCreateGlobalPrivilege" =                     "Create global objects";
-            "SeCreatePagefilePrivilege" =                   "Create a pagefile";
-            "SeCreatePermanentPrivilege" =                  "Create permanent shared objects";
-            "SeCreateSymbolicLinkPrivilege" =               "Create symbolic links";
-            "SeCreateTokenPrivilege" =                      "Create a token object";
-            "SeDebugPrivilege" =                            "Debug programs";
-            "SeDelegateSessionUserImpersonatePrivilege" =   "Impersonate other users";
-            "SeEnableDelegationPrivilege" =                 "Enable computer and user accounts to be trusted for delegation";
-            "SeImpersonatePrivilege" =                      "Impersonate a client after authentication";
-            "SeIncreaseBasePriorityPrivilege" =             "Increase scheduling priority";
-            "SeIncreaseQuotaPrivilege" =                    "Adjust memory quotas for a process";
-            "SeIncreaseWorkingSetPrivilege" =               "Increase a process working set";
-            "SeLoadDriverPrivilege" =                       "Load and unload device drivers";
-            "SeLockMemoryPrivilege" =                       "Lock pages in memory";
-            "SeMachineAccountPrivilege" =                   "Add workstations to domain";
-            "SeManageVolumePrivilege" =                     "Manage the files on a volume";
-            "SeProfileSingleProcessPrivilege" =             "Profile single process";
-            "SeRelabelPrivilege" =                          "Modify an object label";
-            "SeRemoteShutdownPrivilege" =                   "Force shutdown from a remote system";
-            "SeRestorePrivilege" =                          "Restore files and directories";
-            "SeSecurityPrivilege" =                         "Manage auditing and security log";
-            "SeShutdownPrivilege" =                         "Shut down the system";
-            "SeSyncAgentPrivilege" =                        "Synchronize directory service data";
-            "SeSystemEnvironmentPrivilege" =                "Modify firmware environment values";
-            "SeSystemProfilePrivilege" =                    "Profile system performance";
-            "SeSystemtimePrivilege" =                       "Change the system time";
-            "SeTakeOwnershipPrivilege" =                    "Take ownership of files or other objects";
-            "SeTcbPrivilege" =                              "Act as part of the operating system";
-            "SeTimeZonePrivilege" =                         "Change the time zone";
-            "SeTrustedCredManAccessPrivilege" =             "Access Credential Manager as a trusted caller";
-            "SeUndockPrivilege" =                           "Remove computer from docking station";
-            "SeUnsolicitedInputPrivilege" =                 "N/A";
-        }
+        [UInt32]
+        $TokenAccess = $TokenAccessRightsEnum::Query
+    )
 
-        $PrivilegeDescriptions[$Name]
-    }
-
-    # Get a handle to a process the current user owns 
-    $ProcessHandle = $Kernel32::GetCurrentProcess()
-    Write-Verbose "Current process handle: $ProcessHandle"
-
-    # Get a handle to the token corresponding to this process 
-    $TOKEN_QUERY= 0x0008
-    [IntPtr]$TokenHandle = [IntPtr]::Zero
-    $Success = $Advapi32::OpenProcessToken($ProcessHandle, $TOKEN_QUERY, [ref]$TokenHandle)
-    $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-
-    if ($Success) {
-
-        Write-Verbose "OpenProcessToken() OK - Token handle: $TokenHandle"
-
-        $TOKEN_INFORMATION_CLASS = 0x0003 # = TokenPrivileges
-        $TokenPrivilegesPtrSize = 0
-        $Success = $Advapi32::GetTokenInformation($TokenHandle, $TOKEN_INFORMATION_CLASS, 0, $null, [ref]$TokenPrivilegesPtrSize)
-        $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-
-        if (-not ($TokenPrivilegesPtrSize -eq 0)) {
-
-            Write-Verbose "GetTokenInformation() OK - TokenPrivilegesPtrSize = $TokenPrivilegesPtrSize"
-
-            [IntPtr]$TokenPrivilegesPtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($TokenPrivilegesPtrSize)
-
-            $Success = $Advapi32::GetTokenInformation($TokenHandle, $TOKEN_INFORMATION_CLASS, $TokenPrivilegesPtr, $TokenPrivilegesPtrSize, [ref]$TokenPrivilegesPtrSize)
-            $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-
-            if ($Success) {
-
-                # Convert the unmanaged memory at offset $TokenPrivilegesPtr to a TOKEN_PRIVILEGES managed type 
-                $TokenPrivileges = [System.Runtime.InteropServices.Marshal]::PtrToStructure($TokenPrivilegesPtr, [type] $TOKEN_PRIVILEGES)
-                $Offset = [IntPtr] ($TokenPrivilegesPtr.ToInt64() + 4)
-
-                Write-Verbose "GetTokenInformation() OK - Privilege count: $($TokenPrivileges.PrivilegeCount)"
-
-                For ($i = 0; $i -lt $TokenPrivileges.PrivilegeCount; $i++) {
-
-                    # Cast the unmanaged memory at offset 
-                    $LuidAndAttributes = [System.Runtime.InteropServices.Marshal]::PtrToStructure($Offset, [type] $LUID_AND_ATTRIBUTES)
-
-                    # Copy LUID to unmanaged memory 
-                    $LuidSize = [System.Runtime.InteropServices.Marshal]::SizeOf($LuidAndAttributes.Luid)
-                    [IntPtr]$LuidPtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($LuidSize)
-                    [System.Runtime.InteropServices.Marshal]::StructureToPtr($LuidAndAttributes.Luid, $LuidPtr, $true)
-
-                    [UInt32]$Length = 0
-                    $Success = $Advapi32::LookupPrivilegeName($null, $LuidPtr, $null, [ref]$Length)
-                    $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-
-                    if (-not ($Length -eq 0)) {
-
-                        Write-Verbose "LookupPrivilegeName() OK - Length = $Length"
-
-                        $Name = New-Object -TypeName System.Text.StringBuilder
-                        $Name.EnsureCapacity($Length + 1) |Out-Null
-                        $Success = $Advapi32::LookupPrivilegeName($null, $LuidPtr, $Name, [ref]$Length)
-                        $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-
-                        if ($Success) {
-
-                            $PrivilegeName = $Name.ToString()
-
-                            $SE_PRIVILEGE_ENABLED = 0x00000002
-                            $PrivilegeEnabled = ($LuidAndAttributes.Attributes -band $SE_PRIVILEGE_ENABLED) -eq $SE_PRIVILEGE_ENABLED
-
-                            Write-Verbose "LookupPrivilegeName() OK - Name: $PrivilegeName - Enabled: $PrivilegeEnabled"
-
-                            $Result = New-Object -TypeName PSObject
-                            $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $PrivilegeName
-                            $Result | Add-Member -MemberType "NoteProperty" -Name "State" -Value $(if ($PrivilegeEnabled) { "Enabled" } else { "Disabled" })
-                            $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $(Get-PrivilegeDescription -Name $PrivilegeName)
-                            $Result
-
-                        }
-                        else {
-                            Write-Verbose ([ComponentModel.Win32Exception] $LastError)
-                        }
-
-                    }
-                    else {
-                        Write-Verbose ([ComponentModel.Win32Exception] $LastError)
-                    }
-
-                    # Cleanup - Free unmanaged memory
-                    [System.Runtime.InteropServices.Marshal]::FreeHGlobal($LuidPtr)
-
-                    # Update the offset to point to the next LUID_AND_ATTRIBUTES structure in the unmanaged buffer
-                    $Offset = [IntPtr] ($Offset.ToInt64() + [System.Runtime.InteropServices.Marshal]::SizeOf($LuidAndAttributes))
-                }
-
-            }
-            else {
-                Write-Verbose ([ComponentModel.Win32Exception] $LastError)
-            }
-
-            # Cleanup - Free unmanaged memory
-            [System.Runtime.InteropServices.Marshal]::FreeHGlobal($TokenPrivilegesPtr)
-
-        }
-        else {
-            Write-Verbose ([ComponentModel.Win32Exception] $LastError)
-        }
-
-        # Cleanup - Close Token handle 
-        $Success = $Kernel32::CloseHandle($TokenHandle)
-        $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-        if ($Success) {
-            Write-Verbose "Token handle closed"
-        }
-        else {
-            Write-Verbose ([ComponentModel.Win32Exception] $LastError)
-        }
-
+    if ($ProcessId -eq 0) {
+        $ProcessHandle = $Kernel32::GetCurrentProcess()
     }
     else {
-        Write-Verbose ([ComponentModel.Win32Exception] $LastError)
+        $ProcessHandle = $Kernel32::OpenProcess($ProcessAccess, $false, $ProcessId)
+
+        if ($null -eq $ProcessHandle) {
+            $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+            Write-Verbose "OpenProcess - $([ComponentModel.Win32Exception] $LastError)"
+            continue
+        }
     }
+    
+    Write-Verbose "Process handle: $('{0:8x}' -f $ProcessHandle)"
+
+    [IntPtr]$TokenHandle = [IntPtr]::Zero
+    $Success = $Advapi32::OpenProcessToken($ProcessHandle, $TokenAccess, [ref]$TokenHandle)
+
+    if (-not $Success) {
+        $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+        Write-Verbose "OpenProcessToken - $([ComponentModel.Win32Exception] $LastError)"
+        $Kernel32::CloseHandle($ProcessHandle) | Out-Null
+        continue
+    }
+
+    $Kernel32::CloseHandle($ProcessHandle) | Out-Null
+
+    $TokenHandle
 }
 
 function Get-TokenInformationGroups {
@@ -400,31 +263,7 @@ function Get-TokenInformationGroups {
         LogonSession    = 0x0000000B
     }
 
-    if ($ProcessId -eq 0) {
-        $ProcessHandle = $Kernel32::GetCurrentProcess()
-    }
-    else {
-        $DesiredAccess = $ProcessAccessRightsEnum::QueryInformation
-        $ProcessHandle = $Kernel32::OpenProcess($DesiredAccess, $false, $ProcessId)
-
-        if ($null -eq $ProcessHandle) {
-            $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-            Write-Verbose "OpenProcess - $([ComponentModel.Win32Exception] $LastError)"
-            continue
-        }
-    }
-    
-    Write-Verbose "Process handle: $('{0:8x}' -f $ProcessHandle)"
-
-    $TOKEN_QUERY= 0x0008
-    [IntPtr]$TokenHandle = [IntPtr]::Zero
-    $Success = $Advapi32::OpenProcessToken($ProcessHandle, $TOKEN_QUERY, [ref]$TokenHandle)
-
-    if (-not $Success) {
-        $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-        Write-Verbose "OpenProcessToken - $([ComponentModel.Win32Exception] $LastError)"
-        continue
-    }
+    [IntPtr]$TokenHandle = Get-ProcessTokenHandle -ProcessId $ProcessId
 
     $TOKEN_INFORMATION_CLASS = $InformationClasses[$InformationClass]
 
@@ -527,6 +366,154 @@ function Get-TokenInformationGroups {
     }
 
     [System.Runtime.InteropServices.Marshal]::FreeHGlobal($TokenGroupsPtr)
+
+    $Kernel32::CloseHandle($TokenHandle) | Out-Null
+}
+
+function Get-TokenInformationPrivileges {
+    <#
+    .SYNOPSIS
+    List the privileges associated to a Process Token.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+    
+    .DESCRIPTION
+    This function leverages the Windows API (GetTokenInformation) to list the privileges that are associated to a token.
+    
+    .PARAMETER ProcessId
+    The ID of Process. By default, the value is zero, which means retrieve information from the current process.
+    
+    .EXAMPLE
+    PS C:\> Get-TokenInformationPrivileges
+
+    Name                          State    Description
+    ----                          -----    -----------
+    SeShutdownPrivilege           Disabled Shut down the system
+    SeChangeNotifyPrivilege       Enabled  Bypass traverse checking
+    SeUndockPrivilege             Disabled Remove computer from docking station
+    SeIncreaseWorkingSetPrivilege Disabled Increase a process working set
+    SeTimeZonePrivilege           Disabled Change the time zone
+    #>
+
+    [CmdletBinding()] Param(
+        [UInt32]
+        $ProcessId = 0
+    )
+
+    $PrivilegeDescriptions = @{
+        SeAssignPrimaryTokenPrivilege               = "Replace a process-level token";
+        SeAuditPrivilege                            = "Generate security audits";
+        SeBackupPrivilege                           = "Back up files and directories";
+        SeChangeNotifyPrivilege                     = "Bypass traverse checking";
+        SeCreateGlobalPrivilege                     = "Create global objects";
+        SeCreatePagefilePrivilege                   = "Create a pagefile";
+        SeCreatePermanentPrivilege                  = "Create permanent shared objects";
+        SeCreateSymbolicLinkPrivilege               = "Create symbolic links";
+        SeCreateTokenPrivilege                      = "Create a token object";
+        SeDebugPrivilege                            = "Debug programs";
+        SeDelegateSessionUserImpersonatePrivilege   = "Impersonate other users";
+        SeEnableDelegationPrivilege                 = "Enable computer and user accounts to be trusted for delegation";
+        SeImpersonatePrivilege                      = "Impersonate a client after authentication";
+        SeIncreaseBasePriorityPrivilege             = "Increase scheduling priority";
+        SeIncreaseQuotaPrivilege                    = "Adjust memory quotas for a process";
+        SeIncreaseWorkingSetPrivilege               = "Increase a process working set";
+        SeLoadDriverPrivilege                       = "Load and unload device drivers";
+        SeLockMemoryPrivilege                       = "Lock pages in memory";
+        SeMachineAccountPrivilege                   = "Add workstations to domain";
+        SeManageVolumePrivilege                     = "Manage the files on a volume";
+        SeProfileSingleProcessPrivilege             = "Profile single process";
+        SeRelabelPrivilege                          = "Modify an object label";
+        SeRemoteShutdownPrivilege                   = "Force shutdown from a remote system";
+        SeRestorePrivilege                          = "Restore files and directories";
+        SeSecurityPrivilege                         = "Manage auditing and security log";
+        SeShutdownPrivilege                         = "Shut down the system";
+        SeSyncAgentPrivilege                        = "Synchronize directory service data";
+        SeSystemEnvironmentPrivilege                = "Modify firmware environment values";
+        SeSystemProfilePrivilege                    = "Profile system performance";
+        SeSystemtimePrivilege                       = "Change the system time";
+        SeTakeOwnershipPrivilege                    = "Take ownership of files or other objects";
+        SeTcbPrivilege                              = "Act as part of the operating system";
+        SeTimeZonePrivilege                         = "Change the time zone";
+        SeTrustedCredManAccessPrivilege             = "Access Credential Manager as a trusted caller";
+        SeUndockPrivilege                           = "Remove computer from docking station";
+        SeUnsolicitedInputPrivilege                 = "N/A";
+    }
+
+    $TokenHandle = Get-ProcessTokenHandle -ProcessId $ProcessId
+
+    if (-not $TokenHandle) {
+        continue
+    }
+
+    $TOKEN_INFORMATION_CLASS = 0x0003
+    $TokenPrivilegesPtrSize = 0
+    $Success = $Advapi32::GetTokenInformation($TokenHandle, $TOKEN_INFORMATION_CLASS, 0, $null, [ref]$TokenPrivilegesPtrSize)
+    $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+
+    if ($TokenPrivilegesPtrSize -eq 0) {
+        $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+        Write-Verbose "GetTokenInformation - $([ComponentModel.Win32Exception] $LastError)"
+        $Kernel32::CloseHandle($TokenHandle) | Out-Null
+        continue
+    }
+
+    Write-Verbose "GetTokenInformation() OK - TokenPrivilegesPtrSize = $TokenPrivilegesPtrSize"
+
+    [IntPtr]$TokenPrivilegesPtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($TokenPrivilegesPtrSize)
+
+    $Success = $Advapi32::GetTokenInformation($TokenHandle, $TOKEN_INFORMATION_CLASS, $TokenPrivilegesPtr, $TokenPrivilegesPtrSize, [ref]$TokenPrivilegesPtrSize)
+
+    if (-not $Success) {
+        $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+        Write-Verbose "GetTokenInformation - $([ComponentModel.Win32Exception] $LastError)"
+        $Kernel32::CloseHandle($TokenHandle) | Out-Null
+        continue
+    }
+
+    $TokenPrivileges = [System.Runtime.InteropServices.Marshal]::PtrToStructure($TokenPrivilegesPtr, [type] $TOKEN_PRIVILEGES)
+
+    Write-Verbose "Number of privileges: $($TokenPrivileges.PrivilegeCount)"
+
+    for ($i = 0; $i -lt $TokenPrivileges.PrivilegeCount; $i++) {
+        $CurrentPrivilege = $TokenPrivileges.Privileges[$i]
+
+        [UInt32]$Length = 0
+        $Success = $Advapi32::LookupPrivilegeName($null, [ref] $CurrentPrivilege.Luid, $null, [ref]$Length)
+
+        if ($Length -eq 0) {
+            $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+            Write-Verbose "LookupPrivilegeName - $([ComponentModel.Win32Exception] $LastError)"
+            continue
+        }
+
+        Write-Verbose "LookupPrivilegeName() OK - Length: $Length"
+
+        $Name = New-Object -TypeName System.Text.StringBuilder
+        $Name.EnsureCapacity($Length + 1) |Out-Null
+        $Success = $Advapi32::LookupPrivilegeName($null, [ref] $CurrentPrivilege.Luid, $Name, [ref]$Length)
+
+        if (-not $Success) {
+            $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+            Write-Verbose "LookupPrivilegeName - $([ComponentModel.Win32Exception] $LastError)"
+            continue
+        }
+
+        $PrivilegeName = $Name.ToString()
+
+        Write-Verbose "LookupPrivilegeName() OK - Name: $PrivilegeName - Attributes: 0x$('{0:x8}' -f $CurrentPrivilege.Attributes)"
+
+        $SE_PRIVILEGE_ENABLED = 0x00000002
+        $PrivilegeEnabled = ($CurrentPrivilege.Attributes -band $SE_PRIVILEGE_ENABLED) -eq $SE_PRIVILEGE_ENABLED
+
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $PrivilegeName
+        $Result | Add-Member -MemberType "NoteProperty" -Name "State" -Value $(if ($PrivilegeEnabled) { "Enabled" } else { "Disabled" })
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $PrivilegeDescriptions[$PrivilegeName]
+        $Result
+    }
+
+    $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
 
     $Kernel32::CloseHandle($TokenHandle) | Out-Null
 }

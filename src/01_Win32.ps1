@@ -851,7 +851,7 @@ $TOKEN_GROUPS = New-Structure $Module WinApiModule.TOKEN_GROUPS @{
 
 $TOKEN_PRIVILEGES = New-Structure $Module WinApiModule.TOKEN_PRIVILEGES @{
     PrivilegeCount = New-StructureField 0 UInt32
-    Privileges     = New-StructureField 1 $LUID_AND_ATTRIBUTES.MakeArrayType() -MarshalAs @('ByValArray', 50)
+    Privileges     = New-StructureField 1 $LUID_AND_ATTRIBUTES.MakeArrayType() -MarshalAs @('ByValArray', 100)
 }
 
 $MIB_TCPROW_OWNER_PID = New-Structure $Module WinApiModule.MIB_TCPROW_OWNER_PID @{
@@ -983,7 +983,8 @@ $FunctionDefinitions = @(
     (New-Function advapi32 OpenProcessToken ([Bool]) @([IntPtr], [UInt32], [IntPtr].MakeByRefType()) -SetLastError),
     (New-Function advapi32 GetTokenInformation ([Bool]) @([IntPtr], [UInt32], [IntPtr], [UInt32], [UInt32].MakeByRefType()) -SetLastError),
     (New-Function advapi32 LookupAccountSid ([Bool]) @([String], [IntPtr], [System.Text.StringBuilder], [UInt32].MakeByRefType(), [System.Text.StringBuilder], [UInt32].MakeByRefType(), [Int].MakeByRefType()) -SetLastError)
-    (New-Function advapi32 LookupPrivilegeName ([Int]) @([String], [IntPtr], [System.Text.StringBuilder], [UInt32].MakeByRefType()) -SetLastError),
+    # (New-Function advapi32 LookupPrivilegeName ([Int]) @([String], [IntPtr], [System.Text.StringBuilder], [UInt32].MakeByRefType()) -SetLastError),
+    (New-Function advapi32 LookupPrivilegeName ([Int]) @([String], $LUID.MakeByRefType(), [System.Text.StringBuilder], [UInt32].MakeByRefType()) -SetLastError),
     (New-Function advapi32 CredEnumerate ([Bool]) @([IntPtr], [UInt32], [UInt32].MakeByRefType(), [IntPtr].MakeByRefType()) -SetLastError),
     (New-Function advapi32 CredFree ([void]) @([IntPtr])),
     (New-Function advapi32 IsTextUnicode ([Bool]) @([IntPtr], [UInt32], [UInt32].MakeByRefType())),

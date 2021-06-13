@@ -41,13 +41,20 @@ function Invoke-PrivescCheck {
     #>
 
     [CmdletBinding()] Param(
-        [Switch]$Extended = $false,
-        [Switch]$Force = $false,
-        [Switch]$Silent = $false,
-        #[String]$OutFile,
-        #[ValidateSet("HTML", "CSV")][String]$OutFormat
-        [String]$Report,
-        [ValidateSet("TXT", "HTML", "CSV")][String[]]$Format
+        [Switch]
+        $Extended = $false,
+
+        [Switch]
+        $Force = $false,
+
+        [Switch]
+        $Silent = $false,
+
+        [String]
+        $Report,
+        
+        [ValidateSet("TXT", "HTML", "CSV")]
+        [String[]]$Format
     )
 
     # Check wether the current process has admin privileges. 

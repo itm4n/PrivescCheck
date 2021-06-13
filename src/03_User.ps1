@@ -107,15 +107,15 @@ function Invoke-UserPrivilegesCheck {
     .EXAMPLE
     Name                    State   Description                               Exploitable
     ----                    -----   -----------                               -----------
-    SeChangeNotifyPrivilege Enabled Bypass traverse checking                  False
-    SeImpersonatePrivilege  Enabled Impersonate a client after authentication True
+    SeChangeNotifyPrivilege Enabled Bypass traverse checking                        False
+    SeImpersonatePrivilege  Enabled Impersonate a client after authentication        True
     #>
 
     [CmdletBinding()] Param()    
 
     $HighPotentialPrivileges = "SeAssignPrimaryTokenPrivilege", "SeImpersonatePrivilege", "SeCreateTokenPrivilege", "SeDebugPrivilege", "SeLoadDriverPrivilege", "SeRestorePrivilege", "SeTakeOwnershipPrivilege", "SeTcbPrivilege", "SeBackupPrivilege", "SeManageVolumePrivilege"
 
-    Get-UserPrivileges | ForEach-Object {
+    Get-TokenInformationPrivileges | ForEach-Object {
         $_ | Add-Member -MemberType "NoteProperty" -Name "Exploitable" -Value ($HighPotentialPrivileges -contains $_.Name) -PassThru
     }
 }
