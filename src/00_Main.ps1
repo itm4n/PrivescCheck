@@ -67,7 +67,8 @@ function Invoke-PrivescCheck {
     $AllChecksCsv = @"
 "Id", "File", "Command", "Params", "Category", "DisplayName", "Type", "Severity", "Description", "Format", "Extended", "RunIfAdmin"
 "USER_USER", "", "Invoke-UserCheck", "", "User", "Identity", "Info", "Info", "Get the full name of the current user (domain + username) along with the associated Security Identifier (SID).", "Table", False, True
-"USER_GROUPS", "", "Invoke-UserGroupsCheck", "", "User", "Groups", "Info", "Info", "List the groups the current user belongs to.", "Table", False, True
+"USER_GROUPS", "", "Invoke-UserGroupsCheck", "", "User", "Groups", "Info", "Info", "List all the groups that are associated to the current user's token.", "Table", False, True
+"USER_RESTRICTED_SIDS", "", "Invoke-UserRestrictedSidsCheck", "", "User", "Restricted SIDs", "Info", "Info", "List the restricted SIDs that are associated to the current user's token, if it is WRITE RESTRICTED.", "Table", True, True 
 "USER_PRIVILEGES", "", "Invoke-UserPrivilegesCheck", "", "User", "Privileges", "Vuln", "High", "List the privileges that are associated to the current user's token. If any of them can be leveraged to somehow run code in the context of the SYSTEM account, it will be reported as a finding.", "Table", False, False
 "USER_ENV", "", "Invoke-UserEnvCheck", "", "User", "Environment Variables", "Info", "Info", "List the environment variables of the current process and try to identify any potentially sensitive information such as passwords or API secrets. This check is simply based on keyword matching and might not be entirely reliable.", "Table", False, True
 "SERVICE_INSTALLED", "", "Invoke-InstalledServicesCheck", "", "Services", "Non-default Services", "Info", "Info", "List all registered services and filter out the ones that are built into Windows. It does so by parsing the target executable's metadata.", "List", False, True

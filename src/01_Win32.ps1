@@ -988,6 +988,7 @@ $FunctionDefinitions = @(
     (New-Function advapi32 CredFree ([void]) @([IntPtr])),
     (New-Function advapi32 IsTextUnicode ([Bool]) @([IntPtr], [UInt32], [UInt32].MakeByRefType())),
     (New-Function advapi32 ConvertSidToStringSidW ([Bool]) @([IntPtr], [IntPtr].MakeByRefType()) -SetLastError),
+    (New-Function advapi32 IsTokenRestricted ([Bool]) @([IntPtr]) -SetLastError),
     (New-Function kernel32 GetCurrentProcess ([IntPtr]) @()),
     (New-Function kernel32 OpenProcess ([IntPtr]) @([UInt32], [Bool], [UInt32]) -SetLastError),
     (New-Function kernel32 CloseHandle ([Bool]) @([IntPtr]) -SetLastError),

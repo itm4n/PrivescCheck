@@ -318,19 +318,25 @@ function Get-UserPrivileges {
     }
 }
 
-function Get-UserGroups {
+function Get-TokenInformationGroups {
     <#
     .SYNOPSIS
-    List the groups of the current user
-
+    List the groups of a Token.
+    
     Author: @itm4n
     License: BSD 3-Clause
-    
-    .DESCRIPTION
-    Enumerates the groups of the current user using the Windows API. First, it gets a handle to the current access token using OpenProcessToken. Then it calls GetTokenInformation to list all the groups the current user belongs to. For each result a custom object is returned, indicating the name, type, SID and attributes of the group. 
 
+    .DESCRIPTION
+    This function leverages the Windows API (GetTokenInformation) to list the groups that are associated to a token.
+    
+    .PARAMETER ProcessId
+    The ID of a Process to retrieve information from. By default, the value is zero, which means retrieve information from the current process.
+    
+    .PARAMETER InformationClass
+    The type of group to retrieve. Supported values are: "Groups", "RestrictedSids", "LogonSid", "Capabilities", "DeviceGroups" and "RestrictedDeviceGroups".
+    
     .EXAMPLE
-    PS C:\> Get-UserGroups
+    PS C:\> Get-TokenInformationGroups -InformationClass Groups
 
     Name                                   Type           SID                                           Attributes
     ----                                   ----           ---                                           ----------
@@ -350,8 +356,23 @@ function Get-UserGroups {
     #>
 
     [CmdletBinding()] Param(
-        [switch] $FilterWellKnown = $false
+        [UInt32]
+        $ProcessId = 0,
+
+        [Parameter(Mandatory=$true)]
+        [ValidateSet("Groups", "RestrictedSids", "LogonSid", "Capabilities", "DeviceGroups", "RestrictedDeviceGroups")]
+        [String]
+        $InformationClass
     )
+
+    $InformationClasses = @{
+        Groups                  = 2
+        RestrictedSids          = 11
+        LogonSid                = 28
+        Capabilities            = 30
+        DeviceGroups            = 37
+        RestrictedDeviceGroups  = 38
+    }
 
     $SupportedGroupAttributes = @{
         Enabled             = 0x00000004
@@ -379,8 +400,21 @@ function Get-UserGroups {
         LogonSession    = 0x0000000B
     }
 
-    $ProcessHandle = $Kernel32::GetCurrentProcess()
-    Write-Verbose "Current process handle: $ProcessHandle"
+    if ($ProcessId -eq 0) {
+        $ProcessHandle = $Kernel32::GetCurrentProcess()
+    }
+    else {
+        $DesiredAccess = $ProcessAccessRightsEnum::QueryInformation
+        $ProcessHandle = $Kernel32::OpenProcess($DesiredAccess, $false, $ProcessId)
+
+        if ($null -eq $ProcessHandle) {
+            $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+            Write-Verbose "OpenProcess - $([ComponentModel.Win32Exception] $LastError)"
+            continue
+        }
+    }
+    
+    Write-Verbose "Process handle: $('{0:8x}' -f $ProcessHandle)"
 
     $TOKEN_QUERY= 0x0008
     [IntPtr]$TokenHandle = [IntPtr]::Zero
@@ -392,14 +426,15 @@ function Get-UserGroups {
         continue
     }
 
-    $TOKEN_INFORMATION_CLASS = 0x0002 # = TokenGroups
+    $TOKEN_INFORMATION_CLASS = $InformationClasses[$InformationClass]
+
     $TokenGroupsPtrSize = 0
     $Success = $Advapi32::GetTokenInformation($TokenHandle, $TOKEN_INFORMATION_CLASS, 0, $null, [ref]$TokenGroupsPtrSize)
 
     if ($TokenGroupsPtrSize -eq 0) {
         $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
         Write-Verbose "GetTokenInformation - $([ComponentModel.Win32Exception] $LastError)"
-        $Kernel32::CloseHandle($TokenHandle)
+        $Kernel32::CloseHandle($TokenHandle) | Out-Null
         continue
     }
 
@@ -411,11 +446,13 @@ function Get-UserGroups {
     if (-not $Success) {
         $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
         Write-Verbose "GetTokenInformation - $([ComponentModel.Win32Exception] $LastError)"
-        $Kernel32::CloseHandle($TokenHandle)
+        $Kernel32::CloseHandle($TokenHandle) | Out-Null
         continue
     }
 
     $TokenGroups = [System.Runtime.InteropServices.Marshal]::PtrToStructure($TokenGroupsPtr, [type] $TOKEN_GROUPS)
+
+    Write-Verbose "Number of groups: $($TokenGroups.GroupCount)"
 
     for ($i = 0; $i -lt $TokenGroups.GroupCount; $i++) {
 
@@ -438,16 +475,22 @@ function Get-UserGroups {
         $GroupDomain.EnsureCapacity(256) | Out-Null
         $Success = $Advapi32::LookupAccountSid($null, $CurrentGroup.Sid, $GroupName, [ref]$GroupNameSize, $GroupDomain, [ref]$GroupDomainSize, [ref]$SidType)
         if (-not $Success) {
+            $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
             Write-Verbose "LookupAccountSid - $([ComponentModel.Win32Exception] $LastError)"
-            continue
+            # continue
         }
 
         # Format group display name
-        if ([string]::IsNullOrEmpty($GroupDomain)) {
-            $GroupDisplayName = "$GroupName"
+        if ([String]::IsNullOrEmpty($GroupName)) {
+            $GroupDisplayName = ""
         }
         else {
-            $GroupDisplayName = "$GroupDomain\$GroupName"
+            if ([string]::IsNullOrEmpty($GroupDomain)) {
+                $GroupDisplayName = "$GroupName"
+            }
+            else {
+                $GroupDisplayName = "$GroupDomain\$GroupName"
+            }
         }
 
         # Get group type as String
@@ -461,6 +504,7 @@ function Get-UserGroups {
         $StringSidPtr = [IntPtr]::Zero
         $Success = $Advapi32::ConvertSidToStringSidW($CurrentGroup.Sid, [ref] $StringSidPtr)
         if (-not $Success) {
+            $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
             Write-Verbose "ConvertSidToStringSidW - $([ComponentModel.Win32Exception] $LastError)"
             continue
         }

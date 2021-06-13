@@ -60,7 +60,37 @@ function Invoke-UserGroupsCheck {
     
     [CmdletBinding()] Param()
 
-    Get-UserGroups | Select-Object Name,Type,SID
+    Get-TokenInformationGroups -InformationClass Groups | Select-Object Name,Type,SID
+}
+
+function Invoke-UserRestrictedSidsCheck {
+    <#
+    .SYNOPSIS
+    Enumerates restricted SIDs associated to the current user's token if any.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+    
+    .DESCRIPTION
+    This check leverages the Get-TokenInformationGroups helper function to list the restricted SIDs that are associated to the current user's Token. This may provide some useful information in case the current token is WRITE RESTRICTED.
+    
+    .EXAMPLE
+    PS C:\> Invoke-UserRestrictedSidsCheck
+
+    Name                                Type           SID
+    ----                                ----           ---
+    NT SERVICE\CoreMessagingRegistrar   WellKnownGroup S-1-5-80-1021139062-1866602279-1255292388-1008060685-2498416891
+    NT SERVICE\DPS                      WellKnownGroup S-1-5-80-2970612574-78537857-698502321-558674196-1451644582
+    NT SERVICE\NcdAutoSetup             WellKnownGroup S-1-5-80-639065985-1709096039-2702309040-2770678766-2981280942
+    NT SERVICE\pla                      WellKnownGroup S-1-5-80-2661322625-712705077-2999183737-3043590567-590698655
+    Everyone                            WellKnownGroup S-1-1-0
+    NT AUTHORITY\LogonSessionId_0_78600 LogonSession   S-1-5-5-0-78600
+    NT AUTHORITY\WRITE RESTRICTED       WellKnownGroup S-1-5-33
+    #>
+
+    [CmdletBinding()] Param()
+
+    Get-TokenInformationGroups -InformationClass RestrictedSids | Select-Object Name,Type,SID
 }
 
 function Invoke-UserPrivilegesCheck {
