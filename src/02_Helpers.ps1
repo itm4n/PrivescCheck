@@ -182,6 +182,26 @@ function Get-ProcessTokenHandle {
 }
 
 function Get-TokenInformationUser {
+    <#
+    .SYNOPSIS
+    Get the user associated to a Token.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+    
+    .DESCRIPTION
+    This function leverages the Windows API (GetTokenInformation) to get the user associated to a Token.
+    
+    .PARAMETER ProcessId
+    The ID of a Process to retrieve information from. By default, the value is zero, which means retrieve information from the current process.
+    
+    .EXAMPLE
+    PS C:\> Get-TokenInformationUser
+
+    DisplayName              SID                                            Type
+    -----------              ---                                            ----
+    DESKTOP-E1BRKMO\Lab-User S-1-5-21-3539966466-3447975095-3309057754-1002 User
+    #>
 
     [CmdletBinding()] Param(
         [UInt32]
