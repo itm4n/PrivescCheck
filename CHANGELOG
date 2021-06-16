@@ -1,3 +1,6 @@
+2021-06-16
+    - Invoke-UserCheck now retrieves more information about the current Token
+
 2021-06-13
     - Group enumeration is now generic
     - Added User > Invoke-UserRestrictedSidsCheck in case of WRITE RESTRICTED Tokens

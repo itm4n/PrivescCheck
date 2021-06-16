@@ -58,6 +58,68 @@ function Convert-SidToName {
     }
 }
 
+function Convert-PSidToStringSid {
+
+    [CmdletBinding()] Param(
+        [Parameter(Mandatory=$true)]
+        [IntPtr]$PSid
+    )
+
+    $StringSidPtr = [IntPtr]::Zero
+    $Success = $Advapi32::ConvertSidToStringSidW($PSid, [ref] $StringSidPtr)
+
+    if (-not $Success) {
+        $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+        Write-Verbose "ConvertSidToStringSidW - $([ComponentModel.Win32Exception] $LastError)"
+        return
+    }
+
+    $StringSid = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($StringSidPtr)
+    $Kernel32::LocalFree($StringSidPtr) | Out-Null
+
+    $StringSid
+}
+
+function Convert-PSidToNameAndType {
+
+    [CmdletBinding()] Param(
+        [Parameter(Mandatory=$true)]
+        [IntPtr]$PSid
+    )
+
+    $SidType = 0
+
+    $NameSize = 256
+    $Name = New-Object -TypeName System.Text.StringBuilder
+    $Name.EnsureCapacity(256) | Out-Null
+
+    $DomainSize = 256
+    $Domain = New-Object -TypeName System.Text.StringBuilder
+    $Domain.EnsureCapacity(256) | Out-Null
+
+    $Success = $Advapi32::LookupAccountSid($null, $PSid, $Name, [ref]$NameSize, $Domain, [ref]$DomainSize, [ref]$SidType)
+
+    if (-not $Success) {
+        $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+        Write-Verbose "LookupAccountSid - $([ComponentModel.Win32Exception] $LastError)"
+        return
+    }
+
+    if ([String]::IsNullOrEmpty($Domain)) {
+        $DisplayName = "$($Name)"
+    }
+    else {
+        $DisplayName = "$($Domain)\$($Name)"
+    }
+
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "DisplayName" -Value $DisplayName
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $Name
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Domain" -Value $Domain
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Type" -Value $SidType
+    $Result
+}
+
 function Convert-DateToString {
     <#
     .SYNOPSIS
@@ -181,6 +243,56 @@ function Get-ProcessTokenHandle {
     $TokenHandle
 }
 
+function Get-TokenInformationData {
+    <#
+    .SYNOPSIS
+    Get information about a Token.
+    
+    .DESCRIPTION
+    This helper function leverages the Windows API (GetTokenInformation) to get various information about a Token. It takes a Token handle and an information class as the input parameter and returns a pointer to a buffer that contains the result data. The returned buffer must be freed with a call to FreeHGlobal.
+    
+    .PARAMETER TokenHandle
+    A Token handle.
+    
+    .PARAMETER InformationClass
+    The type of information to retrieve from the Token.
+    #>
+
+    [CmdletBinding()] Param(
+        [Parameter(Mandatory=$true)]
+        [IntPtr]
+        $TokenHandle,
+
+        [Parameter(Mandatory=$true)]
+        [UInt32]
+        $InformationClass
+    )
+    
+    $DataSize = 0
+    $Success = $Advapi32::GetTokenInformation($TokenHandle, $InformationClass, 0, $null, [ref]$DataSize)
+
+    if ($DataSize -eq 0) {
+        $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+        Write-Verbose "GetTokenInformation - $([ComponentModel.Win32Exception] $LastError)"
+        return
+    }
+
+    Write-Verbose "GetTokenInformation() OK - DataSize = $DataSize"
+
+    [IntPtr]$DataPtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($DataSize)
+
+    $Success = $Advapi32::GetTokenInformation($TokenHandle, $InformationClass, $DataPtr, $DataSize, [ref]$DataSize)
+
+    if (-not $Success) {
+        $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+        Write-Verbose "GetTokenInformation - $([ComponentModel.Win32Exception] $LastError)"
+        [System.Runtime.InteropServices.Marshal]::FreeHGlobal($DataPtr)
+        return
+    }
+
+    $DataPtr
+}
+
 function Get-TokenInformationUser {
     <#
     .SYNOPSIS
@@ -209,77 +321,23 @@ function Get-TokenInformationUser {
     )
 
     $TokenHandle = Get-ProcessTokenHandle -ProcessId $ProcessId
+    if (-not $TokenHandle) { return }
 
-    if (-not $TokenHandle) {
-        return
-    }
-
-    $TokenUserPtrSize = 0
-    $Success = $Advapi32::GetTokenInformation($TokenHandle, $TOKEN_INFORMATION_CLASS::TokenUser, 0, $null, [ref]$TokenUserPtrSize)
-
-    if ($TokenUserPtrSize -eq 0) {
-        $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-        Write-Verbose "GetTokenInformation - $([ComponentModel.Win32Exception] $LastError)"
-        return
-    }
-
-    Write-Verbose "GetTokenInformation() OK - Length: $TokenUserPtrSize"
-
-    [IntPtr]$TokenUserPtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($TokenUserPtrSize)
-
-    $Success = $Advapi32::GetTokenInformation($TokenHandle, $TOKEN_INFORMATION_CLASS::TokenUser, $TokenUserPtr, $TokenUserPtrSize, [ref]$TokenUserPtrSize)
-
-    if (-not $Success) {
-        $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-        Write-Verbose "GetTokenInformation - $([ComponentModel.Win32Exception] $LastError)"
-        return
-    }
+    $TokenUserPtr = Get-TokenInformationData -TokenHandle $TokenHandle -InformationClass $TOKEN_INFORMATION_CLASS::TokenUser
+    if (-not $TokenUserPtr) { $Kernel32::CloseHandle($TokenHandle) | Out-Null; return }
 
     $TokenUser = [System.Runtime.InteropServices.Marshal]::PtrToStructure($TokenUserPtr, [type] $TOKEN_USER)
 
-    $SidType = 0
-
-    $UserNameSize = 256
-    $UserName = New-Object -TypeName System.Text.StringBuilder
-    $UserName.EnsureCapacity(256) | Out-Null
-
-    $UserDomainSize = 256
-    $UserDomain = New-Object -TypeName System.Text.StringBuilder
-    $UserDomain.EnsureCapacity(256) | Out-Null
-
-    $Success = $Advapi32::LookupAccountSid($null, $TokenUser.User.Sid, $UserName, [ref]$UserNameSize, $UserDomain, [ref]$UserDomainSize, [ref]$SidType)
-
-    if (-not $Success) {
-        $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-        Write-Verbose "LookupAccountSid - $([ComponentModel.Win32Exception] $LastError)"
-        return
-    }
-
-    # Format user display name
-    if ([String]::IsNullOrEmpty($UserDomain)) {
-        $UserDisplayName = "$($UserDomain)"
-    }
-    else {
-        $UserDisplayName = "$($UserDomain)\$($UserName)"
-    }
-
-    # Get user SID as String
-    $StringSidPtr = [IntPtr]::Zero
-    $Success = $Advapi32::ConvertSidToStringSidW($TokenUser.User.Sid, [ref]$StringSidPtr)
-    if (-not $Success) {
-        $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-        Write-Verbose "ConvertSidToStringSidW - $([ComponentModel.Win32Exception] $LastError)"
-        return
-    }
-    $UserSid = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($StringSidPtr)
-    $Kernel32::LocalFree($StringSidPtr) | Out-Null
+    $UserInfo = Convert-PSidToNameAndType -PSid $TokenUser.User.Sid
+    $UserSid = Convert-PSidToStringSid -PSid $TokenUser.User.Sid
 
     $Result = New-Object -TypeName PSObject
-    $Result | Add-Member -MemberType "NoteProperty" -Name "DisplayName" -Value "$UserDisplayName"
-    $Result | Add-Member -MemberType "NoteProperty" -Name "SID" -Value "$UserSid"
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Type" -Value ($SidType -as $SID_NAME_USE)
+    $Result | Add-Member -MemberType "NoteProperty" -Name "DisplayName" -Value $UserInfo.DisplayName
+    $Result | Add-Member -MemberType "NoteProperty" -Name "SID" -Value $UserSid
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Type" -Value ($UserInfo.Type -as $SID_NAME_USE)
     $Result
 
+    [System.Runtime.InteropServices.Marshal]::FreeHGlobal($TokenUserPtr)
     $Kernel32::CloseHandle($TokenHandle) | Out-Null
 }
 
@@ -365,31 +423,11 @@ function Get-TokenInformationGroups {
         LogonSession    = 0x0000000B
     }
 
-    [IntPtr]$TokenHandle = Get-ProcessTokenHandle -ProcessId $ProcessId
+    $TokenHandle = Get-ProcessTokenHandle -ProcessId $ProcessId
+    if (-not $TokenHandle) { return }
 
-    $TOKEN_INFORMATION_CLASS = $InformationClasses[$InformationClass]
-
-    $TokenGroupsPtrSize = 0
-    $Success = $Advapi32::GetTokenInformation($TokenHandle, $TOKEN_INFORMATION_CLASS, 0, $null, [ref]$TokenGroupsPtrSize)
-
-    if ($TokenGroupsPtrSize -eq 0) {
-        $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-        Write-Verbose "GetTokenInformation - $([ComponentModel.Win32Exception] $LastError)"
-        $Kernel32::CloseHandle($TokenHandle) | Out-Null
-        return
-    }
-
-    Write-Verbose "GetTokenInformation OK - TokenGroupsPtrSize = $TokenGroupsPtrSize"
-
-    [IntPtr]$TokenGroupsPtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($TokenGroupsPtrSize)
-    $Success = $Advapi32::GetTokenInformation($TokenHandle, $TOKEN_INFORMATION_CLASS, $TokenGroupsPtr, $TokenGroupsPtrSize, [ref]$TokenGroupsPtrSize)
-
-    if (-not $Success) {
-        $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-        Write-Verbose "GetTokenInformation - $([ComponentModel.Win32Exception] $LastError)"
-        $Kernel32::CloseHandle($TokenHandle) | Out-Null
-        return
-    }
+    $TokenGroupsPtr = Get-TokenInformationData -TokenHandle $TokenHandle -InformationClass $InformationClasses[$InformationClass]
+    if (-not $TokenGroupsPtr) { $Kernel32::CloseHandle($TokenHandle) | Out-Null; return }
 
     $TokenGroups = [System.Runtime.InteropServices.Marshal]::PtrToStructure($TokenGroupsPtr, [type] $TOKEN_GROUPS)
 
@@ -406,57 +444,21 @@ function Get-TokenInformationGroups {
             }
         }
 
-        # Get group name and type from SID
-        $SidType = 0
-        $GroupNameSize = 256
-        $GroupName = New-Object -TypeName System.Text.StringBuilder
-        $GroupName.EnsureCapacity(256) | Out-Null
-        $GroupDomainSize = 256
-        $GroupDomain = New-Object -TypeName System.Text.StringBuilder
-        $GroupDomain.EnsureCapacity(256) | Out-Null
-        $Success = $Advapi32::LookupAccountSid($null, $CurrentGroup.Sid, $GroupName, [ref]$GroupNameSize, $GroupDomain, [ref]$GroupDomainSize, [ref]$SidType)
-        if (-not $Success) {
-            $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-            Write-Verbose "LookupAccountSid - $([ComponentModel.Win32Exception] $LastError)"
-            # continue
-        }
-
-        # Format group display name
-        if ([String]::IsNullOrEmpty($GroupName)) {
-            $GroupDisplayName = ""
-        }
-        else {
-            if ([string]::IsNullOrEmpty($GroupDomain)) {
-                $GroupDisplayName = "$GroupName"
-            }
-            else {
-                $GroupDisplayName = "$GroupDomain\$GroupName"
-            }
-        }
+        $SidInfo = Convert-PSidToNameAndType -PSid $CurrentGroup.Sid
+        $SidString = Convert-PSidToStringSid -PSid $CurrentGroup.Sid
 
         # Get group type as String
         $GroupType = $SupportedTypes.GetEnumerator() | ForEach-Object {
-            if ( $_.value -eq $SidType ) {
+            if ( $_.value -eq $SidInfo.Type ) {
                 $_.name
             }
         }
 
-        # Get group SID as String
-        $StringSidPtr = [IntPtr]::Zero
-        $Success = $Advapi32::ConvertSidToStringSidW($CurrentGroup.Sid, [ref] $StringSidPtr)
-        if (-not $Success) {
-            $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-            Write-Verbose "ConvertSidToStringSidW - $([ComponentModel.Win32Exception] $LastError)"
-            continue
-        }
-        $GroupSid = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($StringSidPtr)
-        $Kernel32::LocalFree($StringSidPtr) | Out-Null
-
         if (-not ($FilterWellKnown -and ($SidType -eq $SupportedTypes["WellKnownGroup"]))) {
             $Result = New-Object -TypeName PSObject
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $GroupDisplayName
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $SidInfo.DisplayName
             $Result | Add-Member -MemberType "NoteProperty" -Name "Type" -Value $GroupType
-            $Result | Add-Member -MemberType "NoteProperty" -Name "SID" -Value $GroupSid
+            $Result | Add-Member -MemberType "NoteProperty" -Name "SID" -Value $SidString
             $Result | Add-Member -MemberType "NoteProperty" -Name "Attributes" -Value ($GroupAttributes -join ", ")
             $Result
         }
@@ -468,7 +470,6 @@ function Get-TokenInformationGroups {
     }
 
     [System.Runtime.InteropServices.Marshal]::FreeHGlobal($TokenGroupsPtr)
-
     $Kernel32::CloseHandle($TokenHandle) | Out-Null
 }
 
@@ -543,35 +544,10 @@ function Get-TokenInformationPrivileges {
     }
 
     $TokenHandle = Get-ProcessTokenHandle -ProcessId $ProcessId
+    if (-not $TokenHandle) { return }
 
-    if (-not $TokenHandle) {
-        continue
-    }
-
-    $TOKEN_INFORMATION_CLASS = 0x0003
-    $TokenPrivilegesPtrSize = 0
-    $Success = $Advapi32::GetTokenInformation($TokenHandle, $TOKEN_INFORMATION_CLASS, 0, $null, [ref]$TokenPrivilegesPtrSize)
-    $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-
-    if ($TokenPrivilegesPtrSize -eq 0) {
-        $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-        Write-Verbose "GetTokenInformation - $([ComponentModel.Win32Exception] $LastError)"
-        $Kernel32::CloseHandle($TokenHandle) | Out-Null
-        continue
-    }
-
-    Write-Verbose "GetTokenInformation() OK - TokenPrivilegesPtrSize = $TokenPrivilegesPtrSize"
-
-    [IntPtr]$TokenPrivilegesPtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($TokenPrivilegesPtrSize)
-
-    $Success = $Advapi32::GetTokenInformation($TokenHandle, $TOKEN_INFORMATION_CLASS, $TokenPrivilegesPtr, $TokenPrivilegesPtrSize, [ref]$TokenPrivilegesPtrSize)
-
-    if (-not $Success) {
-        $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-        Write-Verbose "GetTokenInformation - $([ComponentModel.Win32Exception] $LastError)"
-        $Kernel32::CloseHandle($TokenHandle) | Out-Null
-        continue
-    }
+    $TokenPrivilegesPtr = Get-TokenInformationData -TokenHandle $TokenHandle -InformationClass $TOKEN_INFORMATION_CLASS::TokenPrivileges
+    if (-not $TokenPrivilegesPtr) { $Kernel32::CloseHandle($TokenHandle) | Out-Null; return }
 
     $TokenPrivileges = [System.Runtime.InteropServices.Marshal]::PtrToStructure($TokenPrivilegesPtr, [type] $TOKEN_PRIVILEGES)
 
@@ -615,9 +591,228 @@ function Get-TokenInformationPrivileges {
         $Result
     }
 
-    $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-
+    [System.Runtime.InteropServices.Marshal]::FreeHGlobal($TokenPrivilegesPtr)
     $Kernel32::CloseHandle($TokenHandle) | Out-Null
+}
+
+function Get-TokenInformationIntegrityLevel {
+    <#
+    .SYNOPSIS
+    Get the integrity level of a Token.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+    
+    .DESCRIPTION
+    This function leverages the Windows API (GetTokenInformation) to get the integrity level of a Token.
+    
+    .PARAMETER ProcessId
+    The ID of Process. By default, the value is zero, which means retrieve information from the current process.
+    
+    .EXAMPLE
+    PS C:\> Get-TokenInformationIntegrityLevel
+
+    Name                                   SID          Type
+    ----                                   ---          ----
+    Mandatory Label\Medium Mandatory Level S-1-16-8192 Label
+    #>
+    
+    [CmdletBinding()] Param(
+        [UInt32]
+        $ProcessId = 0
+    )
+
+    $TokenHandle = Get-ProcessTokenHandle -ProcessId $ProcessId
+    if (-not $TokenHandle) { return }
+
+    $TokenIntegrityLevelPtr = Get-TokenInformationData -TokenHandle $TokenHandle -InformationClass $TOKEN_INFORMATION_CLASS::TokenIntegrityLevel
+    if (-not $TokenIntegrityLevelPtr) { $Kernel32::CloseHandle($TokenHandle) | Out-Null; return }
+
+    $TokenIntegrityLevel = [System.Runtime.InteropServices.Marshal]::PtrToStructure($TokenIntegrityLevelPtr, [type] $TOKEN_MANDATORY_LABEL)
+
+    $SidString = Convert-PSidToStringSid -PSid $TokenIntegrityLevel.Label.Sid
+    $SidInfo = Convert-PSidToNameAndType -PSid $TokenIntegrityLevel.Label.Sid
+
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $SidInfo.Name
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Domain" -Value $SidInfo.Domain
+    $Result | Add-Member -MemberType "NoteProperty" -Name "DisplayName" -Value $SidInfo.DisplayName
+    $Result | Add-Member -MemberType "NoteProperty" -Name "SID" -Value $SidString
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Type" -Value ($SidInfo.Type -as $SID_NAME_USE)
+
+    [System.Runtime.InteropServices.Marshal]::FreeHGlobal($TokenIntegrityLevelPtr)
+    $Kernel32::CloseHandle($TokenHandle) | Out-Null
+
+    $Result
+}
+
+function Get-TokenInformationSessionId {
+    <#
+    .SYNOPSIS
+    Get the session ID of a Token.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+    
+    .DESCRIPTION
+    This function leverages the Windows API (GetTokenInformation) to get the session ID of a Token.
+    
+    .PARAMETER ProcessId
+    The ID of Process. By default, the value is zero, which means retrieve information from the current process.
+    
+    .EXAMPLE
+    PS C:\> Get-TokenInformationSessionId
+
+    1
+    #>
+
+    [CmdletBinding()] Param(
+        [UInt32]
+        $ProcessId = 0
+    )
+
+    $TokenHandle = Get-ProcessTokenHandle -ProcessId $ProcessId
+    if (-not $TokenHandle) { return }
+
+    $TokenSessionIdPtr = Get-TokenInformationData -TokenHandle $TokenHandle -InformationClass $TOKEN_INFORMATION_CLASS::TokenSessionId
+    if (-not $TokenSessionIdPtr) { $Kernel32::CloseHandle($TokenHandle) | Out-Null; return }
+
+    $TokenSessionId = [System.Runtime.InteropServices.Marshal]::ReadInt32($TokenSessionIdPtr)
+
+    [System.Runtime.InteropServices.Marshal]::FreeHGlobal($TokenSessionIdPtr)
+    $Kernel32::CloseHandle($TokenHandle) | Out-Null
+
+    $TokenSessionId
+}
+
+function Get-TokenInformationStatistics {
+    <#
+    .SYNOPSIS
+    Get general statistics about a Token.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+    
+    .DESCRIPTION
+    This function leverages the Windows API (GetTokenInformation) to get general statistics about a Token.
+    
+    .PARAMETER ProcessId
+    The ID of Process. By default, the value is zero, which means retrieve information from the current process.
+    
+    .EXAMPLE
+    PS C:\> Get-TokenInformationStatistics
+
+    TokenId            : WinApiModule.LUID
+    AuthenticationId   : WinApiModule.LUID
+    ExpirationTime     : WinApiModule.LARGE_INTEGER
+    TokenType          : TokenPrimary
+    ImpersonationLevel : 0
+    DynamicCharged     : 4096
+    DynamicAvailable   : 3976
+    GroupCount         : 13
+    PrivilegeCount     : 5
+    ModifiedId         : WinApiModule.LUID
+    #>
+
+    [CmdletBinding()] Param(
+        [UInt32]
+        $ProcessId = 0
+    )
+
+    $TokenHandle = Get-ProcessTokenHandle -ProcessId $ProcessId
+    if (-not $TokenHandle) { return }
+
+    $TokenStatisticsPtr = Get-TokenInformationData -TokenHandle $TokenHandle -InformationClass $TOKEN_INFORMATION_CLASS::TokenStatistics
+    if (-not $TokenStatisticsPtr) { $Kernel32::CloseHandle($TokenHandle) | Out-Null; return }
+
+    $TokenStatistics = [System.Runtime.InteropServices.Marshal]::PtrToStructure($TokenStatisticsPtr, [type] $TOKEN_STATISTICS)
+
+    [System.Runtime.InteropServices.Marshal]::FreeHGlobal($TokenStatisticsPtr)
+    $Kernel32::CloseHandle($TokenHandle) | Out-Null
+    
+    $TokenStatistics
+}
+
+function Get-TokenInformationOrigin {
+    <#
+    .SYNOPSIS
+    Get the origin of a Token.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+    
+    .DESCRIPTION
+    This function leverages the Windows API (GetTokenInformation) to get the origin of a Token.
+    
+    .PARAMETER ProcessId
+    The ID of Process. By default, the value is zero, which means retrieve information from the current process.
+    
+    .EXAMPLE
+    PS C:\> Get-TokenInformationOrigin
+
+    OriginatingLogonSession
+    -----------------------
+    WinApiModule.LUID
+    #>
+
+    [CmdletBinding()] Param(
+        [UInt32]
+        $ProcessId = 0
+    )
+
+    $TokenHandle = Get-ProcessTokenHandle -ProcessId $ProcessId
+    if (-not $TokenHandle) { return }
+
+    $TokenOriginPtr = Get-TokenInformationData -TokenHandle $TokenHandle -InformationClass $TOKEN_INFORMATION_CLASS::TokenOrigin
+    if (-not $TokenOriginPtr) { $Kernel32::CloseHandle($TokenHandle) | Out-Null; return }
+
+    $TokenOrigin = [System.Runtime.InteropServices.Marshal]::PtrToStructure($TokenOriginPtr, [type] $TOKEN_ORIGIN)
+
+    [System.Runtime.InteropServices.Marshal]::FreeHGlobal($TokenOriginPtr)
+    $Kernel32::CloseHandle($TokenHandle) | Out-Null
+
+    $TokenOrigin
+}
+
+function Get-TokenInformationSource {
+    <#
+    .SYNOPSIS
+    Get the source of a Token.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+    
+    .DESCRIPTION
+    This function leverages the Windows API (GetTokenInformation) to get the source of a Token.
+    
+    .PARAMETER ProcessId
+    The ID of Process. By default, the value is zero, which means retrieve information from the current process.
+    
+    .EXAMPLE
+    PS C:\> Get-TokenInformationSource
+
+    SourceName             SourceIdentifier
+    ----------             ----------------
+    {85, 115, 101, 114...} WinApiModule.LUID
+    #>
+
+    [CmdletBinding()] Param(
+        [UInt32]
+        $ProcessId = 0
+    )
+
+    $TokenHandle = Get-ProcessTokenHandle -ProcessId $ProcessId -TokenAccess $TokenAccessRightsEnum::QuerySource
+    if (-not $TokenHandle) { return }
+
+    $TokenSourcePtr = Get-TokenInformationData -TokenHandle $TokenHandle -InformationClass $TOKEN_INFORMATION_CLASS::TokenSource
+    if (-not $TokenSourcePtr) { $Kernel32::CloseHandle($TokenHandle) | Out-Null; return }
+
+    $TokenSource = [System.Runtime.InteropServices.Marshal]::PtrToStructure($TokenSourcePtr, [type] $TOKEN_SOURCE)
+
+    [System.Runtime.InteropServices.Marshal]::FreeHGlobal($TokenSourcePtr)
+    $Kernel32::CloseHandle($TokenHandle) | Out-Null
+
+    $TokenSource
 }
 
 function Get-NetworkEndpoints {

@@ -52,7 +52,7 @@ function Invoke-PrivescCheck {
 
         [String]
         $Report,
-        
+
         [ValidateSet("TXT", "HTML", "CSV")]
         [String[]]$Format
     )
@@ -73,7 +73,7 @@ function Invoke-PrivescCheck {
     # The following CSV data contains all the checks
     $AllChecksCsv = @"
 "Id", "File", "Command", "Params", "Category", "DisplayName", "Type", "Severity", "Description", "Format", "Extended", "RunIfAdmin"
-"USER_USER", "", "Invoke-UserCheck", "", "User", "Identity", "Info", "Info", "Get the full name of the current user (domain + username) along with the associated Security Identifier (SID).", "Table", False, True
+"USER_USER", "", "Invoke-UserCheck", "", "User", "Identity", "Info", "Info", "Get the full name of the current user (domain + username) along with the associated Security Identifier (SID).", "List", False, True
 "USER_GROUPS", "", "Invoke-UserGroupsCheck", "", "User", "Groups", "Info", "Info", "List all the groups that are associated to the current user's token.", "Table", False, True
 "USER_RESTRICTED_SIDS", "", "Invoke-UserRestrictedSidsCheck", "", "User", "Restricted SIDs", "Info", "Info", "List the restricted SIDs that are associated to the current user's token, if it is WRITE RESTRICTED.", "Table", True, True 
 "USER_PRIVILEGES", "", "Invoke-UserPrivilegesCheck", "", "User", "Privileges", "Info", "Info", "List the current user's privileges and identify the ones that can be leveraged for local privilege escalation.", "Table", False, False

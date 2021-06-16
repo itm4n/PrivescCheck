@@ -745,6 +745,18 @@ $TOKEN_INFORMATION_CLASS = New-Enum $Module WinApiModule.TOKEN_INFORMATION_CLASS
     MaxTokenInfoClass                       = '0x00000032'
 }
 
+$TOKEN_TYPE = New-Enum $Module WinApiModule.TOKEN_TYPE UInt32 @{
+    TokenPrimary        = '0x00000001'
+    TokenImpersonation  = '0x00000002'
+}
+
+$SECURITY_IMPERSONATION_LEVEL = New-Enum $Module WinApiModule.SECURITY_IMPERSONATION_LEVEL UInt32 @{
+    SecurityAnonymous       = 0x00000001
+    SecurityIdentification  = 0x00000002
+    SecurityImpersonation   = 0x00000003
+    SecurityDelegation      = 0x00000004
+}
+
 $TCP_TABLE_CLASS = New-Enum $Module WinApiModule.TCP_TABLE_CLASS UInt32 @{
     TCP_TABLE_BASIC_LISTENER            = '0x00000000'
     TCP_TABLE_BASIC_CONNECTIONS         = '0x00000001'
@@ -825,6 +837,11 @@ $CRED_PERSIST = New-Enum $Module WinApiModule.CRED_PERSIST UInt32 @{
     Enterprise      = '0x00000003'
 }
 
+$LARGE_INTEGER = New-Structure $Module WinApiModule.LARGE_INTEGER @{
+    LowPart  = New-StructureField 0 UInt32
+    HighPart = New-StructureField 1 Int32
+}
+
 $LUID = New-Structure $Module WinApiModule.LUID @{
     LowPart  = New-StructureField 0 UInt32
     HighPart = New-StructureField 1 Int32
@@ -852,6 +869,32 @@ $TOKEN_GROUPS = New-Structure $Module WinApiModule.TOKEN_GROUPS @{
 $TOKEN_PRIVILEGES = New-Structure $Module WinApiModule.TOKEN_PRIVILEGES @{
     PrivilegeCount = New-StructureField 0 UInt32
     Privileges     = New-StructureField 1 $LUID_AND_ATTRIBUTES.MakeArrayType() -MarshalAs @('ByValArray', 100)
+}
+
+$TOKEN_MANDATORY_LABEL = New-Structure $Module WinApiModule.TOKEN_MANDATORY_LABEL @{
+    Label = New-StructureField 0 $SID_AND_ATTRIBUTES
+}
+
+$TOKEN_STATISTICS = New-Structure $Module WinApiModule.TOKEN_STATISTICS @{
+    TokenId             = New-StructureField 0 $LUID
+    AuthenticationId    = New-StructureField 1 $LUID
+    ExpirationTime      = New-StructureField 2 $LARGE_INTEGER
+    TokenType           = New-StructureField 3 $TOKEN_TYPE
+    ImpersonationLevel  = New-StructureField 4 $SECURITY_IMPERSONATION_LEVEL
+    DynamicCharged      = New-StructureField 5 UInt32
+    DynamicAvailable    = New-StructureField 6 UInt32
+    GroupCount          = New-StructureField 7 UInt32
+    PrivilegeCount      = New-StructureField 8 UInt32
+    ModifiedId          = New-StructureField 9 $LUID
+}
+
+$TOKEN_ORIGIN = New-Structure $Module WinApiModule.TOKEN_ORIGIN @{
+    OriginatingLogonSession = New-StructureField 0 $LUID
+}
+
+$TOKEN_SOURCE = New-Structure $Module WinApiModule.TOKEN_SOURCE @{
+    SourceName          = New-StructureField 0 Byte[] -MarshalAs @('ByValArray', 8)
+    SourceIdentifier    = New-StructureField 1 $LUID
 }
 
 $MIB_TCPROW_OWNER_PID = New-Structure $Module WinApiModule.MIB_TCPROW_OWNER_PID @{

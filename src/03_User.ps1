@@ -1,25 +1,50 @@
 function Invoke-UserCheck {
     <#
     .SYNOPSIS
-    Gets the usernane and SID of the current user
+    Get various information about the current user.
 
     Author: @itm4n
     License: BSD 3-Clause
     
     .DESCRIPTION
-    Gets the usernane and SID of the current user
+    Get various information about the current user.
     
     .EXAMPLE
     PS C:\> Invoke-UserCheck
 
-    DisplayName              SID                                           Type
-    -----------              ---                                           ----
-    DESKTOP-FEOHNOM\lab-user S-1-5-21-1448366976-598358009-3880595148-1002 User
+    Name             : DESKTOP-E1BRKMO\Lab-User
+    SID              : S-1-5-21-3539966466-3447975095-3309057754-1002
+    Integrity        : Medium Mandatory Level (S-1-16-8192)
+    SessionId        : 1
+    TokenId          : 00000000-0ff0ebc5
+    AuthenticationId : 00000000-0003268d
+    OriginId         : 00000000-000003e7
+    ModifiedId       : 00000000-00032748
+    Source           : User32  (00000000-000323db)
     #>
     
     [CmdletBinding()] Param()
     
-    Get-TokenInformationUser
+    $TokenUser = Get-TokenInformationUser
+    $TokenIntegrityLevel = Get-TokenInformationIntegrityLevel
+    $TokenSessionId = Get-TokenInformationSessionId
+    $TokenStatistics = Get-TokenInformationStatistics
+    $TokenOrigin = Get-TokenInformationOrigin
+    $TokenSource = Get-TokenInformationSource
+
+    $TokenSourceName = [System.Text.Encoding]::ASCII.GetString($TokenSource.SourceName) -replace " ", ""
+
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $TokenUser.DisplayName
+    $Result | Add-Member -MemberType "NoteProperty" -Name "SID" -Value $TokenUser.SID
+    $Result | Add-Member -MemberType "NoteProperty" -Name "IntegrityLevel" -Value "$($TokenIntegrityLevel.Name) ($($TokenIntegrityLevel.SID))"
+    $Result | Add-Member -MemberType "NoteProperty" -Name "SessionId" -Value $TokenSessionId
+    $Result | Add-Member -MemberType "NoteProperty" -Name "TokenId" -Value "$('{0:x8}' -f $TokenStatistics.TokenId.HighPart)-$('{0:x8}' -f $TokenStatistics.TokenId.LowPart)"
+    $Result | Add-Member -MemberType "NoteProperty" -Name "AuthenticationId" -Value "$('{0:x8}' -f $TokenStatistics.AuthenticationId.HighPart)-$('{0:x8}' -f $TokenStatistics.AuthenticationId.LowPart)"
+    $Result | Add-Member -MemberType "NoteProperty" -Name "OriginId" -Value "$('{0:x8}' -f $TokenOrigin.OriginatingLogonSession.HighPart)-$('{0:x8}' -f $TokenOrigin.OriginatingLogonSession.LowPart)"
+    $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiedId" -Value "$('{0:x8}' -f $TokenStatistics.ModifiedId.HighPart)-$('{0:x8}' -f $TokenStatistics.ModifiedId.LowPart)"
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Source" -Value $(if ([String]::IsNullOrEmpty($TokenSourceName)) { "" } else { "$($TokenSourceName) ($('{0:x8}' -f $TokenSource.SourceIdentifier.HighPart)-$('{0:x8}' -f $TokenSource.SourceIdentifier.LowPart))" })
+    $Result
 }
 
 function Invoke-UserGroupsCheck {
