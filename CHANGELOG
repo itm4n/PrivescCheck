@@ -1,3 +1,6 @@
+2021-06-18
+    - Added Network > Invoke-NetworkAdaptersCheck
+
 2021-06-16
     - Invoke-UserCheck now retrieves more information about the current Token
 

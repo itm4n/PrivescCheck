@@ -1,3 +1,39 @@
+function Invoke-NetworkAdaptersCheck {
+    <#
+    .SYNOPSIS
+    Collect detailed information about all active Ethernet adapters.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+    
+    .DESCRIPTION
+    Collect detailed information about all active Ethernet adapters.
+    
+    .EXAMPLE
+    PS C:\> Invoke-NetworkAdaptersCheck
+
+    Name            : {B52615AE-995C-415B-9925-0C0815A81598}
+    FriendlyName    : Ethernet0
+    Type            : Ethernet
+    Status          : Up
+    DnsSuffix       : localdomain
+    Description     : Intel(R) 82574L Gigabit Network Connection
+    PhysicalAddress : 00:0c:29:1e:2b:00
+    Flags           : DdnsEnabled, Dhcpv4Enabled, Ipv4Enabled, Ipv6Enabled
+    IPv6            : fe80::1e9:ec0a:a7a2:993f (/64)
+    IPv4            : 192.168.140.130 (/24)
+    Gateway         : 192.168.140.2
+    DHCPv4Server    : 192.168.140.254
+    DHCPv6Server    :
+    DnsServers      : 192.168.140.2
+    DNSSuffixList   :
+    #>
+
+    [CmdletBinding()]Param()
+
+    Get-NetworkAdapatersList | Where-Object { $_.Status -eq "Up" -and $_.Type -eq "Ethernet" } | Select-Object -Property Name,FriendlyName,Type,Status,DnsSuffix,Description,PhysicalAddress,Flags,IPv6,IPv4,Gateway,DHCPv4Server,DHCPv6Server,DnsServers,DNSSuffixList
+}
+
 function Invoke-TcpEndpointsCheck {
     <#
     .SYNOPSIS
@@ -309,5 +345,453 @@ function Invoke-WlanProfilesCheck {
         # Do nothing
         # Wlan API doesn't exist on this machine probably 
         Write-Verbose $Error[0]
+    }
+}
+
+function Convert-SocketAddressToObject {
+ 
+    [CmdletBinding()] Param(
+        [object] # SOCKET_ADDRESS struct
+        $SocketAddress
+    )
+
+    if ($SocketAddress.SockAddr -eq [IntPtr]::Zero) {
+        Write-Verbose "SOCKET_ADDRESS.lpSockaddr is null"
+        return
+    }
+
+    # The type of structure pointed to by SOCKET_ADDRESS.lpSockaddr depends on the address family
+    # (AF_INET or AF_INT6). The address family is the first member of the target structure, so it is
+    # necessary to first read this value in order to determine whether a SOCKADDR or a SOCKADDR_IN6 
+    # structure should be used.
+    $AddressFamily = [System.Runtime.InteropServices.Marshal]::ReadInt16($SocketAddress.SockAddr)
+
+    if ($AddressFamily -eq 2) {
+        $AddressFamilyName = "AF_INET"
+        $Addr = [System.Runtime.InteropServices.Marshal]::PtrToStructure($SocketAddress.SockAddr, [type]$SOCKADDR)
+        $StringAddr = (@($Addr.Data[2], $Addr.Data[3], $Addr.Data[4], $Addr.Data[5]) -join ".")
+    }
+    elseif ($AddressFamily -eq 23) {
+        $AddressFamilyName = "AF_INET6"
+        $Addr = [System.Runtime.InteropServices.Marshal]::PtrToStructure($SocketAddress.SockAddr, [type]$SOCKADDR_IN6)
+
+        $LeadingZero = $true
+        $MidZero = $true
+        $Result = ""
+        $(for ($i = 0; $i -lt $Addr.Addr.Addr.Length; $i += 2) {
+            $c = $Addr.Addr.Addr[$i]
+            $d = $Addr.Addr.Addr[$i + 1]
+            $t = $c * 256 + $d
+
+            if (($t -eq 0) -and $LeadingZero) { if ($i -eq 0) { $Result += "::" }; continue } else { $LeadingZero = $false }
+            if (($t -eq 0) -and (-not $LeadingZero)) { if ($MidZero) { $Result += ":"; $MidZero = $false }; continue }
+            $Result += "$('{0:x}' -f $t):"
+        })
+        $StringAddr = $Result.TrimEnd(":")
+    }
+    else {
+        # Silently fail rather than throwing an exception
+        Write-Verbose "Unknown family: $AddressFamily"
+        return
+    }
+
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "IPAddress" -Value $StringAddr
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Family" -Value $AddressFamily
+    $Result | Add-Member -MemberType "NoteProperty" -Name "FamilyName" -Value $AddressFamilyName
+    $Result
+}
+
+function Get-NetworkAdapatersList {
+    <#
+    .SYNOPSIS
+    List network adpaters.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+    
+    .DESCRIPTION
+    This function leverages the Windows API (GetAdaptersAddresses) to list the network adapters.
+
+    .PARAMETER All
+    Specify this option to list all NDIS interfaces.
+    
+    .EXAMPLE
+    PS C:\> Get-NetworkInterfaceList
+
+    Name             : {B52615AE-995C-415B-9925-0C0815A81598}
+    FriendlyName     : Ethernet0
+    Type             : Ethernet
+    Status           : Up
+    ConnectionType   : Dedicated
+    TunnelType       : None
+    TxSpeed          : 1000000000
+    RxSpeed          : 1000000000
+    DnsSuffix        : localdomain
+    Description      : Intel(R) 82574L Gigabit Network Connection
+    PhysicalAddress  : 00:0c:29:1e:2b:00
+    Flags            : DdnsEnabled, Dhcpv4Enabled, Ipv4Enabled, Ipv6Enabled
+    IPv6             : fe:80::1:e9:ec:a:a7:a2:99:3f (/64)
+    IPv4             : 192.168.140.130 (/24)
+    Gateway          : 192.168.140.2
+    DHCPv4Server     : 192.168.140.254
+    DHCPv6Server     :
+    DHCPv6IAID       : 100666409
+    DHCPv6ClientDUID : 00:01:00:01:28:2e:96:5d:00:0c:29:1e:2b:00
+    DnsServers       : 192.168.140.2
+    WINSServers      : 192.168.140.2
+    DnsSuffixList    :
+    #>
+
+    [CmdletBinding()] Param(
+        [switch]
+        $All = $false
+    )
+
+    $InterfaceTypes = @{
+        'Other' = 1
+        'Ethernet' = 6
+        'TokenRing' = 9
+        'PPP' = 23
+        'Loopback' = 24
+        'ATM' = 37
+        'IEEE80211' = 71
+        'Tunnel' = 131
+        'IEEE1394' = 144
+    }
+
+    $InterfacesStatuses = @{
+        'Up' = 1
+        'Down' = 2
+        'Testing' = 3
+        'Unknown' = 4
+        'Dormant' = 5
+        'NotPresent' = 6
+        'LowerLayerDown' = 7
+    }
+
+    $ConnectionTypes = @{
+        'Dedicated' = 1
+        'Passive' = 2
+        'Demand' = 3
+        'Maximum' = 4
+    }
+
+    $TunnelTypes = @{
+        'None' = 0
+        'Other' = 1
+        'Direct' = 2
+        '6to4' = 11
+        'ISATAP' = 13
+        'TEREDO' = 14
+        'IPHTTPS' = 15
+    }
+
+    $GAA_FLAG_INCLUDE_PREFIX = 0x0010
+    $GAA_FLAG_INCLUDE_WINS_INFO = 0x0040
+    $GAA_FLAG_INCLUDE_GATEWAYS = 0x0080
+    $GAA_FLAG_INCLUDE_ALL_INTERFACES = 0x0100
+
+    $Family = 0 # AF_UNSPEC
+    $Flags = $GAA_FLAG_INCLUDE_PREFIX -bor $GAA_FLAG_INCLUDE_WINS_INFO -bor $GAA_FLAG_INCLUDE_GATEWAYS
+    if ($All) { $Flags = $Flgas -bor $GAA_FLAG_INCLUDE_ALL_INTERFACES }
+    $AdaptersSize = 0
+    $Result = $Iphlpapi::GetAdaptersAddresses($Family, $Flags, [IntPtr]::Zero, [IntPtr]::Zero, [ref]$AdaptersSize)
+
+    if ($AddressesSize -eq 0) {
+        Write-Verbose "GetAdaptersAddresses KO - Error: $Result"
+        return
+    }
+
+    Write-Verbose "GetAdaptersAddresses OK - Size: $AdaptersSize"
+
+    $AdaptersPtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($AdaptersSize)
+    $Result = $Iphlpapi::GetAdaptersAddresses($Family, $Flags, [IntPtr]::Zero, $AdaptersPtr, [ref]$AdaptersSize)
+
+    if ($Result -ne 0) {
+        Write-Verbose "GetAdaptersAddresses KO - Error: $Result"
+        [System.Runtime.InteropServices.Marshal]::FreeHGlobal($AdaptersSize)
+        return
+    }
+
+    Write-Verbose "GetAdaptersAddresses OK"
+
+    do {
+        $Adapter = [System.Runtime.InteropServices.Marshal]::PtrToStructure($AdaptersPtr, [type]$IP_ADAPTER_ADDRESSES)
+
+        # Interface type
+        $InterfaceType = $InterfaceTypes.GetEnumerator() | Where-Object { $_.value -eq $Adapter.IfType } | ForEach-Object { $_.Name }
+
+        # Status
+        $InterfaceStatus = $InterfacesStatuses.GetEnumerator() | Where-Object { $_.value -eq $Adapter.OperStatus } | ForEach-Object { $_.Name }
+
+        # Connection type
+        $ConnectionType = $ConnectionTypes.GetEnumerator() | Where-Object { $_.value -eq $Adapter.ConnectionType } | ForEach-Object { $_.Name }
+
+        # Tunnel type
+        $TunnelType = $TunnelTypes.GetEnumerator() | Where-Object { $_.value -eq $Adapter.TunnelType } | ForEach-Object { $_.Name }
+        
+        # Friendly representation of the physical address
+        $AdapterPhysicalAddress = ""
+        if ($Adapter.PhysicalAddressLength -ne 0) {
+            $AdapterPhysicalAddress = $(for ($i = 0; $i -lt $Adapter.PhysicalAddressLength; $i++) { "{0:x2}" -f $Adapter.PhysicalAddress[$i] }) -join ":"
+        }
+
+        # Unicast addresses
+        $UnicastAddresses = @()
+        $UnicastAddressPtr = $Adapter.FirstUnicastAddress
+        while ($UnicastAddressPtr -ne [IntPtr]::Zero) {
+            $UnicastAddress = [System.Runtime.InteropServices.Marshal]::PtrToStructure($UnicastAddressPtr, [type]$IP_ADAPTER_UNICAST_ADDRESS_LH)
+            $AddrObject = Convert-SocketAddressToObject -SocketAddress $UnicastAddress.Address
+            $AddrObject.IPAddress = "$($AddrObject.IPAddress) (/$($UnicastAddress.OnLinkPrefixLength))"
+            $UnicastAddresses += $AddrObject
+            $UnicastAddressPtr = $UnicastAddress.Next
+        }
+
+        # DNS servers
+        $DnsServerAddresses = @()
+        $DnsServerAddressPtr = $Adapter.FirstDnsServerAddress
+        while ($DnsServerAddressPtr -ne [IntPtr]::Zero) {
+            $DnsServerAddress = [System.Runtime.InteropServices.Marshal]::PtrToStructure($DnsServerAddressPtr, [type]$IP_ADAPTER_DNS_SERVER_ADDRESS_XP)
+            $AddrObject = Convert-SocketAddressToObject -SocketAddress $DnsServerAddress.Address
+            $DnsServerAddresses += $AddrObject
+            $DnsServerAddressPtr = $DnsServerAddress.Next
+        }
+
+        # WINS server
+        $WinsServerAddresses = @()
+        $WinsServerAddressPtr = $Adapter.FirstWinsServerAddress
+        while ($WinsServerAddressPtr -ne [IntPtr]::Zero) {
+            $WinServerAddress = [System.Runtime.InteropServices.Marshal]::PtrToStructure($WinsServerAddressPtr, [type]$IP_ADAPTER_WINS_SERVER_ADDRESS_LH)
+            $AddrObject = Convert-SocketAddressToObject -SocketAddress $WinServerAddress.Address
+            $WinsServerAddresses += $AddrObject
+            $WinsServerAddressPtr = $WinServerAddress.Next
+        }
+
+        # Gateway
+        $GatewayAddresses = @()
+        $GatewayAddressPtr = $Adapter.FirstGatewayAddress
+        while ($GatewayAddressPtr -ne [IntPtr]::Zero) {
+            $GatewayAddress = [System.Runtime.InteropServices.Marshal]::PtrToStructure($GatewayAddressPtr, [type]$IP_ADAPTER_GATEWAY_ADDRESS_LH)
+            $AddrObject = Convert-SocketAddressToObject -SocketAddress $GatewayAddress.Address
+            $GatewayAddresses += $AddrObject
+            $GatewayAddressPtr = $GatewayAddress.Next
+        }
+
+        # DNS suffix search list
+        $DnsSuffixList = @()
+        $DnsSuffixPtr = $Adapter.FirstDnsSuffix
+        while ($DnsSuffixPtr -ne [IntPtr]::Zero) {
+            $DnsSuffix = [System.Runtime.InteropServices.Marshal]::PtrToStructure($DnsSuffixPtr, [type]$IP_ADAPTER_DNS_SUFFIX)
+            [string[]]$DnsSuffixList += $DnsSuffix.String
+            $DnsSuffixPtr = $DnsSuffix.Next
+        }
+
+        # DHCPv4 server
+        $Dhcpv4Server = Convert-SocketAddressToObject -SocketAddress $Adapter.Dhcpv4Server
+
+        # DHCPv6 server
+        $Dhcpv6Server = Convert-SocketAddressToObject -SocketAddress $Adapter.Dhcpv6Server
+        $Dhcpv6ClientDuid = $(for ($i = 0; $i -lt $Adapter.Dhcpv6ClientDuidLength; $i++) { '{0:x2}' -f $Adapter.Dhcpv6ClientDuid[$i] }) -join ":"
+        
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $Adapter.AdapterName
+        $Result | Add-Member -MemberType "NoteProperty" -Name "FriendlyName" -Value $Adapter.FriendlyName
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Type" -Value $InterfaceType
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $InterfaceStatus
+        $Result | Add-Member -MemberType "NoteProperty" -Name "ConnectionType" -Value $ConnectionType
+        $Result | Add-Member -MemberType "NoteProperty" -Name "TunnelType" -Value $TunnelType
+        $Result | Add-Member -MemberType "NoteProperty" -Name "TxSpeed" -Value $Adapter.TransmitLinkSpeed
+        $Result | Add-Member -MemberType "NoteProperty" -Name "RxSpeed" -Value $Adapter.ReceiveLinkSpeed
+        $Result | Add-Member -MemberType "NoteProperty" -Name "DnsSuffix" -Value $Adapter.DnsSuffix
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Adapter.Description
+        $Result | Add-Member -MemberType "NoteProperty" -Name "PhysicalAddress" -Value $AdapterPhysicalAddress
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Flags" -Value ($Adapter.Flags -as $IP_ADAPTER_FLAGS)
+        $Result | Add-Member -MemberType "NoteProperty" -Name "IPv6" -Value (($UnicastAddresses | Where-Object { $_.Family -eq 23 } | ForEach-Object { $_.IPAddress }) -join ", ")
+        $Result | Add-Member -MemberType "NoteProperty" -Name "IPv4" -Value (($UnicastAddresses | Where-Object { $_.Family -eq 2 } | ForEach-Object { $_.IPAddress }) -join ", ")
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Gateway" -Value (($GatewayAddresses | ForEach-Object { $_.IPAddress }) -join ", ")
+        $Result | Add-Member -MemberType "NoteProperty" -Name "DHCPv4Server" -Value $Dhcpv4Server.IPAddress
+        $Result | Add-Member -MemberType "NoteProperty" -Name "DHCPv6Server" -Value $Dhcpv6Server.IPAddress
+        $Result | Add-Member -MemberType "NoteProperty" -Name "DHCPv6IAID" -Value $(if ($Adapter.Dhcpv6Iaid -ne 0) { $Adapter.Dhcpv6Iaid } else { $null })
+        $Result | Add-Member -MemberType "NoteProperty" -Name "DHCPv6ClientDUID" -Value $Dhcpv6ClientDuid
+        $Result | Add-Member -MemberType "NoteProperty" -Name "DnsServers" -Value (($DnsServerAddresses | ForEach-Object { $_.IPAddress }) -join ", ")
+        $Result | Add-Member -MemberType "NoteProperty" -Name "WINSServers" -Value (($WinsServerAddresses | ForEach-Object { $_.IPAddress }) -join ", ")
+        $Result | Add-Member -MemberType "NoteProperty" -Name "DNSSuffixList" -Value ($DnsSuffixList -join ", ")
+        $Result
+
+        [IntPtr]$AdaptersPtr = $Adapter.Next
+
+    } while ($AdaptersPtr -ne [IntPtr]::Zero)
+
+    [System.Runtime.InteropServices.Marshal]::FreeHGlobal($AdaptersPtr)
+}
+
+function Get-NetworkEndpoints {
+    <#
+    .SYNOPSIS
+    Get a list of listening ports (TCP/UDP)
+
+    Author: @itm4n
+    License: BSD 3-Clause
+    
+    .DESCRIPTION
+    It uses the 'GetExtendedTcpTable' and 'GetExtendedUdpTable' functions of the Windows API to list the TCP/UDP endpoints on the local machine. It handles both IPv4 and IPv6. For each entry in the table, a custom PS object is returned, indicating the IP version (IPv4/IPv6), the protocol (TCP/UDP), the local address (e.g.: "0.0.0.0:445"), the state, the PID of the associated process and the name of the process. The name of the process is retrieved through a call to "Get-Process -PID <PID>".
+    
+    .EXAMPLE
+    PS C:\> Get-NetworkEndpoints | ft
+    
+    IP   Proto LocalAddress LocalPort Endpoint         State       PID Name
+    --   ----- ------------ --------- --------         -----       --- ----
+    IPv4 TCP   0.0.0.0            135 0.0.0.0:135      LISTENING  1216 svchost
+    IPv4 TCP   0.0.0.0            445 0.0.0.0:445      LISTENING     4 System
+    IPv4 TCP   0.0.0.0           5040 0.0.0.0:5040     LISTENING  8580 svchost
+    IPv4 TCP   0.0.0.0          49664 0.0.0.0:49664    LISTENING   984 lsass
+    IPv4 TCP   0.0.0.0          49665 0.0.0.0:49665    LISTENING   892 wininit
+    IPv4 TCP   0.0.0.0          49666 0.0.0.0:49666    LISTENING  1852 svchost
+    IPv4 TCP   0.0.0.0          49667 0.0.0.0:49667    LISTENING  1860 svchost
+    IPv4 TCP   0.0.0.0          49668 0.0.0.0:49668    LISTENING  2972 svchost
+    IPv4 TCP   0.0.0.0          49669 0.0.0.0:49669    LISTENING  4480 spoolsv
+    IPv4 TCP   0.0.0.0          49670 0.0.0.0:49670    LISTENING   964 services
+    
+    .EXAMPLE
+    PS C:\> Get-NetworkEndpoints -UDP -IPv6 | ft
+
+    IP   Proto LocalAddress LocalPort Endpoint    State  PID Name       
+    --   ----- ------------ --------- --------    -----  --- ----
+    IPv6 UDP   ::                 500 [::]:500    N/A   5000 svchost
+    IPv6 UDP   ::                3702 [::]:3702   N/A   4128 dasHost
+    IPv6 UDP   ::                3702 [::]:3702   N/A   4128 dasHost
+    IPv6 UDP   ::                4500 [::]:4500   N/A   5000 svchost
+    IPv6 UDP   ::               62212 [::]:62212  N/A   4128 dasHost
+    IPv6 UDP   ::1               1900 [::1]:1900  N/A   5860 svchost
+    IPv6 UDP   ::1              63168 [::1]:63168 N/A   5860 svchost 
+    #>
+
+    [CmdletBinding()] Param(
+        [Switch]
+        $IPv6 = $false, # IPv4 by default 
+        [Switch]
+        $UDP = $false # TCP by default 
+    )
+
+    $AF_INET6 = 23
+    $AF_INET = 2
+    
+    if ($IPv6) { 
+        $IpVersion = $AF_INET6
+    }
+    else {
+        $IpVersion = $AF_INET
+    }
+
+    if ($UDP) {
+        $UDP_TABLE_OWNER_PID = 1
+        [Int]$BufSize = 0
+        $Result = $Iphlpapi::GetExtendedUdpTable([IntPtr]::Zero, [ref]$BufSize, $true, $IpVersion, $UDP_TABLE_OWNER_PID, 0)
+        $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+    }
+    else {
+        $TCP_TABLE_OWNER_PID_LISTENER = 3
+        [Int]$BufSize = 0
+        $Result = $Iphlpapi::GetExtendedTcpTable([IntPtr]::Zero, [ref]$BufSize, $true, $IpVersion, $TCP_TABLE_OWNER_PID_LISTENER, 0)
+        $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+    }
+
+    if ($Result -eq 122) {
+
+        Write-Verbose "GetExtendedProtoTable() OK - Size: $BufSize"
+
+        [IntPtr]$TablePtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($BufSize)
+
+        if ($UDP) {
+            $Result = $Iphlpapi::GetExtendedUdpTable($TablePtr, [ref]$BufSize, $true, $IpVersion, $UDP_TABLE_OWNER_PID, 0)
+        }
+        else {
+            $Result = $Iphlpapi::GetExtendedTcpTable($TablePtr, [ref]$BufSize, $true, $IpVersion, $TCP_TABLE_OWNER_PID_LISTENER, 0)
+        }
+
+        if ($Result -eq 0) {
+
+            if ($UDP) {
+                if ($IpVersion -eq $AF_INET) { 
+                    $Table = [System.Runtime.InteropServices.Marshal]::PtrToStructure($TablePtr, [type] $MIB_UDPTABLE_OWNER_PID)
+                }
+                elseif ($IpVersion -eq $AF_INET6) { 
+                    $Table = [System.Runtime.InteropServices.Marshal]::PtrToStructure($TablePtr, [type] $MIB_UDP6TABLE_OWNER_PID)
+                }
+            }
+            else {
+                if ($IpVersion -eq $AF_INET) { 
+                    $Table = [System.Runtime.InteropServices.Marshal]::PtrToStructure($TablePtr, [type] $MIB_TCPTABLE_OWNER_PID)
+                }
+                elseif ($IpVersion -eq $AF_INET6) { 
+                    $Table = [System.Runtime.InteropServices.Marshal]::PtrToStructure($TablePtr, [type] $MIB_TCP6TABLE_OWNER_PID)
+                }
+            }
+            
+            $NumEntries = $Table.NumEntries
+
+            Write-Verbose "GetExtendedProtoTable() OK - NumEntries: $NumEntries"
+
+            $Offset = [IntPtr] ($TablePtr.ToInt64() + 4)
+
+            For ($i = 0; $i -lt $NumEntries; $i++) {
+
+                if ($UDP) {
+                    if ($IpVersion -eq $AF_INET) {
+                        $TableEntry = [System.Runtime.InteropServices.Marshal]::PtrToStructure($Offset, [type] $MIB_UDPROW_OWNER_PID)
+                        $LocalAddr = (New-Object -TypeName System.Net.IPAddress($TableEntry.LocalAddr)).IPAddressToString
+                    }
+                    elseif ($IpVersion -eq $AF_INET6) {
+                        $TableEntry = [System.Runtime.InteropServices.Marshal]::PtrToStructure($Offset, [type] $MIB_UDP6ROW_OWNER_PID)
+                        $LocalAddr = New-Object -TypeName System.Net.IPAddress($TableEntry.LocalAddr, $TableEntry.LocalScopeId)
+                    }
+                }
+                else {
+                    if ($IpVersion -eq $AF_INET) {
+                        $TableEntry = [System.Runtime.InteropServices.Marshal]::PtrToStructure($Offset, [type] $MIB_TCPROW_OWNER_PID)
+                        $LocalAddr = (New-Object -TypeName System.Net.IPAddress($TableEntry.LocalAddr)).IPAddressToString
+                    }
+                    elseif ($IpVersion -eq $AF_INET6) {
+                        $TableEntry = [System.Runtime.InteropServices.Marshal]::PtrToStructure($Offset, [type] $MIB_TCP6ROW_OWNER_PID)
+                        $LocalAddr = New-Object -TypeName System.Net.IPAddress($TableEntry.LocalAddr, [Int64] $TableEntry.LocalScopeId)
+                    }
+                }
+
+                $LocalPort = $TableEntry.LocalPort[0] * 0x100 + $TableEntry.LocalPort[1]
+                $ProcessId = $TableEntry.OwningPid
+
+                if ($IpVersion -eq $AF_INET) {
+                    $LocalAddress = "$($LocalAddr):$($LocalPort)"
+                }
+                elseif ($IpVersion -eq $AF_INET6) {
+                    # IPv6.ToString doesn't work in PSv2 for some reason
+                    try { $LocalAddress = "[$($LocalAddr)]:$($LocalPort)" } catch { $LocalAddress = "????:$($LocalPort)" }
+                }
+
+                $Result = New-Object -TypeName PSObject
+                $Result | Add-Member -MemberType "NoteProperty" -Name "IP" -Value $(if ($IpVersion -eq $AF_INET) { "IPv4" } else { "IPv6" } )
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Proto" -Value $(if ($UDP) { "UDP" } else { "TCP" } )
+                $Result | Add-Member -MemberType "NoteProperty" -Name "LocalAddress" -Value $LocalAddr
+                $Result | Add-Member -MemberType "NoteProperty" -Name "LocalPort" -Value $LocalPort
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Endpoint" -Value $LocalAddress
+                $Result | Add-Member -MemberType "NoteProperty" -Name "State" -Value $(if ($UDP) { "N/A" } else { "LISTENING" } )
+                $Result | Add-Member -MemberType "NoteProperty" -Name "PID" -Value $ProcessId
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value (Get-Process -PID $ProcessId).ProcessName
+                $Result
+
+                $Offset = [IntPtr] ($Offset.ToInt64() + [System.Runtime.InteropServices.Marshal]::SizeOf($TableEntry))
+            }
+
+        }
+        else {
+            Write-Verbose ([ComponentModel.Win32Exception] $LastError)
+        }
+
+        [System.Runtime.InteropServices.Marshal]::FreeHGlobal($TablePtr)
+
+    }
+    else {
+        Write-Verbose ([ComponentModel.Win32Exception] $LastError)
     }
 }

@@ -837,6 +837,20 @@ $CRED_PERSIST = New-Enum $Module WinApiModule.CRED_PERSIST UInt32 @{
     Enterprise      = '0x00000003'
 }
 
+# Custom enum, does not actually exist
+$IP_ADAPTER_FLAGS = New-Enum $Module WinApiModule.IP_ADAPTER_FLAGS UInt32 @{
+    DdnsEnabled             = 0x00000001
+    RegisterAdapterSuffix   = 0x00000002
+    Dhcpv4Enabled           = 0x00000004
+    ReceiveOnly             = 0x00000008
+    NoMulticast             = 0x00000010
+    Ipv6OtherStatefulConfig = 0x00000020
+    NetbiosOverTcpipEnabled = 0x00000040
+    Ipv4Enabled             = 0x00000080
+    Ipv6Enabled             = 0x00000100
+    Ipv6ManagedAddressConfigurationSupported = 0x00000200
+} -Bitfield
+
 $LARGE_INTEGER = New-Structure $Module WinApiModule.LARGE_INTEGER @{
     LowPart  = New-StructureField 0 UInt32
     HighPart = New-StructureField 1 Int32
@@ -895,6 +909,130 @@ $TOKEN_ORIGIN = New-Structure $Module WinApiModule.TOKEN_ORIGIN @{
 $TOKEN_SOURCE = New-Structure $Module WinApiModule.TOKEN_SOURCE @{
     SourceName          = New-StructureField 0 Byte[] -MarshalAs @('ByValArray', 8)
     SourceIdentifier    = New-StructureField 1 $LUID
+}
+
+$IN6_ADDR = New-Structure $Module WinApiModule.IN6_ADDR @{
+    Addr = New-StructureField 0 Byte[] -MarshalAs @('ByValArray', 16)
+}
+
+$SOCKADDR = New-Structure $Module WinApiModule.SOCKADDR @{
+    Family = New-StructureField 0 UInt16
+    Data = New-StructureField 1 Byte[] -MarshalAs @('ByValArray', 14)
+}
+
+$SOCKADDR_IN6 = New-Structure $Module WinApiModule.SOCKADDR_IN6 @{
+    Family = New-StructureField 0 Int16
+    Port = New-StructureField 1 UInt16
+    lowInfo = New-StructureField 2 UInt32
+    Addr = New-StructureField 3 $IN6_ADDR
+    ScopeId = New-StructureField 4 UInt32
+}
+
+$SOCKET_ADDRESS = New-Structure $Module WinApiModule.SOCKET_ADDRESS @{
+    Sockaddr = New-StructureField 0 IntPtr # LPSOCKADDR -> SOCKADDR or SOCKADDR_IN6
+    SockaddrLength = New-StructureField 1 Int32
+}
+
+$IP_ADAPTER_UNICAST_ADDRESS_LH = New-Structure $Module WinApiModule.IP_ADAPTER_UNICAST_ADDRESS_LH @{
+    Length = New-StructureField 0 UInt32
+    Flags = New-StructureField 1 UInt32
+    Next = New-StructureField 2 IntPtr # struct _IP_ADAPTER_UNICAST_ADDRESS_LH *Next
+    Address = New-StructureField 3 $SOCKET_ADDRESS
+    PrefixOrigin = New-StructureField 4 UInt32
+    SuffixOrigin = New-StructureField 5 UInt32
+    DadState = New-StructureField 6 UInt32
+    ValidLifetime = New-StructureField 7 UInt32
+    PreferredLifetime = New-StructureField 8 UInt32
+    LeaseLifetime = New-StructureField 9 UInt32
+    OnLinkPrefixLength = New-StructureField 10 Byte
+}
+
+$IP_ADAPTER_ANYCAST_ADDRESS_XP = New-Structure $Module WinApiModule.IP_ADAPTER_ANYCAST_ADDRESS_XP @{
+    Length = New-StructureField 0 UInt32
+    Flags = New-StructureField 1 UInt32
+    Next = New-StructureField 2 IntPtr # struct _IP_ADAPTER_ANYCAST_ADDRESS_XP *Next
+    Address = New-StructureField 3 $SOCKET_ADDRESS
+}
+
+$IP_ADAPTER_MULTICAST_ADDRESS_XP = New-Structure $Module WinApiModule.IP_ADAPTER_MULTICAST_ADDRESS_XP @{
+    Length = New-StructureField 0 UInt32
+    Flags = New-StructureField 1 UInt32
+    Next = New-StructureField 2 IntPtr # struct _IP_ADAPTER_MULTICAST_ADDRESS_XP *Next
+    Address = New-StructureField 3 $SOCKET_ADDRESS
+}
+
+$IP_ADAPTER_DNS_SERVER_ADDRESS_XP = New-Structure $Module WinApiModule.IP_ADAPTER_DNS_SERVER_ADDRESS_XP @{
+    Length = New-StructureField 0 UInt32
+    Flags = New-StructureField 1 UInt32
+    Next = New-StructureField 2 IntPtr # struct _IP_ADAPTER_DNS_SERVER_ADDRESS_XP *Next
+    Address = New-StructureField 3 $SOCKET_ADDRESS
+}
+
+$IP_ADAPTER_PREFIX_XP = New-Structure $Module WinApiModule.IP_ADAPTER_PREFIX_XP @{
+    Length = New-StructureField 0 UInt32
+    Flags = New-StructureField 1 UInt32
+    Next = New-StructureField 2 IntPtr # struct _IP_ADAPTER_PREFIX_XP *Next
+    Address = New-StructureField 3 $SOCKET_ADDRESS
+    PrefixLength = New-StructureField 4 UInt32
+}
+
+$IP_ADAPTER_WINS_SERVER_ADDRESS_LH = New-Structure $Module WinApiModule.IP_ADAPTER_WINS_SERVER_ADDRESS_LH @{
+    Length = New-StructureField 0 UInt32
+    Reserved = New-StructureField 1 UInt32
+    Next = New-StructureField 2 IntPtr # struct _IP_ADAPTER_WINS_SERVER_ADDRESS_LH *Next
+    Address = New-StructureField 3 $SOCKET_ADDRESS
+}
+
+$IP_ADAPTER_GATEWAY_ADDRESS_LH = New-Structure $Module WinApiModule.IP_ADAPTER_GATEWAY_ADDRESS_LH @{
+    Length = New-StructureField 0 UInt32
+    Reserved = New-StructureField 1 UInt32
+    Next = New-StructureField 2 IntPtr # struct _IP_ADAPTER_GATEWAY_ADDRESS_LH *Next
+    Address = New-StructureField 3 $SOCKET_ADDRESS
+}
+
+$IP_ADAPTER_DNS_SUFFIX = New-Structure $Module WinApiModule.IP_ADAPTER_DNS_SUFFIX @{
+    Next = New-StructureField 0 IntPtr # struct _IP_ADAPTER_DNS_SUFFIX *Next
+    String = New-StructureField 1 String -MarshalAs @('ByValTStr', 256)
+} -Charset Unicode
+
+$IP_ADAPTER_ADDRESSES = New-Structure $Module WinApiModule.IP_ADAPTER_ADDRESSES @{
+    Length = New-StructureField 0 UInt32
+    IfIndex = New-StructureField 1 UInt32
+    Next = New-StructureField 2 IntPtr # struct _IP_ADAPTER_ADDRESSES_LH    *Next;
+    AdapterName = New-StructureField 3 String -MarshalAs @('LPStr')
+    FirstUnicastAddress = New-StructureField 4 IntPtr # PIP_ADAPTER_UNICAST_ADDRESS_LH
+    FirstAnycastAddress = New-StructureField 5 IntPtr # PIP_ADAPTER_ANYCAST_ADDRESS_XP
+    FirstMulticastAddress = New-StructureField 6 IntPtr # PIP_ADAPTER_MULTICAST_ADDRESS_XP
+    FirstDnsServerAddress = New-StructureField 7 IntPtr # PIP_ADAPTER_DNS_SERVER_ADDRESS_XP
+    DnsSuffix = New-StructureField 8 String -MarshalAs @('LPWStr')
+    Description = New-StructureField 9 String -MarshalAs @('LPWStr')
+    FriendlyName = New-StructureField 10 String -MarshalAs @('LPWStr')
+    PhysicalAddress = New-StructureField 11 Byte[] -MarshalAs @('ByValArray', 8)
+    PhysicalAddressLength = New-StructureField 12 UInt32
+    Flags = New-StructureField 13 UInt32
+    Mtu = New-StructureField 14 UInt32
+    IfType = New-StructureField 15 UInt32
+    OperStatus = New-StructureField 16 UInt32
+    Ipv6IfIndex = New-StructureField 17 UInt32
+    ZoneIndices = New-StructureField 18 UInt32[] -MarshalAs @('ByValArray', 16)
+    FirstPrefix = New-StructureField 19 IntPtr # PIP_ADAPTER_PREFIX_XP
+    TransmitLinkSpeed = New-StructureField 20 UInt64
+    ReceiveLinkSpeed = New-StructureField 21 UInt64
+    FirstWinsServerAddress = New-StructureField 22 IntPtr # PIP_ADAPTER_WINS_SERVER_ADDRESS_LH
+    FirstGatewayAddress = New-StructureField 23 IntPtr # PIP_ADAPTER_GATEWAY_ADDRESS_LH
+    Ipv4Metric = New-StructureField 24 UInt32
+    Ipv6Metric = New-StructureField 25 UInt32
+    Luid = New-StructureField 26 UInt64
+    Dhcpv4Server = New-StructureField 27 $SOCKET_ADDRESS
+    CompartmentId = New-StructureField 28 UInt32
+    NetworkGuid = New-StructureField 29 Guid
+    ConnectionType = New-StructureField 30 UInt32
+    TunnelType = New-StructureField 31 UInt32
+    Dhcpv6Server = New-StructureField 32 $SOCKET_ADDRESS
+    Dhcpv6ClientDuid = New-StructureField 33 Byte[] -MarshalAs @('ByValArray', 130)
+    Dhcpv6ClientDuidLength = New-StructureField 34 UInt32
+    Dhcpv6Iaid = New-StructureField 35 UInt32
+    FirstDnsSuffix = New-StructureField 36 IntPtr # PIP_ADAPTER_DNS_SUFFIX
 }
 
 $MIB_TCPROW_OWNER_PID = New-Structure $Module WinApiModule.MIB_TCPROW_OWNER_PID @{
@@ -1026,7 +1164,6 @@ $FunctionDefinitions = @(
     (New-Function advapi32 OpenProcessToken ([Bool]) @([IntPtr], [UInt32], [IntPtr].MakeByRefType()) -SetLastError),
     (New-Function advapi32 GetTokenInformation ([Bool]) @([IntPtr], [UInt32], [IntPtr], [UInt32], [UInt32].MakeByRefType()) -SetLastError),
     (New-Function advapi32 LookupAccountSid ([Bool]) @([String], [IntPtr], [System.Text.StringBuilder], [UInt32].MakeByRefType(), [System.Text.StringBuilder], [UInt32].MakeByRefType(), [Int].MakeByRefType()) -SetLastError)
-    # (New-Function advapi32 LookupPrivilegeName ([Int]) @([String], [IntPtr], [System.Text.StringBuilder], [UInt32].MakeByRefType()) -SetLastError),
     (New-Function advapi32 LookupPrivilegeName ([Int]) @([String], $LUID.MakeByRefType(), [System.Text.StringBuilder], [UInt32].MakeByRefType()) -SetLastError),
     (New-Function advapi32 CredEnumerate ([Bool]) @([IntPtr], [UInt32], [UInt32].MakeByRefType(), [IntPtr].MakeByRefType()) -SetLastError),
     (New-Function advapi32 CredFree ([void]) @([IntPtr])),
@@ -1039,7 +1176,9 @@ $FunctionDefinitions = @(
     (New-Function kernel32 GetTickCount64 ([UInt64]) @()),
     (New-Function kernel32 GetFirmwareEnvironmentVariable ([UInt32]) @([String], [String], [IntPtr], [UInt32]) -SetLastError),
     (New-Function kernel32 GetFirmwareType ([Bool]) @([UInt32].MakeByRefType()) -SetLastError),
-    (New-Function kernel32 LocalFree ([IntPtr]) @([IntPtr]))
+    (New-Function kernel32 LocalFree ([IntPtr]) @([IntPtr])),
+    # (New-Function iphlpapi GetIfTable ([UInt32]) @([IntPtr], [UInt32].MakeByRefType(), [Bool])),
+    (New-Function iphlpapi GetAdaptersAddresses ([UInt32]) @([UInt32], [UInt32], [IntPtr], [IntPtr], [UInt32].MakeByRefType())),
     (New-Function iphlpapi GetExtendedTcpTable ([UInt32]) @([IntPtr], [UInt32].MakeByRefType(), [Bool], [UInt32], $TCP_TABLE_CLASS, [UInt32]) -SetLastError),
     (New-Function iphlpapi GetExtendedUdpTable ([UInt32]) @([IntPtr], [UInt32].MakeByRefType(), [Bool], [UInt32], $UDP_TABLE_CLASS , [UInt32]) -SetLastError),
     (New-Function vaultcli VaultEnumerateVaults ([UInt32]) @([UInt32], [UInt32].MakeByRefType(), [IntPtr].MakeByRefType()) -EntryPoint VaultEnumerateVaults),
