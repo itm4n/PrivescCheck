@@ -45,6 +45,9 @@ function Invoke-PrivescCheck {
         $Extended = $false,
 
         [Switch]
+        $Experimental = $false,
+
+        [Switch]
         $Force = $false,
 
         [Switch]
@@ -72,62 +75,62 @@ function Invoke-PrivescCheck {
 
     # The following CSV data contains all the checks
     $AllChecksCsv = @"
-"Id", "File", "Command", "Params", "Category", "DisplayName", "Type", "Severity", "Description", "Format", "Extended", "RunIfAdmin"
-"USER_USER", "", "Invoke-UserCheck", "", "User", "Identity", "Info", "Info", "Get the full name of the current user (domain + username) along with the associated Security Identifier (SID).", "List", False, True
-"USER_GROUPS", "", "Invoke-UserGroupsCheck", "", "User", "Groups", "Info", "Info", "List all the groups that are associated to the current user's token.", "Table", False, True
-"USER_RESTRICTED_SIDS", "", "Invoke-UserRestrictedSidsCheck", "", "User", "Restricted SIDs", "Info", "Info", "List the restricted SIDs that are associated to the current user's token, if it is WRITE RESTRICTED.", "Table", True, True 
-"USER_PRIVILEGES", "", "Invoke-UserPrivilegesCheck", "", "User", "Privileges", "Info", "Info", "List the current user's privileges and identify the ones that can be leveraged for local privilege escalation.", "Table", False, False
-"USER_ENV", "", "Invoke-UserEnvCheck", "", "User", "Environment Variables", "Info", "Info", "List the environment variables of the current process and try to identify any potentially sensitive information such as passwords or API secrets. This check is simply based on keyword matching and might not be entirely reliable.", "Table", False, True
-"SERVICE_INSTALLED", "", "Invoke-InstalledServicesCheck", "", "Services", "Non-default Services", "Info", "Info", "List all registered services and filter out the ones that are built into Windows. It does so by parsing the target executable's metadata.", "List", False, True
-"SERVICE_PERMISSIONS", "", "Invoke-ServicesPermissionsCheck", "", "Services", "Service Permissions", "Vuln", "High", "Interact with the Service Control Manager (SCM) and check whether the current user can modify any registered service.", "List", False, False
-"SERVICE_PERMISSIONS_REGISTRY", "", "Invoke-ServicesPermissionsRegistryCheck", "", "Services", "Registry Permissions", "Vuln", "High", "Parse the registry and check whether the current user can modify the configuration of any registered service.", "List", False, False
-"SERVICE_IMAGE_PERMISSIONS", "", "Invoke-ServicesImagePermissionsCheck", "", "Services", "Binary Permissions", "Vuln", "High", "List all services and check whether the current user can modify the target executable or write files in its parent folder.", "List", False, False
-"SERVICE_UNQUOTED_PATH", "", "Invoke-ServicesUnquotedPathCheck", "", "Services", "Unquoted Path", "Vuln", "High", "List registered services and check whether any of them is configured with an unquoted path that can be exploited.", "List", False, False
-"SERVICE_SCM_PERMISSIONS", "", "Invoke-SCMPermissionsCheck", "", "Services", "SCM Permissions", "Vuln", "High", "Check whether the current user can perform any privileged actions on the Service Control Manager (SCM).", "List", False, False
-"APP_INSTALLED", "", "Invoke-InstalledProgramsCheck", "", "Apps", "Non-default Apps", "Info", "Info", "Enumerate non-default and third-party applications by parsing the registry.", "Table", True, True
-"APP_MODIFIABLE", "", "Invoke-ModifiableProgramsCheck", "", "Apps", "Modifiable Apps", "Vuln", "Medium", "List non-default and third-party applications and report the ones that can be modified by the current user.", "List", True, False
-"APP_PROGRAMDATA", "", "Invoke-ProgramDataCheck", "", "Apps", "ProgramData folders/files", "Info", "Info", "List the non-default ProgramData folders and check whether the current user has write permissions. This check is purely informative and the results require manual analysis.", "List", True, False
-"APP_STARTUP", "", "Invoke-ApplicationsOnStartupCheck", "", "Apps", "Startup Apps", "Info", "Info", "Enumerate the system-wide applications that are run on start-up.", "List", True, True
-"APP_STARTUP_VULN", "", "Invoke-ApplicationsOnStartupVulnCheck", "", "Apps", "Modifiable Startup Apps", "Vuln", "Medium", "Enumerate the system-wide applications that are run on start-up and check whether they can be modified by the current user.", "List", True, False
-"APP_PROCESSES", "", "Invoke-RunningProcessCheck", "", "Apps", "Running Processes", "Info", "Info", "List processes that are not owned by the current user and filter out common processes such as 'svchost.exe'.", "Table", True, True
-"SCHTASKS_IMAGE_PERMISSIONS", "", "Invoke-ScheduledTasksImagePermissionsCheck", "", "Scheduled Tasks", "Binary Permissions", "Vuln", "Medium", "Enumerate the scheduled tasks that are not owned by the current user and checks whether the target binary can be modified. Note that, as a low-privileged user, it's not possible to enumerate all the scheduled tasks.", "List", False, False
-"SCHTASKS_UNQUOTED_PATH", "", "Invoke-ScheduledTasksUnquotedPathCheck", "", "Scheduled Tasks", "Unquoted Path", "Vuln", "Medium", "Enumerate the scheduled tasks that are not owned by the current user and checks whether the corresponding command uses an exploitable unquoted path. Note that, as a low-privileged user, it's not possible to enumerate all the scheduled tasks.", "List", False, False
-"CREDS_SAM_BKP", "", "Invoke-SamBackupFilesCheck", "", "Creds", "SAM/SYSTEM Backup Files", "Vuln", "Medium", Check whether some backup files of the SAM/SYSTEM hives were created with insecure permissions.", "List", False, False
-"CREDS_UNATTEND", "", "Invoke-UnattendFilesCheck", "", "Creds", "Unattend Files", "Vuln", "Medium", "Locate 'Unattend' files and check whether they contain any clear-text credentials.", "List", False, True
-"CREDS_WINLOGON", "", "Invoke-WinlogonCheck", "", "Creds", "WinLogon", "Vuln", "Medium", "Parse the Winlogon registry keys and check whether they contain any clear-text password. Entries that have an empty password field are filtered out.", "List", False, True
-"CREDS_CRED_FILES", "", "Invoke-CredentialFilesCheck", "", "Creds", "Credential Files", "Info", "Info", "Enumerate the credential files that are present in the current user's HOME folder. This is purely informative.", "List", True, True
-"CREDS_VAULT_CRED", "", "Invoke-VaultCredCheck", "", "Creds", "Vault Creds", "Info", "Info", "Enumerate the credentials that are saved in the current user's vault.", "List", False, True
-"CREDS_VAULT_LIST", "", "Invoke-VaultListCheck", "", "Creds", "Vault List", "Info", "Info", "Enumerate the web credentials that are saved in the current user's Vault.", "List", False, True
-"CREDS_GPP", "", "Invoke-GPPPasswordCheck", "", "Creds", "GPP Passwords", "Vuln", "Medium", "Locate old cached Group Policy Preference files that contain a 'cpassword' field and extract the clear-text credentials.", "List", False, True
-"CREDS_PS_HIST", "", "Invoke-PowerShellHistoryCheck", "", "Creds", "PowerShell History", "Info", "Info", "Locate the current user's PowerShell history file and check whether it contains some clear-text credentials. This check is simply based on keyword matching and might not be entirely reliable.", "List", True, True
-"HARDEN_UAC", "", "Invoke-UacCheck", "", "Hardening", "UAC Settings", "Info", "Info", "Retrieve the User Access Control (UAC) configuration and check whether it is enabled.", "List", True, True
-"HARDEN_LSA_PROTECTION", "", "Invoke-LsaProtectionCheck", "", "Hardening", "LSA Protection (RunAsPPL)", "Info", "Info", "Checks whether LSA protection (a.k.a. RunAsPPL) is supported and enabled.", "Table", False, True
-"HARDEN_CREDENTIAL_GUARD", "", "Invoke-CredentialGuardCheck", "", "Hardening", "Credential Guard", "Info", "Info", "Checks whether Credential Guard is supported and enabled.", "Table", False, True
-"HARDEN_BIOS_MODE", "", "Invoke-BiosModeCheck", "", "Hardening", "UEFI & Secure Boot", "Info", "Info", "Checks whether UEFI and Secure are supported and enabled.", "Table", True, True
-"HARDEN_LAPS", "", "Invoke-LapsCheck", "", "Hardening", "LAPS Settings", "Info", "Info", "Parse the registry and determine whether LAPS is configured and enabled.", "List", True, True
-"HARDEN_PS_TRANSCRIPT", "", "Invoke-PowershellTranscriptionCheck", "", "Hardening", "PowerShell Transcription", "Info", "Info", "Check whether PowerShell Transcription is configured and enabled. If so, the path of the output log file will be returned.", "List", True, True
-"HARDEN_BITLOCKER", "", "Invoke-BitlockerCheck", "", "Hardening", "BitLocker", "Info", "Info", "Check whether BitLocker is configured and enabled on the system drive. Note that this check will yield a false positive if another encryption software is in use.", "List", False, True
-"CONFIG_PATH_FOLDERS", "", "Invoke-DllHijackingCheck", "", "Config", "PATH Folder Permissions", "Vuln", "High", "Retrieve the list of SYSTEM %PATH% folders and check whether the current user has some write permissions in any of them.", "List", False, False
-"MISC_HIJACKABLE_DLL", "", "Invoke-HijackableDllsCheck", "", "Misc", "Hijackable DLLs", "Info", "Info", "List Windows services that are prone to Ghost DLL hijacking. This is particularly relevant if the current user can create files in one of the SYSTEM %PATH% folders.", "List", False, False
-"CONFIG_MSI", "", "Invoke-RegistryAlwaysInstallElevatedCheck", "", "Config", "AlwaysInstallElevated", "Vuln", "High", "Check whether the 'AlwaysInstallElevated' registry keys are configured and enabled. If so any user might be able to run arbitary MSI files with SYSTEM privileges.", "List", False, False
-"CONFIG_WSUS", "", "Invoke-WsusConfigCheck", "", "Config", "WSUS Configuration", "Vuln", "High", "If WSUS is in use, this check will determine whether or not it uses a secure URL. If not, it might be vulnerable to MitM attacks (c.f. 'WSUXploit' / 'WSuspicious').", "List", False, True
-"CONFIG_SCCM", "", "Invoke-SccmCacheFolderCheck", "", "Config", "SCCM Cache Folder", "Info", "Info", "Checks whether the SCCM cache folder exists. Manual investigation might be required during post-exploitation.", "List", True, True
-"CONFIG_SCCM_VULN", "", "Invoke-SccmCacheFolderVulnCheck", "", "Config", "SCCM Cache Folder", "Vuln", "Medium", "Checks whether the current user can browse the SCCM cache folder. If so, hardcoded credentials might be extracted from MSI package files or scripts.", "List", False, False
-"NET_ADAPTERS", "", "Invoke-NetworkAdaptersCheck", "", "Network", "Interfaces", "Info", "Info", "Collect detailed information about all active Ethernet adapters.", "List", True, True
-"NET_TCP_ENDPOINTS", "", "Invoke-TcpEndpointsCheck", "", "Network", "TCP Endpoints", "Info", "Info", "List all TCP ports that are in a LISTEN state. For each one, the corresponding process is also returned.", "Table", True, True
-"NET_UDP_ENDPOINTS", "", "Invoke-UdpEndpointsCheck", "", "Network", "UDP Endpoints", "Info", "Info", "List all UDP ports that are in a LISTEN state. For each one, the corresponding process is also returned. DNS is filtered out to minimize the output.", "Table", True, True
-"NET_WLAN", "", "Invoke-WlanProfilesCheck", "", "Network", "Saved Wifi Profiles", "Info", "Info", "Enumerate saved Wifi profiles and extract clear-text WEP/WPA pre-shared keys and passphrases (if applicable).", "List", True, True
-"UPDATE_HISTORY", "", "Invoke-WindowsUpdateCheck", "", "Updates", "Last Windows Update Date", "Info", "Info", "Interact with the Windows Update service and determine when the system was last updated. Note that this check might be unreliable.", "Table", True, True
-"UPDATE_HOTFIX", "", "Invoke-HotFixCheck", "", "Updates", "Installed Updates and Hotfixes", "Info", "Info", "Enumerate the installed updates and hotfixes by parsing the registry. If this fails, the check will fall back to the built-in 'Get-HotFix' cmdlet.", "Table", True, True
-"UPDATE_HOTFIX_VULN", "", "Invoke-HotFixVulnCheck", "", "Updates", "System up to date?", "Vuln", "Medium", "Enumerate the installed updates and hotfixes and check whether a patch was applied in the last 31 days.", "List", False, True
-"MISC_AVEDR", "", "Invoke-EndpointProtectionCheck", "", "Misc", "Endpoint Protection", "Info", "Info", "Enumerate installed security products (AV, EDR). This check is based on keyword matching (loaded DLLs, running processes, installed applications and registered services).", "Table", True, True
-"MISC_SYSINFO", "", "Invoke-SystemInfoCheck", "", "Misc", "OS Version", "Info", "Info", "Print the detailed version number of the Operating System. If we can't get the update history, this might be useful.", "Table", True, True
-"MISC_ADMINS", "", "Invoke-LocalAdminGroupCheck", "", "Misc", "Local Admin Group", "Info", "Info", "Enumerate the users and groups that belong to the local 'Administrators' group.", "Table", True, True
-"MISC_HOMES", "", "Invoke-UsersHomeFolderCheck", "", "Misc", "User Home Folders", "Info", "Info", "Enumerate local HOME folders and check for potentially weak permissions.", "Table", True, False
-"MISC_MACHINE_ROLE", "", "Invoke-MachineRoleCheck", "", "Misc", "Machine Role", "Info", "Info", "Simply return the machine's role. It can be either 'Workstation', 'Server' or 'Domain Controller'.", "Table", True, True
-"MISC_STARTUP_EVENTS", "", "Invoke-SystemStartupHistoryCheck", "", "Misc", "System Startup History", "Info", "Info", "Retrieve the machine's startup history. This might be useful to figure out how often a server is rebooted. In the case of a workstation, such metric isn't as relevant.", "Table", True, True
-"MISC_STARTUP_LAST", "", "Invoke-SystemStartupCheck", "", "Misc", "Last System Startup", "Info", "Info", "Determine the last system startup date and time based on the current tick count. Note that this might be unreliable.", "Table", True, True
-"MISC_DRIVES", "", "Invoke-SystemDrivesCheck", "", "Misc", "Filesystem Drives", "Info", "Info", "List partitions, removable storage and mapped network shares.", "Table", True, True
+"ID",                               "COMMAND",                                      "CATEGORY",         "DISPLAYNAME",                          "TYPE", "SEVERITY", "FORMAT",   "EXTENDED", "RUNIFADMIN",   "EXPERIMENTAL", "DESCRIPTION"
+"USER_USER",                        "Invoke-UserCheck",                             "User",             "Identity",                             "Info", "Info",     "List",     "False",    "True",         "False",        "Get the full name of the current user (domain + username) along with the associated Security Identifier (SID)."
+"USER_GROUPS",                      "Invoke-UserGroupsCheck",                       "User",             "Groups",                               "Info", "Info",     "Table",    "False",    "True",         "False",        "List all the groups that are associated to the current user's token."
+"USER_RESTRICTED_SIDS",             "Invoke-UserRestrictedSidsCheck",               "User",             "Restricted SIDs",                      "Info", "Info",     "Table",    "True",     "True",         "False",        "List the restricted SIDs that are associated to the current user's token, if it is WRITE RESTRICTED." 
+"USER_PRIVILEGES",                  "Invoke-UserPrivilegesCheck",                   "User",             "Privileges",                           "Info", "Info",     "Table",    "False",    "False",        "False",        "List the current user's privileges and identify the ones that can be leveraged for local privilege escalation."
+"USER_ENV",                         "Invoke-UserEnvCheck",                          "User",             "Environment Variables",                "Info", "Info",     "Table",    "False",    "True",         "False",        "List the environment variables of the current process and try to identify any potentially sensitive information such as passwords or API secrets. This check is simply based on keyword matching and might not be entirely reliable."
+"SERVICE_INSTALLED",                "Invoke-InstalledServicesCheck",                "Services",         "Non-default Services",                 "Info", "Info",     "List",     "False",    "True",         "False",        "List all registered services and filter out the ones that are built into Windows. It does so by parsing the target executable's metadata."
+"SERVICE_PERMISSIONS",              "Invoke-ServicesPermissionsCheck",              "Services",         "Service Permissions",                  "Vuln", "High",     "List",     "False",    "False",        "False",        "Interact with the Service Control Manager (SCM) and check whether the current user can modify any registered service."
+"SERVICE_PERMISSIONS_REGISTRY",     "Invoke-ServicesPermissionsRegistryCheck",      "Services",         "Registry Permissions",                 "Vuln", "High",     "List",     "False",    "False",        "False",        "Parse the registry and check whether the current user can modify the configuration of any registered service."
+"SERVICE_IMAGE_PERMISSIONS",        "Invoke-ServicesImagePermissionsCheck",         "Services",         "Binary Permissions",                   "Vuln", "High",     "List",     "False",    "False",        "False",        "List all services and check whether the current user can modify the target executable or write files in its parent folder."
+"SERVICE_UNQUOTED_PATH",            "Invoke-ServicesUnquotedPathCheck",             "Services",         "Unquoted Path",                        "Vuln", "High",     "List",     "False",    "False",        "False",        "List registered services and check whether any of them is configured with an unquoted path that can be exploited."
+"SERVICE_SCM_PERMISSIONS",          "Invoke-SCMPermissionsCheck",                   "Services",         "SCM Permissions",                      "Vuln", "High",     "List",     "False",    "False",        "False",        "Check whether the current user can perform any privileged actions on the Service Control Manager (SCM)."
+"APP_INSTALLED",                    "Invoke-InstalledProgramsCheck",                "Apps",             "Non-default Apps",                     "Info", "Info",     "Table",    "True",     "True",         "False",        "Enumerate non-default and third-party applications by parsing the registry."
+"APP_MODIFIABLE",                   "Invoke-ModifiableProgramsCheck",               "Apps",             "Modifiable Apps",                      "Vuln", "Medium",   "List",     "True",     "False",        "False",        "List non-default and third-party applications and report the ones that can be modified by the current user."
+"APP_PROGRAMDATA",                  "Invoke-ProgramDataCheck",                      "Apps",             "ProgramData folders/files",            "Info", "Info",     "List",     "True",     "False",        "True",         "List the non-default ProgramData folders and check whether the current user has write permissions. This check is purely informative and the results require manual analysis."
+"APP_STARTUP",                      "Invoke-ApplicationsOnStartupCheck",            "Apps",             "Startup Apps",                         "Info", "Info",     "List",     "True",     "True",         "False",        "Enumerate the system-wide applications that are run on start-up."
+"APP_STARTUP_VULN",                 "Invoke-ApplicationsOnStartupVulnCheck",        "Apps",             "Modifiable Startup Apps",              "Vuln", "Medium",   "List",     "True",     "False",        "False",        "Enumerate the system-wide applications that are run on start-up and check whether they can be modified by the current user."
+"APP_PROCESSES",                    "Invoke-RunningProcessCheck",                   "Apps",             "Running Processes",                    "Info", "Info",     "Table",    "True",     "True",         "False",        "List processes that are not owned by the current user and filter out common processes such as 'svchost.exe'."
+"SCHTASKS_IMAGE_PERMISSIONS",       "Invoke-ScheduledTasksImagePermissionsCheck",   "Scheduled Tasks",  "Binary Permissions",                   "Vuln", "Medium",   "List",     "True",     "False",        "False",        "Enumerate the scheduled tasks that are not owned by the current user and checks whether the target binary can be modified. Note that, as a low-privileged user, it's not possible to enumerate all the scheduled tasks."
+"SCHTASKS_UNQUOTED_PATH",           "Invoke-ScheduledTasksUnquotedPathCheck",       "Scheduled Tasks",  "Unquoted Path",                        "Vuln", "Medium",   "List",     "True",     "False",        "False",        "Enumerate the scheduled tasks that are not owned by the current user and checks whether the corresponding command uses an exploitable unquoted path. Note that, as a low-privileged user, it's not possible to enumerate all the scheduled tasks."
+"CREDS_SAM_BKP",                    "Invoke-SamBackupFilesCheck",                   "Creds",            "SAM/SYSTEM Backup Files",              "Vuln", "Medium",   "List",     "False",    "False",        "False",        "Check whether some backup files of the SAM/SYSTEM hives were created with insecure permissions."
+"CREDS_UNATTEND",                   "Invoke-UnattendFilesCheck",                    "Creds",            "Unattend Files",                       "Vuln", "Medium",   "List",     "False",    "True",         "False",        "Locate 'Unattend' files and check whether they contain any clear-text credentials."
+"CREDS_WINLOGON",                   "Invoke-WinlogonCheck",                         "Creds",            "WinLogon",                             "Vuln", "Medium",   "List",     "False",    "True",         "False",        "Parse the Winlogon registry keys and check whether they contain any clear-text password. Entries that have an empty password field are filtered out."
+"CREDS_CRED_FILES",                 "Invoke-CredentialFilesCheck",                  "Creds",            "Credential Files",                     "Info", "Info",     "List",     "True",     "False",        "False",        "Enumerate the credential files that are present in the current user's HOME folder. This is purely informative."
+"CREDS_VAULT_CRED",                 "Invoke-VaultCredCheck",                        "Creds",            "Vault Creds",                          "Info", "Info",     "List",     "False",    "True",         "False",        "Enumerate the credentials that are saved in the current user's vault."
+"CREDS_VAULT_LIST",                 "Invoke-VaultListCheck",                        "Creds",            "Vault List",                           "Info", "Info",     "List",     "False",    "True",         "False",        "Enumerate the web credentials that are saved in the current user's Vault."
+"CREDS_GPP",                        "Invoke-GPPPasswordCheck",                      "Creds",            "GPP Passwords",                        "Vuln", "Medium",   "List",     "False",    "True",         "False",        "Locate old cached Group Policy Preference files that contain a 'cpassword' field and extract the clear-text credentials."
+"CREDS_PS_HIST",                    "Invoke-PowerShellHistoryCheck",                "Creds",            "PowerShell History",                   "Info", "Info",     "List",     "True",     "True",         "False",        "Locate the current user's PowerShell history file and check whether it contains some clear-text credentials. This check is simply based on keyword matching and might not be entirely reliable."
+"HARDEN_UAC",                       "Invoke-UacCheck",                              "Hardening",        "UAC Settings",                         "Info", "Info",     "List",     "True",     "True",         "False",        "Retrieve the User Access Control (UAC) configuration and check whether it is enabled."
+"HARDEN_LSA_PROTECTION",            "Invoke-LsaProtectionCheck",                    "Hardening",        "LSA Protection (RunAsPPL)",            "Info", "Info",     "Table",    "False",    "True",         "False",        "Checks whether LSA protection (a.k.a. RunAsPPL) is supported and enabled."
+"HARDEN_CREDENTIAL_GUARD",          "Invoke-CredentialGuardCheck",                  "Hardening",        "Credential Guard",                     "Info", "Info",     "Table",    "False",    "True",         "False",        "Checks whether Credential Guard is supported and enabled."
+"HARDEN_BIOS_MODE",                 "Invoke-BiosModeCheck",                         "Hardening",        "UEFI & Secure Boot",                   "Info", "Info",     "Table",    "True",     "True",         "False",        "Checks whether UEFI and Secure are supported and enabled."
+"HARDEN_LAPS",                      "Invoke-LapsCheck",                             "Hardening",        "LAPS Settings",                        "Info", "Info",     "List",     "True",     "True",         "False",        "Parse the registry and determine whether LAPS is configured and enabled."
+"HARDEN_PS_TRANSCRIPT",             "Invoke-PowershellTranscriptionCheck",          "Hardening",        "PowerShell Transcription",             "Info", "Info",     "List",     "True",     "True",         "False",        "Check whether PowerShell Transcription is configured and enabled. If so, the path of the output log file will be returned."
+"HARDEN_BITLOCKER",                 "Invoke-BitlockerCheck",                        "Hardening",        "BitLocker",                            "Info", "Info",     "List",     "False",    "True",         "False",        "Check whether BitLocker is configured and enabled on the system drive. Note that this check will yield a false positive if another encryption software is in use."
+"CONFIG_PATH_FOLDERS",              "Invoke-DllHijackingCheck",                     "Config",           "PATH Folder Permissions",              "Vuln", "High",     "List",     "False",    "False",        "False",        "Retrieve the list of SYSTEM %PATH% folders and check whether the current user has some write permissions in any of them."
+"MISC_HIJACKABLE_DLL",              "Invoke-HijackableDllsCheck",                   "Misc",             "Hijackable DLLs",                      "Info", "Info",     "List",     "False",    "False",        "False",        "List Windows services that are prone to Ghost DLL hijacking. This is particularly relevant if the current user can create files in one of the SYSTEM %PATH% folders."
+"CONFIG_MSI",                       "Invoke-RegistryAlwaysInstallElevatedCheck",    "Config",           "AlwaysInstallElevated",                "Vuln", "High",     "List",     "False",    "False",        "False",        "Check whether the 'AlwaysInstallElevated' registry keys are configured and enabled. If so any user might be able to run arbitary MSI files with SYSTEM privileges."
+"CONFIG_WSUS",                      "Invoke-WsusConfigCheck",                       "Config",           "WSUS Configuration",                   "Vuln", "High",     "List",     "False",    "True",         "False",        "If WSUS is in use, this check will determine whether or not it uses a secure URL. If not, it might be vulnerable to MitM attacks (c.f. 'WSUXploit' / 'WSuspicious')."
+"CONFIG_SCCM",                      "Invoke-SccmCacheFolderCheck",                  "Config",           "SCCM Cache Folder",                    "Info", "Info",     "List",     "False",    "True",         "False",        "Checks whether the SCCM cache folder exists. Manual investigation might be required during post-exploitation."
+"CONFIG_SCCM_VULN",                 "Invoke-SccmCacheFolderVulnCheck",              "Config",           "SCCM Cache Folder",                    "Vuln", "Medium",   "List",     "False",    "False",        "False",        "Checks whether the current user can browse the SCCM cache folder. If so, hardcoded credentials might be extracted from MSI package files or scripts."
+"NET_ADAPTERS",                     "Invoke-NetworkAdaptersCheck",                  "Network",          "Interfaces",                           "Info", "Info",     "List",     "True",     "True",         "False",        "Collect detailed information about all active Ethernet adapters."
+"NET_TCP_ENDPOINTS",                "Invoke-TcpEndpointsCheck",                     "Network",          "TCP Endpoints",                        "Info", "Info",     "Table",    "True",     "False",        "False",        "List all TCP ports that are in a LISTEN state. For each one, the corresponding process is also returned."
+"NET_UDP_ENDPOINTS",                "Invoke-UdpEndpointsCheck",                     "Network",          "UDP Endpoints",                        "Info", "Info",     "Table",    "True",     "True",         "False",        "List all UDP ports that are in a LISTEN state. For each one, the corresponding process is also returned. DNS is filtered out to minimize the output."
+"NET_WLAN",                         "Invoke-WlanProfilesCheck",                     "Network",          "Saved Wifi Profiles",                  "Info", "Info",     "List",     "True",     "True",         "False",        "Enumerate saved Wifi profiles and extract clear-text WEP/WPA pre-shared keys and passphrases (if applicable)."
+"UPDATE_HISTORY",                   "Invoke-WindowsUpdateCheck",                    "Updates",          "Last Windows Update Date",             "Info", "Info",     "Table",    "True",     "True",         "False",        "Interact with the Windows Update service and determine when the system was last updated. Note that this check might be unreliable."
+"UPDATE_HOTFIX",                    "Invoke-HotFixCheck",                           "Updates",          "Installed Updates and Hotfixes",       "Info", "Info",     "Table",    "True",     "True",         "False",        "Enumerate the installed updates and hotfixes by parsing the registry. If this fails, the check will fall back to the built-in 'Get-HotFix' cmdlet."
+"UPDATE_HOTFIX_VULN",               "Invoke-HotFixVulnCheck",                       "Updates",          "System up to date?",                   "Vuln", "Medium",   "Table",    "False",    "True",         "False",        "Enumerate the installed updates and hotfixes and check whether a patch was applied in the last 31 days."
+"MISC_AVEDR",                       "Invoke-EndpointProtectionCheck",               "Misc",             "Endpoint Protection",                  "Info", "Info",     "Table",    "True",     "True",         "False",        "Enumerate installed security products (AV, EDR). This check is based on keyword matching (loaded DLLs, running processes, installed applications and registered services)."
+"MISC_SYSINFO",                     "Invoke-SystemInfoCheck",                       "Misc",             "OS Version",                           "Info", "Info",     "Table",    "True",     "True",         "False",        "Print the detailed version number of the Operating System. If we can't get the update history, this might be useful."
+"MISC_ADMINS",                      "Invoke-LocalAdminGroupCheck",                  "Misc",             "Local Admin Group",                    "Info", "Info",     "Table",    "True",     "True",         "False",        "Enumerate the users and groups that belong to the local 'Administrators' group."
+"MISC_HOMES",                       "Invoke-UsersHomeFolderCheck",                  "Misc",             "User Home Folders",                    "Info", "Info",     "Table",    "True",     "False",        "False",        "Enumerate local HOME folders and check for potentially weak permissions."
+"MISC_MACHINE_ROLE",                "Invoke-MachineRoleCheck",                      "Misc",             "Machine Role",                         "Info", "Info",     "Table",    "True",     "True",         "False",        "Simply return the machine's role. It can be either 'Workstation', 'Server' or 'Domain Controller'."
+"MISC_STARTUP_EVENTS",              "Invoke-SystemStartupHistoryCheck",             "Misc",             "System Startup History",               "Info", "Info",     "Table",    "True",     "True",         "False",        "Retrieve the machine's startup history. This might be useful to figure out how often a server is rebooted. In the case of a workstation, such metric isn't as relevant."
+"MISC_STARTUP_LAST",                "Invoke-SystemStartupCheck",                    "Misc",             "Last System Startup",                  "Info", "Info",     "Table",    "True",     "True",         "False",        "Determine the last system startup date and time based on the current tick count. Note that this might be unreliable."
+"MISC_DRIVES",                      "Invoke-SystemDrivesCheck",                     "Misc",             "Filesystem Drives",                    "Info", "Info",     "Table",    "True",     "True",         "False",        "List partitions, removable storage and mapped network shares."
 "@
 
     # Reset all global ArrayLists on startup
@@ -142,57 +145,42 @@ function Invoke-PrivescCheck {
     $AllChecksCsv | ConvertFrom-Csv | ForEach-Object {
         [void] $AllChecks.Add($_)
     }
-    
-    # Load plugin scripts if any
-    $AllChecks | Where-Object { $_.File -ne "" } | Select-Object -ExpandProperty File | Sort-Object -Unique | ForEach-Object {
-        Write-Verbose "Plugin required: $($_)"
-        $FilePath = Join-Path $ScriptLocation -ChildPath "\PrivescCheckPlugins\$($_)"
-        Get-Content -Path $FilePath -ErrorAction Stop | Out-String | Invoke-Expression
-    }
 
     $CheckCounter = 0
-    $AllChecks | ForEach-Object {
+    ForEach ($Check in $AllChecks) {
 
-        $CurrentCheck = $_
+        $RunIfAdminCheck = [System.Convert]::ToBoolean($Check.RunIfAdmin)
+        $ExtendedCheck = [System.Convert]::ToBoolean($Check.Extended)
+        $ExperimentalCheck = [System.Convert]::ToBoolean($Check.Experimental)
 
-        # Get the 'RunIfAdmin' flag's value from the CSV data 
-        $RunIfAdmin = [System.Convert]::ToBoolean($CurrentCheck.RunIfAdmin)
+        # If the current user is an admin but the check's RunIfAdmin flag was not set to true, ignore it.
+        if ($IsAdmin -and (-not $RunIfAdminCheck)) { continue }
 
-        if (($IsAdmin -and $RunIfAdmin) -or (-not $IsAdmin)) {
+        # If it's an extended check but the Extended switch was not set to true, ignore it.
+        if ($ExtendedCheck -and (-not $Extended)) { continue }
 
-            # If the current user is an admin, run the check only it 'RunIfAdmin' is true.
-            # If the current user is a normal user, simply run the check.
+        # If it's an experimental check but the Experimental switch was not set to true, ignore it.
+        if ($ExperimentalCheck -and (-not $Experimental)) { continue }
 
-            # Get the 'Extended' flag's value from the CSV data
-            $ExtendedCheck = [System.Convert]::ToBoolean($CurrentCheck.Extended)
-            
-            if ($Extended -or ((-not $Extended) -and (-not $ExtendedCheck))) {
+        if ($Silent) {
 
-                # If the 'Extended' option was specified, run the check. 
-                # If the 'Extended' option was not specified, run the check only if is is not
-                # marked as an "Extended" one.
+            # If the 'Silent' option was specified, don't print the output of the check but write a progress bar
+            # and show the name of the check which is being run.
 
-                if ($Silent) {
+            $CheckCounter += 1
+            $Percentage = ($CheckCounter * 100) / ($AllChecks.Count)
+            Write-Progress -Activity "$($Check.Category.ToUpper()) > $($Check.DisplayName)" -PercentComplete $Percentage
+            $CheckResult = Invoke-Check -Check $Check
+        } 
+        else {
 
-                    # If the 'Silent' option was specified, don't print the output of the check but write a progress bar
-                    # and show the name of the check which is being run.
+            # If the 'Silent' option was not specified, print a banner that shows some information about the 
+            # current check. Then, run the check and print the output either as a table or a list, depending on
+            # the 'Format' value in the CSV data.
 
-                    $CheckCounter += 1
-                    $Percentage = ($CheckCounter * 100) / ($AllChecks.Count)
-                    Write-Progress -Activity "$($CurrentCheck.Category.ToUpper()) > $($CurrentCheck.DisplayName)" -PercentComplete $Percentage
-                    $CheckResult = Invoke-Check -Check $CurrentCheck
-                } 
-                else {
-
-                    # If the 'Silent' option was not specified, print a banner that shows some information about the 
-                    # current check. Then, run the check and print the output either as a table or a list, depending on
-                    # the 'Format' value in the CSV data.
-
-                    Write-CheckBanner -Check $CurrentCheck
-                    $CheckResult = Invoke-Check -Check $CurrentCheck
-                    Write-CheckResult -CheckResult $CheckResult
-                }
-            }
+            Write-CheckBanner -Check $Check
+            $CheckResult = Invoke-Check -Check $Check
+            Write-CheckResult -CheckResult $CheckResult
         }
     }
 
@@ -248,7 +236,7 @@ function Invoke-Check {
         [Object]$Check
     )
 
-    $Result = Invoke-Expression -Command "$($Check.Command) $($Check.Params)"
+    $Result = Invoke-Expression -Command "$($Check.Command)"
     $Check | Add-Member -MemberType "NoteProperty" -Name "ResultRaw" -Value $Result
     $Check | Add-Member -MemberType "NoteProperty" -Name "ResultRawString" -Value $($Result | Format-List | Out-String)
 
