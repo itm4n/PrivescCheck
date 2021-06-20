@@ -978,6 +978,120 @@ function Get-ServiceControlManagerDacl {
     }
 }
 
+function Get-NamedPipeDacl {
+    <#
+    .SYNOPSIS
+    Get security information about a named pipe.
+    
+    .DESCRIPTION
+    This function leverages the Windows API to get some security information about a named pipes such as the owner and the DACL.
+    
+    .PARAMETER Path
+    The path of a named such as \\.pipe\spoolss
+    
+    .EXAMPLE
+    PS C:\> Get-NamedPipeDacl -Path \\.\pipe\spoolss
+
+    Path     : \\.\pipe\spoolss
+    Owner    : NT AUTHORITY\SYSTEM
+    OwnerSid : S-1-5-18
+    Group    : NT AUTHORITY\SYSTEM
+    GroupSid : S-1-5-18
+    Access   : {System.Security.AccessControl.CommonAce, System.Security.AccessControl.CommonAce, System.Security.AccessControl.CommonAce, System.Security.AccessControl.CommonAce...}
+    SDDL     : O:SYG:SYD:(A;;0x100003;;;BU)(A;;0x1201bb;;;WD)(A;;0x1201bb;;;AN)(A;;FA;;;CO)(A;;FA;;;SY)(A;;FA;;;BA)
+    #>
+
+    [CmdletBinding()] Param(
+        [String]
+        $Path
+    )
+
+    $DesiredAccess = $NamedPipeAccessRightsEnum::ReadControl
+    $ShareMode = 0x00000001 # FILE_SHARE_READ
+    $CreationDisposition = 3 # OPEN_EXISTING
+    $FlagsAndAttributes = 0x80 # FILE_ATTRIBUTE_NORMAL
+    $FileHandle = $Kernel32::CreateFile($Path, $DesiredAccess, $ShareMode, [IntPtr]::Zero, $CreationDisposition, $FlagsAndAttributes, [IntPtr]::Zero)
+
+    if ($FileHandle -eq [IntPtr]-1) {
+        $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+        Write-Verbose "CreateFile KO - $([ComponentModel.Win32Exception] $LastError)"
+        return
+    }
+
+    $ObjectType = 6 # SE_KERNEL_OBJECT
+    $SecurityInfo = 7 # DACL_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION | OWNER_SECURITY_INFORMATION
+    $SidOwnerPtr = [IntPtr]::Zero
+    $SidGroupPtr = [IntPtr]::Zero
+    $DaclPtr = [IntPtr]::Zero
+    $SaclPtr = [IntPtr]::Zero
+    $SecurityDescriptorPtr = [IntPtr]::Zero
+    $Result = $Advapi32::GetSecurityInfo($FileHandle, $ObjectType, $SecurityInfo, [ref]$SidOwnerPtr, [ref]$SidGroupPtr, [ref]$DaclPtr, [ref]$SaclPtr, [ref]$SecurityDescriptorPtr)
+
+    if ($Result -ne 0) {
+        $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+        Write-Verbose "GetSecurityInfo KO ($Result) - $([ComponentModel.Win32Exception] $LastError)"
+        $Kernel32::CloseHandle($FileHandle) | Out-Null
+        return
+    }
+
+    # Write-Verbose "GetSecurityInfo OK - SecurityDescriptorPtr: $('{0:x}' -f $SecurityDescriptorPtr) - SidOwnerPtr: $('{0:x}' -f $SidOwnerPtr) - SidGroupPtr: $('{0:x}' -f $SidGroupPtr)"
+
+    $OwnerSidString = Convert-PSidToStringSid -PSid $SidOwnerPtr
+    $OwnerSidInfo = Convert-PSidToNameAndType -PSid $SidOwnerPtr
+    $GroupSidString = Convert-PSidToStringSid -PSid $SidGroupPtr
+    $GroupSidInfo = Convert-PSidToNameAndType -PSid $SidGroupPtr
+
+    $SecurityDescriptorString = ""
+    $SecurityDescriptorStringLen = 0
+    $Success = $Advapi32::ConvertSecurityDescriptorToStringSecurityDescriptor($SecurityDescriptorPtr, 1, $SecurityInfo, [ref]$SecurityDescriptorString, [ref]$SecurityDescriptorStringLen)
+
+    if (-not $Success) {
+        $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+        Write-Verbose "ConvertSecurityDescriptorToStringSecurityDescriptor KO ($Result) - $([ComponentModel.Win32Exception] $LastError)"
+        $Kernel32::LocalFree($SecurityDescriptorPtr) | Out-Null
+        $Kernel32::CloseHandle($FileHandle) | Out-Null
+        return
+    }
+
+    # Write-Verbose "ConvertSecurityDescriptorToStringSecurityDescriptor OK - SDDL: $SecurityDescriptorString"
+
+    $SecurityDescriptorNewPtr = [IntPtr]::Zero
+    $SecurityDescriptorNewSize = 0
+    $Success = $Advapi32::ConvertStringSecurityDescriptorToSecurityDescriptor($SecurityDescriptorString, 1, [ref]$SecurityDescriptorNewPtr, [ref]$SecurityDescriptorNewSize)
+
+    if (-not $Success) {
+        $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+        Write-Verbose "ConvertStringSecurityDescriptorToSecurityDescriptor KO ($Result) - $([ComponentModel.Win32Exception] $LastError)"
+        $Kernel32::LocalFree($SecurityDescriptorPtr) | Out-Null
+        $Kernel32::CloseHandle($FileHandle) | Out-Null
+        return
+    }
+
+    # Write-Verbose "ConvertStringSecurityDescriptorToSecurityDescriptor OK - Size: $SecurityDescriptorNewSize"
+
+    $SecurityDescriptorNewBytes = New-Object Byte[]($SecurityDescriptorNewSize)
+    for ($i = 0; $i -lt $SecurityDescriptorNewSize; $i++) {
+        $Offset = [IntPtr] ($SecurityDescriptorNewPtr.ToInt64() + $i)
+        $SecurityDescriptorNewBytes[$i] = [Runtime.InteropServices.Marshal]::ReadByte($Offset)
+    }
+
+    $RawSecurityDescriptor = New-Object Security.AccessControl.RawSecurityDescriptor -ArgumentList $SecurityDescriptorNewBytes, 0
+
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $Path
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Owner" -Value $OwnerSidInfo.DisplayName
+    $Result | Add-Member -MemberType "NoteProperty" -Name "OwnerSid" -Value $OwnerSidString
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Group" -Value $GroupSidInfo.DisplayName
+    $Result | Add-Member -MemberType "NoteProperty" -Name "GroupSid" -Value $GroupSidString
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Access" -Value $RawSecurityDescriptor.DiscretionaryAcl
+    $Result | Add-Member -MemberType "NoteProperty" -Name "SDDL" -Value $SecurityDescriptorString
+    $Result
+    
+    $Kernel32::LocalFree($SecurityDescriptorNewPtr) | Out-Null
+    $Kernel32::LocalFree($SecurityDescriptorPtr) | Out-Null
+    $Kernel32::CloseHandle($FileHandle) | Out-Null
+}
+
 function Get-ServiceFromRegistry {
 
     [CmdletBinding()] Param(
@@ -1539,6 +1653,8 @@ function Get-ModifiableRegistryPath {
         }
     } 
 }
+
+
 
 function Add-ServiceDacl {
     <#

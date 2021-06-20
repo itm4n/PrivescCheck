@@ -663,3 +663,83 @@ function Invoke-HijackableDllsCheck {
         Test-HijackableDll -ServiceName "NetMan" -DllName "wlanapi.dll" -Description "Loaded by NetMan when listing network interfaces" -RebootRequired $false
     }
 }
+
+function Invoke-NamedPipePermissionsCheck {
+    <#
+    .SYNOPSIS
+    List modifiable named pipes that are not owned by the current user.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+    
+    .DESCRIPTION
+    List modifiable named pipes that are not owned by the current user.
+    
+    .EXAMPLE
+    An example
+    #>
+
+    [CmdletBinding()] Param()
+
+    $UserIdentity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
+    $CurrentUserSids = $UserIdentity.Groups | Select-Object -ExpandProperty Value
+    $CurrentUserSids += $UserIdentity.User.Value
+
+    ForEach ($NamedPipe in $(Get-ChildItem -Path "\\.\pipe\")) {
+
+        $NamedPipeDacl = Get-NamedPipeDacl -Path $NamedPipe.FullName
+
+        if ($null -eq $NamedPipeDacl) { continue }
+
+        if ($UserIdentity.User.Value -match $NamedPipeDacl.OwnerSid) { continue }
+
+        if ($null -eq $NamedPipeDacl.Access) {
+
+            $Result = New-Object -TypeName PSObject
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Pipe" -Value $NamedPipe.FullName
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Owner" -Value $NamedPipeDacl.Owner
+            # $Result | Add-Member -MemberType "NoteProperty" -Name "Group" -Value $NamedPipeDacl.Group
+            $Result | Add-Member -MemberType "NoteProperty" -Name "AceType" -Value "AccessAllowed"
+            $Result | Add-Member -MemberType "NoteProperty" -Name "AccessRights" -Value "GenericAll"
+            $Result | Add-Member -MemberType "NoteProperty" -Name "SecurityIdentifier" -Value "S-1-1-0"
+            $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityName" -Value (Convert-SidToName -Sid "S-1-1-0")
+            $Result
+            continue
+        }
+
+        $PermissionReference = @(
+            $NamedPipeAccessRightsEnum::Delete, 
+            $NamedPipeAccessRightsEnum::WriteDac, 
+            $NamedPipeAccessRightsEnum::WriteOwner,
+            $NamedPipeAccessRightsEnum::FileWriteEa,
+            $NamedPipeAccessRightsEnum::FileWriteAttributes
+        )
+
+        ForEach ($Ace in $NamedPipeDacl.Access) {
+
+            if ($Ace.AceType -notmatch "AccessAllowed") { continue }
+
+            $Permissions = [Enum]::GetValues($NamedPipeAccessRightsEnum) | Where-Object {
+                ($Ace.AccessMask -band ($NamedPipeAccessRightsEnum::$_)) -eq ($NamedPipeAccessRightsEnum::$_)
+            }
+
+            if (Compare-Object -ReferenceObject $Permissions -DifferenceObject $PermissionReference -IncludeEqual -ExcludeDifferent) {
+
+                $IdentityReference = $($Ace | Select-Object -ExpandProperty "SecurityIdentifier").ToString()
+
+                if ($CurrentUserSids -contains $IdentityReference) {
+
+                    $Result = New-Object -TypeName PSObject
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "Pipe" -Value $NamedPipe.FullName
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "Owner" -Value $NamedPipeDacl.Owner
+                    # $Result | Add-Member -MemberType "NoteProperty" -Name "Group" -Value $NamedPipeDacl.Group
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "AceType" -Value ($Ace | Select-Object -ExpandProperty "AceType")
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "AccessRights" -Value ($Ace.AccessMask -as $NamedPipeAccessRightsEnum)
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "SecurityIdentifier" -Value $IdentityReference
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityName" -Value (Convert-SidToName -Sid $IdentityReference)
+                    $Result
+                }
+            }
+        }
+    }
+}

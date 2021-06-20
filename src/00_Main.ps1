@@ -18,6 +18,9 @@ function Invoke-PrivescCheck {
     .PARAMETER Extended
     Set this flag to enable extended checks.
 
+    .PARAMETER Experimental
+    Set this flag to enable experimental checks.
+
     .PARAMETER Force
     Ignore warnings.
 
@@ -131,6 +134,7 @@ function Invoke-PrivescCheck {
 "MISC_STARTUP_EVENTS",              "Invoke-SystemStartupHistoryCheck",             "Misc",             "System Startup History",               "Info", "Info",     "Table",    "True",     "True",         "False",        "Retrieve the machine's startup history. This might be useful to figure out how often a server is rebooted. In the case of a workstation, such metric isn't as relevant."
 "MISC_STARTUP_LAST",                "Invoke-SystemStartupCheck",                    "Misc",             "Last System Startup",                  "Info", "Info",     "Table",    "True",     "True",         "False",        "Determine the last system startup date and time based on the current tick count. Note that this might be unreliable."
 "MISC_DRIVES",                      "Invoke-SystemDrivesCheck",                     "Misc",             "Filesystem Drives",                    "Info", "Info",     "Table",    "True",     "True",         "False",        "List partitions, removable storage and mapped network shares."
+"MISC_NAMED_PIPES",                 "Invoke-NamedPipePermissionsCheck",             "Misc",             "Named Pipes Permission",               "Info", "Info",     "List",     "True",     "False",        "True",         "List modifiable named pipes that are not owned by the current user."
 "@
 
     # Reset all global ArrayLists on startup
