@@ -293,54 +293,6 @@ function Get-TokenInformationData {
     $DataPtr
 }
 
-function Get-TokenInformationUser {
-    <#
-    .SYNOPSIS
-    Get the user associated to a Token.
-
-    Author: @itm4n
-    License: BSD 3-Clause
-    
-    .DESCRIPTION
-    This function leverages the Windows API (GetTokenInformation) to get the user associated to a Token.
-    
-    .PARAMETER ProcessId
-    The ID of a Process to retrieve information from. By default, the value is zero, which means retrieve information from the current process.
-    
-    .EXAMPLE
-    PS C:\> Get-TokenInformationUser
-
-    DisplayName              SID                                            Type
-    -----------              ---                                            ----
-    DESKTOP-E1BRKMO\Lab-User S-1-5-21-3539966466-3447975095-3309057754-1002 User
-    #>
-
-    [CmdletBinding()] Param(
-        [UInt32]
-        $ProcessId = 0
-    )
-
-    $TokenHandle = Get-ProcessTokenHandle -ProcessId $ProcessId
-    if (-not $TokenHandle) { return }
-
-    $TokenUserPtr = Get-TokenInformationData -TokenHandle $TokenHandle -InformationClass $TOKEN_INFORMATION_CLASS::TokenUser
-    if (-not $TokenUserPtr) { $Kernel32::CloseHandle($TokenHandle) | Out-Null; return }
-
-    $TokenUser = [System.Runtime.InteropServices.Marshal]::PtrToStructure($TokenUserPtr, [type] $TOKEN_USER)
-
-    $UserInfo = Convert-PSidToNameAndType -PSid $TokenUser.User.Sid
-    $UserSid = Convert-PSidToStringSid -PSid $TokenUser.User.Sid
-
-    $Result = New-Object -TypeName PSObject
-    $Result | Add-Member -MemberType "NoteProperty" -Name "DisplayName" -Value $UserInfo.DisplayName
-    $Result | Add-Member -MemberType "NoteProperty" -Name "SID" -Value $UserSid
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Type" -Value ($UserInfo.Type -as $SID_NAME_USE)
-    $Result
-
-    [System.Runtime.InteropServices.Marshal]::FreeHGlobal($TokenUserPtr)
-    $Kernel32::CloseHandle($TokenHandle) | Out-Null
-}
-
 function Get-TokenInformationGroups {
     <#
     .SYNOPSIS
@@ -813,6 +765,54 @@ function Get-TokenInformationSource {
     $Kernel32::CloseHandle($TokenHandle) | Out-Null
 
     $TokenSource
+}
+
+function Get-TokenInformationUser {
+    <#
+    .SYNOPSIS
+    Get the user associated to a Token.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+    
+    .DESCRIPTION
+    This function leverages the Windows API (GetTokenInformation) to get the user associated to a Token.
+    
+    .PARAMETER ProcessId
+    The ID of a Process to retrieve information from. By default, the value is zero, which means retrieve information from the current process.
+    
+    .EXAMPLE
+    PS C:\> Get-TokenInformationUser
+
+    DisplayName              SID                                            Type
+    -----------              ---                                            ----
+    DESKTOP-E1BRKMO\Lab-User S-1-5-21-3539966466-3447975095-3309057754-1002 User
+    #>
+
+    [CmdletBinding()] Param(
+        [UInt32]
+        $ProcessId = 0
+    )
+
+    $TokenHandle = Get-ProcessTokenHandle -ProcessId $ProcessId
+    if (-not $TokenHandle) { return }
+
+    $TokenUserPtr = Get-TokenInformationData -TokenHandle $TokenHandle -InformationClass $TOKEN_INFORMATION_CLASS::TokenUser
+    if (-not $TokenUserPtr) { $Kernel32::CloseHandle($TokenHandle) | Out-Null; return }
+
+    $TokenUser = [System.Runtime.InteropServices.Marshal]::PtrToStructure($TokenUserPtr, [type] $TOKEN_USER)
+
+    $UserInfo = Convert-PSidToNameAndType -PSid $TokenUser.User.Sid
+    $UserSid = Convert-PSidToStringSid -PSid $TokenUser.User.Sid
+
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "DisplayName" -Value $UserInfo.DisplayName
+    $Result | Add-Member -MemberType "NoteProperty" -Name "SID" -Value $UserSid
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Type" -Value ($UserInfo.Type -as $SID_NAME_USE)
+    $Result
+
+    [System.Runtime.InteropServices.Marshal]::FreeHGlobal($TokenUserPtr)
+    $Kernel32::CloseHandle($TokenHandle) | Out-Null
 }
 
 function Get-InstalledPrograms {
@@ -1465,6 +1465,32 @@ function Get-ModifiablePath {
     }
 }
 
+function Get-UnquotedPath {
+
+    [CmdletBinding()] Param(
+        [Parameter(Mandatory=$true)]
+        [String]
+        $Path,
+
+        [Switch]
+        $Spaces = $false
+    )
+
+    # Check Check if the path starts with a " or '
+    if ($Path.StartsWith("`"") -or $Path.StartsWith("'")) { return }
+
+    # Extract EXE path
+    $BinPath = $Path.SubString(0, $Path.ToLower().IndexOf(".exe") + 4)
+
+    # If we don't have to check for spaces, return the path
+    if (-not $Spaces) { return $BinPath }
+
+    # Check if it contains spaces
+    If ($BinPath -notmatch ".* .*") { return }
+
+    return $BinPath
+}
+
 function Get-ExploitableUnquotedPath {
     <#
     .SYNOPSIS
@@ -1487,56 +1513,46 @@ function Get-ExploitableUnquotedPath {
     $PermissionsAddFile = @("WriteData/AddFile", "DeleteChild", "WriteDAC", "WriteOwner")
     # $PermissionsAddFolder = @("AppendData/AddSubdirectory", "DeleteChild", "WriteDAC", "WriteOwner")
 
-    # If the Path doesn't start with a " or a ' 
-    if (-not ($Path.StartsWith("`"") -or $Path.StartsWith("'"))) {
-                
-        # Extract the binpath from the ImagePath
-        $BinPath = $Path.SubString(0, $Path.ToLower().IndexOf(".exe") + 4)
+    $UnquotedPath = Get-UnquotedPath -Path $Path -Spaces
 
-        # Write-Verbose "Unquoted path binary: $($BinPath)"
+    if ([String]::IsNullOrEmpty($UnquotedPath)) { return }
 
-        # If the binpath contains spaces
-        If ($BinPath -match ".* .*") {
+    Write-Verbose "Found an unquoted path that contains spaces: $($UnquotedPath)"
 
-            Write-Verbose "Found an unquoted path that contains spaces: $($BinPath)"
+    $SplitPathArray = $UnquotedPath.Split(' ')
+    $ConcatPathArray = @()
+    for ($i=0; $i -lt $SplitPathArray.Count; $i++) {
+        $ConcatPathArray += $SplitPathArray[0..$i] -join ' '
+    }
 
-            $SplitPathArray = $BinPath.Split(' ')
-            $ConcatPathArray = @()
-            for ($i=0; $i -lt $SplitPathArray.Count; $i++) {
-                $ConcatPathArray += $SplitPathArray[0..$i] -join ' '
-            }
+    foreach ($ConcatPath in $ConcatPathArray) {
 
-            # We exclude the binary path itself
-            $ConcatPathArray | Where-Object { -not ($_ -like $BinPath) } | ForEach-Object {
+        # We exclude the binary path itself
+        if ($ConcatPath -like $UnquotedPath) { continue }
 
-                try {
+        try {
+            $BinFolder = Split-Path -Path $ConcatPath -Parent
 
-                    $BinFolder = Split-Path -Path $_ -Parent
+            # Does the parent folder exist?
+            if (-not (Test-Path -Path $BinFolder -ErrorAction SilentlyContinue)) { continue }
+    
+            $ModifiablePaths = $BinFolder | Get-ModifiablePath | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
+            foreach ($ModifiablePath in $ModifiablePaths) {
 
-                    # Does the parent folder exist?
-                    if (Test-Path -Path $BinFolder -ErrorAction SilentlyContinue) {
+                # Verify that the permissions that were returned by Get-ModifiablePath really allow us to add files.
+                $PermissionsSet = $PermissionsAddFile
+                foreach ($Permission in $ModifiablePath.Permissions) {
 
-                        # If the parent folder exists, can we add files?
-                        $ModifiablePaths = $BinFolder | Get-ModifiablePath | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
-                        foreach ($ModifiablePath in $ModifiablePaths) {
+                    if ($PermissionsSet -contains $Permission) {
 
-                            # Verify that the permissions that were returned by Get-ModifiablePath really allow us to add files.
-                            $PermissionsSet = $PermissionsAddFile
-                            foreach ($Permission in $ModifiablePath.Permissions) {
-
-                                if ($PermissionsSet -contains $Permission) {
-
-                                    $ModifiablePath
-                                    break
-                                }
-                            }
-                        }
+                        $ModifiablePath
+                        break
                     }
                 }
-                catch {
-                    # because Split-Path doesn't handle -ErrorAction SilentlyContinue nicely
-                }
             }
+        }
+        catch {
+            # because Split-Path doesn't handle -ErrorAction SilentlyContinue nicely
         }
     }
 }

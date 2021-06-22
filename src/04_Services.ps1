@@ -76,7 +76,7 @@ function Invoke-ServicesPermissionsRegistryCheck {
             $Result | Add-Member -MemberType "NoteProperty" -Name "User" -Value $Service.User
             $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $Service.RegistryKey
             $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $_.IdentityReference
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value $_.Permissions
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value ($_.Permissions -join ", ")
             $Result | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $Status
             $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStart" -Value $UserCanStart
             $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStop" -Value $UserCanStop
@@ -86,6 +86,38 @@ function Invoke-ServicesPermissionsRegistryCheck {
 }
 
 function Invoke-ServicesUnquotedPathCheck {
+    <#
+    .SYNOPSIS
+    Enumerate services configured with an unquoted image file path containing spaces.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+    
+    .DESCRIPTION
+    Enumerate services configured with an unquoted image file path containing spaces.
+    
+    .EXAMPLE
+    PS C:\> Invoke-ServicesUnquotedPathCheck
+
+    Name         : DVWS
+    DisplayName  : Damn Vulnerable Windows Service
+    User         : NT AUTHORITY\LocalService
+    ImagePath    : C:\DVWS\Vuln Service\service.exe
+    StartMode    : Manual
+
+    Name         : UnquotedService
+    DisplayName  :
+    User         : LocalSystem
+    ImagePath    : C:\Program Files\UnquotedService\poc.exe
+    StartMode    : Manual
+    #>
+
+    [CmdletBinding()] Param()
+
+    Get-ServiceList -FilterLevel 2 | Where-Object { -not ([String]::IsNullOrEmpty($(Get-UnquotedPath -Path $_.ImagePath.trim() -Spaces))) } | Select-Object Name,DisplayName,User,ImagePath,StartMode
+}
+
+function Invoke-ServicesUnquotedPathVulnCheck {
     <#
     .SYNOPSIS
     Enumerates all the services with an unquoted path. For each one of them, enumerates paths that the current user can modify. Based on the original "Get-ServiceUnquoted" function from PowerUp. 
@@ -144,7 +176,7 @@ function Invoke-ServicesUnquotedPathCheck {
             $Result | Add-Member -MemberType "NoteProperty" -Name "User" -Value $Service.User
             $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $_.ModifiablePath
             $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $_.IdentityReference
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value $_.Permissions
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value ($_.Permissions -join ", ")
             $Result | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $Status
             $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStart" -Value $UserCanStart
             $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStop" -Value $UserCanStop
@@ -205,7 +237,7 @@ function Invoke-ServicesImagePermissionsCheck {
             $Result | Add-Member -MemberType "NoteProperty" -Name "User" -Value $Service.User
             $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $_.ModifiablePath
             $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $_.IdentityReference
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value $_.Permissions
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value ($_.Permissions -join ", ")
             $Result | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $Status
             $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStart" -Value $UserCanStart
             $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStop" -Value $UserCanStop
