@@ -85,39 +85,39 @@ function Invoke-ServicesPermissionsRegistryCheck {
     }
 }
 
+# function Invoke-ServicesUnquotedPathCheck {
+#     <#
+#     .SYNOPSIS
+#     Enumerate services configured with an unquoted image file path containing spaces.
+
+#     Author: @itm4n
+#     License: BSD 3-Clause
+    
+#     .DESCRIPTION
+#     Enumerate services configured with an unquoted image file path containing spaces.
+    
+#     .EXAMPLE
+#     PS C:\> Invoke-ServicesUnquotedPathCheck
+
+#     Name         : DVWS
+#     DisplayName  : Damn Vulnerable Windows Service
+#     User         : NT AUTHORITY\LocalService
+#     ImagePath    : C:\DVWS\Vuln Service\service.exe
+#     StartMode    : Manual
+
+#     Name         : UnquotedService
+#     DisplayName  :
+#     User         : LocalSystem
+#     ImagePath    : C:\Program Files\UnquotedService\poc.exe
+#     StartMode    : Manual
+#     #>
+
+#     [CmdletBinding()] Param()
+
+#     Get-ServiceList -FilterLevel 2 | Where-Object { -not ([String]::IsNullOrEmpty($(Get-UnquotedPath -Path $_.ImagePath.trim() -Spaces))) } | Select-Object Name,DisplayName,User,ImagePath,StartMode
+# }
+
 function Invoke-ServicesUnquotedPathCheck {
-    <#
-    .SYNOPSIS
-    Enumerate services configured with an unquoted image file path containing spaces.
-
-    Author: @itm4n
-    License: BSD 3-Clause
-    
-    .DESCRIPTION
-    Enumerate services configured with an unquoted image file path containing spaces.
-    
-    .EXAMPLE
-    PS C:\> Invoke-ServicesUnquotedPathCheck
-
-    Name         : DVWS
-    DisplayName  : Damn Vulnerable Windows Service
-    User         : NT AUTHORITY\LocalService
-    ImagePath    : C:\DVWS\Vuln Service\service.exe
-    StartMode    : Manual
-
-    Name         : UnquotedService
-    DisplayName  :
-    User         : LocalSystem
-    ImagePath    : C:\Program Files\UnquotedService\poc.exe
-    StartMode    : Manual
-    #>
-
-    [CmdletBinding()] Param()
-
-    Get-ServiceList -FilterLevel 2 | Where-Object { -not ([String]::IsNullOrEmpty($(Get-UnquotedPath -Path $_.ImagePath.trim() -Spaces))) } | Select-Object Name,DisplayName,User,ImagePath,StartMode
-}
-
-function Invoke-ServicesUnquotedPathVulnCheck {
     <#
     .SYNOPSIS
     Enumerates all the services with an unquoted path. For each one of them, enumerates paths that the current user can modify. Based on the original "Get-ServiceUnquoted" function from PowerUp. 
@@ -128,6 +128,9 @@ function Invoke-ServicesUnquotedPathVulnCheck {
     .DESCRIPTION
     In my version of this function, I tried to eliminate as much false positives as possible. PowerUp tends to report "C:\" as exploitable whenever a program located in "C:\Program Files" is identified. The problem is that we cannot write "C:\program.exe" so the service wouldn't be exploitable. We can only create folders in "C:\" by default.
     
+    .PARAMETER Info
+    Use this option to return all services with an unquoted path containing spaces without checking if they are vulnerable.
+
     .EXAMPLE
     PS C:\> Invoke-ServicesUnquotedPathCheck
 
@@ -142,7 +145,10 @@ function Invoke-ServicesUnquotedPathVulnCheck {
     UserCanStop       : False
     #>
     
-    [CmdletBinding()] Param()
+    [CmdletBinding()] Param(
+        [switch]
+        $Info = $false
+    )
 
     # Get all services which have a non-empty ImagePath (exclude drivers as well)
     $Services = Get-ServiceList -FilterLevel 2
@@ -154,6 +160,16 @@ function Invoke-ServicesUnquotedPathVulnCheck {
     foreach ($Service in $Services) {
 
         $ImagePath = $Service.ImagePath.trim()
+
+        if ($Info) {
+
+            if (-not ([String]::IsNullOrEmpty($(Get-UnquotedPath -Path $ImagePath -Spaces)))) {
+                $Service | Select-Object Name,DisplayName,User,ImagePath,StartMode
+            }
+
+            # If Info, return the result without checking if the path is vulnerable
+            continue
+        }
 
         Get-ExploitableUnquotedPath -Path $ImagePath | ForEach-Object {
 
