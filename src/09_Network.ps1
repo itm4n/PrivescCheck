@@ -1,7 +1,7 @@
 function Invoke-NetworkAdaptersCheck {
     <#
     .SYNOPSIS
-    Collect detailed information about all active Ethernet adapters.
+    Collect detailed information about all Ethernet and Wi-Fi network adapters.
 
     Author: @itm4n
     License: BSD 3-Clause
@@ -31,7 +31,7 @@ function Invoke-NetworkAdaptersCheck {
 
     [CmdletBinding()]Param()
 
-    Get-NetworkAdapatersList | Where-Object { $_.Status -eq "Up" -and $_.Type -eq "Ethernet" } | Select-Object -Property Name,FriendlyName,Type,Status,DnsSuffix,Description,PhysicalAddress,Flags,IPv6,IPv4,Gateway,DHCPv4Server,DHCPv6Server,DnsServers,DNSSuffixList
+    Get-NetworkAdaptersList | Where-Object { $_.Type -eq "Ethernet" -or $_.Type -eq "IEEE80211" } | Select-Object -Property Name,FriendlyName,Type,Status,DnsSuffix,Description,PhysicalAddress,Flags,IPv6,IPv4,Gateway,DHCPv4Server,DHCPv6Server,DnsServers,DNSSuffixList
 }
 
 function Invoke-TcpEndpointsCheck {
@@ -402,7 +402,7 @@ function Convert-SocketAddressToObject {
     $Result
 }
 
-function Get-NetworkAdapatersList {
+function Get-NetworkAdaptersList {
     <#
     .SYNOPSIS
     List network adpaters.
