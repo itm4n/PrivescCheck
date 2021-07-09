@@ -112,52 +112,23 @@ function Invoke-SccmCacheFolderCheck {
     
     .DESCRIPTION
     If the SCCM cache folder exists ('C:\Windows\CCMCache'), this check will return some information about the item, such as the ACL. This allows for further manual analysis.
+
+    .PARAMETER Info
+    Report if the folder exists without checking if it is accessible.
     #>
 
-    [CmdletBinding()] param ()
+    [CmdletBinding()] param (
+        [switch]
+        $Info = $false
+    )
 
-    $SccmCacheFolderItem = Get-SccmCacheFolder
-    if ($SccmCacheFolderItem) {
+    Get-SccmCacheFolder | ForEach-Object {
 
-        $Result = $SccmCacheFolderItem
-        try {
-            # We need a try/catch block because ErrorAction doesn't catch access denied errors
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Acl" -Value $($SccmCacheFolderItem | Get-Acl -ErrorAction SilentlyContinue | Select-Object -ExpandProperty AccessToString) 
-        }
-        catch {
-            # Access denied, do nothing
-        }
-        $Result
-    }
-}
+        if ($Info) { $_; continue } # If Info, report the item directly
 
-function Invoke-SccmCacheFolderVulnCheck {
-    <#
-    .SYNOPSIS
-    Checks whether the ccmcache folder is accessible.
-
-    Author: @itm4n
-    License: BSD 3-Clause
-    
-    .DESCRIPTION
-    When SCCM is used to remotely install packages, a cache folder is created in the Windows directory: 'C:\Windows\ccmcache'. MSI packages contained in this folder may contain some cleartext credentials. Therefore, normal users shouldn't be allowed to browse this directory.
-    
-    .EXAMPLE
-    PS C:\> Invoke-SccmCacheFolderVulnCheck
-
-    FullName   : C:\WINDOWS\CCMCache
-    Attributes : Directory
-    Exists     : True
-    #>
-
-    [CmdletBinding()] param ()
-
-    $SccmCacheFolder = Get-SccmCacheFolder
-    if ($SccmCacheFolder) {
-
-        Get-ChildItem -Path $SccmCacheFolder.FullName -ErrorAction SilentlyContinue -ErrorVariable ErrorGetChildItem | Out-Null
+        Get-ChildItem -Path $_.FullName -ErrorAction SilentlyContinue -ErrorVariable ErrorGetChildItem | Out-Null
         if (-not $ErrorGetChildItem) {
-            $SccmCacheFolder
+            $_
         }
     }
 }
