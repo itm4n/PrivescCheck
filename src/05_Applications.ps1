@@ -145,6 +145,9 @@ function Invoke-ApplicationsOnStartupCheck {
     .DESCRIPTION
     Applications can be run on startup or whenever a user logs on. They can be either configured in the registry or by adding an shortcut file (.LNK) in a Start Menu folder. 
     
+    .PARAMETER Info
+    Report all start-up applications, whether or not the application path is vulnerable.
+
     .EXAMPLE
     PS C:\> Invoke-ApplicationsOnStartupCheck
 
@@ -159,7 +162,10 @@ function Invoke-ApplicationsOnStartupCheck {
     IsModifiable : False
     #>
 
-    [CmdletBinding()] Param()
+    [CmdletBinding()] Param(
+        [switch]
+        $Info = $false
+    )
 
     # Is it relevant to check HKCU entries???
     #[String[]]$RegistryPaths = "HKLM\Software\Microsoft\Windows\CurrentVersion\Run", "HKLM\Software\Microsoft\Windows\CurrentVersion\RunOnce", "HKCU\Software\Microsoft\Windows\CurrentVersion\Run", "HKCU\Software\Microsoft\Windows\CurrentVersion\RunOnce"
@@ -172,28 +178,30 @@ function Invoke-ApplicationsOnStartupCheck {
         $Item = Get-Item -Path "Registry::$($RegKeyPath)" -ErrorAction SilentlyContinue -ErrorVariable ErrorGetItem
         if (-not $ErrorGetItem) {
 
-            $Item | Select-Object -ExpandProperty Property | ForEach-Object {
+            $Values = $Item | Select-Object -ExpandProperty Property
+            foreach ($Value in $Values) {
 
-                $RegKeyValueName = $_
+                $RegKeyValueName = $Value
                 $RegKeyValueData = $Item.GetValue($RegKeyValueName, "", "DoNotExpandEnvironmentNames")
 
-                if (-not [String]::IsNullOrEmpty($RegKeyValueData)) {
+                if ([String]::IsNullOrEmpty($RegKeyValueData)) { continue }
 
-                    $ModifiablePaths = $RegKeyValueData | Get-ModifiablePath | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
-                    if (([Object[]]$ModifiablePaths).Length -gt 0) {
-                        $IsModifiable = $true 
-                    }
-                    else {
-                        $IsModifiable = $false 
-                    }
-
-                    $Result = New-Object -TypeName PSObject
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $RegKeyValueName
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value "$($RegKeyPath)\$($RegKeyValueName)"
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $RegKeyValueData
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "IsModifiable" -Value $IsModifiable
-                    $Result
+                $ModifiablePaths = $RegKeyValueData | Get-ModifiablePath | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
+                if (([Object[]]$ModifiablePaths).Length -gt 0) {
+                    $IsModifiable = $true 
                 }
+                else {
+                    $IsModifiable = $false 
+                }
+
+                $Result = New-Object -TypeName PSObject
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $RegKeyValueName
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value "$($RegKeyPath)\$($RegKeyValueName)"
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $RegKeyValueData
+                $Result | Add-Member -MemberType "NoteProperty" -Name "IsModifiable" -Value $IsModifiable
+
+                if ($Info) { $Result; continue } # If Info, report directly and inspect the next value
+                if ($IsModifiable) { $Result } # If vulnerable, report
             }
         }
     }
@@ -208,9 +216,12 @@ function Invoke-ApplicationsOnStartupCheck {
 
         $StartupFolderPath = Join-Path -Path $Root -ChildPath $_ 
 
-        Get-ChildItem -Path $StartupFolderPath -ErrorAction SilentlyContinue | ForEach-Object {
-            $EntryName = $_.Name
-            $EntryPath = $_.FullName
+        $StartupFolders = Get-ChildItem -Path $StartupFolderPath -ErrorAction SilentlyContinue
+
+        foreach ($StartupFolder in $StartupFolders) {
+
+            $EntryName = $StartupFolder.Name
+            $EntryPath = $StartupFolder.FullName
 
             if ($EntryPath -Like "*.lnk") {
 
@@ -232,8 +243,9 @@ function Invoke-ApplicationsOnStartupCheck {
                     $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $EntryPath
                     $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value "$($Shortcut.TargetPath) $($Shortcut.Arguments)"
                     $Result | Add-Member -MemberType "NoteProperty" -Name "IsModifiable" -Value $IsModifiable
-                    $Result
 
+                    if ($Info) { $Result; continue } # If Info, report directly and inspect the next value
+                    if ($IsModifiable) { $Result } # If vulnerable, report
                 }
                 catch {
                     # do nothing
@@ -243,20 +255,20 @@ function Invoke-ApplicationsOnStartupCheck {
     }
 }
 
-function Invoke-ApplicationsOnStartupVulnCheck {
-    <#
-    .SYNOPSIS
-    Enumerates startup applications that can be modified by the current user
+# function Invoke-ApplicationsOnStartupVulnCheck {
+#     <#
+#     .SYNOPSIS
+#     Enumerates startup applications that can be modified by the current user
 
-    Author: @itm4n
-    License: BSD 3-Clause
+#     Author: @itm4n
+#     License: BSD 3-Clause
     
-    .DESCRIPTION
-    Some applications can be set as "startup" applications for all users. If a user can modify one of these apps, they would potentially be able to run arbitrary code in the context of other users. Therefore, low-privileged users should not be able to modify the files used by such application.
-    #>
+#     .DESCRIPTION
+#     Some applications can be set as "startup" applications for all users. If a user can modify one of these apps, they would potentially be able to run arbitrary code in the context of other users. Therefore, low-privileged users should not be able to modify the files used by such application.
+#     #>
 
-    Invoke-ApplicationsOnStartupCheck | Where-Object { $_.IsModifiable }
-}
+#     Invoke-ApplicationsOnStartupCheck | Where-Object { $_.IsModifiable }
+# }
 
 function Invoke-RunningProcessCheck {
     <#
