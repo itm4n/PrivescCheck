@@ -38,13 +38,16 @@ function Invoke-WindowsUpdateCheck {
 function Invoke-HotFixCheck {
     <#
     .SYNOPSIS
-    Gets a list of installed updates and hotfixes.
+    If a patch was not installed in the last 31 days, return the latest patch that was installed, otherwise return nothing.
     
     .DESCRIPTION
     This check simply invokes the helper function 'Get-HotFixList' and sorts the results from the newest to the oldest.
+
+    .PARAMETER Info
+    Use this flag to get the list of all installed patches.
     
     .EXAMPLE
-    PS C:\> Invoke-HotFixCheck
+    PS C:\> Invoke-HotFixCheck -Info
 
     HotFixID  Description     InstalledBy           InstalledOn
     --------  -----------     -----------           -----------
@@ -59,9 +62,31 @@ function Invoke-HotFixCheck {
     KB4557968 Security Update                       2020-05-11 07:37:09
     #>
 
-    [CmdletBinding()] Param()
+    [CmdletBinding()] Param(
+        [switch]
+        $Info
+    )
 
-    Get-HotFixList | Sort-Object -Property "InstalledOn" -Descending
+    # Get the list of installed patches
+    $HotFixList = Get-HotFixList | Sort-Object -Property "InstalledOn" -Descending
+    
+    # If the list is empty, return
+    if ($(([Object[]]$HotFixList).Length) -eq 0) { return }
+
+    # If Info, return the list directly
+    if ($Info) { $HotFixList; return }
+
+    # To get the latest patch, we can simple get the first item in the list because it is sorted in 
+    # descending order.
+    $LatestHotfix = $HotFixList | Select-Object -First 1
+    $TimeSpan = New-TimeSpan -Start $LatestHotfix.InstalledOn -End $(Get-Date)
+
+    if ($TimeSpan.TotalDays -gt 31) {
+        $LatestHotfix
+    }
+    else {
+        Write-Verbose "At least one hotfix was installed in the last 31 days."
+    }
 }
 
 function Invoke-HotFixVulnCheck {
