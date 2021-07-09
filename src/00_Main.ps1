@@ -59,8 +59,9 @@ function Invoke-PrivescCheck {
         [String]
         $Report,
 
-        [ValidateSet("TXT", "HTML", "CSV")]
-        [String[]]$Format
+        [ValidateSet("TXT", "HTML", "CSV", "XML")]
+        [String[]]
+        $Format
     )
 
     # Check wether the current process has admin privileges. 
@@ -78,7 +79,7 @@ function Invoke-PrivescCheck {
 
     # The following CSV data contains all the checks
     $AllChecksCsv = @"
-"ID",                               "COMMAND",                                      "CATEGORY",         "DISPLAYNAME",                          "TYPE", "SEVERITY", "FORMAT",   "EXTENDED", "RUNIFADMIN",   "EXPERIMENTAL", "DESCRIPTION"
+"Id",                               "Command",                                      "Category",         "DisplayName",                          "Type", "Severity", "Format",   "Extended", "RunIfAdmin",   "Experimental", "Description"
 "USER_USER",                        "Invoke-UserCheck",                             "User",             "Identity",                             "Info", "Info",     "List",     "False",    "True",         "False",        "Get the full name of the current user (domain + username) along with the associated Security Identifier (SID)."
 "USER_GROUPS",                      "Invoke-UserGroupsCheck",                       "User",             "Groups",                               "Info", "Info",     "Table",    "False",    "True",         "False",        "List all the groups that are associated to the current user's token."
 "USER_RESTRICTED_SIDS",             "Invoke-UserRestrictedSidsCheck",               "User",             "Restricted SIDs",                      "Info", "Info",     "Table",    "True",     "True",         "False",        "List the restricted SIDs that are associated to the current user's token, if it is WRITE RESTRICTED." 
@@ -221,6 +222,9 @@ function Invoke-PrivescCheck {
             elseif ($_ -eq "CSV") {
                 Write-CsvReport -AllResults $ResultArrayList | Out-File $ReportFileName
             }
+            elseif ($_ -eq "XML") {
+                Write-XmlReport -AllResults $ResultArrayList | Out-File $ReportFileName
+            }
             else {
                 Write-Warning "`r`nReport format not implemented: $($Format.ToUpper())`r`n"
             }
@@ -238,14 +242,20 @@ function Invoke-PrivescCheck {
 function Invoke-Check {
 
     [CmdletBinding()] Param(
-        [Object]$Check
+        [Object]
+        $Check
     )
 
     $Result = Invoke-Expression -Command "$($Check.Command)"
     $Check | Add-Member -MemberType "NoteProperty" -Name "ResultRaw" -Value $Result
-    $Check | Add-Member -MemberType "NoteProperty" -Name "ResultRawString" -Value $($Result | Format-List | Out-String)
+    if ($Check.Format -eq "Table") {
+        $Check | Add-Member -MemberType "NoteProperty" -Name "ResultRawString" -Value $($Result | Format-Table | Out-String)
+    }
+    elseif ($Check.Format -eq "List") {
+        $Check | Add-Member -MemberType "NoteProperty" -Name "ResultRawString" -Value $($Result | Format-List | Out-String)
+    }
 
-    if ($($Check.Type -Like "vuln")) {
+    if ($($Check.Type -Like "Vuln")) {
         if ($Result) {
             $Check | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value "KO"
         }
@@ -267,7 +277,8 @@ function Invoke-Check {
 function Write-CheckBanner {
 
     [CmdletBinding()] Param(
-        [Object]$Check
+        [Object]
+        $Check
     )
 
     function Split-Description {
@@ -312,7 +323,8 @@ function Write-CheckBanner {
 function Write-CheckResult {
 
     [CmdletBinding()] Param(
-        [Object]$CheckResult
+        [Object]
+        $CheckResult
     )
 
     if ($CheckResult.ResultRaw) {
@@ -346,7 +358,8 @@ function Write-CheckResult {
 function Write-TxtReport {
 
     [CmdletBinding()] Param(
-        [Object[]]$AllResults
+        [Object[]]
+        $AllResults
     )
 
     $AllResults | ForEach-Object {
@@ -359,16 +372,28 @@ function Write-TxtReport {
 function Write-CsvReport {
 
     [CmdletBinding()] Param(
-        [Object[]]$AllResults
+        [Object[]]
+        $AllResults
     )
     
     $AllResults | Sort-Object -Property "Category" | Select-Object "Category","DisplayName","Description","Compliance","Severity","ResultRawString" | ConvertTo-Csv -NoTypeInformation
 }
 
+function Write-XmlReport {
+
+    [CmdletBinding()] Param(
+        [Object[]]
+        $AllResults
+    )
+
+    $AllResults | Sort-Object -Property "Category" | Select-Object "Id","Category","DisplayName","Description","Type","Compliance","Severity","ResultRawString" | ConvertTo-Xml -As String
+}
+
 function Write-HtmlReport {
 
     [CmdletBinding()] Param(
-        [Object[]]$AllResults
+        [Object[]]
+        $AllResults
     )
 
     $JavaScript = @"

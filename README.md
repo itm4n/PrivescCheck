@@ -39,13 +39,13 @@ Invoke-PrivescCheck -Extended
 
 ### 3. Generate report files
 
-You can use the `-Report` and `-Format` options to save the results of the script to files in various formats. Accepted formats are `TXT`, `CSV` and `HTML` for now. If `-Format` is empty, the default format is `TXT`, which is a simple copy of what is printed on the terminal.
+You can use the `-Report` and `-Format` options to save the results of the script to files in various formats. Accepted formats are `TXT`, `CSV`, `HTML` and `XML`. If `-Format` is empty, the default format is `TXT`, which is a simple copy of what is printed on the terminal.
 
 The value of `-Report` will be used as the base name for the final report, the extension will be automatically appended depending on the chosen format(s).
 
 ```
 Invoke-PrivescCheck -Report PrivescCheck_%COMPUTERNAME%
-Invoke-PrivescCheck -Report PrivescCheck_%COMPUTERNAME% -Format TXT,CSV,HTML
+Invoke-PrivescCheck -Report PrivescCheck_%COMPUTERNAME% -Format TXT,CSV,HTML,XML
 ```
 
 ## Bug reporting. Feature Request. Overall enhancement.

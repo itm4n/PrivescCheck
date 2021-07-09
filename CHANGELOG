@@ -1,4 +1,7 @@
-2021-07-20
+2021-07-09
+    - Added XML output report format
+
+2021-06-20
     - Added Misc > Invoke-NamedPipePermissionsCheck (experimental)
 
 2021-06-18
