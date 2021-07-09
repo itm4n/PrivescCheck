@@ -85,38 +85,6 @@ function Invoke-ServicesPermissionsRegistryCheck {
     }
 }
 
-# function Invoke-ServicesUnquotedPathCheck {
-#     <#
-#     .SYNOPSIS
-#     Enumerate services configured with an unquoted image file path containing spaces.
-
-#     Author: @itm4n
-#     License: BSD 3-Clause
-    
-#     .DESCRIPTION
-#     Enumerate services configured with an unquoted image file path containing spaces.
-    
-#     .EXAMPLE
-#     PS C:\> Invoke-ServicesUnquotedPathCheck
-
-#     Name         : DVWS
-#     DisplayName  : Damn Vulnerable Windows Service
-#     User         : NT AUTHORITY\LocalService
-#     ImagePath    : C:\DVWS\Vuln Service\service.exe
-#     StartMode    : Manual
-
-#     Name         : UnquotedService
-#     DisplayName  :
-#     User         : LocalSystem
-#     ImagePath    : C:\Program Files\UnquotedService\poc.exe
-#     StartMode    : Manual
-#     #>
-
-#     [CmdletBinding()] Param()
-
-#     Get-ServiceList -FilterLevel 2 | Where-Object { -not ([String]::IsNullOrEmpty($(Get-UnquotedPath -Path $_.ImagePath.trim() -Spaces))) } | Select-Object Name,DisplayName,User,ImagePath,StartMode
-# }
-
 function Invoke-ServicesUnquotedPathCheck {
     <#
     .SYNOPSIS
