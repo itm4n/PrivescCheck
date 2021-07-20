@@ -416,39 +416,133 @@ function Invoke-PowerShellHistoryCheck {
     }
 }
 
-function Invoke-SamBackupFilesCheck {
+# function Invoke-SamBackupFilesCheck {
+#     <#
+#     .SYNOPSIS
+#     Checks common locations for the SAM/SYSTEM backup files and checks whether the current user can read them.
+
+#     Author: @itm4n
+#     License: BSD 3-Clause
+    
+#     .DESCRIPTION
+#     The SAM/SYSTEM registry hives are stored as files in a known location: 'C:\windows\System32\config'. These files are locked by default so even SYSTEM can't read them when the system is running. However, copies of these files can be created in other folders so it's worth checking if these files are accessible. 
+#     #>
+    
+#     [CmdletBinding()] Param()
+
+#     $ArrayOfPaths = New-Object System.Collections.ArrayList 
+#     [void]$ArrayOfPaths.Add($(Join-Path -Path $env:SystemRoot -ChildPath "repair\SAM"))
+#     [void]$ArrayOfPaths.Add($(Join-Path -Path $env:SystemRoot -ChildPath "System32\config\RegBack\SAM"))
+#     [void]$ArrayOfPaths.Add($(Join-Path -Path $env:SystemRoot -ChildPath "System32\config\SAM"))
+#     [void]$ArrayOfPaths.Add($(Join-Path -Path $env:SystemRoot -ChildPath "repair\system"))
+#     [void]$ArrayOfPaths.Add($(Join-Path -Path $env:SystemRoot -ChildPath "System32\config\SYSTEM"))
+#     [void]$ArrayOfPaths.Add($(Join-Path -Path $env:SystemRoot -ChildPath "System32\config\RegBack\system"))
+
+#     foreach ($Path in [String[]]$ArrayOfPaths) {
+
+#         if (Test-Path -Path $Path -ErrorAction SilentlyContinue) { 
+
+#             Get-Content -Path $Path -ErrorAction SilentlyContinue -ErrorVariable GetContentError | Out-Null 
+
+#             if (-not $GetContentError) {
+#                 $SamBackupFile = New-Object -TypeName PSObject 
+#                 $SamBackupFile | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $Path 
+#                 $SamBackupFile
+#             } 
+#         }
+#     }
+# }
+
+function Invoke-SensitiveHiveFileAccessCheck {
     <#
     .SYNOPSIS
-    Checks common locations for the SAM/SYSTEM backup files and checks whether the current user can read them.
+    Checks for READ access on the SAM, SYSTEM and SECURITY hive files (including potential backups).
 
     Author: @itm4n
     License: BSD 3-Clause
     
     .DESCRIPTION
-    The SAM/SYSTEM registry hives are stored as files in a known location: 'C:\windows\System32\config'. These files are locked by default so even SYSTEM can't read them when the system is running. However, copies of these files can be created in other folders so it's worth checking if these files are accessible. 
-    #>
+    Checks for READ access on the SAM, SYSTEM and SECURITY hive files (including potential backups).
     
+    .EXAMPLE
+    PS C:\> Invoke-SensitiveHiveFileAccessCheck
+
+    Path              : C:\Windows\System32\config\SAM
+    IdentityReference : BUILTIN\Users
+    Permissions       : ReadData, ReadExtendedAttributes, Execute, ReadAttributes, ReadControl, Synchronize
+
+    Path              : C:\Windows\System32\config\SYSTEM
+    IdentityReference : BUILTIN\Users
+    Permissions       : ReadData, ReadExtendedAttributes, Execute, ReadAttributes, ReadControl, Synchronize
+
+    Path              : C:\Windows\System32\config\SECURITY
+    IdentityReference : BUILTIN\Users
+    Permissions       : ReadData, ReadExtendedAttributes, Execute, ReadAttributes, ReadControl, Synchronize
+    #>
+
     [CmdletBinding()] Param()
+
+    $UserIdentity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
+    $CurrentUserSids = $UserIdentity.Groups | Select-Object -ExpandProperty Value
+    $CurrentUserSids += $UserIdentity.User.Value
+
+    $TranslatedIdentityReferences = @{}
 
     $ArrayOfPaths = New-Object System.Collections.ArrayList 
     [void]$ArrayOfPaths.Add($(Join-Path -Path $env:SystemRoot -ChildPath "repair\SAM"))
     [void]$ArrayOfPaths.Add($(Join-Path -Path $env:SystemRoot -ChildPath "System32\config\RegBack\SAM"))
     [void]$ArrayOfPaths.Add($(Join-Path -Path $env:SystemRoot -ChildPath "System32\config\SAM"))
-    [void]$ArrayOfPaths.Add($(Join-Path -Path $env:SystemRoot -ChildPath "repair\system"))
+    [void]$ArrayOfPaths.Add($(Join-Path -Path $env:SystemRoot -ChildPath "repair\SYSTEM"))
     [void]$ArrayOfPaths.Add($(Join-Path -Path $env:SystemRoot -ChildPath "System32\config\SYSTEM"))
-    [void]$ArrayOfPaths.Add($(Join-Path -Path $env:SystemRoot -ChildPath "System32\config\RegBack\system"))
+    [void]$ArrayOfPaths.Add($(Join-Path -Path $env:SystemRoot -ChildPath "System32\config\RegBack\SYSTEM"))
+    [void]$ArrayOfPaths.Add($(Join-Path -Path $env:SystemRoot -ChildPath "repair\SECURITY"))
+    [void]$ArrayOfPaths.Add($(Join-Path -Path $env:SystemRoot -ChildPath "System32\config\SECURITY"))
+    [void]$ArrayOfPaths.Add($(Join-Path -Path $env:SystemRoot -ChildPath "System32\config\RegBack\SECURITY"))
 
     foreach ($Path in [String[]]$ArrayOfPaths) {
 
-        if (Test-Path -Path $Path -ErrorAction SilentlyContinue) { 
+        $Acl = Get-Acl -Path $Path -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Access
+        if ($null -eq $Acl) { Write-Verbose "ACL is null"; continue }
 
-            Get-Content -Path $Path -ErrorAction SilentlyContinue -ErrorVariable GetContentError | Out-Null 
+        foreach ($Ace in $Acl) {
 
-            if (-not $GetContentError) {
-                $SamBackupFile = New-Object -TypeName PSObject 
-                $SamBackupFile | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $Path 
-                $SamBackupFile
-            } 
+            $PermissionReference = @(
+                $FileAccessRightsEnum::ReadData
+            )
+
+            $Permissions = [Enum]::GetValues($FileAccessRightsEnum) | Where-Object {
+                ($Ace.FileSystemRights.value__ -band ($FileAccessRightsEnum::$_)) -eq ($FileAccessRightsEnum::$_)
+            }
+
+            if (Compare-Object -ReferenceObject $Permissions -DifferenceObject $PermissionReference -IncludeEqual -ExcludeDifferent) {
+
+                if ($Ace.IdentityReference -notmatch '^S-1-5.*' -and $Ace.IdentityReference -notmatch '^S-1-15-.*') {
+                    if (-not ($TranslatedIdentityReferences[$Ace.IdentityReference])) {
+        
+                        try {
+                            # translate the IdentityReference if it's a username and not a SID
+                            $IdentityUser = New-Object System.Security.Principal.NTAccount($Ace.IdentityReference)
+                            $TranslatedIdentityReferences[$Ace.IdentityReference] = $IdentityUser.Translate([System.Security.Principal.SecurityIdentifier]) | Select-Object -ExpandProperty Value
+                        }
+                        catch {
+                            # If we cannot resolve the SID, go to the next ACE.
+                            continue
+                        }
+                    }
+                    $IdentitySID = $TranslatedIdentityReferences[$Ace.IdentityReference]
+                }
+                else {
+                    $IdentitySID = $Ace.IdentityReference
+                }
+    
+                if ($CurrentUserSids -contains $IdentitySID) {
+                    $Result = New-Object -TypeName PSObject
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $Path
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $Ace.IdentityReference
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value ($Permissions -join ", ")
+                    $Result
+                }
+            }
         }
     }
 }

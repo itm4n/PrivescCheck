@@ -587,6 +587,29 @@ function Add-Win32Type {
 
 $Module = New-DynamicModule -ModuleName "WinApiModule"
 
+$FileAccessRightsEnum = New-Enum $Module WinApiModule.FileAccessRightsEnum UInt32 @{
+    # GenericRead                 = '0x80000000'
+    # GenericWrite                = '0x40000000'
+    # GenericExecute              = '0x20000000'
+    # GenericAll                  = '0x10000000'
+    MaximumAllowed              = '0x02000000'
+    AccessSystemSecurity        = '0x01000000'
+    Synchronize                 = '0x00100000'
+    WriteOwner                  = '0x00080000'
+    WriteDAC                    = '0x00040000'
+    ReadControl                 = '0x00020000'
+    Delete                      = '0x00010000'
+    WriteAttributes             = '0x00000100'
+    ReadAttributes              = '0x00000080'
+    DeleteChild                 = '0x00000040'
+    Execute                     = '0x00000020'
+    WriteExtendedAttributes     = '0x00000010'
+    ReadExtendedAttributes      = '0x00000008'
+    AppendData                  = '0x00000004'
+    WriteData                   = '0x00000002'
+    ReadData                    = '0x00000001'
+} -Bitfield
+
 $NamedPipeAccessRightsEnum = New-Enum $Module WinApiModule.NamedPipeAccessRightsEnum UInt32 @{
     FileReadData            = 0x00000001
     FileWriteData           = 0x00000002
