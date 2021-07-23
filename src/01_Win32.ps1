@@ -709,7 +709,7 @@ $ServiceTypeEnum = New-Enum $Module WinApiModule.ServiceType UInt32 @{
     Win32OwnProcess     = '0x00000010'
     Win32ShareProcess   = '0x00000020'
     InteractiveProcess  = '0x00000100'
-}
+} -Bitfield
 
 $ServiceStartTypeEnum = New-Enum $Module WinApiModule.ServiceStartType UInt32 @{
     Boot      = '0x00000000'

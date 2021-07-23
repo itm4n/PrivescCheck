@@ -164,3 +164,91 @@ function Invoke-DllHijackingCheck {
         }
     }
 }
+
+function Invoke-PrintNightmareCheck {
+    <#
+    .SYNOPSIS
+    Checks for configurations that are vulnerable to the PrintNightmare exploit.
+    
+    .DESCRIPTION
+    Fully up-to-date machines are still vulnerable to the PrintNightmare exploit if the "Point and Print Restrictions" Group policy is configured to allow users to install printer drivers or add print servers without administrator privileges. More precisely, if "NoWarningNoElevationOnInstall" or "UpdatePromptSettings" is set to 1, the machine is vulnerable. There is one exception though. If the patch for CVE-2021-34527 was installed, the "RestrictDriverInstallationToAdministrators" parameter can be set to 1 (or a value greater than 1) to override the "Point and Print" settings. In this case, only administrators can install printer drivers or print servers, regardless of the two other values.
+    
+    .PARAMETER Info
+    Use this parameter to report any information about the "Point and Print" configuration, regardless of the vulnerability status.
+    
+    .EXAMPLE
+    PS C:\> Invoke-PrintNightmareCheck
+
+    Path  : HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PointAndPrint
+    Value : NoWarningNoElevationOnInstall
+    Data  : 1
+
+    Path  : HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PointAndPrint
+    Value : RestrictDriverInstallationToAdministrators
+    Data  : 0
+
+    .LINK
+    https://msrc.microsoft.com/update-guide/vulnerability/CVE-2021-34527
+    https://support.microsoft.com/en-us/topic/kb5005010-restricting-installation-of-new-printer-drivers-after-applying-the-july-6-2021-updates-31b91c02-05bc-4ada-a7ea-183b129578a7
+    #>
+
+    [CmdletBinding()] Param(
+        [switch]
+        $Info = $false
+    )
+
+    # If the Print Spooler is not installed or is disabled, return immediately
+    $Service = Get-ServiceList -FilterLevel 2 | Where-Object { $_.Name -eq "Spooler" }
+    if (-not $Service -or ($Service.StartMode -eq "Disabled")) {
+        Write-Verbose "The Print Spooler service is not installed or is disabled."
+        return
+    }
+
+    $Results = @()
+    $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PointAndPrint"
+
+    # If "NoWarningNoElevationOnInstall" is not set, the default value is 0 (i.e. not vulnerable).
+    $Value = "NoWarningNoElevationOnInstall"
+    $ItemProptery = Get-ItemProperty -Path "Registry::$($RegKey)" -Name $Value -ErrorAction SilentlyContinue -ErrorVariable GetItemProperty
+    if (-not $GetItemProperty) {
+        $WarningInstall = New-Object -TypeName PSObject
+        $WarningInstall | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $RegKey
+        $WarningInstall | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $Value
+        $WarningInstall | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $ItemProptery.NoWarningNoElevationOnInstall
+        $WarningInstall | Add-Member -MemberType "NoteProperty" -Name "Vulnerable" -Value ($ItemProptery.NoWarningNoElevationOnInstall -ne 0)
+        [object[]]$Results += $WarningInstall
+    }
+
+    # If "UpdatePromptSettings" is not set, the default value is 0 (i.e. not vulnerable).
+    $Value = "UpdatePromptSettings"
+    $ItemProptery = Get-ItemProperty -Path "Registry::$($RegKey)" -Name $Value -ErrorAction SilentlyContinue -ErrorVariable GetItemProperty
+    if (-not $GetItemProperty) {
+        $WarningUpdate = New-Object -TypeName PSObject
+        $WarningUpdate | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $RegKey
+        $WarningUpdate | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $Value
+        $WarningUpdate | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $ItemProptery.UpdatePromptSettings
+        $WarningUpdate | Add-Member -MemberType "NoteProperty" -Name "Vulnerable" -Value ($ItemProptery.UpdatePromptSettings -ne 0)
+        [object[]]$Results += $WarningUpdate
+    }
+
+    # With the patch for CVE-2021-34527, MS added the "RestrictDriverInstallationToAdministrators"
+    # setting. If this is set to 1 or any non-zero value then the Point and Print Restrictions Group
+    # policy settings (i.e. the two previous registry values) are overridden and only administrators 
+    # can install printer drivers on a print server.
+    $Value = "RestrictDriverInstallationToAdministrators"
+    $ItemProptery = Get-ItemProperty -Path "Registry::$($RegKey)" -Name $Value -ErrorAction SilentlyContinue -ErrorVariable GetItemProperty
+    if (-not $GetItemProperty) {
+        $RestrictInstall = New-Object -TypeName PSObject
+        $RestrictInstall | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $RegKey
+        $RestrictInstall | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $Value
+        $RestrictInstall | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $ItemProptery.RestrictDriverInstallationToAdministrators
+        $RestrictInstall | Add-Member -MemberType "NoteProperty" -Name "Vulnerable" -Value ($ItemProptery.RestrictDriverInstallationToAdministrators -eq 0)
+        [object[]]$Results += $RestrictInstall
+    }
+
+    if ($Info) { $Results; return }
+
+    if ($RestrictInstall -and (-not $RestrictInstall.Vulnerable)) { return }
+
+    $Results | Where-Object { $_.Vulnerable } | Select-Object -Property Path,Value,Data
+}

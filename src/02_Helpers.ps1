@@ -1189,7 +1189,8 @@ function Get-ServiceList {
             # FilterLevel = 1 - Add the service to the list of its ImagePath is not empty
             if ($FilterLevel -le 1) { $ServiceItem; continue }
 
-            if (@("Win32OwnProcess", "Win32ShareProcess", "InteractiveProcess") -contains $ServiceItem.Type) {
+            $TypeMask = $ServiceTypeEnum::Win32OwnProcess -bor $ServiceTypeEnum::Win32ShareProcess -bor $ServiceTypeEnum::InteractiveProcess
+            if (($ServiceItem.Type -band $TypeMask) -gt 0) {
 
                 # FilterLevel = 2 - Add the service to the list if it's not a driver
                 if ($FilterLevel -le 2) { $ServiceItem; continue }
