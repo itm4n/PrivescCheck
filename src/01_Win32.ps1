@@ -706,9 +706,17 @@ $ServiceTypeEnum = New-Enum $Module WinApiModule.ServiceType UInt32 @{
     FileSystemDriver    = '0x00000002'
     Adapter             = '0x00000004'
     RecognizerDriver    = '0x00000008'
+    Driver              = '0x0000000b'
     Win32OwnProcess     = '0x00000010'
     Win32ShareProcess   = '0x00000020'
+    Win32               = '0x00000030'
+    UserService         = '0x00000040'
+    UserOwnProcess      = '0x00000050'
+    UserShareProcess    = '0x00000060'
+    UserServiceInstance = '0x00000080'
     InteractiveProcess  = '0x00000100'
+    PkgService          = '0x00000200'
+    All                 = '0x000003ff'
 } -Bitfield
 
 $ServiceStartTypeEnum = New-Enum $Module WinApiModule.ServiceStartType UInt32 @{

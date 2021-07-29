@@ -169,6 +169,9 @@ function Invoke-PrintNightmareCheck {
     <#
     .SYNOPSIS
     Checks for configurations that are vulnerable to the PrintNightmare exploit.
+
+    Author: @itm4n
+    License: BSD 3-Clause
     
     .DESCRIPTION
     Fully up-to-date machines are still vulnerable to the PrintNightmare exploit if the "Point and Print Restrictions" Group policy is configured to allow users to install printer drivers or add print servers without administrator privileges. More precisely, if "NoWarningNoElevationOnInstall" or "UpdatePromptSettings" is set to 1, the machine is vulnerable. There is one exception though. If the patch for CVE-2021-34527 was installed, the "RestrictDriverInstallationToAdministrators" parameter can be set to 1 (or a value greater than 1) to override the "Point and Print" settings. In this case, only administrators can install printer drivers or print servers, regardless of the two other values.
