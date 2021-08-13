@@ -1141,6 +1141,17 @@ $FILETIME = New-Structure $Module WinApiModule.FILETIME @{
     HighDateTime = New-StructureField 1 UInt32
 }
 
+$SYSTEMTIME = New-Structure $Module WinApiModule.SYSTEMTIME @{
+    wYear         = New-StructureField 0 UInt16
+    wMonth        = New-StructureField 1 UInt16
+    wDayOfWeek    = New-StructureField 2 UInt16
+    wDay          = New-StructureField 3 UInt16
+    wHour         = New-StructureField 4 UInt16
+    wMinute       = New-StructureField 5 UInt16
+    wSecond       = New-StructureField 6 UInt16
+    wMilliseconds = New-StructureField 7 UInt16
+}
+
 $CREDENTIAL = New-Structure $Module WinApiModule.CREDENTIAL @{
     Flags              = New-StructureField 0 UInt32
     Type               = New-StructureField 1 UInt32
@@ -1225,6 +1236,15 @@ $OBJECT_DIRECTORY_INFORMATION = New-Structure $Module WinApiModule.OBJECT_DIRECT
    TypeName                 = New-StructureField 1 $UNICODE_STRING
 }
 
+$WIN32_FILE_ATTRIBUTE_DATA = New-Structure $Module WinApiModule.WIN32_FILE_ATTRIBUTE_DATA @{
+   dwFileAttributes = New-StructureField 0 UInt32
+   ftCreationTime   = New-StructureField 1 $FILETIME
+   ftLastAccessTime = New-StructureField 2 $FILETIME
+   ftLastWriteTime  = New-StructureField 3 $FILETIME
+   nFileSizeHigh    = New-StructureField 4 UInt32
+   nFileSizeLow     = New-StructureField 5 UInt32
+}
+
 $FunctionDefinitions = @(
     (New-Function advapi32 OpenSCManager ([IntPtr]) @([String], [String], [UInt32]) ([Runtime.InteropServices.CallingConvention]::Winapi) ([Runtime.InteropServices.CharSet]::Unicode) -SetLastError),
     (New-Function advapi32 QueryServiceObjectSecurity ([Bool]) @([IntPtr], [Security.AccessControl.SecurityInfos], [Byte[]], [UInt32], [UInt32].MakeByRefType()) -SetLastError),
@@ -1250,6 +1270,8 @@ $FunctionDefinitions = @(
     (New-Function kernel32 GetFirmwareEnvironmentVariable ([UInt32]) @([String], [String], [IntPtr], [UInt32]) -SetLastError),
     (New-Function kernel32 GetFirmwareType ([Bool]) @([UInt32].MakeByRefType()) -SetLastError),
     (New-Function kernel32 LocalFree ([IntPtr]) @([IntPtr])),
+    (New-Function kernel32 GetFileAttributesEx ([UInt32]) @([String], [UInt32], [IntPtr]) -SetLastError),
+    (New-Function kernel32 FileTimeToSystemTime ([Bool]) @($FILETIME.MakeByRefType(), $SYSTEMTIME.MakeByRefType()) -SetLastError),
 
     (New-Function iphlpapi GetAdaptersAddresses ([UInt32]) @([UInt32], [UInt32], [IntPtr], [IntPtr], [UInt32].MakeByRefType())),
     (New-Function iphlpapi GetExtendedTcpTable ([UInt32]) @([IntPtr], [UInt32].MakeByRefType(), [Bool], [UInt32], $TCP_TABLE_CLASS, [UInt32]) -SetLastError),
@@ -1268,11 +1290,11 @@ $FunctionDefinitions = @(
     (New-Function wlanapi WlanEnumInterfaces ([UInt32]) @([IntPtr], [IntPtr], [IntPtr].MakeByRefType()) -EntryPoint WlanEnumInterfaces),
     (New-Function wlanapi WlanFreeMemory ([Void]) @([IntPtr]) -EntryPoint WlanFreeMemory),
     (New-Function wlanapi WlanGetProfileList ([UInt32]) @([IntPtr], [Guid], [IntPtr], [IntPtr].MakeByRefType()) -EntryPoint WlanGetProfileList),
-    (New-Function wlanapi WlanGetProfile ([UInt32]) @([IntPtr], [Guid], [String], [IntPtr], [String].MakeByRefType(), [UInt32].MakeByRefType(), [UInt32].MakeByRefType()) -EntryPoint WlanGetProfile)
+    (New-Function wlanapi WlanGetProfile ([UInt32]) @([IntPtr], [Guid], [String], [IntPtr], [String].MakeByRefType(), [UInt32].MakeByRefType(), [UInt32].MakeByRefType()) -EntryPoint WlanGetProfile),
 
-    (New-Function ntdll RtlInitUnicodeString ([IntPtr]) @($UNICODE_STRING.MakeByRefType(), [String]) -EntryPoint RtlInitUnicodeString)
-    (New-Function ntdll NtOpenDirectoryObject ([UInt32]) @([IntPtr].MakeByRefType(), [UInt32], $OBJECT_ATTRIBUTES.MakeByRefType()) -EntryPoint NtOpenDirectoryObject)
-    (New-Function ntdll NtQueryDirectoryObject ([UInt32]) @([IntPtr], [IntPtr], [UInt32], [Bool], [Bool], [UInt32].MakeByRefType(), [UInt32]) -EntryPoint NtQueryDirectoryObject)
+    (New-Function ntdll RtlInitUnicodeString ([IntPtr]) @($UNICODE_STRING.MakeByRefType(), [String]) -EntryPoint RtlInitUnicodeString),
+    (New-Function ntdll NtOpenDirectoryObject ([UInt32]) @([IntPtr].MakeByRefType(), [UInt32], $OBJECT_ATTRIBUTES.MakeByRefType()) -EntryPoint NtOpenDirectoryObject -SetLastError),
+    (New-Function ntdll NtQueryDirectoryObject ([UInt32]) @([IntPtr], [IntPtr], [UInt32], [Bool], [Bool], [UInt32].MakeByRefType(), [UInt32]) -EntryPoint NtQueryDirectoryObject -SetLastError)
 )
 
 $Types = $FunctionDefinitions | Add-Win32Type -Module $Module -Namespace 'WinApiModule.NativeMethods'

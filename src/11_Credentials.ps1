@@ -557,7 +557,7 @@ function Invoke-SensitiveHiveShadowCopyCheck {
 
     .DESCRIPTION
     Checks for READ access on the SAM, SYSTEM and SECURITY hive files in shadow copies.
-    Check is done with a call to `[IO.File]::Open` using `Read` access, as `Get-Acl` does not work on the type of paths used.
+    Check is done with a call to `CreateFile` using `ReadData` access, as `Get-Acl` does not work on the type of paths used.
 
     .EXAMPLE
     PS C:\> Invoke-SensitiveHiveShadowCopyCheck
@@ -580,19 +580,64 @@ function Invoke-SensitiveHiveShadowCopyCheck {
 
     [CmdletBinding()] Param()
 
-    foreach($ShadowCopy in $(Get-ShadowCopies)) {
+    BEGIN {
+        $DesiredAccess = $FileAccessRightsEnum::ReadData
+        $ShareMode = 0x00000001 # FILE_SHARE_READ
+        $CreationDisposition = 3 # OPEN_EXISTING
+        $FlagsAndAttributes = 0x80 # FILE_ATTRIBUTE_NORMAL
 
-        $ConfigPath = $(Join-Path -Path $ShadowCopy.Path -ChildPath "Windows\System32\config")
+        function Get-FileLastWriteTime {
 
-        foreach ($HiveFile in "SAM", "SECURITY", "SYSTEM") {
+            Param(
+                [String]$Path
+            )
 
-            $Path = $(Join-Path -Path $ConfigPath -ChildPath $HiveFile)
+            $AttrsBuffer = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($WIN32_FILE_ATTRIBUTE_DATA::GetSize())
+            $Status = $Kernel32::GetFileAttributesEx($Path, 0, $AttrsBuffer)
 
-            try {
-                $FileHandle = [IO.File]::Open($Path, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::Read)
-                $FileHandle.Close()
+            if (-not $Status -eq -1) {
+                $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+                Write-Verbose "GetFileAttributesEx - $([ComponentModel.Win32Exception] $LastError)"
+                [System.Runtime.InteropServices.Marshal]::FreeHGlobal($AttrsBuffer) | Out-Null
+                return "Unavailable"
+            }
 
-                $LastWriteTime = [IO.File]::GetLastWriteTime($Path)
+            $AttrsSruct = [System.Runtime.InteropServices.Marshal]::PtrToStructure($AttrsBuffer, [type] $WIN32_FILE_ATTRIBUTE_DATA)
+
+            [System.Runtime.InteropServices.Marshal]::FreeHGlobal($AttrsBuffer) | Out-Null
+
+            $SystemTimeBuffer = [Activator]::CreateInstance($SYSTEMTIME)
+            $Status = $Kernel32::FileTimeToSystemTime([ref]$AttrsSruct.ftLastWriteTime, [ref]$SystemTimeBuffer)
+
+            if (-not $Status -eq -1) {
+                $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+                Write-Verbose "FileTimeToSystemTime - $([ComponentModel.Win32Exception] $LastError)"
+                return "Unavailable"
+            }
+
+            return "$($SystemTimeBuffer.wYear)/$($SystemTimeBuffer.wMonth)/$($SystemTimeBuffer.wDay) T $($SystemTimeBuffer.wHour):$($SystemTimeBuffer.wMinute):$($SystemTimeBuffer.wSecond) UTC"
+        }
+    }
+
+    PROCESS {
+
+        foreach($ShadowCopy in $(Get-ShadowCopies)) {
+
+            $ConfigPath = $(Join-Path -Path $ShadowCopy.Path -ChildPath "Windows\System32\config")
+
+            foreach ($HiveFile in "SAM", "SECURITY", "SYSTEM") {
+
+                $Path = $(Join-Path -Path $ConfigPath -ChildPath $HiveFile)
+
+                $FileHandle = $Kernel32::CreateFile($Path, $DesiredAccess, $ShareMode, [IntPtr]::Zero, $CreationDisposition, $FlagsAndAttributes, [IntPtr]::Zero)
+
+                if ($FileHandle -eq -1) {
+                    $Kernel32::CloseHandle($FileHandle) | Out-Null
+                    continue
+                }
+                $Kernel32::CloseHandle($FileHandle) | Out-Null
+
+                $LastWriteTime = Get-FileLastWriteTime -Path $Path
 
                 $Result = New-Object -TypeName PSObject
                 $Result | Add-Member -MemberType "NoteProperty" -Name "ShadowCopy" -Value $ShadowCopy.Name
@@ -600,9 +645,6 @@ function Invoke-SensitiveHiveShadowCopyCheck {
                 $Result | Add-Member -MemberType "NoteProperty" -Name "LastWriteTime" -Value $LastWriteTime
                 $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanRead" -Value "True"
                 $Result
-            }
-            catch [System.IO.FileNotFoundException], [UnauthorizedAccessException] {
-                continue
             }
         }
     }
