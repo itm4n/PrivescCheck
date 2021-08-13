@@ -1211,6 +1211,20 @@ $SECURITY_ATTRIBUTES = New-Structure $Module WinApiModule.SECURITY_ATTRIBUTES @{
     InheritHandle = New-StructureField 2 Bool
 }
 
+$OBJECT_ATTRIBUTES = New-Structure $Module WinApiModule.OBJECT_ATTRIBUTES @{
+   Length                   = New-StructureField 0 UInt32
+   RootDirectory            = New-StructureField 1 IntPtr
+   ObjectName               = New-StructureField 2 IntPtr
+   Attributes               = New-StructureField 3 UInt32
+   SecurityDescriptor       = New-StructureField 4 IntPtr
+   SecurityQualityOfService = New-StructureField 5 IntPtr
+}
+
+$OBJECT_DIRECTORY_INFORMATION = New-Structure $Module WinApiModule.OBJECT_DIRECTORY_INFORMATION @{
+   Name                     = New-StructureField 0 $UNICODE_STRING
+   TypeName                 = New-StructureField 1 $UNICODE_STRING
+}
+
 $FunctionDefinitions = @(
     (New-Function advapi32 OpenSCManager ([IntPtr]) @([String], [String], [UInt32]) ([Runtime.InteropServices.CallingConvention]::Winapi) ([Runtime.InteropServices.CharSet]::Unicode) -SetLastError),
     (New-Function advapi32 QueryServiceObjectSecurity ([Bool]) @([IntPtr], [Security.AccessControl.SecurityInfos], [Byte[]], [UInt32], [UInt32].MakeByRefType()) -SetLastError),
@@ -1255,6 +1269,10 @@ $FunctionDefinitions = @(
     (New-Function wlanapi WlanFreeMemory ([Void]) @([IntPtr]) -EntryPoint WlanFreeMemory),
     (New-Function wlanapi WlanGetProfileList ([UInt32]) @([IntPtr], [Guid], [IntPtr], [IntPtr].MakeByRefType()) -EntryPoint WlanGetProfileList),
     (New-Function wlanapi WlanGetProfile ([UInt32]) @([IntPtr], [Guid], [String], [IntPtr], [String].MakeByRefType(), [UInt32].MakeByRefType(), [UInt32].MakeByRefType()) -EntryPoint WlanGetProfile)
+
+    (New-Function ntdll RtlInitUnicodeString ([IntPtr]) @($UNICODE_STRING.MakeByRefType(), [String]) -EntryPoint RtlInitUnicodeString)
+    (New-Function ntdll NtOpenDirectoryObject ([UInt32]) @([IntPtr].MakeByRefType(), [UInt32], $OBJECT_ATTRIBUTES.MakeByRefType()) -EntryPoint NtOpenDirectoryObject)
+    (New-Function ntdll NtQueryDirectoryObject ([UInt32]) @([IntPtr], [IntPtr], [UInt32], [Bool], [Bool], [UInt32].MakeByRefType(), [UInt32]) -EntryPoint NtQueryDirectoryObject)
 )
 
 $Types = $FunctionDefinitions | Add-Win32Type -Module $Module -Namespace 'WinApiModule.NativeMethods'
@@ -1263,3 +1281,4 @@ $Kernel32 = $Types['kernel32']
 $Iphlpapi = $Types['iphlpapi']
 $Vaultcli = $Types['vaultcli']
 $Wlanapi  = $Types['wlanapi']
+$Ntdll    = $Types['ntdll']

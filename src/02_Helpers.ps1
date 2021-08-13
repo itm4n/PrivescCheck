@@ -3057,3 +3057,81 @@ function Test-ServiceDaclPermission {
         }
     }
 }
+
+function Get-ShadowCopies {
+    <#
+    .SYNOPSIS
+    Helper - Enumerates Shadow Copies
+
+    Author: @SAERXCIT
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    Uses Win32 functions NtOpenDirectoryObject and NtQueryDirectoryObject (thanks @gentilkiwi for the method).
+    Inspired from https://github.com/cube0x0/CVE-2021-36934 and https://gist.github.com/brianreitz/feb4e14bd45dd2e4394c225b17df5741.
+
+    .EXAMPLE
+    PS C:\>  Get-ShadowCopies | fl
+
+    Name : HarddiskVolumeShadowCopy1
+    Path : \\?\GLOBALROOT\Device\HarddiskVolumeShadowCopy1
+
+    Name : HarddiskVolumeShadowCopy2
+    Path : \\?\GLOBALROOT\Device\HarddiskVolumeShadowCopy2
+    #>
+
+    [CmdletBinding()] Param()
+
+    $ObjectName = "\Device"
+    $ObjectNameBuffer = [Activator]::CreateInstance($UNICODE_STRING)
+    $ntdll::RtlInitUnicodeString([ref]$ObjectNameBuffer, $ObjectName) | Out-Null
+
+    $ObjectAttributes = [Activator]::CreateInstance($OBJECT_ATTRIBUTES)
+    $ObjectAttributes.Length         = $OBJECT_ATTRIBUTES::GetSize()
+    $ObjectAttributes.RootDirectory  = [IntPtr]::Zero
+    $ObjectAttributes.Attributes     = $OBJ_ATTRIBUTE::OBJ_CASE_INSENSITIVE
+    $ObjectAttributes.ObjectName     = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($UNICODE_STRING::GetSize())
+    [System.Runtime.InteropServices.Marshal]::StructureToPtr($ObjectNameBuffer, $ObjectAttributes.ObjectName, $true)
+
+    $ObjectAttributes.SecurityDescriptor       = [IntPtr]::Zero
+    $ObjectAttributes.SecurityQualityOfService = [IntPtr]::Zero
+
+    $ObjectHandle = [IntPtr]::Zero
+
+    $Status = $Ntdll::NtOpenDirectoryObject([ref]$ObjectHandle, 3, [ref]$ObjectAttributes)
+
+    if ($Status) {
+        $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+        Write-Verbose "NtOpenDirectoryObject - $([ComponentModel.Win32Exception] $LastError)"
+        [System.Runtime.InteropServices.Marshal]::FreeHGlobal($ObjectAttributes.ObjectName) | Out-Null
+        return
+    }
+
+    [System.Runtime.InteropServices.Marshal]::FreeHGlobal($ObjectAttributes.ObjectName) | Out-Null
+
+    $BufferSize = 1024
+    $Buffer = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($BufferSize)
+
+    [uint32] $Context = 0
+    [uint32] $Length = 0
+
+    while ($true) {
+
+        $Status = $Ntdll::NtQueryDirectoryObject($ObjectHandle, $Buffer, $BufferSize, $true, $Context -eq 0, [ref]$Context, $Length)
+
+        if($Status) { break }
+
+        $odi = [System.Runtime.InteropServices.Marshal]::PtrToStructure($Buffer, [type] $OBJECT_DIRECTORY_INFORMATION)
+        $TypeName = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($odi.TypeName.Buffer)
+        $Name = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($odi.Name.Buffer)
+
+        if ($TypeName -eq "Device" -and $Name -like "*VolumeShadowCopy*")
+        {
+            $Result = New-Object -TypeName PSObject
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $Name
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $(Join-Path -Path "\\?\GLOBALROOT\Device\" -ChildPath $Name)
+            $Result
+        }
+    }
+    [System.Runtime.InteropServices.Marshal]::FreeHGlobal($Buffer) | Out-Null
+}

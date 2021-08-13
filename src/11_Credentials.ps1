@@ -547,6 +547,67 @@ function Invoke-SensitiveHiveFileAccessCheck {
     }
 }
 
+function Invoke-SensitiveHiveShadowCopyCheck {
+    <#
+    .SYNOPSIS
+    Checks for READ access on the SAM, SYSTEM and SECURITY hive files in shadow copies.
+
+    Author: @SAERXCIT
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    Checks for READ access on the SAM, SYSTEM and SECURITY hive files in shadow copies.
+    Check is done with a call to `[IO.File]::Open` using `Read` access, as `Get-Acl` does not work on the type of paths used.
+
+    .EXAMPLE
+    PS C:\> Invoke-SensitiveHiveShadowCopyCheck
+
+    ShadowCopy    : HarddiskVolumeShadowCopy1
+    Path          : \\?\GLOBALROOT\Device\HarddiskVolumeShadowCopy1\Windows\System32\config\SAM
+    LastWriteTime : 13/08/2021 10:10:52
+    UserCanRead   : True
+
+    ShadowCopy    : HarddiskVolumeShadowCopy1
+    Path          : \\?\GLOBALROOT\Device\HarddiskVolumeShadowCopy1\Windows\System32\config\SECURITY
+    LastWriteTime : 13/08/2021 10:10:52
+    UserCanRead   : True
+
+    ShadowCopy    : HarddiskVolumeShadowCopy1
+    Path          : \\?\GLOBALROOT\Device\HarddiskVolumeShadowCopy1\Windows\System32\config\SYSTEM
+    LastWriteTime : 13/08/2021 10:10:52
+    UserCanRead   : True
+    #>
+
+    [CmdletBinding()] Param()
+
+    foreach($ShadowCopy in $(Get-ShadowCopies)) {
+
+        $ConfigPath = $(Join-Path -Path $ShadowCopy.Path -ChildPath "Windows\System32\config")
+
+        foreach ($HiveFile in "SAM", "SECURITY", "SYSTEM") {
+
+            $Path = $(Join-Path -Path $ConfigPath -ChildPath $HiveFile)
+
+            try {
+                $FileHandle = [IO.File]::Open($Path, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::Read)
+                $FileHandle.Close()
+
+                $LastWriteTime = [IO.File]::GetLastWriteTime($Path)
+
+                $Result = New-Object -TypeName PSObject
+                $Result | Add-Member -MemberType "NoteProperty" -Name "ShadowCopy" -Value $ShadowCopy.Name
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $Path
+                $Result | Add-Member -MemberType "NoteProperty" -Name "LastWriteTime" -Value $LastWriteTime
+                $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanRead" -Value "True"
+                $Result
+            }
+            catch [System.IO.FileNotFoundException], [UnauthorizedAccessException] {
+                continue
+            }
+        }
+    }
+}
+
 function Invoke-UnattendFilesCheck {
     <#
     .SYNOPSIS
