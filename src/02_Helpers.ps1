@@ -3073,11 +3073,11 @@ function Get-ShadowCopies {
     .EXAMPLE
     PS C:\>  Get-ShadowCopies | fl
 
-    Name : HarddiskVolumeShadowCopy1
-    Path : \\?\GLOBALROOT\Device\HarddiskVolumeShadowCopy1
+    Volume : HarddiskVolumeShadowCopy1
+    Path   : \\?\GLOBALROOT\Device\HarddiskVolumeShadowCopy1
 
-    Name : HarddiskVolumeShadowCopy2
-    Path : \\?\GLOBALROOT\Device\HarddiskVolumeShadowCopy2
+    Volume : HarddiskVolumeShadowCopy2
+    Path   : \\?\GLOBALROOT\Device\HarddiskVolumeShadowCopy2
     #>
 
     [CmdletBinding()] Param()
@@ -3128,7 +3128,7 @@ function Get-ShadowCopies {
         if ($TypeName -eq "Device" -and $Name -like "*VolumeShadowCopy*")
         {
             $Result = New-Object -TypeName PSObject
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $Name
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Volume" -Value $Name
             $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $(Join-Path -Path "\\?\GLOBALROOT\Device\" -ChildPath $Name)
             $Result
         }

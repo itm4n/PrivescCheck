@@ -562,19 +562,19 @@ function Invoke-SensitiveHiveShadowCopyCheck {
     .EXAMPLE
     PS C:\> Invoke-SensitiveHiveShadowCopyCheck
 
-    ShadowCopy    : HarddiskVolumeShadowCopy1
+    Volume        : HarddiskVolumeShadowCopy1
     Path          : \\?\GLOBALROOT\Device\HarddiskVolumeShadowCopy1\Windows\System32\config\SAM
-    LastWriteTime : 13/08/2021 10:10:52
+    LastWriteTime : 2021/8/13 8:10:52 UTC
     UserCanRead   : True
 
-    ShadowCopy    : HarddiskVolumeShadowCopy1
+    Volume        : HarddiskVolumeShadowCopy1
     Path          : \\?\GLOBALROOT\Device\HarddiskVolumeShadowCopy1\Windows\System32\config\SECURITY
-    LastWriteTime : 13/08/2021 10:10:52
+    LastWriteTime : 2021/8/13 8:10:52 UTC
     UserCanRead   : True
 
-    ShadowCopy    : HarddiskVolumeShadowCopy1
+    Volume        : HarddiskVolumeShadowCopy1
     Path          : \\?\GLOBALROOT\Device\HarddiskVolumeShadowCopy1\Windows\System32\config\SYSTEM
-    LastWriteTime : 13/08/2021 10:10:52
+    LastWriteTime : 2021/8/13 8:10:52 UTC
     UserCanRead   : True
     #>
 
@@ -615,7 +615,7 @@ function Invoke-SensitiveHiveShadowCopyCheck {
                 return "Unavailable"
             }
 
-            return "$($SystemTimeBuffer.wYear)/$($SystemTimeBuffer.wMonth)/$($SystemTimeBuffer.wDay) T $($SystemTimeBuffer.wHour):$($SystemTimeBuffer.wMinute):$($SystemTimeBuffer.wSecond) UTC"
+            return "$($SystemTimeBuffer.wYear)/$($SystemTimeBuffer.wMonth)/$($SystemTimeBuffer.wDay) $($SystemTimeBuffer.wHour):$($SystemTimeBuffer.wMinute):$($SystemTimeBuffer.wSecond) UTC"
         }
     }
 
@@ -640,7 +640,7 @@ function Invoke-SensitiveHiveShadowCopyCheck {
                 $LastWriteTime = Get-FileLastWriteTime -Path $Path
 
                 $Result = New-Object -TypeName PSObject
-                $Result | Add-Member -MemberType "NoteProperty" -Name "ShadowCopy" -Value $ShadowCopy.Name
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Volume" -Value $ShadowCopy.Volume
                 $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $Path
                 $Result | Add-Member -MemberType "NoteProperty" -Name "LastWriteTime" -Value $LastWriteTime
                 $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanRead" -Value "True"
