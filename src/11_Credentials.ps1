@@ -416,43 +416,6 @@ function Invoke-PowerShellHistoryCheck {
     }
 }
 
-# function Invoke-SamBackupFilesCheck {
-#     <#
-#     .SYNOPSIS
-#     Checks common locations for the SAM/SYSTEM backup files and checks whether the current user can read them.
-
-#     Author: @itm4n
-#     License: BSD 3-Clause
-    
-#     .DESCRIPTION
-#     The SAM/SYSTEM registry hives are stored as files in a known location: 'C:\windows\System32\config'. These files are locked by default so even SYSTEM can't read them when the system is running. However, copies of these files can be created in other folders so it's worth checking if these files are accessible. 
-#     #>
-    
-#     [CmdletBinding()] Param()
-
-#     $ArrayOfPaths = New-Object System.Collections.ArrayList 
-#     [void]$ArrayOfPaths.Add($(Join-Path -Path $env:SystemRoot -ChildPath "repair\SAM"))
-#     [void]$ArrayOfPaths.Add($(Join-Path -Path $env:SystemRoot -ChildPath "System32\config\RegBack\SAM"))
-#     [void]$ArrayOfPaths.Add($(Join-Path -Path $env:SystemRoot -ChildPath "System32\config\SAM"))
-#     [void]$ArrayOfPaths.Add($(Join-Path -Path $env:SystemRoot -ChildPath "repair\system"))
-#     [void]$ArrayOfPaths.Add($(Join-Path -Path $env:SystemRoot -ChildPath "System32\config\SYSTEM"))
-#     [void]$ArrayOfPaths.Add($(Join-Path -Path $env:SystemRoot -ChildPath "System32\config\RegBack\system"))
-
-#     foreach ($Path in [String[]]$ArrayOfPaths) {
-
-#         if (Test-Path -Path $Path -ErrorAction SilentlyContinue) { 
-
-#             Get-Content -Path $Path -ErrorAction SilentlyContinue -ErrorVariable GetContentError | Out-Null 
-
-#             if (-not $GetContentError) {
-#                 $SamBackupFile = New-Object -TypeName PSObject 
-#                 $SamBackupFile | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $Path 
-#                 $SamBackupFile
-#             } 
-#         }
-#     }
-# }
-
 function Invoke-SensitiveHiveFileAccessCheck {
     <#
     .SYNOPSIS
@@ -541,6 +504,88 @@ function Invoke-SensitiveHiveFileAccessCheck {
                     $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $Ace.IdentityReference
                     $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value ($Permissions -join ", ")
                     $Result
+                }
+            }
+        }
+    }
+}
+
+function Invoke-SensitiveHiveShadowCopyCheck {
+    <#
+    .SYNOPSIS
+    Checks for READ access on the SAM, SYSTEM and SECURITY hive files in shadow copies.
+
+    Author: @SAERXCIT, @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    Checks for READ access on the SAM, SYSTEM and SECURITY hive files in shadow copies.
+
+    .EXAMPLE
+    PS C:\> Invoke-SensitiveHiveShadowCopyCheck
+
+    Volume            : HarddiskVolumeShadowCopy1
+    Path              : \\?\GLOBALROOT\Device\HarddiskVolumeShadowCopy1\Windows\System32\config\SAM
+    IdentityReference : BUILTIN\Users
+    AccessRights      : ReadData, ReadExtendedAttributes, Execute, ReadAttributes, ReadControl, Synchronize
+
+    Volume            : HarddiskVolumeShadowCopy1
+    Path              : \\?\GLOBALROOT\Device\HarddiskVolumeShadowCopy1\Windows\System32\config\SECURITY
+    IdentityReference : BUILTIN\Users
+    AccessRights      : ReadData, ReadExtendedAttributes, Execute, ReadAttributes, ReadControl, Synchronize
+
+    Volume            : HarddiskVolumeShadowCopy1
+    Path              : \\?\GLOBALROOT\Device\HarddiskVolumeShadowCopy1\Windows\System32\config\SYSTEM
+    IdentityReference : BUILTIN\Users
+    AccessRights      : ReadData, ReadExtendedAttributes, Execute, ReadAttributes, ReadControl, Synchronize
+    #>
+
+    [CmdletBinding()] Param()
+
+    BEGIN {
+        $UserIdentity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
+        $CurrentUserSids = $UserIdentity.Groups | Select-Object -ExpandProperty Value
+        $CurrentUserSids += $UserIdentity.User.Value
+    }
+
+    PROCESS {
+        foreach($ShadowCopy in $(Get-ShadowCopies)) {
+
+            $ConfigPath = $(Join-Path -Path $ShadowCopy.Path -ChildPath "Windows\System32\config")
+    
+            foreach ($HiveFile in "SAM", "SECURITY", "SYSTEM") {
+    
+                $Path = $(Join-Path -Path $ConfigPath -ChildPath $HiveFile)
+                $FileDacl = Get-FileDacl -Path $Path
+    
+                if ($null -eq $FileDacl) { continue }
+    
+                $PermissionReference = @(
+                    $FileAccessRightsEnum::ReadData
+                )
+    
+                foreach ($Ace in $FileDacl.Access) {
+    
+                    if ($Ace.AceType -notmatch "AccessAllowed") { continue }
+    
+                    $Permissions = [Enum]::GetValues($FileAccessRightsEnum) | Where-Object {
+                        ($Ace.AccessMask -band ($FileAccessRightsEnum::$_)) -eq ($FileAccessRightsEnum::$_)
+                    }
+    
+                    if (Compare-Object -ReferenceObject $Permissions -DifferenceObject $PermissionReference -IncludeEqual -ExcludeDifferent) {
+    
+                        $IdentityReference = $($Ace | Select-Object -ExpandProperty "SecurityIdentifier").ToString()
+        
+                        if ($CurrentUserSids -contains $IdentityReference) {
+        
+                            $Result = New-Object -TypeName PSObject
+                            $Result | Add-Member -MemberType "NoteProperty" -Name "Volume" -Value $ShadowCopy.Volume
+                            $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $Path
+                            $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value (Convert-SidToName -Sid $IdentityReference)
+                            $Result | Add-Member -MemberType "NoteProperty" -Name "AccessRights" -Value ($Permissions -join ", ")
+                            $Result
+                        }
+                    }
                 }
             }
         }

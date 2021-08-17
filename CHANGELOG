@@ -1,3 +1,6 @@
+2021-08-17
+    - Added Creds > Invoke-SensitiveHiveShadowCopyCheck (@SAERXCIT)
+
 2021-07-23
     - Added Config > Invoke-PrintNightmareCheck
 

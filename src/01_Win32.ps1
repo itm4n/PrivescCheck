@@ -610,23 +610,6 @@ $FileAccessRightsEnum = New-Enum $Module WinApiModule.FileAccessRightsEnum UInt3
     ReadData                    = '0x00000001'
 } -Bitfield
 
-$NamedPipeAccessRightsEnum = New-Enum $Module WinApiModule.NamedPipeAccessRightsEnum UInt32 @{
-    FileReadData            = 0x00000001
-    FileWriteData           = 0x00000002
-    FileAppendData          = 0x00000004
-    FileReadEa              = 0x00000008
-    FileWriteEa             = 0x00000010
-    FileExecute             = 0x00000020
-    FileDeleteChild         = 0x00000040
-    FileReadAttributes      = 0x00000080
-    FileWriteAttributes     = 0x00000100
-    Delete                  = 0x00010000
-    ReadControl             = 0x00020000
-    WriteDac                = 0x00040000
-    WriteOwner              = 0x00080000
-    Synchronize             = 0x00100000
-} -Bitfield
-
 $ServiceAccessRightsEnum = New-Enum $Module WinApiModule.ServiceAccessRights UInt32 @{
     QueryConfig          = '0x00000001'
     ChangeConfig         = '0x00000002'
@@ -1211,6 +1194,29 @@ $SECURITY_ATTRIBUTES = New-Structure $Module WinApiModule.SECURITY_ATTRIBUTES @{
     InheritHandle = New-StructureField 2 Bool
 }
 
+$OBJECT_ATTRIBUTES = New-Structure $Module WinApiModule.OBJECT_ATTRIBUTES @{
+    Length                   = New-StructureField 0 UInt32
+    RootDirectory            = New-StructureField 1 IntPtr
+    ObjectName               = New-StructureField 2 IntPtr
+    Attributes               = New-StructureField 3 UInt32
+    SecurityDescriptor       = New-StructureField 4 IntPtr
+    SecurityQualityOfService = New-StructureField 5 IntPtr
+}
+
+$OBJECT_DIRECTORY_INFORMATION = New-Structure $Module WinApiModule.OBJECT_DIRECTORY_INFORMATION @{
+    Name        = New-StructureField 0 $UNICODE_STRING
+    TypeName    = New-StructureField 1 $UNICODE_STRING
+}
+
+$WIN32_FILE_ATTRIBUTE_DATA = New-Structure $Module WinApiModule.WIN32_FILE_ATTRIBUTE_DATA @{
+    dwFileAttributes = New-StructureField 0 UInt32
+    ftCreationTime   = New-StructureField 1 $FILETIME
+    ftLastAccessTime = New-StructureField 2 $FILETIME
+    ftLastWriteTime  = New-StructureField 3 $FILETIME
+    nFileSizeHigh    = New-StructureField 4 UInt32
+    nFileSizeLow     = New-StructureField 5 UInt32
+}
+
 $FunctionDefinitions = @(
     (New-Function advapi32 OpenSCManager ([IntPtr]) @([String], [String], [UInt32]) ([Runtime.InteropServices.CallingConvention]::Winapi) ([Runtime.InteropServices.CharSet]::Unicode) -SetLastError),
     (New-Function advapi32 QueryServiceObjectSecurity ([Bool]) @([IntPtr], [Security.AccessControl.SecurityInfos], [Byte[]], [UInt32], [UInt32].MakeByRefType()) -SetLastError),
@@ -1228,6 +1234,10 @@ $FunctionDefinitions = @(
     (New-Function advapi32 ConvertSecurityDescriptorToStringSecurityDescriptor ([Bool]) @([IntPtr], [UInt32], [UInt32], [String].MakeByRefType(), [UInt32].MakeByRefType()) ([Runtime.InteropServices.CallingConvention]::Winapi) ([Runtime.InteropServices.CharSet]::Unicode) -SetLastError),
     (New-Function advapi32 ConvertStringSecurityDescriptorToSecurityDescriptor ([Bool]) @([String], [UInt32], [IntPtr].MakeByRefType(), [UInt32].MakeByRefType()) ([Runtime.InteropServices.CallingConvention]::Winapi) ([Runtime.InteropServices.CharSet]::Unicode) -SetLastError)
 
+    (New-Function iphlpapi GetAdaptersAddresses ([UInt32]) @([UInt32], [UInt32], [IntPtr], [IntPtr], [UInt32].MakeByRefType())),
+    (New-Function iphlpapi GetExtendedTcpTable ([UInt32]) @([IntPtr], [UInt32].MakeByRefType(), [Bool], [UInt32], $TCP_TABLE_CLASS, [UInt32]) -SetLastError),
+    (New-Function iphlpapi GetExtendedUdpTable ([UInt32]) @([IntPtr], [UInt32].MakeByRefType(), [Bool], [UInt32], $UDP_TABLE_CLASS , [UInt32]) -SetLastError),
+
     (New-Function kernel32 CreateFile ([IntPtr]) @([String], [UInt32], [UInt32], [IntPtr], [UInt32], [UInt32], [IntPtr]) ([Runtime.InteropServices.CallingConvention]::Winapi) ([Runtime.InteropServices.CharSet]::Unicode) -SetLastError),
     (New-Function kernel32 GetCurrentProcess ([IntPtr]) @()),
     (New-Function kernel32 OpenProcess ([IntPtr]) @([UInt32], [Bool], [UInt32]) -SetLastError),
@@ -1237,9 +1247,10 @@ $FunctionDefinitions = @(
     (New-Function kernel32 GetFirmwareType ([Bool]) @([UInt32].MakeByRefType()) -SetLastError),
     (New-Function kernel32 LocalFree ([IntPtr]) @([IntPtr])),
 
-    (New-Function iphlpapi GetAdaptersAddresses ([UInt32]) @([UInt32], [UInt32], [IntPtr], [IntPtr], [UInt32].MakeByRefType())),
-    (New-Function iphlpapi GetExtendedTcpTable ([UInt32]) @([IntPtr], [UInt32].MakeByRefType(), [Bool], [UInt32], $TCP_TABLE_CLASS, [UInt32]) -SetLastError),
-    (New-Function iphlpapi GetExtendedUdpTable ([UInt32]) @([IntPtr], [UInt32].MakeByRefType(), [Bool], [UInt32], $UDP_TABLE_CLASS , [UInt32]) -SetLastError),
+    (New-Function ntdll RtlNtStatusToDosError ([UInt32]) @([UInt32]) -EntryPoint RtlNtStatusToDosError),
+    (New-Function ntdll RtlInitUnicodeString ([IntPtr]) @($UNICODE_STRING.MakeByRefType(), [String]) -EntryPoint RtlInitUnicodeString),
+    (New-Function ntdll NtOpenDirectoryObject ([UInt32]) @([IntPtr].MakeByRefType(), [UInt32], $OBJECT_ATTRIBUTES.MakeByRefType()) -EntryPoint NtOpenDirectoryObject),
+    (New-Function ntdll NtQueryDirectoryObject ([UInt32]) @([IntPtr], [IntPtr], [UInt32], [Bool], [Bool], [UInt32].MakeByRefType(), [UInt32].MakeByRefType()) -EntryPoint NtQueryDirectoryObject),
 
     (New-Function vaultcli VaultEnumerateVaults ([UInt32]) @([UInt32], [UInt32].MakeByRefType(), [IntPtr].MakeByRefType()) -EntryPoint VaultEnumerateVaults),
     (New-Function vaultcli VaultOpenVault ([UInt32]) @([IntPtr], [UInt32], [IntPtr].MakeByRefType()) -Entrypoint VaultOpenVault),
@@ -1259,7 +1270,8 @@ $FunctionDefinitions = @(
 
 $Types = $FunctionDefinitions | Add-Win32Type -Module $Module -Namespace 'WinApiModule.NativeMethods'
 $Advapi32 = $Types['advapi32']
-$Kernel32 = $Types['kernel32']
 $Iphlpapi = $Types['iphlpapi']
+$Kernel32 = $Types['kernel32']
+$Ntdll    = $Types['ntdll']
 $Vaultcli = $Types['vaultcli']
 $Wlanapi  = $Types['wlanapi']

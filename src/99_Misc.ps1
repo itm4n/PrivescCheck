@@ -687,7 +687,7 @@ function Invoke-NamedPipePermissionsCheck {
 
     ForEach ($NamedPipe in $(Get-ChildItem -Path "\\.\pipe\")) {
 
-        $NamedPipeDacl = Get-NamedPipeDacl -Path $NamedPipe.FullName
+        $NamedPipeDacl = Get-FileDacl -Path $NamedPipe.FullName
 
         if ($null -eq $NamedPipeDacl) { continue }
 
@@ -708,19 +708,19 @@ function Invoke-NamedPipePermissionsCheck {
         }
 
         $PermissionReference = @(
-            $NamedPipeAccessRightsEnum::Delete, 
-            $NamedPipeAccessRightsEnum::WriteDac, 
-            $NamedPipeAccessRightsEnum::WriteOwner,
-            $NamedPipeAccessRightsEnum::FileWriteEa,
-            $NamedPipeAccessRightsEnum::FileWriteAttributes
+            $FileAccessRightsEnum::Delete, 
+            $FileAccessRightsEnum::WriteDac, 
+            $FileAccessRightsEnum::WriteOwner,
+            $FileAccessRightsEnum::FileWriteEa,
+            $FileAccessRightsEnum::FileWriteAttributes
         )
 
         ForEach ($Ace in $NamedPipeDacl.Access) {
 
             if ($Ace.AceType -notmatch "AccessAllowed") { continue }
 
-            $Permissions = [Enum]::GetValues($NamedPipeAccessRightsEnum) | Where-Object {
-                ($Ace.AccessMask -band ($NamedPipeAccessRightsEnum::$_)) -eq ($NamedPipeAccessRightsEnum::$_)
+            $Permissions = [Enum]::GetValues($FileAccessRightsEnum) | Where-Object {
+                ($Ace.AccessMask -band ($FileAccessRightsEnum::$_)) -eq ($FileAccessRightsEnum::$_)
             }
 
             if (Compare-Object -ReferenceObject $Permissions -DifferenceObject $PermissionReference -IncludeEqual -ExcludeDifferent) {
@@ -734,7 +734,7 @@ function Invoke-NamedPipePermissionsCheck {
                     $Result | Add-Member -MemberType "NoteProperty" -Name "Owner" -Value $NamedPipeDacl.Owner
                     # $Result | Add-Member -MemberType "NoteProperty" -Name "Group" -Value $NamedPipeDacl.Group
                     $Result | Add-Member -MemberType "NoteProperty" -Name "AceType" -Value ($Ace | Select-Object -ExpandProperty "AceType")
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "AccessRights" -Value ($Ace.AccessMask -as $NamedPipeAccessRightsEnum)
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "AccessRights" -Value ($Ace.AccessMask -as $FileAccessRightsEnum)
                     $Result | Add-Member -MemberType "NoteProperty" -Name "SecurityIdentifier" -Value $IdentityReference
                     $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityName" -Value (Convert-SidToName -Sid $IdentityReference)
                     $Result

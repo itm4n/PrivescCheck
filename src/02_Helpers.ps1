@@ -54,7 +54,8 @@ function Convert-SidToName {
         $SidObj.Translate([System.Security.Principal.NTAccount]) | Select-Object -ExpandProperty Value
     }
     catch {
-        # Do nothing
+        # In case of failure, return the SID.
+        $Sid
     }
 }
 
@@ -978,19 +979,31 @@ function Get-ServiceControlManagerDacl {
     }
 }
 
-function Get-NamedPipeDacl {
+function Get-FileDacl {
     <#
     .SYNOPSIS
-    Get security information about a named pipe.
+    Get security information about a file.
     
     .DESCRIPTION
-    This function leverages the Windows API to get some security information about a named pipes such as the owner and the DACL.
+    This function leverages the Windows API to get some security information about a file, such as the owner and the DACL.
     
     .PARAMETER Path
-    The path of a named such as \\.pipe\spoolss
+    The path of a file such as "C:\Windows\win.ini", "\\.pipe\spoolss"
     
     .EXAMPLE
-    PS C:\> Get-NamedPipeDacl -Path \\.\pipe\spoolss
+    PS C:\> Get-FileDacl -Path C:\Windows\win.ini
+
+    Path     : C:\Windows\win.ini
+    Owner    : NT AUTHORITY\SYSTEM
+    OwnerSid : S-1-5-18
+    Group    : NT AUTHORITY\SYSTEM
+    GroupSid : S-1-5-18
+    Access   : {System.Security.AccessControl.CommonAce, System.Security.AccessControl.CommonAce, System.Security.AccessCon
+            trol.CommonAce, System.Security.AccessControl.CommonAce...}
+    SDDL     : O:SYG:SYD:AI(A;ID;FA;;;SY)(A;ID;FA;;;BA)(A;ID;0x1200a9;;;BU)(A;ID;0x1200a9;;;AC)(A;ID;0x1200a9;;;S-1-15-2-2)
+
+    .EXAMPLE
+    PS C:\> Get-FileDacl -Path \\.\pipe\spoolss
 
     Path     : \\.\pipe\spoolss
     Owner    : NT AUTHORITY\SYSTEM
@@ -1006,7 +1019,7 @@ function Get-NamedPipeDacl {
         $Path
     )
 
-    $DesiredAccess = $NamedPipeAccessRightsEnum::ReadControl
+    $DesiredAccess = $FileAccessRightsEnum::ReadControl
     $ShareMode = 0x00000001 # FILE_SHARE_READ
     $CreationDisposition = 3 # OPEN_EXISTING
     $FlagsAndAttributes = 0x80 # FILE_ATTRIBUTE_NORMAL
@@ -3056,4 +3069,83 @@ function Test-ServiceDaclPermission {
             }
         }
     }
+}
+
+function Get-ShadowCopies {
+    <#
+    .SYNOPSIS
+    Helper - Enumerates Shadow Copies
+
+    Author: @SAERXCIT, @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    Uses Win32 functions NtOpenDirectoryObject and NtQueryDirectoryObject (thanks @gentilkiwi for the method).
+    Inspired from https://github.com/cube0x0/CVE-2021-36934 and https://gist.github.com/brianreitz/feb4e14bd45dd2e4394c225b17df5741.
+
+    .EXAMPLE
+    PS C:\>  Get-ShadowCopies | fl
+
+    Volume : HarddiskVolumeShadowCopy1
+    Path   : \\?\GLOBALROOT\Device\HarddiskVolumeShadowCopy1
+
+    Volume : HarddiskVolumeShadowCopy2
+    Path   : \\?\GLOBALROOT\Device\HarddiskVolumeShadowCopy2
+    #>
+
+    [CmdletBinding()] Param()
+
+    $ObjectName = "\Device"
+    $ObjectNameBuffer = [Activator]::CreateInstance($UNICODE_STRING)
+    $Ntdll::RtlInitUnicodeString([ref]$ObjectNameBuffer, $ObjectName) | Out-Null
+
+    $ObjectAttributes = [Activator]::CreateInstance($OBJECT_ATTRIBUTES)
+    $ObjectAttributes.Length = $OBJECT_ATTRIBUTES::GetSize()
+    $ObjectAttributes.RootDirectory = [IntPtr]::Zero
+    $ObjectAttributes.Attributes = $OBJ_ATTRIBUTE::OBJ_CASE_INSENSITIVE
+    $ObjectAttributes.ObjectName = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($UNICODE_STRING::GetSize())
+    [System.Runtime.InteropServices.Marshal]::StructureToPtr($ObjectNameBuffer, $ObjectAttributes.ObjectName, $true)
+
+    $ObjectAttributes.SecurityDescriptor = [IntPtr]::Zero
+    $ObjectAttributes.SecurityQualityOfService = [IntPtr]::Zero
+
+    $ObjectHandle = [IntPtr]::Zero
+
+    $Status = $Ntdll::NtOpenDirectoryObject([ref]$ObjectHandle, 3, [ref]$ObjectAttributes)
+
+    if ($Status -ne 0) {
+        $LastError = $Ntdll::RtlNtStatusToDosError($Status)
+        Write-Verbose "NtOpenDirectoryObject - $([ComponentModel.Win32Exception] $LastError)"
+        [System.Runtime.InteropServices.Marshal]::FreeHGlobal($ObjectAttributes.ObjectName) | Out-Null
+        return
+    }
+
+    [System.Runtime.InteropServices.Marshal]::FreeHGlobal($ObjectAttributes.ObjectName) | Out-Null
+
+    $BufferSize = 1024
+    $Buffer = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($BufferSize)
+
+    [uint32] $Context = 0
+    [uint32] $Length = 0
+
+    while ($true) {
+
+        $Status = $Ntdll::NtQueryDirectoryObject($ObjectHandle, $Buffer, $BufferSize, $true, $Context -eq 0, [ref]$Context, [ref]$Length)
+
+        if ($Status -ne 0) { break }
+
+        $ObjectDirectoryInformation = [System.Runtime.InteropServices.Marshal]::PtrToStructure($Buffer, [type] $OBJECT_DIRECTORY_INFORMATION)
+        $TypeName = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($ObjectDirectoryInformation.TypeName.Buffer)
+        $Name = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($ObjectDirectoryInformation.Name.Buffer)
+
+        if ($TypeName -eq "Device" -and $Name -like "*VolumeShadowCopy*")
+        {
+            $Result = New-Object -TypeName PSObject
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Volume" -Value $Name
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $(Join-Path -Path "\\?\GLOBALROOT\Device\" -ChildPath $Name)
+            $Result
+        }
+    }
+
+    [System.Runtime.InteropServices.Marshal]::FreeHGlobal($Buffer) | Out-Null
 }
