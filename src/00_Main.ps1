@@ -621,15 +621,15 @@ function Write-PrivescCheckAsciiReport {
             Write-Host -NoNewline -ForegroundColor $SeverityColor "Low "
         }
         elseif ($_.Severity -Like "Medium") {
-            $SeverityColor = "DarkYellow"
+            $SeverityColor = "Yellow"
             Write-Host -NoNewline -ForegroundColor $SeverityColor "Med."
         }
         elseif ($_.Severity -Like "High") {
-            $SeverityColor = "DarkRed"
+            $SeverityColor = "Red"
             Write-Host -NoNewline -ForegroundColor $SeverityColor "High"
         }
         elseif ($_.Severity -Like "Info") {
-            $SeverityColor = "DarkBlue"
+            $SeverityColor = "DarkCyan"
             Write-Host -NoNewline -ForegroundColor $SeverityColor "Info"
         }
         else {
