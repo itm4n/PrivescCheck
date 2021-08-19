@@ -382,13 +382,25 @@ function Write-CsvReport {
 }
 
 function Write-XmlReport {
+    <#
+    .NOTES
+    According to the XML specification, some characters are invalid. The raw result of a check ("ResultRawString") may contain such characters. Therefore, this result must be sanitized before calling "ConvertTo-Xml". The method used here was taken from a solution that was posted on StackOverflow.
+    
+    .LINK
+    https://github.com/itm4n/PrivescCheck/issues/24
+    https://stackoverflow.com/questions/45706565/how-to-remove-special-bad-characters-from-xml-using-powershell
+    #>
 
     [CmdletBinding()] Param(
         [Object[]]
         $AllResults
     )
 
-    $AllResults | Sort-Object -Property "Category" | Select-Object "Id","Category","DisplayName","Description","Type","Compliance","Severity","ResultRawString" | ConvertTo-Xml -As String
+    $AuthorizedXmlCharactersRegex = "[^\x09\x0A\x0D\x20-\xD7FF\xE000-\xFFFD\x10000\x10FFFF]"
+    $AllResults | ForEach-Object {
+        $_.ResultRawString = [System.Text.RegularExpressions.Regex]::Replace($_.ResultRawString, $AuthorizedXmlCharactersRegex, "")
+        $_
+    } | Sort-Object -Property "Category" | Select-Object "Id","Category","DisplayName","Description","Type","Compliance","Severity","ResultRawString" | ConvertTo-Xml -As String
 }
 
 function Write-HtmlReport {
