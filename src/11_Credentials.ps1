@@ -3,12 +3,15 @@ function Invoke-WinlogonCheck {
     .SYNOPSIS
     Checks credentials stored in the Winlogon registry key
     
-    Author: @itm4n
+    Author: @itm4n, @nurfed1
     License: BSD 3-Clause
 
     .DESCRIPTION
     Windows has a registry setting to enable automatic logon. You can set a username and a password in order to automatically initiate a user session on system startup. The password is stored in clear text so it's easy to extract it. This function returns a set of credentials only if the password field is not empty.
     
+    .PARAMETER Remote
+    Set this flag if you want to search for GPP files in the SYSVOL share of your primary Domain Controller (request from Issue #19).
+
     .EXAMPLE
     PS C:\> Invoke-WinlogonCheck
 
@@ -16,36 +19,143 @@ function Invoke-WinlogonCheck {
     ------ --------  --------
            lab-admin
 
+    .EXAMPLE
+    PS C:\> Invoke-WinlogonCheck -Remote
+
+    FilePath        : \\domain.tld\SYSVOL\domain.tld\Policies\{20b62124-4b0a-4cbe-a5a2-94eaf4267834}\Machine\Preferences\Registry\Registry.xml
+    Domains         : Domain-Test1
+    Usernames       : Username-Test1, Username-Test1-del, Username-Test1-Create, Username-Test1-replace, Username-Test1
+    Passwords       : Password-Test1
+    AutoAdminLogons : 1
+
     .LINK
     https://support.microsoft.com/en-us/help/324737/how-to-turn-on-automatic-logon-in-windows
+    https://github.com/itm4n/PrivescCheck/issues/19
     #>
 
-    [CmdletBinding()] Param()
+    [CmdletBinding()] Param(
+        [Switch]
+        $Remote = $false
+    )
 
-    $RegPath = "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\Currentversion\Winlogon"
-    $Item = Get-ItemProperty -Path $RegPath -ErrorAction SilentlyContinue -ErrorVariable GetItemPropertyError
+    if ($Remote) {
 
-    if (-not $GetItemPropertyError) {
+        $GppPath = "\\$($Env:USERDNSDOMAIN)\SYSVOL"
+        Write-Verbose "Target search path is: $($GppPath)"
 
-        if ($Item.DefaultPassword) {
-            $Result = New-Object -TypeName PSObject 
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Domain" -Value $Item.DefaultDomainName
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Username" -Value $Item.DefaultUserName
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Password" -Value $Item.DefaultPassword
-            $Result
-        } 
-    
-        if ($Item.AltDefaultPassword) {
-            $Result = New-Object -TypeName PSObject 
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Domain" -Value $Item.AltDefaultDomainName
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Username" -Value $Item.AltDefaultUserName
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Password" -Value $Item.AltDefaultPassword
-            $Result
+        $CachedGPPFiles = Get-ChildItem -Path $GppPath -Recurse -Include 'Registry.xml' -Force -ErrorAction SilentlyContinue
+        if (-not $CachedGPPFiles) { return }
+
+        foreach ($File in $CachedGPPFiles) {
+
+            try {
+                [xml]$XmlFile = Get-Content -Path $File.FullName -ErrorAction SilentlyContinue
+            }
+            catch [Exception] {
+                Write-Verbose $_.Exception.Message
+                continue
+            }
+
+            $Results = New-Object -TypeName PSObject -Property @{    
+                DefaultDomainName    = New-Object System.Collections.ArrayList
+                DefaultUserName      = New-Object System.Collections.ArrayList
+                DefaultPassword      = New-Object System.Collections.ArrayList
+                AutoAdminLogon       = New-Object System.Collections.ArrayList
+                AltDefaultDomainName = New-Object System.Collections.ArrayList
+                AltDefaultUserName   = New-Object System.Collections.ArrayList
+                AltDefaultPassword   = New-Object System.Collections.ArrayList
+                AltAutoAdminLogon    = New-Object System.Collections.ArrayList
+            }
+
+            foreach ($Property in $XmlFile.GetElementsByTagName("Properties")) {
+
+                if ([string]::IsNullOrEmpty($Property.value)) { continue }
+
+                switch ($Property.name) {
+
+                    DefaultDomainName {
+                        $null = $Results.DefaultDomainName.Add($Property.value)
+                    }
+                    
+                    DefaultUserName {
+                        $null = $Results.DefaultUserName.Add($Property.value)
+                    }
+        
+                    DefaultPassword {
+                        $null = $Results.DefaultPassword.Add($Property.value)
+                    }
+                    
+                    AutoAdminLogon {
+                        $null = $Results.AutoAdminLogon.Add($Property.value)
+                    }
+                    
+                    AltDefaultDomainName {
+                        $null = $Results.AltDefaultDomainName.Add($Property.value)
+                    }
+        
+                    AltDefaultUserName {
+                        $null = $Results.AltDefaultUserName.Add($Property.value)
+                    }
+        
+                    AltDefaultPassword {
+                        $null = $Results.AltDefaultPassword.Add($Property.value)
+                    }
+                    
+                    AltAutoAdminLogon {
+                        $null = $Results.AltAutoAdminLogon.Add($Property.value)
+                    }
+                }
+            }
+
+            if ($Results.DefaultPassword.Count -ne 0) {
+
+                $Result = New-Object -TypeName PSObject
+                $Result | Add-Member -MemberType "NoteProperty" -Name "FilePath" -Value $File.FullName
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Domains" -Value ($Results.DefaultDomainName -join ", ")
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Usernames" -Value ($Results.DefaultUserName -join ", ")
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Passwords" -Value ($Results.DefaultPassword -join ", ")
+                $Result | Add-Member -MemberType "NoteProperty" -Name "AutoAdminLogons" -Value ($Results.AutoAdminLogon -join ", ")
+                $Result
+            }
+
+            if ($Results.AltDefaultPassword.Count -ne 0) {
+
+                $Result = New-Object -TypeName PSObject
+                $Result | Add-Member -MemberType "NoteProperty" -Name "FilePath" -Value $File.FullName
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Domains" -Value ($Results.AltDefaultDomainName -join ", ")
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Usernames" -Value ($Results.AltDefaultUserName -join  ", ")
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Passwords" -Value ($Results.AltDefaultPassword -join ", ")
+                $Result | Add-Member -MemberType "NoteProperty" -Name "AutoAdminLogon" -Value ($Results.AltAutoAdminLogon -join ", ")
+                $Result
+            }
         }
-
     }
     else {
-        Write-Verbose "Error while querying '$RegPath'"
+        $RegPath = "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\Currentversion\Winlogon"
+        $Item = Get-ItemProperty -Path $RegPath -ErrorAction SilentlyContinue -ErrorVariable GetItemPropertyError
+    
+        if (-not $GetItemPropertyError) {
+    
+            if ($Item.DefaultPassword) {
+                $Result = New-Object -TypeName PSObject 
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Domain" -Value $Item.DefaultDomainName
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Username" -Value $Item.DefaultUserName
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Password" -Value $Item.DefaultPassword
+                $Result
+            } 
+        
+            if ($Item.AltDefaultPassword) {
+                $Result = New-Object -TypeName PSObject 
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Domain" -Value $Item.AltDefaultDomainName
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Username" -Value $Item.AltDefaultUserName
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Password" -Value $Item.AltDefaultPassword
+                $Result
+            }
+    
+        }
+        else {
+            Write-Verbose "Error while querying '$RegPath'"
+        }
     }
 }
 
