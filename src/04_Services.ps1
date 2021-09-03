@@ -55,7 +55,7 @@ function Invoke-ServicesPermissionsRegistryCheck {
 
     foreach ($Service in $AllServices) {
 
-        Get-ModifiableRegistryPath -Path $Service.RegistryPath | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) } | Foreach-Object {
+        Get-ModifiableRegistryPath -Path "Registry::$($Service.RegistryPath)" | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) } | Foreach-Object {
 
             $Status = "Unknown"
             $UserCanStart = $false
@@ -74,7 +74,7 @@ function Invoke-ServicesPermissionsRegistryCheck {
             $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $Service.Name
             $Result | Add-Member -MemberType "NoteProperty" -Name "ImagePath" -Value $Service.ImagePath
             $Result | Add-Member -MemberType "NoteProperty" -Name "User" -Value $Service.User
-            $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $Service.RegistryKey
+            $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $Service.RegistryPath
             $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $_.IdentityReference
             $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value ($_.Permissions -join ", ")
             $Result | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $Status

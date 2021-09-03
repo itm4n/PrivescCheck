@@ -983,6 +983,9 @@ function Get-FileDacl {
     <#
     .SYNOPSIS
     Get security information about a file.
+
+    Author: @itm4n
+    License: BSD 3-Clause
     
     .DESCRIPTION
     This function leverages the Windows API to get some security information about a file, such as the owner and the DACL.
@@ -1106,6 +1109,31 @@ function Get-FileDacl {
 }
 
 function Get-ServiceFromRegistry {
+    <#
+    .SYNOPSIS
+    Extract the configuration of a service from the registry.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+    
+    .DESCRIPTION
+    Services' configuration is stored in teh registry under "HKLM\SYSTEM\CurrentControlSet\Services". For each service, a subkey is created and contains all the information we need. So we can just query this key to get a service's configuration.
+    
+    .PARAMETER Name
+    Name of a service.
+    
+    .EXAMPLE
+    PS C:\> Get-ServiceFromRegistry -Name Spooler
+
+    Name         : Spooler
+    DisplayName  : @C:\WINDOWS\system32\spoolsv.exe,-1
+    User         : LocalSystem
+    ImagePath    : C:\WINDOWS\System32\spoolsv.exe
+    StartMode    : Automatic
+    Type         : Win32OwnProcess, InteractiveProcess
+    RegistryKey  : HKLM\SYSTEM\CurrentControlSet\Services
+    RegistryPath : HKLM\SYSTEM\CurrentControlSet\Services\Spooler
+    #>
 
     [CmdletBinding()] Param(
         [Parameter(Mandatory=$true)]
@@ -1127,7 +1155,7 @@ function Get-ServiceFromRegistry {
         $Result | Add-Member -MemberType "NoteProperty" -Name "StartMode" -Value ($ServiceProperties.Start -as $ServiceStartTypeEnum)
         $Result | Add-Member -MemberType "NoteProperty" -Name "Type" -Value ($ServiceProperties.Type -as $ServiceTypeEnum)
         $Result | Add-Member -MemberType "NoteProperty" -Name "RegistryKey" -Value $ServicesRegPath
-        $Result | Add-Member -MemberType "NoteProperty" -Name "RegistryPath" -Value $ServiceProperties.PSPath
+        $Result | Add-Member -MemberType "NoteProperty" -Name "RegistryPath" -Value (join-path $ServicesRegPath -ChildPath $ServiceProperties.PSChildName)
         $Result
     }
 }
