@@ -1629,57 +1629,62 @@ function Get-ModifiableRegistryPath {
     }
 
     PROCESS {
-        $KeyAcl = Get-Acl -Path $Path -ErrorAction SilentlyContinue -ErrorVariable GetAclError
-        if (-not $GetAclError) {
+        try {
+            $KeyAcl = Get-Acl -Path $Path -ErrorAction SilentlyContinue -ErrorVariable GetAclError
+            if (-not $GetAclError) {
 
-            # Check for NULL DACL first. If no DACL, 'Everyone' has full access rights on the object.
-            if ($null -eq $KeyAcl) {
-                $Result = New-Object -TypeName PSObject
-                $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $Path
-                $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value (Convert-SidToName -Sid "S-1-1-0")
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value 'GenericAll'
-                $Result
-            }
-            else {
-                $Aces = $KeyAcl | Select-Object -ExpandProperty Access | Where-Object { $_.AccessControlType -match 'Allow' }
+                # Check for NULL DACL first. If no DACL, 'Everyone' has full access rights on the object.
+                if ($null -eq $KeyAcl) {
+                    $Result = New-Object -TypeName PSObject
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $Path
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value (Convert-SidToName -Sid "S-1-1-0")
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value 'GenericAll'
+                    $Result
+                }
+                else {
+                    $Aces = $KeyAcl | Select-Object -ExpandProperty Access | Where-Object { $_.AccessControlType -match 'Allow' }
 
-                foreach ($Ace in $Aces) {
-                    $Permissions = $AccessMask.Keys | Where-Object { $Ace.RegistryRights.value__ -band $_ } | ForEach-Object { $AccessMask[$_] }
-                    if ($null -eq $Permissions) {
-                        Write-Verbose $Ace.RegistryRights.value__
-                    }
-
-                    # the set of permission types that allow for modification
-                    $Comparison = Compare-Object -ReferenceObject $Permissions -DifferenceObject @('SetValue', 'CreateSubKey', 'WriteDAC', 'WriteOwner') -IncludeEqual -ExcludeDifferent
-
-                    if (-not $Comparison) { continue }
-
-                    if (($Ace.IdentityReference -notmatch '^S-1-5.*') -and ($Ace.IdentityReference -notmatch '^S-1-15-.*')) {
-                        if (-not ($TranslatedIdentityReferences[$Ace.IdentityReference])) {
-                            # translate the IdentityReference if it's a username and not an SID
-                            $IdentityUser = New-Object System.Security.Principal.NTAccount($Ace.IdentityReference)
-                            try {
-                                $TranslatedIdentityReferences[$Ace.IdentityReference] = $IdentityUser.Translate([System.Security.Principal.SecurityIdentifier]) | Select-Object -ExpandProperty Value
-                            }
-                            catch {
-                                $IdentitySID = $null
-                            }
+                    foreach ($Ace in $Aces) {
+                        $Permissions = $AccessMask.Keys | Where-Object { $Ace.RegistryRights.value__ -band $_ } | ForEach-Object { $AccessMask[$_] }
+                        if ($null -eq $Permissions) {
+                            Write-Verbose $Ace.RegistryRights.value__
                         }
-                        $IdentitySID = $TranslatedIdentityReferences[$Ace.IdentityReference]
-                    }
-                    else {
-                        $IdentitySID = $Ace.IdentityReference
-                    }
 
-                    if ($CurrentUserSids -contains $IdentitySID) {
-                        $Result = New-Object -TypeName PSObject
-                        $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $Path
-                        $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $Ace.IdentityReference
-                        $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value $Permissions
-                        $Result
+                        # the set of permission types that allow for modification
+                        $Comparison = Compare-Object -ReferenceObject $Permissions -DifferenceObject @('SetValue', 'CreateSubKey', 'WriteDAC', 'WriteOwner') -IncludeEqual -ExcludeDifferent
+
+                        if (-not $Comparison) { continue }
+
+                        if (($Ace.IdentityReference -notmatch '^S-1-5.*') -and ($Ace.IdentityReference -notmatch '^S-1-15-.*')) {
+                            if (-not ($TranslatedIdentityReferences[$Ace.IdentityReference])) {
+                                # translate the IdentityReference if it's a username and not an SID
+                                $IdentityUser = New-Object System.Security.Principal.NTAccount($Ace.IdentityReference)
+                                try {
+                                    $TranslatedIdentityReferences[$Ace.IdentityReference] = $IdentityUser.Translate([System.Security.Principal.SecurityIdentifier]) | Select-Object -ExpandProperty Value
+                                }
+                                catch {
+                                    $IdentitySID = $null
+                                }
+                            }
+                            $IdentitySID = $TranslatedIdentityReferences[$Ace.IdentityReference]
+                        }
+                        else {
+                            $IdentitySID = $Ace.IdentityReference
+                        }
+
+                        if ($CurrentUserSids -contains $IdentitySID) {
+                            $Result = New-Object -TypeName PSObject
+                            $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $Path
+                            $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $Ace.IdentityReference
+                            $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value $Permissions
+                            $Result
+                        }
                     }
                 }
             }
+        }
+        catch {
+            # trap because Get-Acl doesn't handle -ErrorAction SilentlyContinue nicely
         }
     } 
 }

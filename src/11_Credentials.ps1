@@ -574,48 +574,53 @@ function Invoke-SensitiveHiveFileAccessCheck {
 
     foreach ($Path in [String[]]$ArrayOfPaths) {
 
-        $Acl = Get-Acl -Path $Path -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Access
-        if ($null -eq $Acl) { Write-Verbose "ACL is null"; continue }
-
-        foreach ($Ace in $Acl) {
-
-            $PermissionReference = @(
-                $FileAccessRightsEnum::ReadData
-            )
-
-            $Permissions = [Enum]::GetValues($FileAccessRightsEnum) | Where-Object {
-                ($Ace.FileSystemRights.value__ -band ($FileAccessRightsEnum::$_)) -eq ($FileAccessRightsEnum::$_)
-            }
-
-            if (Compare-Object -ReferenceObject $Permissions -DifferenceObject $PermissionReference -IncludeEqual -ExcludeDifferent) {
-
-                if ($Ace.IdentityReference -notmatch '^S-1-5.*' -and $Ace.IdentityReference -notmatch '^S-1-15-.*') {
-                    if (-not ($TranslatedIdentityReferences[$Ace.IdentityReference])) {
-        
-                        try {
-                            # translate the IdentityReference if it's a username and not a SID
-                            $IdentityUser = New-Object System.Security.Principal.NTAccount($Ace.IdentityReference)
-                            $TranslatedIdentityReferences[$Ace.IdentityReference] = $IdentityUser.Translate([System.Security.Principal.SecurityIdentifier]) | Select-Object -ExpandProperty Value
-                        }
-                        catch {
-                            # If we cannot resolve the SID, go to the next ACE.
-                            continue
-                        }
-                    }
-                    $IdentitySID = $TranslatedIdentityReferences[$Ace.IdentityReference]
-                }
-                else {
-                    $IdentitySID = $Ace.IdentityReference
+        try {
+            $Acl = Get-Acl -Path $Path -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Access
+            if ($null -eq $Acl) { Write-Verbose "ACL is null"; continue }
+    
+            foreach ($Ace in $Acl) {
+    
+                $PermissionReference = @(
+                    $FileAccessRightsEnum::ReadData
+                )
+    
+                $Permissions = [Enum]::GetValues($FileAccessRightsEnum) | Where-Object {
+                    ($Ace.FileSystemRights.value__ -band ($FileAccessRightsEnum::$_)) -eq ($FileAccessRightsEnum::$_)
                 }
     
-                if ($CurrentUserSids -contains $IdentitySID) {
-                    $Result = New-Object -TypeName PSObject
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $Path
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $Ace.IdentityReference
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value ($Permissions -join ", ")
-                    $Result
+                if (Compare-Object -ReferenceObject $Permissions -DifferenceObject $PermissionReference -IncludeEqual -ExcludeDifferent) {
+    
+                    if ($Ace.IdentityReference -notmatch '^S-1-5.*' -and $Ace.IdentityReference -notmatch '^S-1-15-.*') {
+                        if (-not ($TranslatedIdentityReferences[$Ace.IdentityReference])) {
+            
+                            try {
+                                # translate the IdentityReference if it's a username and not a SID
+                                $IdentityUser = New-Object System.Security.Principal.NTAccount($Ace.IdentityReference)
+                                $TranslatedIdentityReferences[$Ace.IdentityReference] = $IdentityUser.Translate([System.Security.Principal.SecurityIdentifier]) | Select-Object -ExpandProperty Value
+                            }
+                            catch {
+                                # If we cannot resolve the SID, go to the next ACE.
+                                continue
+                            }
+                        }
+                        $IdentitySID = $TranslatedIdentityReferences[$Ace.IdentityReference]
+                    }
+                    else {
+                        $IdentitySID = $Ace.IdentityReference
+                    }
+        
+                    if ($CurrentUserSids -contains $IdentitySID) {
+                        $Result = New-Object -TypeName PSObject
+                        $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $Path
+                        $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $Ace.IdentityReference
+                        $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value ($Permissions -join ", ")
+                        $Result
+                    }
                 }
             }
+        }
+        catch {
+            # trap because Get-Acl doesn't handle -ErrorAction SilentlyContinue nicely
         }
     }
 }
