@@ -255,3 +255,36 @@ function Invoke-PrintNightmareCheck {
 
     $Results | Where-Object { $_.Vulnerable } | Select-Object -Property Path,Value,Data
 }
+
+function Invoke-DriverCoInstallersCheck {
+    <#
+    .SYNOPSIS
+    Checks whether the DisableCoInstallers key is set in the registry.
+
+    Author: @itm4n, @SAERXCIT
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    The automatic installation as SYSTEM of additional software alongside device drivers can be a vector for privesc, if this software can be manipulated into executing arbitrary code. This can be prevented by setting the DisableCoInstallers key in HKLM. Credit to @wdormann https://twitter.com/wdormann/status/1432703702079508480.
+    
+    .EXAMPLE
+    Ps C:\> Invoke-DriverCoInstallersCheck
+
+    Name                : HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Device Installer
+    DisableCoInstallers : N/A
+    Description         : Co-Installers are enabled (default)
+    #>
+
+    [CmdletBinding()]Param()
+
+    $RegPath = "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Device Installer"
+    $Value = "DisableCoInstallers"
+
+    $Item = Get-ItemProperty -Path "Registry::$RegPath" -Name $Value -ErrorAction SilentlyContinue -ErrorVariable ErrorGetItemProperty
+
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $RegPath
+    $Result | Add-Member -MemberType "NoteProperty" -Name $Value -Value $(if ($Item) { $Item.DisableCoInstallers } else { "N/A" })
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $(if ($Item.DisableCoInstallers -ge 1) { "Co-Installers are disabled" } else { "Co-Installers are enabled (default)" })
+    $Result
+}
