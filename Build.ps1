@@ -163,7 +163,7 @@ if ($ErrorsCount -eq 0) {
     Write-Host -ForegroundColor Green "[OK] " -NoNewline
     Write-Host "Build complete!"
 
-    $ScriptOutput | Out-File -FilePath $OutputFile
+    $ScriptOutput | Out-File -FilePath $OutputFile -Encoding ascii
     Write-Host -ForegroundColor Green "[OK] " -NoNewline
     Write-Host "Script written to file $OutputFile"
 }
