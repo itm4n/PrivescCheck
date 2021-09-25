@@ -80,7 +80,7 @@ function Invoke-UserGroupsCheck {
     
     [CmdletBinding()] Param()
 
-    Get-TokenInformationGroups -InformationClass Groups | Select-Object Name,Type,SID
+    Get-TokenInformationGroups -InformationClass Groups | Select-Object Name,Type,SID    
 }
 
 function Invoke-UserRestrictedSidsCheck {

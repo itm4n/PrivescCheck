@@ -382,15 +382,18 @@ function Get-TokenInformationGroups {
     $TokenGroupsPtr = Get-TokenInformationData -TokenHandle $TokenHandle -InformationClass $InformationClasses[$InformationClass]
     if (-not $TokenGroupsPtr) { $Kernel32::CloseHandle($TokenHandle) | Out-Null; return }
 
-    $TokenGroups = [System.Runtime.InteropServices.Marshal]::PtrToStructure($TokenGroupsPtr, [type] $TOKEN_GROUPS)
+    $TokenGroups = [Runtime.InteropServices.Marshal]::PtrToStructure($TokenGroupsPtr, [type] $TOKEN_GROUPS)
 
     Write-Verbose "Number of groups: $($TokenGroups.GroupCount)"
 
+    # Offset of the first SID_AND_ATTRIBUTES structure is +4 in 32-bits, and +8 in 64-bits (because
+    # of the structure alignment in memory). Therefore we can use [IntPtr]::Size as the offset's 
+    # value for the first item in the array.
+    $CurrentGroupPtr = [IntPtr] ($TokenGroupsPtr.ToInt64() + [IntPtr]::Size)
     for ($i = 0; $i -lt $TokenGroups.GroupCount; $i++) {
 
-        $CurrentGroup = $TokenGroups.Groups[$i]
+        $CurrentGroup = [Runtime.InteropServices.Marshal]::PtrToStructure($CurrentGroupPtr, [type] $SID_AND_ATTRIBUTES)
         
-        # Get group attributes 
         $GroupAttributes = $SupportedGroupAttributes.GetEnumerator() | ForEach-Object {
             if ( $_.value -band $CurrentGroup.Attributes ) {
                 $_.name
@@ -399,8 +402,7 @@ function Get-TokenInformationGroups {
 
         $SidInfo = Convert-PSidToNameAndType -PSid $CurrentGroup.Sid
         $SidString = Convert-PSidToStringSid -PSid $CurrentGroup.Sid
-
-        # Get group type as String
+        
         $GroupType = $SupportedTypes.GetEnumerator() | ForEach-Object {
             if ( $_.value -eq $SidInfo.Type ) {
                 $_.name
@@ -416,10 +418,7 @@ function Get-TokenInformationGroups {
             $Result
         }
 
-        if ($i -eq 1024) {
-            Write-Warning "Reached maximum number of groups (1024)!"
-            break
-        }
+        $CurrentGroupPtr = [IntPtr] ($CurrentGroupPtr.ToInt64() + [Runtime.InteropServices.Marshal]::SizeOf([type] $SID_AND_ATTRIBUTES))
     }
 
     [System.Runtime.InteropServices.Marshal]::FreeHGlobal($TokenGroupsPtr)

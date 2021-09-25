@@ -908,7 +908,7 @@ $TOKEN_USER = New-Structure $Module WinApiModule.TOKEN_USER @{
 
 $TOKEN_GROUPS = New-Structure $Module WinApiModule.TOKEN_GROUPS @{
     GroupCount  = New-StructureField 0 UInt32
-    Groups      = New-StructureField 1 $SID_AND_ATTRIBUTES.MakeArrayType() -MarshalAs @('ByValArray', 1024)
+    Groups      = New-StructureField 1 $SID_AND_ATTRIBUTES.MakeArrayType() -MarshalAs @('ByValArray', 1)
 }
 
 $TOKEN_PRIVILEGES = New-Structure $Module WinApiModule.TOKEN_PRIVILEGES @{
