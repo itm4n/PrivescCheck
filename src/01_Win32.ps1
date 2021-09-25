@@ -913,7 +913,7 @@ $TOKEN_GROUPS = New-Structure $Module WinApiModule.TOKEN_GROUPS @{
 
 $TOKEN_PRIVILEGES = New-Structure $Module WinApiModule.TOKEN_PRIVILEGES @{
     PrivilegeCount = New-StructureField 0 UInt32
-    Privileges     = New-StructureField 1 $LUID_AND_ATTRIBUTES.MakeArrayType() -MarshalAs @('ByValArray', 100)
+    Privileges     = New-StructureField 1 $LUID_AND_ATTRIBUTES.MakeArrayType() -MarshalAs @('ByValArray', 1)
 }
 
 $TOKEN_MANDATORY_LABEL = New-Structure $Module WinApiModule.TOKEN_MANDATORY_LABEL @{

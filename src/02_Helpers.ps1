@@ -505,8 +505,10 @@ function Get-TokenInformationPrivileges {
 
     Write-Verbose "Number of privileges: $($TokenPrivileges.PrivilegeCount)"
 
+    $CurrentPrivilegePtr = [IntPtr] ($TokenPrivilegesPtr.ToInt64() + 4)
     for ($i = 0; $i -lt $TokenPrivileges.PrivilegeCount; $i++) {
-        $CurrentPrivilege = $TokenPrivileges.Privileges[$i]
+
+        $CurrentPrivilege = [Runtime.InteropServices.Marshal]::PtrToStructure($CurrentPrivilegePtr, [type] $LUID_AND_ATTRIBUTES)
 
         [UInt32]$Length = 0
         $Success = $Advapi32::LookupPrivilegeName($null, [ref] $CurrentPrivilege.Luid, $null, [ref]$Length)
@@ -541,6 +543,8 @@ function Get-TokenInformationPrivileges {
         $Result | Add-Member -MemberType "NoteProperty" -Name "State" -Value $(if ($PrivilegeEnabled) { "Enabled" } else { "Disabled" })
         $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $PrivilegeDescriptions[$PrivilegeName]
         $Result
+
+        $CurrentPrivilegePtr = [IntPtr] ($CurrentPrivilegePtr.ToInt64() + [Runtime.InteropServices.Marshal]::SizeOf([type] $LUID_AND_ATTRIBUTES))
     }
 
     [System.Runtime.InteropServices.Marshal]::FreeHGlobal($TokenPrivilegesPtr)
