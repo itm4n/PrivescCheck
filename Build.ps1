@@ -3,7 +3,7 @@ powershell -ep bypass -c ".\Build.ps1"
 #>
 
 $ErrorsCount = 0
-$ScriptOutput = "#Requires -Version 2`n`n"
+$ScriptOutput = "#Requires -Version 2`r`n`r`n"
 $OutputFile = "PrivescCheck.ps1"
 
 $Modules = New-Object System.Collections.ArrayList
@@ -106,10 +106,10 @@ Get-ChildItem -Path ".\src\*" | ForEach-Object {
         # Compress and Base64 encode script block
         $ScriptBlockBase64 = Convert-ToBase64CompressedScriptBlock -ScriptBlock $ScriptBlock
 
-        $ScriptOutput += "# ------------------------------------`n"
-        $ScriptOutput += "# Module $ModuleName`n"
-        $ScriptOutput += "# ------------------------------------`n"
-        $ScriptOutput += "`$ScriptBlock$($ModuleName) = `"$($ScriptBlockBase64)`"`n`n"
+        $ScriptOutput += "# ------------------------------------`r`n"
+        $ScriptOutput += "# Module $ModuleName`r`n"
+        $ScriptOutput += "# ------------------------------------`r`n"
+        $ScriptOutput += "`$ScriptBlock$($ModuleName) = `"$($ScriptBlockBase64)`"`r`n`r`n"
     }
     catch [Exception] {
         $ErrorsCount += 1
@@ -154,7 +154,7 @@ function Convert-FromBase64CompressedScriptBlock {
 }
 "@
 
-    $ScriptOutput += "`n`n$($LoaderBlock)`n`n"
+    $ScriptOutput += "`r`n`r`n$($LoaderBlock)`r`n`r`n"
 }
 
 # If no error, write the script to the file

@@ -53,20 +53,46 @@ function Invoke-LapsCheck {
     
     .DESCRIPTION
     The status of LAPS can be check using the following registry key: HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft Services\AdmPwd
+
+    .PARAMETER Info
+    Report all start-up applications, whether or not the application path is vulnerable.
+
+    .EXAMPLE
+    PS C:\> Invoke-LapsCheck
+
+    Key         : HKLM\SOFTWARE\Policies\Microsoft Services\AdmPwd
+    Value       : AdmPwdEnabled
+    Data        :
+    Status      : False
+    Description : LAPS is not configured
     #>
     
-    [CmdletBinding()]Param()
+    [CmdletBinding()]Param(
+        [switch]
+        $Info = $false
+    )
     
-    $RegPath = "HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft Services\AdmPwd"
+    $RegPath = "HKLM\SOFTWARE\Policies\Microsoft Services\AdmPwd"
 
-    $Item = Get-ItemProperty -Path "Registry::$RegPath" -ErrorAction SilentlyContinue -ErrorVariable GetItemPropertyError 
-    if (-not $GetItemPropertyError) {
-        $LapsResult = New-Object -TypeName PSObject 
-        $LapsResult | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $RegPath
-        $LapsResult | Add-Member -MemberType "NoteProperty" -Name "AdmPwdEnabled" -Value $Item.AdmPwdEnabled
-        $LapsResult | Add-Member -MemberType "NoteProperty" -Name "Enabled" -Value $($Item.AdmPwdEnabled -eq 1)
-        $LapsResult
+    $Item = Get-ItemProperty -Path "Registry::$RegPath" -ErrorAction SilentlyContinue
+
+    if ($null -ne $Item) {
+        if ($Item.AdmPwdEnabled -eq 1) { $Description = "LAPS is enabled" } else { $Description = "LAPS is disabled" }
     }
+    else {
+        $Description = "LAPS is not configured"
+    }
+
+    $Result = New-Object -TypeName PSObject 
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegPath
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value "AdmPwdEnabled"
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $Item.AdmPwdEnabled
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Status" -Value ($Item.AdmPwdEnabled -eq 1)
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+
+    if ($Info) { $Result; return }
+
+    if ($Result.Status -eq $false) { $Result }
 }
 
 function Invoke-PowershellTranscriptionCheck {
@@ -120,7 +146,10 @@ function Invoke-PowershellTranscriptionCheck {
 function Invoke-BitlockerCheck {
     <#
     .SYNOPSIS
-    Checks whether BitLocker is enabled (workstations only).
+    Checks whether BitLocker is enabled.
+
+    Author: @itm4n
+    License: BSD 3-Clause
     
     .DESCRIPTION
     When BitLocker is enabled on the system drive, the value "BootStatus" is set to 1 in the following registry key: 'HKLM\SYSTEM\CurrentControlSet\Control\BitLockerStatus'.
@@ -128,54 +157,31 @@ function Invoke-BitlockerCheck {
     .EXAMPLE
     PS C:\> Invoke-BitlockerCheck
 
-    Name        : HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\BitLockerStatus
-    BootStatus  : 0
-    Description : BitLocker isn't enabled.
+    Description : Enable BitLocker drive encryption
+    Key         : HKLM\SYSTEM\CurrentControlSet\Control\BitLockerStatus
+    Value       : BootStatus
+    Data        : 0
+    Result      : BitLocker is not enabled
     #>
 
     [CmdletBinding()]Param()
 
     $MachineRole = Invoke-MachineRoleCheck
+    if ($MachineRole.Name -notlike "WinNT") { continue }
 
-    if ($MachineRole.Name -Like "WinNT") {
+    $Results = Invoke-BaselineRegistryCheck -Category "BitLocker"
 
-        $RegPath = "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\BitLockerStatus"
-
-        $Item = Get-ItemProperty -Path "Registry::$RegPath" -ErrorAction SilentlyContinue -ErrorVariable GetItemPropertyError 
-        if (-not $GetItemPropertyError) {
-
-            if (-not ($Item.BootStatus -eq 1)) {
-
-                $BitlockerResult = New-Object -TypeName PSObject 
-                $BitlockerResult | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $RegPath
-                $BitlockerResult | Add-Member -MemberType "NoteProperty" -Name "BootStatus" -Value $Item.BootStatus
-                $BitlockerResult | Add-Member -MemberType "NoteProperty" -Name "Description" -Value "BitLocker isn't enabled."
-                $BitlockerResult
-            }
-            else {
-                $BitlockerResult = New-Object -TypeName PSObject 
-                $BitlockerResult | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $RegPath
-                $BitlockerResult | Add-Member -MemberType "NoteProperty" -Name "BootStatus" -Value $Item.BootStatus
-                $BitlockerResult | Add-Member -MemberType "NoteProperty" -Name "Description" -Value "BitLocker is enabled."
-                $BitlockerResult
-            }
-
-        }
-        else {
-
-            $BitlockerResult = New-Object -TypeName PSObject 
-            $BitlockerResult | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $RegPath
-            $BitlockerResult | Add-Member -MemberType "NoteProperty" -Name "BootStatus" -Value ""
-            $BitlockerResult | Add-Member -MemberType "NoteProperty" -Name "Description" -Value "BitLocker isn't configured."
-            $BitlockerResult
-        }
-    }
+    $Result = $Results | Where-Object { $_.Value -eq "BootStatus" } | Select-Object -Property Description,Key,Value,Data
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $(if ($Result.Data -eq 1) { "BitLocker is enabled" } else { "BitLocker is not enabled" }) -PassThru
 }
 
 function Invoke-LsaProtectionCheck {
     <#
     .SYNOPSIS
     Checks whether LSA protection is supported and enabled
+
+    Author: @itm4n
+    License: BSD 3-Clause
     
     .DESCRIPTION
     Invokes the helper function Get-LsaRunAsPPLStatus
@@ -188,17 +194,29 @@ function Invoke-LsaProtectionCheck {
     RunAsPPL   True RunAsPPL is enabled
     #>
 
-    Get-LsaRunAsPPLStatus
+    [CmdletBinding()] Param(
+        [switch]
+        $Info = $false
+    )
+
+    $LsaProtection = Get-LsaRunAsPPLStatus
+
+    if ($Info) { $LsaProtection; return }
+
+    if ($LsaProtection.Status -eq $false) { $LsaProtection }
 }
 
 function Invoke-CredentialGuardCheck {
     <#
     .SYNOPSIS
     Checks whether Credential Guard is supported and enabled
+
+    Author: @itm4n
+    License: BSD 3-Clause
     
     .DESCRIPTION
     Invokes the helper function Get-CredentialGuardStatus
-    
+
     .EXAMPLE
     PS C:\> Invoke-CredentialGuardCheck
 
@@ -214,6 +232,9 @@ function Invoke-BiosModeCheck {
     <#
     .SYNOPSIS
     Checks whether UEFI and Secure are supported and enabled
+
+    Author: @itm4n
+    License: BSD 3-Clause
     
     .DESCRIPTION
     Invokes the helper functions Get-UEFIStatus and Get-SecureBootStatus
