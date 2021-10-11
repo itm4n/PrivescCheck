@@ -169,10 +169,19 @@ function Invoke-BitlockerCheck {
     $MachineRole = Invoke-MachineRoleCheck
     if ($MachineRole.Name -notlike "WinNT") { continue }
 
-    $Results = Invoke-BaselineRegistryCheck -Category "BitLocker"
+    $Key = "HKLM\SYSTEM\CurrentControlSet\Control\BitLockerStatus"
+    $Value = "BootStatus"
+    $Item = Get-ItemProperty -Path "Registry::$($Key)" -Name $Value -ErrorAction SilentlyContinue
 
-    $Result = $Results | Where-Object { $_.Value -eq "BootStatus" } | Select-Object -Property Description,Key,Value,Data
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $(if ($Result.Data -eq 1) { "BitLocker is enabled" } else { "BitLocker is not enabled" }) -PassThru
+    if ($Item -and $Item.$Value -eq 1) { $Description = "BitLocker is enabled" } else { $Description = "BitLocker is not enabled" }
+
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value "BitLocker status"
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $Key
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $Value
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $Item.$Value
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Description
+    $Result
 }
 
 function Invoke-LsaProtectionCheck {

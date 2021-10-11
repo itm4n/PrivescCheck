@@ -345,12 +345,12 @@ function Invoke-MachineRoleCheck {
     $Item = Get-ItemProperty -Path "Registry::HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\ProductOptions" -ErrorAction SilentlyContinue -ErrorVariable GetItemPropertyError
     
     $FriendlyNames = @{
-        "WinNT"     = "WorkStation";
+        "WinNT"     = "Workstation";
         "LanmanNT"  = "Domain Controller";
         "ServerNT"  = "Server";
     }
 
-    if (-not $GetItemPropertyError){
+    if (-not $GetItemPropertyError) {
         try {
             $Result = New-Object -TypeName PSObject
             $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $Item.ProductType

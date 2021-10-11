@@ -148,22 +148,15 @@ function Invoke-PrivescCheck {
 "MISC_STARTUP_LAST",                "Invoke-SystemStartupCheck",                    "Misc",             "Last System Startup",                  "Info", "Info",     "Table",    "True",     "True",         "False",        "Determine the last system startup date and time based on the current tick count. Note that this might be unreliable."
 "MISC_DRIVES",                      "Invoke-SystemDrivesCheck",                     "Misc",             "Filesystem Drives",                    "Info", "Info",     "Table",    "True",     "True",         "False",        "List partitions, removable storage and mapped network shares."
 "MISC_NAMED_PIPES",                 "Invoke-NamedPipePermissionsCheck",             "Misc",             "Named Pipes Permission",               "Info", "Info",     "List",     "True",     "False",        "True",         "List modifiable named pipes that are not owned by the current user."
-"AUDIT_BITLOCKER",                  "Invoke-BaselineRegistryCheck -Category 'BitLocker'",                       "Audit", "BitLocker",                       "MBSA", "High",    "List", "False", "True", "False", "Audit BitLocker configuration based on MS security baseline."
-"AUDIT_AUTHENTICATION",             "Invoke-BaselineRegistryCheck -Category 'Authentication'",                  "Audit", "Authentication",                  "MBSA", "Medium",  "List", "False", "True", "False", "Audit authentication configuration based on MS security baseline."
-"AUDIT_USER_ACCOUNT_CONTROL",       "Invoke-BaselineRegistryCheck -Category 'User Account Control'",            "Audit", "User Account Control",            "MBSA", "Medium",  "List", "False", "True", "False", "Audit User Account Control configuration based on MS security baseline."
-"AUDIT_WINDOWS_DEFENDER",           "Invoke-BaselineRegistryCheck -Category 'Windows Defender'",                "Audit", "Windows Defender",                "MBSA", "Medium",  "List", "False", "True", "False", "Audit Windows Defender configuration based on MS security baseline."
-"AUDIT_FIREWALL",                   "Invoke-BaselineRegistryCheck -Category 'Firewall'",                        "Audit", "Firewall",                        "MBSA", "High",    "List", "False", "True", "False", "Audit firewall configuration based on MS security baseline."
-"AUDIT_NETWORK",                    "Invoke-BaselineRegistryCheck -Category 'Network'",                         "Audit", "Network",                         "MBSA", "Medium",  "List", "False", "True", "False", "Audit network configuration based on MS security baseline."
-"AUDIT_NETWORK_CONNECTIONS",        "Invoke-BaselineRegistryCheck -Category 'Network Connections'",             "Audit", "Network Connections",             "MBSA", "High",    "List", "False", "True", "False", "Audit network connection configuration based on MS security baseline."
-"AUDIT_REMOTE_ACCESS",              "Invoke-BaselineRegistryCheck -Category 'Remote Access'",                   "Audit", "Remote Access",                   "MBSA", "Medium",  "List", "False", "True", "False", "Audit remote access configuration based on MS security baseline."
-"AUDIT_CLOUD_CONTENT",              "Invoke-BaselineRegistryCheck -Category 'Cloud Content'",                   "Audit", "Cloud Content",                   "MBSA", "Medium",  "List", "False", "True", "False", "Audit cloud content configuration based on MS security baseline."
-"AUDIT_LOCK_SCREEN",                "Invoke-BaselineRegistryCheck -Category 'Lock Screen'",                     "Audit", "Lock Screen",                     "MBSA", "Medium",  "List", "False", "True", "False", "Audit lock screen configuration based on MS security baseline."
-"AUDIT_VBS",                        "Invoke-BaselineRegistryCheck -Category 'Virtualization Based Security'",   "Audit", "Virtualization Based Security",   "MBSA", "Medium",  "List", "False", "True", "False", "Audit VBS configuration based on MS security baseline."
-"AUDIT_SESSION_MANAGEMENT",         "Invoke-BaselineRegistryCheck -Category 'Session Management'",              "Audit", "Session Management",              "MBSA", "Medium",  "List", "False", "True", "False", "Audit session management configuration based on MS security baseline."
-"AUDIT_REMOVABLE_DEVICES",          "Invoke-BaselineRegistryCheck -Category 'Removable Devices'",               "Audit", "Removable Devices",               "MBSA", "High",    "List", "False", "True", "False", "Audit removable device configuration based on MS security baseline."
-"AUDIT_KERNEL_PROTECTION",          "Invoke-BaselineRegistryCheck -Category 'Kernel Protection'",               "Audit", "Kernel Protection",               "MBSA", "Medium",  "List", "False", "True", "False", "Audit kernel protection configuration based on MS security baseline."
-"AUDIT_LOGGING",                    "Invoke-BaselineRegistryCheck -Category 'Logging'",                         "Audit", "Logging",                         "MBSA", "Low",     "List", "False", "True", "False", "Audit logging configuration  based on MS security baseline."
-"AUDIT_EDGE_IE",                    "Invoke-BaselineRegistryCheck -Category 'Edge & Internet Explorer'",        "Audit", "Edge & Internet Explorer",        "MBSA", "High",    "List", "False", "True", "False", "Audit Edge and IE configuration based on MS security baseline."
+"MBSA_COMPUTER",                    "Invoke-BaselineAudit -Category 'Computer'",    "MBSA",             "Computer",                             "MBSA", "High",     "List",     "False",    "True",         "False",        "Audit computer configuration based on MS security baseline."
+"MBSA_USER",                        "Invoke-BaselineAudit -Category 'User'",        "MBSA",             "User",                                 "MBSA", "Medium",   "List",     "False",    "True",         "False",        "Audit user configuration based on MS security baseline."
+"MBSA_INTERNET_EXPLORER",           "Invoke-BaselineAudit -Category 'Internet Explorer'", "MBSA",       "Internet Explorer",                    "MBSA", "Medium",   "List",     "False",    "True",         "False",        "Audit Internet Explorer configuration based on MS security baseline."
+"MBSA_DEFENDER",                    "Invoke-BaselineAudit -Category 'Defender Antivirus'", "MBSA",      "Defender Antivirus",                   "MBSA", "High",     "List",     "False",    "True",         "False",        "Audit Defender Antivirus configuration based on MS security baseline."
+"MBSA_CREDENTIAL_GUARD",            "Invoke-BaselineAudit -Category 'Credential Guard'", "MBSA",        "Credential Guard",                     "MBSA", "Medium",   "List",     "False",    "True",         "False",        "Audit Credential Guard configuration based on MS security baseline."
+"MBSA_BITLOCKER",                   "Invoke-BaselineAudit -Category 'BitLocker'",   "MBSA",             "BitLocker",                            "MBSA", "High",     "List",     "False",    "True",         "False",        "Audit BitLocker configuration based on MS security baseline."
+"MBSA_OFFICE_COMPUTER",             "Invoke-BaselineAudit -Category 'OfficeComputer'", "MBSA",          "Microsoft Office (computer)",          "MBSA", "Medium",   "List",     "False",    "True",         "False",        "Audit Mircosoft Office configuration (computer) based on MS security baseline."
+"MBSA_OFFICE_USER",                 "Invoke-BaselineAudit -Category 'OfficeUser'",  "MBSA",             "Microsoft Office (user)",              "MBSA", "Medium",   "List",     "False",    "True",         "False",        "Audit Mircosoft Office configuration (user) based on MS security baseline."
+"MBSA_EDGE_COMPUTER",               "Invoke-BaselineAudit -Category 'EdgeComputer'", "MBSA",            "Microsoft Edge (computer)",            "MBSA", "Medium",   "List",     "False",    "True",         "False",        "Audit Microsoft Edge configuration (computer) based on MS security baseline."
 "@
 
     # Reset all global ArrayLists on startup
@@ -299,11 +292,17 @@ function Invoke-Check {
         }
     }
     elseif ($Check.Type -Like "MBSA") {
-        $CompliantResults = [object[]] ($Result | Where-Object { $_.Compliant -eq $true })
-        $Compliance = $CompliantResults.Count -eq ([object[]]$Result).Count
-        $ComplianceLevel = [UInt32] ([Math]::Ceiling($CompliantResults.Count * 100 / ([object[]]$Result).Count))
-        $Check | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $(if ($Compliance) { "OK" } else { "KO" })
-        $Check | Add-Member -MemberType "NoteProperty" -Name "ComplianceLevel" -Value $ComplianceLevel
+        if (([object[]]$Result).Count -gt 0) {
+            $CompliantResults = [object[]] ($Result | Where-Object { $_.Compliant -eq $true })
+            $Compliance = $CompliantResults.Count -eq ([object[]]$Result).Count
+            $ComplianceLevel = [UInt32] ([Math]::Ceiling($CompliantResults.Count * 100 / ([object[]]$Result).Count))
+            $Check | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $(if ($Compliance) { "OK" } else { "KO" })
+            $Check | Add-Member -MemberType "NoteProperty" -Name "ComplianceLevel" -Value $ComplianceLevel
+        }
+        else {
+            $Check | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value "NA"
+            $Check | Add-Member -MemberType "NoteProperty" -Name "ComplianceLevel" -Value $null
+        }
     }
     else {
         $Check | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value "N/A"
@@ -439,7 +438,7 @@ function Write-XmlReport {
     $AllResults | ForEach-Object {
         $_.ResultRawString = [System.Text.RegularExpressions.Regex]::Replace($_.ResultRawString, $AuthorizedXmlCharactersRegex, "")
         $_
-    } | Sort-Object -Property "Category" | Select-Object "Id","Category","DisplayName","Description","Type","Compliance","ComplianceLevel","Severity","ResultRawString" | ConvertTo-Xml -As String
+    } | Sort-Object -Property "Category" | Select-Object Id,Category,DisplayName,Description,Type,Compliance,ComplianceLevel,Severity,ResultRawString | ConvertTo-Xml -As String
 }
 
 function Write-HtmlReport {
