@@ -251,9 +251,17 @@ function Invoke-PrintNightmareCheck {
 
     if ($Info) { $Results; return }
 
+    # Not vulnerable if:
+    #  - RestrictDriverInstallationToAdministrators is set to 1
+    #  - NoWarningNoElevationOnInstall or UpdatePromptSettings are not set
+    #  - NoWarningNoElevationOnInstall is set to 0
+    #  - UpdatePromptSettings is set to 0
     if ($RestrictInstall -and (-not $RestrictInstall.Vulnerable)) { return }
+    if (-not $WarningInstall) { return }
+    if (-not $WarningUpdate) { return }
+    if ((-not $WarningInstall.Vulnerable) -or (-not $WarningUpdate.Vulnerable)) { return }
 
-    $Results | Where-Object { $_.Vulnerable } | Select-Object -Property Path,Value,Data
+    $Results | Select-Object -Property Path,Value,Data
 }
 
 function Invoke-DriverCoInstallersCheck {
