@@ -342,9 +342,8 @@ function Invoke-WlanProfilesCheck {
         }
     }
     catch {
-        # Do nothing
-        # Wlan API doesn't exist on this machine probably 
-        Write-Verbose $Error[0]
+        # The Wlan API probably doesn't exist on this machine.
+        if ($Error[0]) { Write-Verbose -Message $Error[0] }
     }
 }
 
