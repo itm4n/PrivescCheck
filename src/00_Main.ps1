@@ -24,9 +24,6 @@ function Invoke-PrivescCheck {
     .PARAMETER Force
     Ignore warnings.
 
-    .PARAMETER Audit
-    Run Microsoft security baseline checks
-
     .PARAMETER Silent
     Don't output test results, show only the final vulnerability report.
 
@@ -57,9 +54,6 @@ function Invoke-PrivescCheck {
         $Force = $false,
 
         [switch]
-        $Audit = $false,
-
-        [switch]
         $Silent = $false,
 
         [string]
@@ -74,9 +68,7 @@ function Invoke-PrivescCheck {
     # The following check was taken from Pow*rUp.ps1
     $IsAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")
     if ($IsAdmin) {
-
         if (-not $Force) {
-
             Write-Warning "You are running this script as an administrator! Some checks will be automatically disabled."
             Write-Warning "You can specify the '-Force' option to disable this warning message."
             Start-Sleep -Seconds 10
@@ -117,11 +109,9 @@ function Invoke-PrivescCheck {
 "CREDS_PS_HIST",                    "Invoke-PowerShellHistoryCheck",                "Creds",            "PowerShell History",                   "Info", "Info",     "List",     "True",     "True",         "False",        "Locate the current user's PowerShell history file and check whether it contains some clear-text credentials. This check is simply based on keyword matching and might not be entirely reliable."
 "HARDEN_UAC",                       "Invoke-UacCheck",                              "Hardening",        "UAC Settings",                         "Info", "Info",     "List",     "True",     "True",         "False",        "Retrieve the User Access Control (UAC) configuration and check whether it is enabled."
 "HARDEN_LSA_PROTECTION_INFO",       "Invoke-LsaProtectionCheck -Info",              "Hardening",        "LSA Protection (RunAsPPL)",            "Info", "Info",     "Table",    "True",     "True",         "False",        "Checks the status of LSA protection (a.k.a. RunAsPPL)."
-"HARDEN_LSA_PROTECTION",            "Invoke-LsaProtectionCheck",                    "Hardening",        "LSA Protection (RunAsPPL)",            "Vuln", "Medium",   "Table",    "False",    "True",         "False",        "Checks whether LSA protection (a.k.a. RunAsPPL) and report as vulnerable if it is not enabled."
 "HARDEN_CREDENTIAL_GUARD",          "Invoke-CredentialGuardCheck",                  "Hardening",        "Credential Guard",                     "Info", "Info",     "Table",    "False",    "True",         "False",        "Checks whether Credential Guard is supported and enabled."
 "HARDEN_BIOS_MODE",                 "Invoke-BiosModeCheck",                         "Hardening",        "UEFI & Secure Boot",                   "Info", "Info",     "Table",    "True",     "True",         "False",        "Checks whether UEFI and Secure are supported and enabled."
 "HARDEN_LAPS_INFO",                 "Invoke-LapsCheck -Info",                       "Hardening",        "LAPS",                                 "Info", "Info",     "List",     "True",     "True",         "False",        "Checks whether LAPS is enabled."
-"HARDEN_LAPS",                      "Invoke-LapsCheck",                             "Hardening",        "LAPS",                                 "Vuln", "Medium",   "List",     "False",    "True",         "False",        "Checks LAPS configuration and reports as vulnerable if it is not enabled."
 "HARDEN_PS_TRANSCRIPT",             "Invoke-PowershellTranscriptionCheck",          "Hardening",        "PowerShell Transcription",             "Info", "Info",     "List",     "True",     "True",         "False",        "Check whether PowerShell Transcription is configured and enabled. If so, the path of the output log file will be returned."
 "HARDEN_BITLOCKER",                 "Invoke-BitlockerCheck",                        "Hardening",        "BitLocker",                            "Info", "Info",     "List",     "False",    "True",         "False",        "Check whether BitLocker is configured and enabled on the system drive. Note that this check will yield a false positive if another encryption software is in use."
 "CONFIG_PATH_FOLDERS",              "Invoke-DllHijackingCheck",                     "Config",           "PATH Folder Permissions",              "Vuln", "High",     "List",     "False",    "False",        "False",        "Retrieve the list of SYSTEM %PATH% folders and check whether the current user has some write permissions in any of them."
@@ -148,15 +138,6 @@ function Invoke-PrivescCheck {
 "MISC_STARTUP_LAST",                "Invoke-SystemStartupCheck",                    "Misc",             "Last System Startup",                  "Info", "Info",     "Table",    "True",     "True",         "False",        "Determine the last system startup date and time based on the current tick count. Note that this might be unreliable."
 "MISC_DRIVES",                      "Invoke-SystemDrivesCheck",                     "Misc",             "Filesystem Drives",                    "Info", "Info",     "Table",    "True",     "True",         "False",        "List partitions, removable storage and mapped network shares."
 "MISC_NAMED_PIPES",                 "Invoke-NamedPipePermissionsCheck",             "Misc",             "Named Pipes Permission",               "Info", "Info",     "List",     "True",     "False",        "True",         "List modifiable named pipes that are not owned by the current user."
-"MBSA_COMPUTER",                    "Invoke-BaselineAudit -Category 'Computer'",    "MBSA",             "Computer",                             "MBSA", "High",     "List",     "False",    "True",         "False",        "Audit computer configuration based on MS security baseline."
-"MBSA_USER",                        "Invoke-BaselineAudit -Category 'User'",        "MBSA",             "User",                                 "MBSA", "Medium",   "List",     "False",    "True",         "False",        "Audit user configuration based on MS security baseline."
-"MBSA_INTERNET_EXPLORER",           "Invoke-BaselineAudit -Category 'Internet Explorer'", "MBSA",       "Internet Explorer",                    "MBSA", "Medium",   "List",     "False",    "True",         "False",        "Audit Internet Explorer configuration based on MS security baseline."
-"MBSA_DEFENDER",                    "Invoke-BaselineAudit -Category 'Defender Antivirus'", "MBSA",      "Defender Antivirus",                   "MBSA", "High",     "List",     "False",    "True",         "False",        "Audit Defender Antivirus configuration based on MS security baseline."
-"MBSA_CREDENTIAL_GUARD",            "Invoke-BaselineAudit -Category 'Credential Guard'", "MBSA",        "Credential Guard",                     "MBSA", "Medium",   "List",     "False",    "True",         "False",        "Audit Credential Guard configuration based on MS security baseline."
-"MBSA_BITLOCKER",                   "Invoke-BaselineAudit -Category 'BitLocker'",   "MBSA",             "BitLocker",                            "MBSA", "High",     "List",     "False",    "True",         "False",        "Audit BitLocker configuration based on MS security baseline."
-"MBSA_OFFICE_COMPUTER",             "Invoke-BaselineAudit -Category 'OfficeComputer'", "MBSA",          "Microsoft Office (computer)",          "MBSA", "Medium",   "List",     "False",    "True",         "False",        "Audit Mircosoft Office configuration (computer) based on MS security baseline."
-"MBSA_OFFICE_USER",                 "Invoke-BaselineAudit -Category 'OfficeUser'",  "MBSA",             "Microsoft Office (user)",              "MBSA", "Medium",   "List",     "False",    "True",         "False",        "Audit Mircosoft Office configuration (user) based on MS security baseline."
-"MBSA_EDGE_COMPUTER",               "Invoke-BaselineAudit -Category 'EdgeComputer'", "MBSA",            "Microsoft Edge (computer)",            "MBSA", "Medium",   "List",     "False",    "True",         "False",        "Audit Microsoft Edge configuration (computer) based on MS security baseline."
 "@
 
     # Reset all global ArrayLists on startup
@@ -178,7 +159,6 @@ function Invoke-PrivescCheck {
         $RunIfAdminCheck = [System.Convert]::ToBoolean($Check.RunIfAdmin)
         $ExtendedCheck = [System.Convert]::ToBoolean($Check.Extended)
         $ExperimentalCheck = [System.Convert]::ToBoolean($Check.Experimental)
-        $AuditCheck = $Check.Type -eq "MBSA"
 
         # If the current user is an admin but the check's RunIfAdmin flag was not set to true, ignore it.
         if ($IsAdmin -and (-not $RunIfAdminCheck)) { continue }
@@ -188,12 +168,6 @@ function Invoke-PrivescCheck {
 
         # If it's an experimental check but the Experimental switch was not set to true, ignore it.
         if ($ExperimentalCheck -and (-not $Experimental)) { continue }
-
-        # If it's an audit check but the Audit switch was not set to true, ignore it.
-        if ($AuditCheck -and (-not $Audit)) { continue }
-
-        # If we are running in "Audit" mode, do not run checks other than Vuln and Audit checks.
-        if ($Audit -and -not (@("Vuln", "MBSA") -contains $Check.Type) ) { continue }
 
         if ($Silent) {
 
@@ -289,19 +263,6 @@ function Invoke-Check {
         else {
             $Check.Severity = "None"
             $Check | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value "OK"
-        }
-    }
-    elseif ($Check.Type -Like "MBSA") {
-        if (([object[]]$Result).Count -gt 0) {
-            $CompliantResults = [object[]] ($Result | Where-Object { $_.Compliant -eq $true })
-            $Compliance = $CompliantResults.Count -eq ([object[]]$Result).Count
-            $ComplianceLevel = [UInt32] ([Math]::Ceiling($CompliantResults.Count * 100 / ([object[]]$Result).Count))
-            $Check | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $(if ($Compliance) { "OK" } else { "KO" })
-            $Check | Add-Member -MemberType "NoteProperty" -Name "ComplianceLevel" -Value $ComplianceLevel
-        }
-        else {
-            $Check | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value "NA"
-            $Check | Add-Member -MemberType "NoteProperty" -Name "ComplianceLevel" -Value $null
         }
     }
     else {
@@ -637,13 +598,6 @@ function Write-PrivescCheckAsciiReport {
         Write-Host -NoNewline "| "
         if ($_.Type -Like "vuln") {
             if ($_.ResultRaw) { Write-Host -NoNewline -ForegroundColor "Red" "KO" } else { Write-Host -NoNewline -ForegroundColor "Green" "OK" }
-        }
-        elseif ($_.Type -Like "MBSA") {
-            switch ($_.Compliance) {
-                "OK" { Write-Host -NoNewline -ForegroundColor "Green" "OK" }
-                "KO" { Write-Host -NoNewline -ForegroundColor "Red" "KO" }
-                default { Write-Host -NoNewline -ForegroundColor "DarkGray" "NA" }
-            }
         }
         else {
             Write-Host -NoNewline -ForegroundColor "DarkGray" "NA"

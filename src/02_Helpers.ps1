@@ -152,6 +152,34 @@ function Convert-DateToString {
     $OutString
 }
 
+function Get-WindowsVersion {
+
+    [CmdletBinding()] Param()
+
+    $CurrentVersionRegKey = "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion"
+    $CurrentVersion = Get-ItemProperty -Path "Registry::$($CurrentVersionRegKey)" -ErrorAction SilentlyContinue
+    if (-not $CurrentVersion) {
+        Write-Verbose "Failed to read registry key: $($CurrentVersionRegKey)"
+        [System.Environment]::OSVersion.Version
+        return
+    }
+
+    $Major = $CurrentVersion.CurrentMajorVersionNumber
+    $Minor = $CurrentVersion.CurrentMinorVersionNumber
+
+    if ($null -eq $Major) { $Major = $CurrentVersion.CurrentVersion.Split(".")[0] }
+    if ($null -eq $Minor) { $Minor = $CurrentVersion.CurrentVersion.Split(".")[1] }
+
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Major" -Value ([UInt32] $Major)
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Minor" -Value ([UInt32] $Minor)
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Build" -Value ([UInt32] $CurrentVersion.CurrentBuildNumber)
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Revision" -Value 0
+    $Result | Add-Member -MemberType "NoteProperty" -Name "MajorRevision" -Value 0
+    $Result | Add-Member -MemberType "NoteProperty" -Name "MinorRevision" -Value 0
+    $Result
+}
+
 function Test-IsKnownService {
 
     [CmdletBinding()] Param(
@@ -1865,7 +1893,7 @@ function Get-UEFIStatus {
 
     [CmdletBinding()]Param()
 
-    $OsVersion = [System.Environment]::OSVersion.Version
+    $OsVersion = Get-WindowsVersion
 
     # Windows >= 8/2012
     if (($OsVersion.Major -ge 10) -or (($OsVersion.Major -ge 6) -and ($OsVersion.Minor -ge 2))) {
@@ -2002,7 +2030,7 @@ function Get-CredentialGuardStatus {
     
     [CmdletBinding()]Param()
 
-    $OsVersion = [System.Environment]::OSVersion.Version
+    $OsVersion = Get-WindowsVersion
 
     if ($OsVersion.Major -ge 10) {
 
@@ -2066,10 +2094,10 @@ function Get-LsaRunAsPPLStatus {
 
     [CmdletBinding()]Param()
 
-    $OsVersion = [System.Environment]::OSVersion.Version
+    $OsVersion = Get-WindowsVersion
 
     # if Windows >= 8.1 / 2012 R2
-    if ($OsVersion.Major -eq 10 -or ( ($OsVersion.Major -eq 6) -and ($OsVersion.Minor -ge 3) )) {
+    if ($OsVersion.Major -ge 10 -or ( ($OsVersion.Major -eq 6) -and ($OsVersion.Minor -ge 3) )) {
 
         $RegPath = "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Lsa"
         $Result = Get-ItemProperty -Path "REgistry::$($RegPath)" -ErrorAction SilentlyContinue -ErrorVariable GetItemPropertyError
@@ -2856,7 +2884,7 @@ function Get-VaultList {
 
                     Write-Verbose "VaultEnumerateItems() OK - Items Count: $($VaultItemsCount)"
 
-                    $OSVersion = [Environment]::OSVersion.Version
+                    $OSVersion = Get-WindowsVersion
 
                     try {
 

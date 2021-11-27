@@ -20,23 +20,22 @@ function Invoke-SystemInfoCheck {
     
     [CmdletBinding()] Param()
 
-    $OsVersion = [System.Environment]::OSVersion.Version
+    $OsVersion = Get-WindowsVersion
 
     $Item = Get-ItemProperty -Path "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion" -ErrorAction SilentlyContinue -ErrorVariable GetItemPropertyError
     if (-not $GetItemPropertyError) {
 
-        $OsName = $Item.ProductName
-
-        if ($OsVersion -like "10.*") {
-            # Windows >= 10/2016
-            $OsVersion = "$($Item.CurrentMajorVersionNumber).$($Item.CurrentMinorVersionNumber).$($Item.CurrentBuild) Version $($Item.ReleaseId) ($($Item.CurrentBuild).$($Item.UBR))"
+        if ($OsVersion.Major -ge 10) {
+            $OsVersionStr = "$($OsVersion.Major).$($OsVersion.Minor).$($OsVersion.Build) Version $($Item.ReleaseId) ($($OsVersion.Build).$($Item.UBR))"
+        }
+        else {
+            $OsVersionStr = "$($OsVersion.Major).$($OsVersion.Minor).$($OsVersion.Build) N/A Build $($OsVersion.Build)"
         }
 
         $Result = New-Object -TypeName PSObject
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $OsName
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Version" -Value $OsVersion
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $Item.ProductName
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Version" -Value $OsVersionStr
         $Result
-
     }
     else {
         Write-Verbose $GetItemPropertyError
@@ -630,9 +629,9 @@ function Invoke-HijackableDllsCheck {
         }
     }
 
-    $OsVersion = [System.Environment]::OSVersion.Version
+    $OsVersion = Get-WindowsVersion
 
-    if ($OsVersion.Major -eq 10) {
+    if ($OsVersion.Major -ge 10) {
         Test-HijackableDll -ServiceName "CDPSvc" -DllName "cdpsgshims.dll" -Description "Loaded by CDPSvc upon service startup"
         Test-HijackableDll -ServiceName "Schedule" -DllName "WptsExtensions.dll" -Description "Loaded by the Task Scheduler upon service startup"
     }
@@ -659,7 +658,7 @@ function Invoke-HijackableDllsCheck {
     }
 
     # Windows 8, 8.1, 10
-    if (($OsVersion.Major -eq 10) -or (($OsVersion.Major -eq 6) -and ($OsVersion.Minor -ge 2) -and ($OsVersion.Minor -le 3))) {
+    if (($OsVersion.Major -ge 10) -or (($OsVersion.Major -eq 6) -and ($OsVersion.Minor -ge 2) -and ($OsVersion.Minor -le 3))) {
         Test-HijackableDll -ServiceName "NetMan" -DllName "wlanapi.dll" -Description "Loaded by NetMan when listing network interfaces" -RebootRequired $false
     }
 }
