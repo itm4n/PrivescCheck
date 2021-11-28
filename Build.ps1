@@ -1,5 +1,10 @@
 <#
-powershell -ep bypass -c ".\Build.ps1"
+Usage:
+    - powershell -ep bypass -c ".\Build.ps1"
+
+Notes:
+    - [2021-11-28] Cortex XDR detected the loader. I had to split the base64 decoding and the GZip decompressing into two separate functions.
+    - [2021-11-28] Cortex XDR detects repeated calls to "Invoke-Expression" as a malicious behavior. So, rather than calling "Invoke-Expression" on each script block, I now reconstruct the entire script and I call "Invoke-Expression" on the final result. Default AMSI seems to be OK with that as well.
 #>
 
 $ErrorsCount = 0
@@ -126,32 +131,37 @@ if ($ErrorsCount -eq 0) {
 # ------------------------------------`
 # Loader
 # ------------------------------------
-function Convert-FromBase64CompressedScriptBlock {
-
+function Convert-FromBase64ToGzip {
     [CmdletBinding()] param(
-        [String]
-        `$ScriptBlock
+        [string] `$String
     )
-
-    # Base64 to Byte array of compressed data
-    `$ScriptBlockCompressed = [System.Convert]::FromBase64String(`$ScriptBlock)
-
-    # Decompress data
-    `$InputStream = New-Object System.IO.MemoryStream(, `$ScriptBlockCompressed)
-    `$GzipStream = New-Object System.IO.Compression.GzipStream `$InputStream, ([System.IO.Compression.CompressionMode]::Decompress)
-    `$StreamReader = New-Object System.IO.StreamReader(`$GzipStream)
-    `$ScriptBlockDecompressed = `$StreamReader.ReadToEnd()
-    `$GzipStream.Close()
-    `$InputStream.Close()
-
-    `$ScriptBlockDecompressed
+    [Convert]::FromBase64String(`$String)
 }
 
-`$Modules = @($( ($Modules | ForEach-Object { "'$_'" }) -join ','))
+function Convert-FromGzipToText {
+    [CmdletBinding()] param(
+        [byte[]] `$Bytes
+    )
+    `$is = New-Object IO.MemoryStream(, `$Bytes)
+    `$gs = New-Object IO.Compression.GzipStream `$is, ([IO.Compression.CompressionMode]::Decompress)
+    `$sr = New-Object IO.StreamReader(`$gs)
+    `$sbd = `$sr.ReadToEnd()
+    `$sr.Close()
+    `$gs.Close()
+    `$is.Close()
+    `$sbd
+}
+
+`$AllScript = ""
+`$Modules = @($( ($Modules | ForEach-Object { "`$ScriptBlock$($_)" }) -join ','))
 `$Modules | ForEach-Object {
-    `$ScriptBlock = `"```$ScriptBlock`$(`$_)`" | Invoke-Expression
-    Convert-FromBase64CompressedScriptBlock -ScriptBlock `$ScriptBlock | Invoke-Expression
+    `$Decoded = Convert-FromBase64ToGzip -String `$_
+    `$Decompressed = Convert-FromGzipToText -Bytes `$Decoded
+    `$AllScript += `$Decompressed
+    `$ModulesDecoded += `$Decompressed
 }
+
+`$AllScript | Invoke-Expression
 "@
 
     $ScriptOutput += "`r`n`r`n$($LoaderBlock)`r`n`r`n"

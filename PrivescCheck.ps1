@@ -70,31 +70,36 @@ $ScriptBlockMisc = "H4sIAAAAAAAEAO08a2/bRrbfC+x/GLAGImEpNo+298KLAFVsOdHWr7WU5Pba
 # ------------------------------------
 # Loader
 # ------------------------------------
-function Convert-FromBase64CompressedScriptBlock {
-
+function Convert-FromBase64ToGzip {
     [CmdletBinding()] param(
-        [String]
-        $ScriptBlock
+        [string] $String
     )
-
-    # Base64 to Byte array of compressed data
-    $ScriptBlockCompressed = [System.Convert]::FromBase64String($ScriptBlock)
-
-    # Decompress data
-    $InputStream = New-Object System.IO.MemoryStream(, $ScriptBlockCompressed)
-    $GzipStream = New-Object System.IO.Compression.GzipStream $InputStream, ([System.IO.Compression.CompressionMode]::Decompress)
-    $StreamReader = New-Object System.IO.StreamReader($GzipStream)
-    $ScriptBlockDecompressed = $StreamReader.ReadToEnd()
-    $GzipStream.Close()
-    $InputStream.Close()
-
-    $ScriptBlockDecompressed
+    [Convert]::FromBase64String($String)
 }
 
-$Modules = @('Main','Win32','Helpers','User','Services','Applications','ScheduledTasks','Hardening','Config','Network','Updates','Credentials','Misc')
+function Convert-FromGzipToText {
+    [CmdletBinding()] param(
+        [byte[]] $Bytes
+    )
+    $is = New-Object IO.MemoryStream(, $Bytes)
+    $gs = New-Object IO.Compression.GzipStream $is, ([IO.Compression.CompressionMode]::Decompress)
+    $sr = New-Object IO.StreamReader($gs)
+    $sbd = $sr.ReadToEnd()
+    $sr.Close()
+    $gs.Close()
+    $is.Close()
+    $sbd
+}
+
+$AllScript = ""
+$Modules = @($ScriptBlockMain,$ScriptBlockWin32,$ScriptBlockHelpers,$ScriptBlockUser,$ScriptBlockServices,$ScriptBlockApplications,$ScriptBlockScheduledTasks,$ScriptBlockHardening,$ScriptBlockConfig,$ScriptBlockNetwork,$ScriptBlockUpdates,$ScriptBlockCredentials,$ScriptBlockMisc)
 $Modules | ForEach-Object {
-    $ScriptBlock = "`$ScriptBlock$($_)" | Invoke-Expression
-    Convert-FromBase64CompressedScriptBlock -ScriptBlock $ScriptBlock | Invoke-Expression
+    $Decoded = Convert-FromBase64ToGzip -String $_
+    $Decompressed = Convert-FromGzipToText -Bytes $Decoded
+    $AllScript += $Decompressed
+    $ModulesDecoded += $Decompressed
 }
+
+$AllScript | Invoke-Expression
 
 
