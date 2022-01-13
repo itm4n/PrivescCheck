@@ -1,3 +1,6 @@
+2022-01-13
+    - Added Misc > Invoke-DefenderExclusionsCheck
+
 2021-09-13
     - Added Config > Invoke-DriverCoInstallersCheck (@SAERXCIT)
 
