@@ -278,21 +278,26 @@ function Invoke-DriverCoInstallersCheck {
     .EXAMPLE
     Ps C:\> Invoke-DriverCoInstallersCheck
 
-    Name                : HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Device Installer
-    DisableCoInstallers : N/A
-    Description         : Co-Installers are enabled (default)
+    Key         : HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Device Installer
+    Value       : DisableCoInstallers
+    Data        : (null)
+    Description : CoInstallers are enabled (default)
+    Compliance  : False
     #>
 
     [CmdletBinding()]Param()
 
-    $RegPath = "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Device Installer"
+    $RegPath = "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Device Installer"
     $Value = "DisableCoInstallers"
 
-    $Item = Get-ItemProperty -Path "Registry::$RegPath" -Name $Value -ErrorAction SilentlyContinue -ErrorVariable ErrorGetItemProperty
+    $Item = Get-ItemProperty -Path "Registry::$RegPath" -Name $Value -ErrorAction SilentlyContinue
+    $Description = $(if ($Item.$Value -ge 1) { "CoInstallers are disabled" } else { "CoInstallers are enabled (default)" })
 
     $Result = New-Object -TypeName PSObject
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $RegPath
-    $Result | Add-Member -MemberType "NoteProperty" -Name $Value -Value $(if ($Item) { $Item.DisableCoInstallers } else { "N/A" })
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $(if ($Item.DisableCoInstallers -ge 1) { "Co-Installers are disabled" } else { "Co-Installers are enabled (default)" })
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegPath
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $Value
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $Item.$Value) { "(null)" } else { $Item.$Value })
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $($Item.$Value -ge 1)
     $Result
 }

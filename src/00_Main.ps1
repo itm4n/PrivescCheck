@@ -108,10 +108,10 @@ function Invoke-PrivescCheck {
 "CREDS_GPP",                        "Invoke-GPPPasswordCheck",                      "Creds",            "GPP Passwords",                        "Vuln", "Medium",   "List",     "False",    "True",         "False",        "Locate old cached Group Policy Preference files that contain a 'cpassword' field and extract the clear-text credentials."
 "CREDS_PS_HIST",                    "Invoke-PowerShellHistoryCheck",                "Creds",            "PowerShell History",                   "Info", "Info",     "List",     "True",     "True",         "False",        "Locate the current user's PowerShell history file and check whether it contains some clear-text credentials. This check is simply based on keyword matching and might not be entirely reliable."
 "HARDEN_UAC",                       "Invoke-UacCheck",                              "Hardening",        "UAC Settings",                         "Info", "Info",     "List",     "True",     "True",         "False",        "Retrieve the User Access Control (UAC) configuration and check whether it is enabled."
-"HARDEN_LSA_PROTECTION_INFO",       "Invoke-LsaProtectionCheck -Info",              "Hardening",        "LSA Protection (RunAsPPL)",            "Info", "Info",     "Table",    "True",     "True",         "False",        "Checks the status of LSA protection (a.k.a. RunAsPPL)."
-"HARDEN_CREDENTIAL_GUARD",          "Invoke-CredentialGuardCheck",                  "Hardening",        "Credential Guard",                     "Info", "Info",     "Table",    "False",    "True",         "False",        "Checks whether Credential Guard is supported and enabled."
+"HARDEN_LSA_PROTECTION_INFO",       "Invoke-LsaProtectionCheck",                    "Hardening",        "LSA Protection (RunAsPPL)",            "Info", "Info",     "List",     "True",     "True",         "False",        "Checks the status of LSA protection (a.k.a. RunAsPPL)."
+"HARDEN_CREDENTIAL_GUARD",          "Invoke-CredentialGuardCheck",                  "Hardening",        "Credential Guard",                     "Info", "Info",     "List",     "False",    "True",         "False",        "Checks whether Credential Guard is supported and enabled."
 "HARDEN_BIOS_MODE",                 "Invoke-BiosModeCheck",                         "Hardening",        "UEFI & Secure Boot",                   "Info", "Info",     "Table",    "True",     "True",         "False",        "Checks whether UEFI and Secure are supported and enabled."
-"HARDEN_LAPS_INFO",                 "Invoke-LapsCheck -Info",                       "Hardening",        "LAPS",                                 "Info", "Info",     "List",     "True",     "True",         "False",        "Checks whether LAPS is enabled."
+"HARDEN_LAPS_INFO",                 "Invoke-LapsCheck",                             "Hardening",        "LAPS",                                 "Info", "Info",     "List",     "True",     "True",         "False",        "Checks whether LAPS is enabled."
 "HARDEN_PS_TRANSCRIPT",             "Invoke-PowershellTranscriptionCheck",          "Hardening",        "PowerShell Transcription",             "Info", "Info",     "List",     "True",     "True",         "False",        "Check whether PowerShell Transcription is configured and enabled. If so, the path of the output log file will be returned."
 "HARDEN_BITLOCKER",                 "Invoke-BitlockerCheck",                        "Hardening",        "BitLocker",                            "Info", "Info",     "List",     "False",    "True",         "False",        "Check whether BitLocker is configured and enabled on the system drive. Note that this check will yield a false positive if another encryption software is in use."
 "CONFIG_PATH_FOLDERS",              "Invoke-DllHijackingCheck",                     "Config",           "PATH Folder Permissions",              "Vuln", "High",     "List",     "False",    "False",        "False",        "Retrieve the list of SYSTEM %PATH% folders and check whether the current user has some write permissions in any of them."
@@ -259,18 +259,23 @@ function Invoke-Check {
 
     if ($Check.Type -Like "Vuln") {
         if ($Result) {
-            $Check | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value "KO"
+            $Check | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $false
         }
         else {
             $Check.Severity = "None"
-            $Check | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value "OK"
+            $Check | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $true
         }
     }
     else {
-        $Check | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value "N/A"
-        if (-not $Result) {
-            $Check.Severity = "None"
+        # For Info checks, if the result object has a "Compliance" attribute, we will return this value
+        # as the "Compliance" for the check itself. Otherwise, we will set it to TRUE by default.
+        if ($null -eq $Result.Compliance) {
+            $Check | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $true
         }
+        else {
+            $Check | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value ([bool]$Result.Compliance)
+        }
+        $Check.Severity = "None"
     }
     [void] $ResultArrayList.Add($Check)
     $Check
@@ -400,7 +405,7 @@ function Write-XmlReport {
     $AllResults | ForEach-Object {
         $_.ResultRawString = [System.Text.RegularExpressions.Regex]::Replace($_.ResultRawString, $AuthorizedXmlCharactersRegex, "")
         $_
-    } | Sort-Object -Property "Category" | Select-Object Id,Category,DisplayName,Description,Type,Compliance,ComplianceLevel,Severity,ResultRawString | ConvertTo-Xml -As String
+    } | Sort-Object -Property "Category" | Select-Object Id,Category,DisplayName,Description,Type,Compliance,Severity,ResultRawString | ConvertTo-Xml -As String
 }
 
 function Write-HtmlReport {
@@ -415,9 +420,9 @@ var cells = document.getElementsByTagName('td');
 
 for (var i=0; i<cells.length; i++) {
     if (cells[i].innerHTML == "True") {
-        cells[i].style.backgroundColor = '#ff5050';
-    } else if (cells[i].innerHTML == "False") {
         cells[i].style.backgroundColor = '#00ff99';
+    } else if (cells[i].innerHTML == "False") {
+        cells[i].style.backgroundColor = '#ff5050';
     } else if (cells[i].innerHTML == "Low") {
       cells[i].innerHTML = "<span class=\"label low\">Low</span>"
     } else if (cells[i].innerHTML == "Medium") {

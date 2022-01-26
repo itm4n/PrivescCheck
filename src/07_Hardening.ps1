@@ -8,16 +8,18 @@ function Invoke-UacCheck {
     
     .DESCRIPTION
     The state of UAC can be determined based on the value of the parameter "EnableLUA" in the following registry key:
-    HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Policies\System
+    HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\System
     0 = Disabled
     1 = Enabled 
     
     .EXAMPLE
     PS C:\> Invoke-UacCheck | fl
 
-    Path      : Registry::HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Policies\System
-    EnableLUA : 1
-    Enabled   : True
+    Key         : HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\System
+    Value       : EnableLUA
+    Data        : 1
+    Description : UAC is enabled
+    Compliance  : True
     
     .NOTES
     "UAC was formerly known as Limited User Account (LUA)."
@@ -28,19 +30,19 @@ function Invoke-UacCheck {
     
     [CmdletBinding()]Param()
 
-    $RegPath = "HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Policies\System"
+    $RegPath = "HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\System"
+    $Value = "EnableLUA"
 
-    $Item = Get-ItemProperty -Path "Registry::$RegPath" -ErrorAction SilentlyContinue -ErrorVariable GetItemPropertyError
-    if (-not $GetItemPropertyError) {
-        $UacResult = New-Object -TypeName PSObject
-        $UacResult | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $RegPath
-        $UacResult | Add-Member -MemberType "NoteProperty" -Name "EnableLUA" -Value $Item.EnableLUA
-        $UacResult | Add-Member -MemberType "NoteProperty" -Name "Enabled" -Value $($Item.EnableLUA -eq 1)
-        $UacResult
-    }
-    else {
-        Write-Verbose -Message "Error while querying '$RegPath'"
-    }
+    $Item = Get-ItemProperty -Path "Registry::$RegPath" -Name $Value -ErrorAction SilentlyContinue
+    $Description = $(if ($Item.$Value -ge 1) { "UAC is enabled" } else { "UAC is disabled" })
+
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegPath
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $Value
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $Item.$Value) { "(null)" } else { $Item.$Value })
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $($Item.$Value -ge 1)
+    $Result
 }
 
 function Invoke-LapsCheck {
@@ -54,45 +56,37 @@ function Invoke-LapsCheck {
     .DESCRIPTION
     The status of LAPS can be check using the following registry key: HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft Services\AdmPwd
 
-    .PARAMETER Info
-    Report all start-up applications, whether or not the application path is vulnerable.
-
     .EXAMPLE
     PS C:\> Invoke-LapsCheck
 
     Key         : HKLM\SOFTWARE\Policies\Microsoft Services\AdmPwd
     Value       : AdmPwdEnabled
-    Data        :
-    Status      : False
+    Data        : (null)
     Description : LAPS is not configured
+    Compliance  : False
     #>
     
-    [CmdletBinding()]Param(
-        [switch]
-        $Info = $false
-    )
-    
+    [CmdletBinding()]Param()
+
     $RegPath = "HKLM\SOFTWARE\Policies\Microsoft Services\AdmPwd"
+    $Value = "AdmPwdEnabled"
 
-    $Item = Get-ItemProperty -Path "Registry::$RegPath" -ErrorAction SilentlyContinue
+    $Item = Get-ItemProperty -Path "Registry::$RegPath" -Name $Value -ErrorAction SilentlyContinue
 
-    if ($null -ne $Item) {
-        if ($Item.AdmPwdEnabled -eq 1) { $Description = "LAPS is enabled" } else { $Description = "LAPS is disabled" }
-    }
-    else {
+    if ($null -eq $Item) {
         $Description = "LAPS is not configured"
     }
+    else {
+        $Description = $(if ($Item.$Value -ge 1) { "LAPS is enabled" } else { "LAPS is disabled" })
+    }
 
-    $Result = New-Object -TypeName PSObject 
+    $Result = New-Object -TypeName PSObject
     $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegPath
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value "AdmPwdEnabled"
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $Item.AdmPwdEnabled
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Status" -Value ($Item.AdmPwdEnabled -eq 1)
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $Value
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $Item.$Value) { "(null)" } else { $Item.$Value })
     $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
-
-    if ($Info) { $Result; return }
-
-    if ($Result.Status -eq $false) { $Result }
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $($Item.$Value -ge 1)
+    $Result
 }
 
 function Invoke-PowershellTranscriptionCheck {
@@ -130,17 +124,17 @@ function Invoke-PowershellTranscriptionCheck {
     
     [CmdletBinding()]Param()
 
-    $RegPath = "HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows\PowerShell\Transcription"
+    $RegPath = "HKLM\SOFTWARE\Policies\Microsoft\Windows\PowerShell\Transcription"
 
-    $Item = Get-ItemProperty -Path "Registry::$RegPath" -ErrorAction SilentlyContinue -ErrorVariable GetItemPropertyError 
-    if (-not $GetItemPropertyError) {
-        # PowerShell Transcription is configured 
-        $PowershellTranscriptionResult = New-Object -TypeName PSObject 
-        $PowershellTranscriptionResult | Add-Member -MemberType "NoteProperty" -Name "EnableTranscripting" -Value $Item.EnableTranscripting
-        $PowershellTranscriptionResult | Add-Member -MemberType "NoteProperty" -Name "EnableInvocationHeader" -Value $Item.EnableInvocationHeader
-        $PowershellTranscriptionResult | Add-Member -MemberType "NoteProperty" -Name "OutputDirectory" -Value $Item.OutputDirectory
-        $PowershellTranscriptionResult
-    } 
+    $Item = Get-ItemProperty -Path "Registry::$RegPath" -ErrorAction SilentlyContinue
+    
+    if ($Item) {
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "EnableTranscripting" -Value $(if ($null -eq $Item.EnableTranscripting) { "(null)" } else { $Item.EnableTranscripting })
+        $Result | Add-Member -MemberType "NoteProperty" -Name "EnableInvocationHeader" -Value $(if ($null -eq $Item.EnableInvocationHeader) { "(null)" } else { $Item.EnableInvocationHeader })
+        $Result | Add-Member -MemberType "NoteProperty" -Name "OutputDirectory" -Value $(if ($null -eq $Item.OutputDirectory) { "(null)" } else { $Item.OutputDirectory })
+        $Result
+    }
 }
 
 function Invoke-BitlockerCheck {
@@ -169,18 +163,24 @@ function Invoke-BitlockerCheck {
     $MachineRole = Invoke-MachineRoleCheck
     if ($MachineRole.Name -notlike "WinNT") { continue }
 
-    $Key = "HKLM\SYSTEM\CurrentControlSet\Control\BitLockerStatus"
+    $RegPath = "HKLM\SYSTEM\CurrentControlSet\Control\BitLockerStatus"
     $Value = "BootStatus"
+
     $Item = Get-ItemProperty -Path "Registry::$($Key)" -Name $Value -ErrorAction SilentlyContinue
 
-    if ($Item -and $Item.$Value -eq 1) { $Description = "BitLocker is enabled" } else { $Description = "BitLocker is not enabled" }
+    if ($null -eq $Item) {
+        $Description = "BitLocker is not configured"
+    }
+    else {
+        $Description = $(if ($Item.$Value -ge 1) { "BitLocker is enabled" } else { "BitLocker is disabled" })
+    }
 
     $Result = New-Object -TypeName PSObject
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value "BitLocker status"
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $Key
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegPath
     $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $Value
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $Item.$Value
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Description
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $Item.$Value) { "(null)" } else { $Item.$Value })
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $($Item.$Value -ge 1)
     $Result
 }
 
@@ -198,21 +198,35 @@ function Invoke-LsaProtectionCheck {
     .EXAMPLE
     PS C:\> Invoke-LsaProtectionCheck
 
-    Name     Status Description
-    ----     ------ -----------
-    RunAsPPL   True RunAsPPL is enabled
+    Path        : HKLM\SYSTEM\CurrentControlSet\Control\Lsa
+    Value       : RunAsPPL
+    Data        : (null)
+    Description : RunAsPPL is either not configured or disabled
+    Compliance  : False
     #>
 
-    [CmdletBinding()] Param(
-        [switch]
-        $Info = $false
-    )
+    [CmdletBinding()] Param()
 
-    $LsaProtection = Get-LsaRunAsPPLStatus
+    $OsVersion = Get-WindowsVersion
 
-    if ($Info) { $LsaProtection; return }
+    $RegPath = "HKLM\SYSTEM\CurrentControlSet\Control\Lsa"
+    $Value = "RunAsPPL"
+    $Item = Get-ItemProperty -Path "Registry::$($RegPath)" -Name $Value -ErrorAction SilentlyContinue
 
-    if ($LsaProtection.Status -eq $false) { $LsaProtection }
+    $Description = $(if ($Item.$Value -ge 1) { "RunAsPPL is enabled" } else { "RunAsPPL is not enabled" })
+
+    # If < Windows 8.1 / 2012 R2
+    if (-not ($OsVersion.Major -ge 10 -or (($OsVersion.Major -eq 6) -and ($OsVersion.Minor -ge 3)))) {
+        $Description = "RunAsPPL is not supported on this OS"
+    }
+
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegPath
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $Value
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $Item.$Value) { "(null)" } else { $Item.$Value })
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $($Item.$Value -ge 1)
+    $Result
 }
 
 function Invoke-CredentialGuardCheck {
@@ -229,12 +243,55 @@ function Invoke-CredentialGuardCheck {
     .EXAMPLE
     PS C:\> Invoke-CredentialGuardCheck
 
-    Name             Status Description
-    ----             ------ -----------
-    Credential Guard  False Credential Guard is not configured
+    Name                                  : Credential Guard
+    DeviceGuardSecurityServicesConfigured : (null)
+    DeviceGuardSecurityServicesRunning    : (null)
+    Description                           : Credential Guard is not configured
+    Compliance                            : False
     #>
 
-    Get-CredentialGuardStatus
+    [CmdletBinding()]Param()
+
+    $OsVersion = Get-WindowsVersion
+
+    if ($OsVersion.Major -ge 10) {
+
+        if ((($PSVersionTable.PSVersion.Major -eq 5) -and ($PSVersionTable.PSVersion.Minor -ge 1)) -or ($PSVersionTable.PSVersion.Major -gt 5)) {
+
+            $DeviceGuardSecurityServicesConfigured = (Get-ComputerInfo).DeviceGuardSecurityServicesConfigured
+            if ($DeviceGuardSecurityServicesConfigured -match 'CredentialGuard') {
+
+                $Compliance = $false
+                $Description = "Credential Guard is configured but is not running"
+    
+                $DeviceGuardSecurityServicesRunning = (Get-ComputerInfo).DeviceGuardSecurityServicesRunning
+                if ($DeviceGuardSecurityServicesRunning -match 'CredentialGuard') {
+                    $Compliance = $true
+                    $Description = "Credential Guard is configured and running"
+                }
+            }
+            else {
+                $Compliance = $false
+                $Description = "Credential Guard is not configured"
+            }
+        }
+        else {
+            $Compliance = $false
+            $Description = "Check failed: Incompatible PS version"
+        }
+    }
+    else {
+        $Compliance = $false
+        $Description = "Credential Guard is not supported on this OS"
+    }
+    
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value "Credential Guard"
+    $Result | Add-Member -MemberType "NoteProperty" -Name "DeviceGuardSecurityServicesConfigured" -Value $(if ($null -eq $DeviceGuardSecurityServicesConfigured) { "(null)" } else { $DeviceGuardSecurityServicesConfigured })
+    $Result | Add-Member -MemberType "NoteProperty" -Name "DeviceGuardSecurityServicesRunning" -Value $(if ($null -eq $DeviceGuardSecurityServicesRunning) { "(null)" } else { $DeviceGuardSecurityServicesConfigured })
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $Compliance
+    $Result
 }
 
 function Invoke-BiosModeCheck {
