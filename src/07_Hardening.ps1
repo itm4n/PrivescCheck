@@ -23,9 +23,22 @@ function Invoke-UacCheck {
     
     .NOTES
     "UAC was formerly known as Limited User Account (LUA)."
+    IF EnableLUA = 0
+        -> UAC is completely disabled, no other restriction can apply.
+    ELSE
+        -> UAC is enabled (default).
+        IF LocalAccountTokenFilterPolicy = 1
+            -> Every member of the local Administrators group is granted a high integrity token for remote connections.
+        ELSE
+            -> Only the default local Administrator account (with RID 500) is granted a high integrity token for remote connections (default).
+            IF FilterAdministratorToken = 0
+                -> The default local Administrator account (with RID 500) is granted a high integrity token for remote connections (default).
+            ELSE
+                -> The access token of the default local Administrator account (with RID 500) is filtered.
 
     .LINK
     https://docs.microsoft.com/en-us/windows-hardware/customize/desktop/unattend/microsoft-windows-lua-settings-enablelua
+    https://labs.f-secure.com/blog/enumerating-remote-access-policies-through-gpo/
     #>
     
     [CmdletBinding()]Param()
@@ -34,7 +47,7 @@ function Invoke-UacCheck {
     $Value = "EnableLUA"
 
     $Item = Get-ItemProperty -Path "Registry::$RegPath" -Name $Value -ErrorAction SilentlyContinue
-    $Description = $(if ($Item.$Value -ge 1) { "UAC is enabled" } else { "UAC is disabled" })
+    $Description = $(if ($Item.$Value -ge 1) { "UAC is enabled (default)" } else { "UAC is disabled" })
 
     $Result = New-Object -TypeName PSObject
     $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegPath
@@ -43,6 +56,62 @@ function Invoke-UacCheck {
     $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
     $Result | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $($Item.$Value -ge 1)
     $Result
+
+    # If UAC is enabled, check LocalAccountTokenFilterPolicy to determine if only the built-in 
+    # administrator can get a high integrity token remotely or if any local user that is a 
+    # member of the Administrators group can also get one.
+    if ($Item.$Value -ge 1) {
+
+        $RegPath = "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System"
+        $Value = "LocalAccountTokenFilterPolicy"
+    
+        $Item = Get-ItemProperty -Path "Registry::$RegPath" -Name $Value -ErrorAction SilentlyContinue
+    
+        $Description = $(
+            if ($Item.$Value -ge 1) {
+                "Local users that are members of the Administrators group are granted a high integrity token when authenticating remotely"
+            }
+            else {
+                "Only the built-in Administrator account (RID 500) can be granted a high integrity token when authenticating remotely (default)"
+            }
+        )
+
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegPath
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $Value
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $Item.$Value) { "(null)" } else { $Item.$Value })
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $($null -eq $Item.$Value -or $Item.$Value -eq 0)
+        $Result
+
+        # If LocalAccountTokenFilterPolicy != 1, i.e. local admins other than RID 500 are not granted a
+        # high integrity token. However, we need to check if other restrictions apply to the built-in 
+        # administrator as well.
+        if ($null -eq $Item.$Value -or $Item.$Value -eq 0) {
+
+            $RegPath = "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System"
+            $Value = "FilterAdministratorToken"
+
+            $Item = Get-ItemProperty -Path "Registry::$RegPath" -Name $Value -ErrorAction SilentlyContinue
+
+            $Description = $(
+                if ($Item.$Value -ge 1) {
+                    "The built-in Administrator account (RID 500) is only granted a medium integrity token when authenticating remotely."
+                }
+                else {
+                    "The built-in administrator account (RID 500) is granted a high integrity token when authenticating remotely (default)"
+                }
+            )
+
+            $Result = New-Object -TypeName PSObject
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegPath
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $Value
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $Item.$Value) { "(null)" } else { $Item.$Value })
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $($Item.$Value -ge 1)
+            $Result
+        }
+    }
 }
 
 function Invoke-LapsCheck {

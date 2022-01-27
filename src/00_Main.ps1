@@ -269,12 +269,12 @@ function Invoke-Check {
     else {
         # For Info checks, if the result object has a "Compliance" attribute, we will return this value
         # as the "Compliance" for the check itself. Otherwise, we will set it to TRUE by default.
-        if ($null -eq $Result.Compliance) {
-            $Check | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $true
+        $Compliance = $true
+        ForEach ($Res in [object[]]$Result) {
+            if ($null -eq $Res.Compliance) { break }
+            if ($Res.Compliance -eq $false) { $Compliance = $false; break }
         }
-        else {
-            $Check | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value ([bool]$Result.Compliance)
-        }
+        $Check | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $Compliance
         $Check.Severity = "None"
     }
     [void] $ResultArrayList.Add($Check)
