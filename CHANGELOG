@@ -1,3 +1,6 @@
+2022-02-04
+    - Add Config > Invoke-HardenedUNCPathCheck (@mr_mitm)
+
 2022-01-13
     - Added Misc > Invoke-DefenderExclusionsCheck
 

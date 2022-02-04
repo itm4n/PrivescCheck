@@ -301,3 +301,57 @@ function Invoke-DriverCoInstallersCheck {
     $Result | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $($Item.$Value -ge 1)
     $Result
 }
+
+function Invoke-HardenedUNCPathCheck {
+    <#
+    .SYNOPSIS
+    Checks whether SYSVOL is a hardened UNC path.
+
+    Author: Adrian Vollmer, SySS GmbH (@mr_mitm)
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    If a UNC path to a file share is not hardened, Windows does not check the SMB server's identity when establishing the connection. This allows privilege escalation if the path to SYSVOL is not hardened, because a man-in-the-middle can inject malicious GPOs when group policies are updated.
+
+    A group policy update can be triggered with 'gpupdate /force'. Exploits exist; check Impacket's karmaSMB server. A legit DC must be available at the same time.
+
+    References:
+      * https://support.microsoft.com/en-us/topic/ms15-011-vulnerability-in-group-policy-could-allow-remote-code-execution-february-10-2015-91b4bda2-945d-455b-ebbb-01d1ec191328
+      * https://github.com/SecureAuthCorp/impacket/blob/master/examples/karmaSMB.py
+      * https://www.coresecurity.com/core-labs/articles/ms15-011-microsoft-windows-group-policy-real-exploitation-via-a-smb-mitm-attack
+      * https://beyondsecurity.com/scan-pentest-network-vulnerabilities-in-group-policy-allows-code-execution-ms15-011.html
+
+    .EXAMPLE
+    Ps C:\> Invoke-HardenedUNCPathCheck
+
+    Key         : HKLM\SOFTWARE\Policies\Microsoft\Windows\NetworkProvider\HardenedPaths\
+    Value       : \\*\SYSVOL
+    Data        : RequireMutualAuthentication=0, RequireIntegrity=1
+    Description : UNC Path to SYSVOL is NOT hardened
+    Compliance  : False
+    #>
+
+    [CmdletBinding()]Param()
+
+    $RegPath = "HKLM\SOFTWARE\Policies\Microsoft\Windows\NetworkProvider\HardenedPaths\"
+    $Value = "\\*\SYSVOL"
+    $WinOS =  [System.Environment]::OSVersion.Version.Major
+
+    $Item = Get-ItemProperty -Path "Registry::$RegPath" -Name $Value -ErrorAction SilentlyContinue
+
+    if ($WinOS -ge 10) {
+        $Compliance = ((-not $Item.$Value -contains "RequireMutualAuthentication=0") -or (-not $Item.$Value -contains "RequireIntegrity=0"))
+    } else {
+        $Compliance = (($Item.$Value -contains "RequireMutualAuthentication=1") -and ($Item.$Value -contains "RequireIntegrity=1"))
+    }
+
+    $Description = $(if ($Compliance) { "UNC Path to SYSVOL is hardened" } else { "UNC Path to SYSVOL is NOT hardened" })
+
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegPath
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $Value
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $Item.$Value) { "(null)" } else { $Item.$Value })
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $Compliance
+    $Result
+}
