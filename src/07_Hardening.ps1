@@ -235,7 +235,7 @@ function Invoke-BitlockerCheck {
     $RegPath = "HKLM\SYSTEM\CurrentControlSet\Control\BitLockerStatus"
     $Value = "BootStatus"
 
-    $Item = Get-ItemProperty -Path "Registry::$($Key)" -Name $Value -ErrorAction SilentlyContinue
+    $Item = Get-ItemProperty -Path "Registry::$($RegPath)" -Name $Value -ErrorAction SilentlyContinue
 
     if ($null -eq $Item) {
         $Description = "BitLocker is not configured"
