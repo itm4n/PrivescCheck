@@ -3084,3 +3084,15 @@ function Get-ShadowCopies {
 
     [System.Runtime.InteropServices.Marshal]::FreeHGlobal($Buffer) | Out-Null
 }
+
+function Test-IsDomainJoined {
+
+    [CmdletBinding()] Param()
+
+    $RegPath = "HKLM\System\CurrentControlSet\Services\Tcpip\Parameters"
+    $Value = "Domain"
+
+    $Item = Get-ItemProperty -Path "Registry::$($RegPath)" -Name $Value -ErrorAction SilentlyContinue
+
+    return (-not [string]::IsNullOrEmpty($Item.Value))
+}

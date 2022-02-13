@@ -102,6 +102,147 @@ function Invoke-WsusConfigCheck {
     }
 }
 
+function Invoke-HardenedUNCPathCheck {
+    <#
+    .SYNOPSIS
+    Check whether hardened UNC paths are properly configured.
+
+    Author: Adrian Vollmer - SySS GmbH (@mr_mitm), @itm4n
+    License: BSD 3-Clause
+    
+    .DESCRIPTION
+    If a UNC path to a file share is not hardened, Windows does not check the SMB server's identity when establishing the connection. This allows privilege escalation if the path to SYSVOL is not hardened, because a man-in-the-middle can inject malicious GPOs when group policies are updated.
+
+    A group policy update can be triggered with 'gpupdate /force'. Exploits exist; check Impacket's karmaSMB server. A legit DC must be available at the same time.
+
+    On Windows >= 10, UNC paths are hardened by default for SYSVOL and NETLOGON so, in this case, we just ensure that mutual authentication and integrity mode were not disabled. On Windows < 10 on the other hand, SYSVOL and NETLOGON UNC paths must be explicitely hardened. Note that this only applies to domain-joined machines.
+    
+    .EXAMPLE
+    PS C:\> Invoke-HardenedUNCPathCheck
+
+    Key         : HKLM\SOFTWARE\Policies\Microsoft\Windows\NetworkProvider\HardenedPaths
+    Value       : \\*\SYSVOL
+    Data        : RequireMutualAuthentication=0, RequireIntegrity=1
+    Description : Mutual authentication is disabled.
+
+    .EXAMPLE
+    PS C:\> Invoke-HardenedUNCPathCheck
+
+    Key         : HKLM\SOFTWARE\Policies\Microsoft\Windows\NetworkProvider\HardenedPaths
+    Value       : \\*\SYSVOL
+    Data        : RequireMutualAuthentication=0, RequireIntegrity=1
+    Description : Mutual authentication is not enabled.
+
+    Key         : HKLM\SOFTWARE\Policies\Microsoft\Windows\NetworkProvider\HardenedPaths
+    Value       : \\*\NETLOGON
+    Data        :
+    Description : Hardened UNC path is not configured.
+    
+    .NOTES
+    References:
+      * https://support.microsoft.com/en-us/topic/ms15-011-vulnerability-in-group-policy-could-allow-remote-code-execution-february-10-2015-91b4bda2-945d-455b-ebbb-01d1ec191328
+      * https://github.com/SecureAuthCorp/impacket/blob/master/examples/karmaSMB.py
+      * https://www.coresecurity.com/core-labs/articles/ms15-011-microsoft-windows-group-policy-real-exploitation-via-a-smb-mitm-attack
+      * https://beyondsecurity.com/scan-pentest-network-vulnerabilities-in-group-policy-allows-code-execution-ms15-011.html
+    #>
+
+    [CmdletBinding()]Param()
+
+    # Hardened UNC paths ensure that the communication between a client and a Domain Controller
+    # cannot be tampered with, so this setting only applies to domain-joined machines. If the 
+    # current machine is not domain-joined, return immediately.
+
+    if (-not (Test-IsDomainJoined)) {
+        return
+    }
+    
+    $OsVersionMajor = (Get-WindowsVersion).Major
+
+    $RegPath = "HKLM\SOFTWARE\Policies\Microsoft\Windows\NetworkProvider\HardenedPaths"
+
+    if ($OsVersionMajor -ge 10) {
+
+        # If Windows >= 10, paths are "hardened" by default. Therefore, the "HardenedPaths" registry
+        # key should not contain any value. If it contain values, ensure that protections were not
+        # explicitely disabled.
+
+        Get-Item -Path "Registry::$RegPath" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty property | ForEach-Object {
+            
+            $ValueName = $_
+            $ValueData = (Get-ItemProperty -Path "Registry::$RegPath" -Name $ValueName -ErrorAction SilentlyContinue).$ValueName
+            Write-Verbose "Value: $($ValueName) - Data: $($ValueData)"
+
+            $Vulnerable = $false
+            $Description = ""
+
+            if ($ValueData -like "*RequireMutualAuthentication=0*") {
+                $Vulnerable = $true
+                $Description = "$($Description)Mutual authentication is disabled. "
+            }
+
+            if ($ValueData -like "*RequireIntegrity=0*") {
+                $Vulnerable = $true
+                $Description = "$($Description)Integrity mode is disabled. "
+            }
+
+            if ($ValueData -like "*RequirePrivacy=0*") {
+                $Vulnerable = $true
+                $Description = "$($Description)Privacy mode is disabled. "
+            }
+
+            if ($Vulnerable) {
+                $Result = New-Object -TypeName PSObject
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegPath
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $ValueName
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $ValueData
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+                $Result
+            }
+        }
+    }
+    else {
+        
+        # If Windows < 10, paths are not hardened by default. Therefore, the "HardenedPaths" registry
+        # should contain at least two entries, as per Microsoft recommendations. One for SYSVOL and one
+        # for NETLOGON: '\\*\SYSVOL' and '\\*\NETLOGON'. However, a list of server would be valid as
+        # as well. Here, we will only ensure that both '\\*\SYSVOL' and '\\*\NETLOGON' are properly
+        # configured though.
+
+        $Values = @("\\*\SYSVOL", "\\*\NETLOGON")
+        foreach ($Value in $Values) {
+
+            $Item = Get-ItemProperty -Path "Registry::$RegPath" -Name $Value -ErrorAction SilentlyContinue
+            $Vulnerable = $false
+            $Description = ""
+
+            if ($null -eq $Item) {
+                $Vulnerable = $true
+                $Description = "Hardened UNC path is not configured."
+            }
+            else {
+                if (-not ($Item.$Value -like "*RequireMutualAuthentication=1*")) {
+                    $Vulnerable = $true
+                    $Description = "$($Description)Mutual authentication is not enabled. "
+                }
+
+                if ((-not ($Item.$Value -like "*RequireIntegrity=1*")) -and (-not ($Item.$Value -like "*RequirePrivacy=1*"))) {
+                    $Vulnerable = $true
+                    $Description = "$($Description)Integrity/privacy mode is not enabled. "
+                }
+            }
+
+            if ($Vulnerable) {
+                $Result = New-Object -TypeName PSObject
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegPath
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $Value
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $Item.$Value
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+                $Result
+            }
+        }
+    }
+}
+
 function Invoke-SccmCacheFolderCheck {
     <#
     .SYNOPSIS
