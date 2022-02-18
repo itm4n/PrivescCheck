@@ -795,3 +795,49 @@ function Invoke-DefenderExclusionsCheck {
 
     $Exclusions | Sort-Object -Property "Type"
 }
+
+function Invoke-UserSessionListCheck {
+    <#
+    .SYNOPSIS
+    List the the sessions of the currently logged-on users (similar to the command 'query session').
+
+    Author: @itm4n
+    License: BSD 3-Clause
+    
+    .DESCRIPTION
+    This check is essentially a wrapper for the helper function Get-RemoteDesktopUserSessionList.
+    
+    .EXAMPLE
+    PS C:\> Invoke-UserSessionListCheck
+
+    SessionName UserName              Id        State
+    ----------- --------              --        -----
+    Services                           0 Disconnected
+    Console     SRV01\Administrator    1       Active
+    RDP-Tcp#3   SANDBOX\Administrator  3       Active
+    #>
+
+    [CmdletBinding()] Param()
+
+    foreach ($Session in (Get-RemoteDesktopUserSessionList)) {
+
+        if ([String]::IsNullOrEmpty($Session.UserName)) {
+            $UserName = ""
+        }
+        else {
+            if ([String]::IsNullOrEmpty($Session.DomainName)) {
+                $UserName = $Session.UserName
+            }
+            else {
+                $UserName = "$($Session.DomainName)\$($Session.UserName)"
+            }
+        }
+
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "SessionName" -Value $Session.SessionName
+        $Result | Add-Member -MemberType "NoteProperty" -Name "UserName" -Value $UserName
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Id" -Value $Session.SessionId
+        $Result | Add-Member -MemberType "NoteProperty" -Name "State" -Value $Session.State
+        $Result
+    }
+}

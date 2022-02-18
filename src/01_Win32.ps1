@@ -882,6 +882,19 @@ $IP_ADAPTER_FLAGS = New-Enum $Module WinApiModule.IP_ADAPTER_FLAGS UInt32 @{
     Ipv6ManagedAddressConfigurationSupported = 0x00000200
 } -Bitfield
 
+$WTS_CONNECTSTATE_CLASS = New-Enum $Module WinApiModule.WTS_CONNECTSTATE_CLASS UInt32 @{
+    Active       = '0x00000000'
+    Connected    = '0x00000001'
+    ConnectQuery = '0x00000002'
+    Shadow       = '0x00000003'
+    Disconnected = '0x00000004'
+    Idle         = '0x00000005'
+    Listen       = '0x00000006'
+    Reset        = '0x00000007'
+    Down         = '0x00000008'
+    Init         = '0x00000009'
+}
+
 $LARGE_INTEGER = New-Structure $Module WinApiModule.LARGE_INTEGER @{
     LowPart  = New-StructureField 0 UInt32
     HighPart = New-StructureField 1 Int32
@@ -1217,6 +1230,17 @@ $WIN32_FILE_ATTRIBUTE_DATA = New-Structure $Module WinApiModule.WIN32_FILE_ATTRI
     nFileSizeLow     = New-StructureField 5 UInt32
 }
 
+$WTS_SESSION_INFO_1W = New-Structure $Module WinApiModule.WTS_SESSION_INFO_1W @{
+    ExecEnvId = New-StructureField 0 UInt32
+    State = New-StructureField 1 $WTS_CONNECTSTATE_CLASS
+    SessionId = New-StructureField 2 UInt32
+    SessionName = New-StructureField 3 String -MarshalAs @('LPWStr')
+    HostName = New-StructureField 4 String -MarshalAs @('LPWStr')
+    UserName = New-StructureField 5 String -MarshalAs @('LPWStr')
+    DomainName = New-StructureField 6 String -MarshalAs @('LPWStr')
+    FarmName = New-StructureField 7 String -MarshalAs @('LPWStr')
+}
+
 $FunctionDefinitions = @(
     (New-Function advapi32 OpenSCManager ([IntPtr]) @([String], [String], [UInt32]) ([Runtime.InteropServices.CallingConvention]::Winapi) ([Runtime.InteropServices.CharSet]::Unicode) -SetLastError),
     (New-Function advapi32 QueryServiceObjectSecurity ([Bool]) @([IntPtr], [Security.AccessControl.SecurityInfos], [Byte[]], [UInt32], [UInt32].MakeByRefType()) -SetLastError),
@@ -1265,7 +1289,10 @@ $FunctionDefinitions = @(
     (New-Function wlanapi WlanEnumInterfaces ([UInt32]) @([IntPtr], [IntPtr], [IntPtr].MakeByRefType()) -EntryPoint WlanEnumInterfaces),
     (New-Function wlanapi WlanFreeMemory ([Void]) @([IntPtr]) -EntryPoint WlanFreeMemory),
     (New-Function wlanapi WlanGetProfileList ([UInt32]) @([IntPtr], [Guid], [IntPtr], [IntPtr].MakeByRefType()) -EntryPoint WlanGetProfileList),
-    (New-Function wlanapi WlanGetProfile ([UInt32]) @([IntPtr], [Guid], [String], [IntPtr], [String].MakeByRefType(), [UInt32].MakeByRefType(), [UInt32].MakeByRefType()) -EntryPoint WlanGetProfile)
+    (New-Function wlanapi WlanGetProfile ([UInt32]) @([IntPtr], [Guid], [String], [IntPtr], [String].MakeByRefType(), [UInt32].MakeByRefType(), [UInt32].MakeByRefType()) -EntryPoint WlanGetProfile),
+
+    (New-Function wtsapi32 WTSEnumerateSessionsEx ([Bool]) @([IntPtr], [UInt32].MakeByRefType(), [UInt32], [IntPtr].MakeByRefType(), [UInt32].MakeByRefType()) -SetLastError -EntryPoint WTSEnumerateSessionsExW),
+    (New-Function wtsapi32 WTSFreeMemoryEx ([Bool]) @([UInt32], [IntPtr], [UInt32]) -SetLastError -EntryPoint WTSFreeMemoryExW)
 )
 
 $Types = $FunctionDefinitions | Add-Win32Type -Module $Module -Namespace 'WinApiModule.NativeMethods'
@@ -1275,3 +1302,4 @@ $Kernel32 = $Types['kernel32']
 $Ntdll    = $Types['ntdll']
 $Vaultcli = $Types['vaultcli']
 $Wlanapi  = $Types['wlanapi']
+$Wtsapi32 = $Types['wtsapi32']

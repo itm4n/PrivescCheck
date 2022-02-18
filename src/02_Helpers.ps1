@@ -3096,3 +3096,70 @@ function Test-IsDomainJoined {
 
     return (-not [string]::IsNullOrEmpty($Item.Value))
 }
+
+function Get-RemoteDesktopUserSessionList {
+    <#
+    .SYNOPSIS
+    List the sessions of the currently logged-on users through the WTS API.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+    
+    .DESCRIPTION
+    This cmdlet simply invokes the WTSEnumerateSessionsEx API to enumerate the sessions of the logged-on users. This API returns a list of TS_SESSION_INFO_1W structures containing the sessions info.
+    
+    .EXAMPLE
+    PS C:\> Get-RemoteDesktopUserSessionList
+
+    ExecEnvId   : 0
+    State       : Disconnected
+    SessionId   : 0
+    SessionName : Services
+    HostName    :
+    UserName    :
+    DomainName  :
+    FarmName    :
+
+    ExecEnvId   : 1
+    State       : Active
+    SessionId   : 1
+    SessionName : Console
+    HostName    :
+    UserName    : lab-user
+    DomainName  : DESKTOP-U7FQ7U5
+    FarmName    :
+    #>
+
+    [CmdletBinding()] Param()
+
+    $Level = 1
+    $SessionInfoListPtr = [IntPtr] 0
+    $SessionInfoCount = [UInt32] 0
+    
+    $Success = $Wtsapi32::WTSEnumerateSessionsEx(0, [ref]$Level, 0, [ref]$SessionInfoListPtr, [ref]$SessionInfoCount)
+    Write-Verbose "WTSEnumerateSessionsEx: $($Success) | Count: $($SessionInfoCount) | List: 0x$('{0:x16}' -f [Int64]$SessionInfoListPtr)"
+
+    if (-not $Success) {
+        $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+        Write-Verbose "WTSEnumerateSessionsEx - $([ComponentModel.Win32Exception] $LastError)"
+        return
+    }
+
+    $SessionInfoPtr = $SessionInfoListPtr
+    for ($i = 0; $i -lt $SessionInfoCount; $i++) {
+
+        $SessionInfo = [Runtime.InteropServices.Marshal]::PtrToStructure($SessionInfoPtr, [type] $WTS_SESSION_INFO_1W)
+        $SessionInfo
+
+        $SessionInfoPtr = [IntPtr] ($SessionInfoPtr.ToInt64() + [Runtime.InteropServices.Marshal]::SizeOf([type] $WTS_SESSION_INFO_1W))
+    }
+
+    $Success = $Wtsapi32::WTSFreeMemoryEx(2, $SessionInfoListPtr, $SessionInfoCount)
+    Write-Verbose "WTSFreeMemoryEx: $($Success)"
+
+    if (-not $Success) {
+        $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+        Write-Verbose "WTSFreeMemoryEx - $([ComponentModel.Win32Exception] $LastError)"
+        return
+    }
+}

@@ -1,3 +1,6 @@
+2022-02-18
+    - Added Misc > Invoke-UserSessionListCheck
+
 2022-02-13
     - Added Config > Invoke-HardenedUNCPathCheck (@mr_mitm, @itm4n)
 
