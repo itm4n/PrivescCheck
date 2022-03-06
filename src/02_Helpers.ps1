@@ -1,3 +1,7 @@
+function Test-IsRunningInConsole {
+    return $Host.Name -match "ConsoleHost"
+}
+
 function Convert-FiletimeToDatetime {
     [CmdletBinding()] Param(
         [Parameter(Position = 1, Mandatory=$true)]

@@ -159,6 +159,7 @@ function Invoke-PrivescCheck {
     $CheckCounter = 0
     ForEach ($Check in $AllChecks) {
 
+        $CheckCounter += 1
         $RunIfAdminCheck = [System.Convert]::ToBoolean($Check.RunIfAdmin)
         $ExtendedCheck = [System.Convert]::ToBoolean($Check.Extended)
         $ExperimentalCheck = [System.Convert]::ToBoolean($Check.Experimental)
@@ -172,25 +173,31 @@ function Invoke-PrivescCheck {
         # If it's an experimental check but the Experimental switch was not set to true, ignore it.
         if ($ExperimentalCheck -and (-not $Experimental)) { continue }
 
-        if ($Silent) {
-
-            # If the 'Silent' option was specified, don't print the output of the check but write a progress bar
-            # and show the name of the check which is being run.
-
-            $CheckCounter += 1
-            $Percentage = ($CheckCounter * 100) / ($AllChecks.Count)
-            Write-Progress -Activity "$($Check.Category.ToUpper()) > $($Check.DisplayName)" -PercentComplete $Percentage
-            $CheckResult = Invoke-Check -Check $Check
+        if (-not $Silent) {
+            Write-CheckBanner -Check $Check
         }
-        else {
 
+        # Run the check and store its output in a temp variable.
+        $CheckResult = Invoke-Check -Check $Check
+
+        if (-not $Silent) {
             # If the 'Silent' option was not specified, print a banner that shows some information about the 
             # current check. Then, run the check and print the output either as a table or a list, depending on
             # the 'Format' value in the CSV data.
-
-            Write-CheckBanner -Check $Check
-            $CheckResult = Invoke-Check -Check $Check
             Write-CheckResult -CheckResult $CheckResult
+        }
+        else {
+            # If the 'Silent' option was specified, don't print the output of the check but write a progress bar
+            # and show the name of the check which is being run. Note: if we are not running in a console window
+            # Write-Progress will fail, so use Write-Host to print the completion percentage instead.
+            $Completion = [UInt32](($CheckCounter * 100) / ($AllChecks.Count))
+            
+            if (Test-IsRunningInConsole) {
+                Write-Progress -Activity "$($Check.Category.ToUpper()) > $($Check.DisplayName)" -Status "Progress: $($Completion)%" -PercentComplete $Completion
+            }
+            else {
+                Write-Host "[$($Completion)%] $($Check.Category.ToUpper()) > $($Check.DisplayName)"
+            }
         }
     }
 
@@ -204,18 +211,14 @@ function Invoke-PrivescCheck {
     if ($Report) {
 
         if (-not $Format) {
-
             # If a format or a format list was not specified, default to the TXT format.
-
             [string[]] $Format = "TXT"
         }
 
         $Format | ForEach-Object {
-
             # For each format, build the name of the output report file as BASENAME + . + EXT. Then generate the
             # report corresponding to the current format and write it to a file using the previously formatted 
             # filename.
-
             $ReportFileName = "$($Report.Trim()).$($_.ToLower())"
             if ($_ -eq "TXT") {
                 Write-TxtReport -AllResults $ResultArrayList | Out-File $ReportFileName
