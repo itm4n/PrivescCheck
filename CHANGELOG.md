@@ -1,5 +1,11 @@
 # Changelog
 
+## 2022-03-08
+
+### Changed
+
+- Refactored and improved Config > Invoke-PrintNightmareCheck
+
 ## 2022-02-18
 
 ### Added
