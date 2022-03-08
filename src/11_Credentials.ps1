@@ -131,30 +131,23 @@ function Invoke-WinlogonCheck {
         }
     }
     else {
-        $RegPath = "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\Currentversion\Winlogon"
-        $Item = Get-ItemProperty -Path $RegPath -ErrorAction SilentlyContinue -ErrorVariable GetItemPropertyError
-    
-        if (-not $GetItemPropertyError) {
-    
-            if ($Item.DefaultPassword) {
-                $Result = New-Object -TypeName PSObject 
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Domain" -Value $Item.DefaultDomainName
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Username" -Value $Item.DefaultUserName
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Password" -Value $Item.DefaultPassword
-                $Result
-            } 
-        
-            if ($Item.AltDefaultPassword) {
-                $Result = New-Object -TypeName PSObject 
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Domain" -Value $Item.AltDefaultDomainName
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Username" -Value $Item.AltDefaultUserName
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Password" -Value $Item.AltDefaultPassword
-                $Result
-            }
-    
+        $RegKey = "HKLM\SOFTWARE\Microsoft\Windows NT\Currentversion\Winlogon"
+        $RegItem = Get-ItemProperty -Path "Registry::$($RegKey)" -ErrorAction SilentlyContinue
+
+        if ($null -ne $RegItem.DefaultPassword) {
+            $Result = New-Object -TypeName PSObject 
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Domain" -Value $RegItem.DefaultDomainName
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Username" -Value $RegItem.DefaultUserName
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Password" -Value $RegItem.DefaultPassword
+            $Result
         }
-        else {
-            Write-Verbose "Error while querying '$RegPath'"
+
+        if ($null -ne $RegItem.AltDefaultPassword) {
+            $Result = New-Object -TypeName PSObject 
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Domain" -Value $RegItem.AltDefaultDomainName
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Username" -Value $RegItem.AltDefaultUserName
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Password" -Value $RegItem.AltDefaultPassword
+            $Result
         }
     }
 }

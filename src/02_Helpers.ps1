@@ -160,24 +160,24 @@ function Get-WindowsVersion {
 
     [CmdletBinding()] Param()
 
-    $CurrentVersionRegKey = "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion"
-    $CurrentVersion = Get-ItemProperty -Path "Registry::$($CurrentVersionRegKey)" -ErrorAction SilentlyContinue
-    if (-not $CurrentVersion) {
-        Write-Verbose "Failed to read registry key: $($CurrentVersionRegKey)"
+    $RegKey = "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion"
+    $RegItem = Get-ItemProperty -Path "Registry::$($RegKey)" -ErrorAction SilentlyContinue
+
+    if ($null -eq $RegItem) {
         [System.Environment]::OSVersion.Version
         return
     }
 
-    $Major = $CurrentVersion.CurrentMajorVersionNumber
-    $Minor = $CurrentVersion.CurrentMinorVersionNumber
+    $Major = $RegItem.CurrentMajorVersionNumber
+    $Minor = $RegItem.CurrentMinorVersionNumber
 
-    if ($null -eq $Major) { $Major = $CurrentVersion.CurrentVersion.Split(".")[0] }
-    if ($null -eq $Minor) { $Minor = $CurrentVersion.CurrentVersion.Split(".")[1] }
+    if ($null -eq $Major) { $Major = $RegItem.CurrentVersion.Split(".")[0] }
+    if ($null -eq $Minor) { $Minor = $RegItem.CurrentVersion.Split(".")[1] }
 
     $Result = New-Object -TypeName PSObject
     $Result | Add-Member -MemberType "NoteProperty" -Name "Major" -Value ([UInt32] $Major)
     $Result | Add-Member -MemberType "NoteProperty" -Name "Minor" -Value ([UInt32] $Minor)
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Build" -Value ([UInt32] $CurrentVersion.CurrentBuildNumber)
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Build" -Value ([UInt32] $RegItem.CurrentBuildNumber)
     $Result | Add-Member -MemberType "NoteProperty" -Name "Revision" -Value 0
     $Result | Add-Member -MemberType "NoteProperty" -Name "MajorRevision" -Value 0
     $Result | Add-Member -MemberType "NoteProperty" -Name "MinorRevision" -Value 0
@@ -1176,23 +1176,21 @@ function Get-ServiceFromRegistry {
         [String]$Name
     )
 
-    $ServicesRegPath = "HKLM\SYSTEM\CurrentControlSet\Services" 
-    $ServiceRegPath = Join-Path -Path $ServicesRegPath -ChildPath $Name
+    $RegKeyServices = "HKLM\SYSTEM\CurrentControlSet\Services"
+    $RegKey = Join-Path -Path $RegKeyServices -ChildPath $Name
+    $RegItem = Get-ItemProperty -Path "Registry::$($RegKey)" -ErrorAction SilentlyContinue
+    if ($null -eq $RegItem) { return }
 
-    $ServiceProperties = Get-ItemProperty -Path "Registry::$ServiceRegPath" -ErrorAction SilentlyContinue -ErrorVariable GetItemPropertyError
-    if (-not $GetItemPropertyError) {
-
-        $Result = New-Object -TypeName PSObject
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $ServiceProperties.PSChildName
-        $Result | Add-Member -MemberType "NoteProperty" -Name "DisplayName" -Value ([System.Environment]::ExpandEnvironmentVariables($ServiceProperties.DisplayName))
-        $Result | Add-Member -MemberType "NoteProperty" -Name "User" -Value $ServiceProperties.ObjectName
-        $Result | Add-Member -MemberType "NoteProperty" -Name "ImagePath" -Value $ServiceProperties.ImagePath
-        $Result | Add-Member -MemberType "NoteProperty" -Name "StartMode" -Value ($ServiceProperties.Start -as $ServiceStartTypeEnum)
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Type" -Value ($ServiceProperties.Type -as $ServiceTypeEnum)
-        $Result | Add-Member -MemberType "NoteProperty" -Name "RegistryKey" -Value $ServicesRegPath
-        $Result | Add-Member -MemberType "NoteProperty" -Name "RegistryPath" -Value (join-path $ServicesRegPath -ChildPath $ServiceProperties.PSChildName)
-        $Result
-    }
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $RegItem.PSChildName
+    $Result | Add-Member -MemberType "NoteProperty" -Name "DisplayName" -Value ([System.Environment]::ExpandEnvironmentVariables($RegItem.DisplayName))
+    $Result | Add-Member -MemberType "NoteProperty" -Name "User" -Value $RegItem.ObjectName
+    $Result | Add-Member -MemberType "NoteProperty" -Name "ImagePath" -Value $RegItem.ImagePath
+    $Result | Add-Member -MemberType "NoteProperty" -Name "StartMode" -Value ($RegItem.Start -as $ServiceStartTypeEnum)
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Type" -Value ($RegItem.Type -as $ServiceTypeEnum)
+    $Result | Add-Member -MemberType "NoteProperty" -Name "RegistryKey" -Value $RegKeyServices
+    $Result | Add-Member -MemberType "NoteProperty" -Name "RegistryPath" -Value $RegKey
+    $Result
 }
 
 function Get-ServiceList {
@@ -1977,36 +1975,29 @@ function Get-SecureBootStatus {
     
     [CmdletBinding()]Param()
 
-    $RegPath = "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\SecureBoot\State"
-    $Result = Get-ItemProperty -Path "Registry::$($RegPath)" -ErrorAction SilentlyContinue -ErrorVariable GetItemPropertyError 
-
-    if (-not $GetItemPropertyError) {
-
-        if (-not ($null -eq $Result.UEFISecureBootEnabled)) {
-
-            if ($Result.UEFISecureBootEnabled -eq 1) {
-                $Status = $true
+    $RegKey = "HKLM\SYSTEM\CurrentControlSet\Control\SecureBoot\State"
+    $RegValue = "UEFISecureBootEnabled"
+    $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+    if ($null -ne $RegData) {
+        if ($null -eq $RegData) {
+            $Description = "Secure Boot is not supported"
+        }
+        else {
+            if ($RegData -eq 1) {
                 $Description = "Secure Boot is enabled"
             }
             else {
-                $Status = $false
                 $Description = "Secure Boot is disabled"
             }
         }
-        else {
-            $Status = $false
-            $Description = "Secure Boot is not supported"
-        }
     }
-    else {
-        $Status = $false
-        $Description = "Secure Boot is not supported"
-    }
-
+    Write-Verbose "$($RegValue): $($Description)"
     $Result = New-Object -TypeName PSObject
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value "Secure Boot"
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $Status
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
     $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $($RegData -eq 1)
     $Result
 }
 
@@ -3093,12 +3084,11 @@ function Test-IsDomainJoined {
 
     [CmdletBinding()] Param()
 
-    $RegPath = "HKLM\System\CurrentControlSet\Services\Tcpip\Parameters"
-    $Value = "Domain"
+    $RegKey = "HKLM\System\CurrentControlSet\Services\Tcpip\Parameters"
+    $RegValue = "Domain"
+    $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
 
-    $Item = Get-ItemProperty -Path "Registry::$($RegPath)" -Name $Value -ErrorAction SilentlyContinue
-
-    return (-not [string]::IsNullOrEmpty($Item.Value))
+    return (-not [string]::IsNullOrEmpty($RegData))
 }
 
 function Get-RemoteDesktopUserSessionList {

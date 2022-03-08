@@ -12,39 +12,41 @@ function Invoke-RegistryAlwaysInstallElevatedCheck {
     
     [CmdletBinding()]Param()
 
-    $Result = New-Object -TypeName System.Collections.ArrayList
+    $Results = @()
 
-    $RegPath = "HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows\Installer"
+    $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows\Installer"
+    $RegValue = "AlwaysInstallElevated"
+    $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+    $Description = $(if ($RegData -ge 1) { "AlwaysInstallElevated is enabled" } else { "AlwaysInstallElevated is disabled (default)" })
+    Write-Verbose "HKLM > $($RegValue): $($Description)"
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $($null -eq $RegData -or $RegData -eq 0)
+    [object[]]$Results += $Result
 
-    if (Test-Path -Path "Registry::$RegPath" -ErrorAction SilentlyContinue) {
+    $RegKey = "HKCU\SOFTWARE\Policies\Microsoft\Windows\Installer"
+    $RegValue = "AlwaysInstallElevated"
+    $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+    $Description = $(if ($RegData -ge 1) { "AlwaysInstallElevated is enabled" } else { "AlwaysInstallElevated is disabled (default)" })
+    Write-Verbose "HKCU > $($RegValue): $($Description)"
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $($null -eq $RegData -or $RegData -eq 0)
+    [object[]]$Results += $Result
 
-        $HKLMval = Get-ItemProperty -Path "Registry::$RegPath" -Name AlwaysInstallElevated -ErrorAction SilentlyContinue
-        if ($HKLMval.AlwaysInstallElevated -and ($HKLMval.AlwaysInstallElevated -ne 0)){
-            $Item = New-Object -TypeName PSObject -Property @{
-                Name                    = $RegPath
-                AlwaysInstallElevated   = $HKLMval.AlwaysInstallElevated 
-                Enabled                 = $true
-            }
-            [void]$Result.Add($Item)
+    foreach ($Result in $Results) {
+        if ($Result.Compliance -eq $true) {
+            return
         }
-
-        $RegPath = "HKEY_CURRENT_USER\SOFTWARE\Policies\Microsoft\Windows\Installer"
-
-        if (Test-Path -Path "Registry::$RegPath" -ErrorAction SilentlyContinue) {
-
-            $HKCUval = (Get-ItemProperty -Path "Registry::$RegPath" -Name AlwaysInstallElevated -ErrorAction SilentlyContinue)
-            if ($HKCUval.AlwaysInstallElevated -and ($HKCUval.AlwaysInstallElevated -ne 0)){
-                $Item = New-Object -TypeName PSObject -Property @{
-                    Name                    = $RegPath
-                    AlwaysInstallElevated   = $HKLMval.AlwaysInstallElevated
-                    Enabled                 = $true
-                }
-                [void]$Result.Add($Item)
-
-                $Result
-            }
-        } 
     }
+
+    $Results | Select-Object -ExcludeProperty Compliance
 }
 
 function Invoke-WsusConfigCheck {
@@ -77,27 +79,32 @@ function Invoke-WsusConfigCheck {
     https://github.com/GoSecure/wsuspicious
     #>
 
-    $WindowsUpdateRegPath = "HKLM\Software\Policies\Microsoft\Windows\WindowsUpdate"
-    $WindowsUpdateAURegPath = "HKLM\Software\Policies\Microsoft\Windows\WindowsUpdate\AU"
+    $RegKey = "HKLM\Software\Policies\Microsoft\Windows\WindowsUpdate"
+    $RegValue = "WUServer"
+    $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+    if ($null -eq $RegData) { return }
 
-    $WsusKeyServerValue = Get-ItemProperty -Path "Registry::$($WindowsUpdateRegPath)" -Name "WUServer" -ErrorAction SilentlyContinue -ErrorVariable ErrorGetItemProperty
-    if ($ErrorGetItemProperty) { return }
+    $WusUrl = $RegData
 
-    $UseWUServerValue = Get-ItemProperty -Path "Registry::$($WindowsUpdateAURegPath)" -Name "UseWUServer" -ErrorAction SilentlyContinue -ErrorVariable ErrorGetItemProperty
-    if ($ErrorGetItemProperty) { return }
+    $RegKey = "HKLM\Software\Policies\Microsoft\Windows\WindowsUpdate\AU"
+    $RegValue = "UseWUServer"
+    $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+    if ($null -eq $RegData) { return }
 
-    $SetProxybehaviorForUpdateDetection = Get-ItemProperty -Path "Registry::$($WindowsUpdateRegPath)" -Name "SetProxyBehaviorForUpdateDetection" -ErrorAction SilentlyContinue -ErrorVariable ErrorGetItemProperty
+    $WusEnabled = $RegData
 
-    $WusUrl = $WsusKeyServerValue.WUServer
-    $WusEnabled = $UseWUServerValue.UseWUServer
-    $WsusProxybehavior = $SetProxybehaviorForUpdateDetection.SetProxyBehaviorForUpdateDetection
+    $RegKey = "HKLM\Software\Policies\Microsoft\Windows\WindowsUpdate"
+    $RegValue = "SetProxyBehaviorForUpdateDetection"
+    $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+
+    $WsusProxybehavior = $RegData
 
     if (($WusUrl -like "http://*") -and ($WusEnabled -eq 1)) {
 
         $Result = New-Object -TypeName PSObject
         $Result | Add-Member -MemberType "NoteProperty" -Name "WUServer" -Value $WusUrl
         $Result | Add-Member -MemberType "NoteProperty" -Name "UseWUServer" -Value $WusEnabled
-        $Result | Add-Member -MemberType "NoteProperty" -Name "SetProxyBehaviorForUpdateDetection" -Value $WsusProxybehavior
+        $Result | Add-Member -MemberType "NoteProperty" -Name "SetProxyBehaviorForUpdateDetection" -Value $(if ($null -eq $WsusProxybehavior) { "(null)" } else { $WsusProxybehavior })
         $Result
     }
 }
@@ -158,7 +165,7 @@ function Invoke-HardenedUNCPathCheck {
     
     $OsVersionMajor = (Get-WindowsVersion).Major
 
-    $RegPath = "HKLM\SOFTWARE\Policies\Microsoft\Windows\NetworkProvider\HardenedPaths"
+    $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows\NetworkProvider\HardenedPaths"
 
     if ($OsVersionMajor -ge 10) {
 
@@ -166,35 +173,35 @@ function Invoke-HardenedUNCPathCheck {
         # key should not contain any value. If it contain values, ensure that protections were not
         # explicitely disabled.
 
-        Get-Item -Path "Registry::$RegPath" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty property | ForEach-Object {
+        Get-Item -Path "Registry::$RegKey" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty property | ForEach-Object {
             
-            $ValueName = $_
-            $ValueData = (Get-ItemProperty -Path "Registry::$RegPath" -Name $ValueName -ErrorAction SilentlyContinue).$ValueName
-            Write-Verbose "Value: $($ValueName) - Data: $($ValueData)"
+            $RegValue = $_
+            $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+            Write-Verbose "Value: $($RegValue) - Data: $($RegData)"
 
             $Vulnerable = $false
             $Description = ""
 
-            if ($ValueData -like "*RequireMutualAuthentication=0*") {
+            if ($RegData -like "*RequireMutualAuthentication=0*") {
                 $Vulnerable = $true
                 $Description = "$($Description)Mutual authentication is disabled. "
             }
 
-            if ($ValueData -like "*RequireIntegrity=0*") {
+            if ($RegData -like "*RequireIntegrity=0*") {
                 $Vulnerable = $true
                 $Description = "$($Description)Integrity mode is disabled. "
             }
 
-            if ($ValueData -like "*RequirePrivacy=0*") {
+            if ($RegData -like "*RequirePrivacy=0*") {
                 $Vulnerable = $true
                 $Description = "$($Description)Privacy mode is disabled. "
             }
 
             if ($Vulnerable) {
                 $Result = New-Object -TypeName PSObject
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegPath
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $ValueName
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $ValueData
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $RegData
                 $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
                 $Result
             }
@@ -208,24 +215,24 @@ function Invoke-HardenedUNCPathCheck {
         # as well. Here, we will only ensure that both '\\*\SYSVOL' and '\\*\NETLOGON' are properly
         # configured though.
 
-        $Values = @("\\*\SYSVOL", "\\*\NETLOGON")
-        foreach ($Value in $Values) {
+        $RegValues = @("\\*\SYSVOL", "\\*\NETLOGON")
+        foreach ($RegValue in $RegValues) {
 
-            $Item = Get-ItemProperty -Path "Registry::$RegPath" -Name $Value -ErrorAction SilentlyContinue
+            $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
             $Vulnerable = $false
             $Description = ""
 
-            if ($null -eq $Item) {
+            if ($null -eq $RegData) {
                 $Vulnerable = $true
                 $Description = "Hardened UNC path is not configured."
             }
             else {
-                if (-not ($Item.$Value -like "*RequireMutualAuthentication=1*")) {
+                if (-not ($RegData -like "*RequireMutualAuthentication=1*")) {
                     $Vulnerable = $true
                     $Description = "$($Description)Mutual authentication is not enabled. "
                 }
 
-                if ((-not ($Item.$Value -like "*RequireIntegrity=1*")) -and (-not ($Item.$Value -like "*RequirePrivacy=1*"))) {
+                if ((-not ($RegData -like "*RequireIntegrity=1*")) -and (-not ($RegData -like "*RequirePrivacy=1*"))) {
                     $Vulnerable = $true
                     $Description = "$($Description)Integrity/privacy mode is not enabled. "
                 }
@@ -233,9 +240,9 @@ function Invoke-HardenedUNCPathCheck {
 
             if ($Vulnerable) {
                 $Result = New-Object -TypeName PSObject
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegPath
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $Value
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $Item.$Value
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $RegData
                 $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
                 $Result
             }
@@ -288,8 +295,10 @@ function Invoke-DllHijackingCheck {
     
     [CmdletBinding()] Param()
     
-    $SystemPath = (Get-ItemProperty -Path "Registry::HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment" -Name "Path").Path 
-    $Paths = $SystemPath.Split(';')
+    $RegKey = "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment"
+    $RegValue = "Path"
+    $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue).$RegValue
+    $Paths = $RegData.Split(';')
 
     foreach ($Path in $Paths) {
         if (-not [String]::IsNullOrEmpty($Path)) {
@@ -369,43 +378,43 @@ function Invoke-PrintNightmareCheck {
     # and elevation prompt" (i.e. not vulnerable).
     $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PointAndPrint"
     $RegValue = "NoWarningNoElevationOnInstall"
-    $RegItem = Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue
-    if ($null -eq $RegItem.$RegValue -or $RegItem.$RegValue -eq 0) {
+    $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+    if ($null -eq $RegData -or $RegData -eq 0) {
         $Description = "Show warning and elevation prompt"
     }
     else {
         $Description = "Do not show warning or elevation prompt"
     }
-    Write-Verbose "NoWarningNoElevationOnInstall: $($Description)"
+    Write-Verbose "$($RegValue): $($Description)"
     $Result = New-Object -TypeName PSObject
     $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
     $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegItem.$RegValue) { "(null)" } else { $RegItem.$RegValue })
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
     $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $($null -eq $RegItem.$RegValue -or $RegItem.$RegValue -eq 0)
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $($null -eq $RegData -or $RegData -eq 0)
     [object[]]$Results += $Result
 
     # If "UpdatePromptSettings" is not set, the default value is 0, which means "Show warning and 
     # elevation prompt" (i.e. not vulnerable).
     $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PointAndPrint"
     $RegValue = "UpdatePromptSettings"
-    $RegItem = Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue
-    if ($null -eq $RegItem.$RegValue -or $RegItem.$RegValue -eq 0) {
+    $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+    if ($null -eq $RegData -or $RegData -eq 0) {
         $Description = "Show warning and elevation prompt"
     }
-    elseif ($RegItem.$RegValue -eq 1) {
+    elseif ($RegData -eq 1) {
         $Description = "Show warning only"
     }
-    elseif ($RegItem.$RegValue -eq 2) {
+    elseif ($RegData -eq 2) {
         $Description = "Do not show warning or elevation prompt"
     }
-    Write-Verbose "UpdatePromptSettings: $($Description)"
+    Write-Verbose "$($RegValue): $($Description)"
     $Result = New-Object -TypeName PSObject
     $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
     $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegItem.$RegValue) { "(null)" } else { $RegItem.$RegValue })
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
     $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $($null -eq $RegItem.$RegValue -or $RegItem.$RegValue -eq 0)
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $($null -eq $RegData -or $RegData -eq 0)
     [object[]]$Results += $Result
 
     # With the patch for CVE-2021-34527, MS added the "RestrictDriverInstallationToAdministrators"
@@ -415,40 +424,40 @@ function Invoke-PrintNightmareCheck {
     # a default of 1 (enabled)."
     $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PointAndPrint"
     $RegValue = "RestrictDriverInstallationToAdministrators"
-    $RegItem = Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue
-    if ($null -eq $RegItem.$RegValue -or $RegItem.$RegValue -eq 1) {
+    $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+    if ($null -eq $RegData -or $RegData -eq 1) {
         $Description = "Only administrators can install print drivers"
     }
     else {
         $Description = "Non-administrators can install print drivers"
     }
-    Write-Verbose "RestrictDriverInstallationToAdministrators: $($Description)"
+    Write-Verbose "$($RegValue): $($Description)"
     $Result = New-Object -TypeName PSObject
     $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
     $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegItem.$RegValue) { "(null)" } else { $RegItem.$RegValue })
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
     $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $($null -eq $RegItem.$RegValue -or $RegItem.$RegValue -eq 1)
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $($null -eq $RegData -or $RegData -eq 1)
     [object[]]$Results += $Result
 
     # If "PackagePointAndPrintOnly" is enabled, users will only be able to point and print to 
     # printers that use package-aware drivers predefined list of print servers.
     $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PointAndPrint"
     $RegValue = "PackagePointAndPrintOnly"
-    $RegItem = Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue
-    if ($null -eq $RegItem.$RegValue -or $RegItem.$RegValue -eq 0) {
+    $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+    if ($null -eq $RegValue -or $RegValue -eq 0) {
         $Description = "Users are not restricted to package-aware point and print only"
     }
     else {
         $Description = "Users can only point and print to printers that use package-aware drivers"
     }
-    Write-Verbose "PackagePointAndPrintOnly: $($Description)"
+    Write-Verbose "$($RegValue): $($Description)"
     $Result = New-Object -TypeName PSObject
     $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
     $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegItem.$RegValue) { "(null)" } else { $RegItem.$RegValue })
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegValue) { "(null)" } else { $RegValue })
     $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $($RegItem.$RegValue -eq 1)
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $($RegValue -eq 1)
     [object[]]$Results += $Result
 
     # If "PackagePointAndPrintServerList" is enabled, clients can only install signed drivers from 
@@ -456,20 +465,20 @@ function Invoke-PrintNightmareCheck {
     # subkey. The content of the regisry key should be checked manually.
     $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PointAndPrint"
     $RegValue = "PackagePointAndPrintServerList"
-    $RegItem = Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue
-    if ($null -eq $RegItem.$RegValue -or $RegItem.$RegValue -eq 0) {
+    $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+    if ($null -eq $RegData -or $RegData -eq 0) {
         $Description = "Package point and print is not restricted to specific print servers"
     }
     else {
         $Description = "Package point and print is restricted to specific print servers (check 'HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PointAndPrint\ListofServers')"
     }
-    Write-Verbose "PackagePointAndPrintServerList: $($Description)"
+    Write-Verbose "$($RegValue): $($Description)"
     $Result = New-Object -TypeName PSObject
     $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
     $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegItem.$RegValue) { "(null)" } else { $RegItem.$RegValue })
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
     $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $($RegItem.$RegValue -eq 1)
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $($RegData -eq 1)
     [object[]]$Results += $Result
 
     # The system is vulnerable only if none of the checked items are compliant. So loop through all
@@ -508,17 +517,16 @@ function Invoke-DriverCoInstallersCheck {
 
     [CmdletBinding()]Param()
 
-    $RegPath = "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Device Installer"
-    $Value = "DisableCoInstallers"
-
-    $Item = Get-ItemProperty -Path "Registry::$RegPath" -Name $Value -ErrorAction SilentlyContinue
-    $Description = $(if ($Item.$Value -ge 1) { "CoInstallers are disabled" } else { "CoInstallers are enabled (default)" })
+    $RegKey = "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Device Installer"
+    $RegValue = "DisableCoInstallers"
+    $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+    $Description = $(if ($RegData -ge 1) { "CoInstallers are disabled" } else { "CoInstallers are enabled (default)" })
 
     $Result = New-Object -TypeName PSObject
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegPath
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $Value
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $Item.$Value) { "(null)" } else { $Item.$Value })
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
     $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $($Item.$Value -ge 1)
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $($RegData -ge 1)
     $Result
 }

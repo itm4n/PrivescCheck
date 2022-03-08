@@ -5,6 +5,7 @@
 ### Changed
 
 - Refactored and improved Config > Invoke-PrintNightmareCheck
+- Refactored registry key checks
 
 ## 2022-02-18
 

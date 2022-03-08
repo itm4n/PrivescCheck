@@ -22,24 +22,21 @@ function Invoke-SystemInfoCheck {
 
     $OsVersion = Get-WindowsVersion
 
-    $Item = Get-ItemProperty -Path "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion" -ErrorAction SilentlyContinue -ErrorVariable GetItemPropertyError
-    if (-not $GetItemPropertyError) {
+    $RegKey = "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion"
+    $RegItem = Get-ItemProperty -Path "Registry::$($RegKey)" -ErrorAction SilentlyContinue
+    if ($null -eq $RegItem) { return }
 
-        if ($OsVersion.Major -ge 10) {
-            $OsVersionStr = "$($OsVersion.Major).$($OsVersion.Minor).$($OsVersion.Build) Version $($Item.ReleaseId) ($($OsVersion.Build).$($Item.UBR))"
-        }
-        else {
-            $OsVersionStr = "$($OsVersion.Major).$($OsVersion.Minor).$($OsVersion.Build) N/A Build $($OsVersion.Build)"
-        }
-
-        $Result = New-Object -TypeName PSObject
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $Item.ProductName
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Version" -Value $OsVersionStr
-        $Result
+    if ($OsVersion.Major -ge 10) {
+        $OsVersionStr = "$($OsVersion.Major).$($OsVersion.Minor).$($OsVersion.Build) Version $($RegItem.ReleaseId) ($($OsVersion.Build).$($RegItem.UBR))"
     }
     else {
-        Write-Verbose $GetItemPropertyError
+        $OsVersionStr = "$($OsVersion.Major).$($OsVersion.Minor).$($OsVersion.Build) N/A Build $($OsVersion.Build)"
     }
+
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $RegItem.ProductName
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Version" -Value $OsVersionStr
+    $Result
 }
 
 function Invoke-SystemStartupHistoryCheck {
@@ -341,24 +338,21 @@ function Invoke-MachineRoleCheck {
     
     [CmdletBinding()] Param()
 
-    $Item = Get-ItemProperty -Path "Registry::HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\ProductOptions" -ErrorAction SilentlyContinue -ErrorVariable GetItemPropertyError
-    
+    $RegKey = "HKLM\SYSTEM\CurrentControlSet\Control\ProductOptions"
+    $RegValue = "ProductType"
+    $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -ErrorAction SilentlyContinue).$RegValue
+
     $FriendlyNames = @{
         "WinNT"     = "Workstation";
         "LanmanNT"  = "Domain Controller";
         "ServerNT"  = "Server";
     }
 
-    if (-not $GetItemPropertyError) {
-        try {
-            $Result = New-Object -TypeName PSObject
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $Item.ProductType
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Role" -Value $FriendlyNames[$Item.ProductType]
-            $Result
-        }
-        catch {
-            Write-Verbose "Hashtable error."
-        }
+    if ($RegData) {
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $RegData
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Role" -Value $FriendlyNames[$RegData]
+        $Result
     }
 }
 

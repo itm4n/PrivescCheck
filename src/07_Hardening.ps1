@@ -43,32 +43,30 @@ function Invoke-UacCheck {
     
     [CmdletBinding()]Param()
 
-    $RegPath = "HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\System"
-    $Value = "EnableLUA"
-
-    $Item = Get-ItemProperty -Path "Registry::$RegPath" -Name $Value -ErrorAction SilentlyContinue
-    $Description = $(if ($Item.$Value -ge 1) { "UAC is enabled (default)" } else { "UAC is disabled" })
-
+    $RegKey = "HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\System"
+    $RegValue = "EnableLUA"
+    $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+    $Description = $(if ($RegData -ge 1) { "UAC is enabled (default)" } else { "UAC is disabled" })
+    Write-Verbose "$($RegValue): $($Description)"
     $Result = New-Object -TypeName PSObject
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegPath
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $Value
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $Item.$Value) { "(null)" } else { $Item.$Value })
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
     $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $($Item.$Value -ge 1)
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $($RegData -ge 1)
     $Result
 
     # If UAC is enabled, check LocalAccountTokenFilterPolicy to determine if only the built-in 
     # administrator can get a high integrity token remotely or if any local user that is a 
     # member of the Administrators group can also get one.
-    if ($Item.$Value -ge 1) {
+    if ($RegData -ge 1) {
 
-        $RegPath = "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System"
-        $Value = "LocalAccountTokenFilterPolicy"
-    
-        $Item = Get-ItemProperty -Path "Registry::$RegPath" -Name $Value -ErrorAction SilentlyContinue
-    
+        $RegKey = "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System"
+        $RegValue = "LocalAccountTokenFilterPolicy"
+        $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+
         $Description = $(
-            if ($Item.$Value -ge 1) {
+            if ($RegData -ge 1) {
                 "Local users that are members of the Administrators group are granted a high integrity token when authenticating remotely"
             }
             else {
@@ -77,38 +75,37 @@ function Invoke-UacCheck {
         )
 
         $Result = New-Object -TypeName PSObject
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegPath
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $Value
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $Item.$Value) { "(null)" } else { $Item.$Value })
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
         $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $($null -eq $Item.$Value -or $Item.$Value -eq 0)
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $($null -eq $RegData -or $RegData -eq 0)
         $Result
 
         # If LocalAccountTokenFilterPolicy != 1, i.e. local admins other than RID 500 are not granted a
         # high integrity token. However, we need to check if other restrictions apply to the built-in 
         # administrator as well.
-        if ($null -eq $Item.$Value -or $Item.$Value -eq 0) {
+        if ($null -eq $RegData -or $RegData -eq 0) {
 
-            $RegPath = "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System"
-            $Value = "FilterAdministratorToken"
-
-            $Item = Get-ItemProperty -Path "Registry::$RegPath" -Name $Value -ErrorAction SilentlyContinue
+            $RegKey = "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System"
+            $RegValue = "FilterAdministratorToken"
+            $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
 
             $Description = $(
-                if ($Item.$Value -ge 1) {
+                if ($RegData -ge 1) {
                     "The built-in Administrator account (RID 500) is only granted a medium integrity token when authenticating remotely."
                 }
                 else {
-                    "The built-in administrator account (RID 500) is granted a high integrity token when authenticating remotely (default)"
+                    "The built-in administrator account (RID 500) is granted a high integrity token when authenticating remotely (default)."
                 }
             )
 
             $Result = New-Object -TypeName PSObject
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegPath
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $Value
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $Item.$Value) { "(null)" } else { $Item.$Value })
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
             $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $($Item.$Value -ge 1)
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $($RegData -ge 1)
             $Result
         }
     }
@@ -137,24 +134,23 @@ function Invoke-LapsCheck {
     
     [CmdletBinding()]Param()
 
-    $RegPath = "HKLM\SOFTWARE\Policies\Microsoft Services\AdmPwd"
-    $Value = "AdmPwdEnabled"
+    $RegKey = "HKLM\SOFTWARE\Policies\Microsoft Services\AdmPwd"
+    $RegValue = "AdmPwdEnabled"
+    $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
 
-    $Item = Get-ItemProperty -Path "Registry::$RegPath" -Name $Value -ErrorAction SilentlyContinue
-
-    if ($null -eq $Item) {
+    if ($null -eq $RegData) {
         $Description = "LAPS is not configured"
     }
     else {
-        $Description = $(if ($Item.$Value -ge 1) { "LAPS is enabled" } else { "LAPS is disabled" })
+        $Description = $(if ($RegData -ge 1) { "LAPS is enabled" } else { "LAPS is disabled" })
     }
 
     $Result = New-Object -TypeName PSObject
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegPath
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $Value
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $Item.$Value) { "(null)" } else { $Item.$Value })
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
     $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $($Item.$Value -ge 1)
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $($RegData -ge 1)
     $Result
 }
 
@@ -193,15 +189,14 @@ function Invoke-PowershellTranscriptionCheck {
     
     [CmdletBinding()]Param()
 
-    $RegPath = "HKLM\SOFTWARE\Policies\Microsoft\Windows\PowerShell\Transcription"
-
-    $Item = Get-ItemProperty -Path "Registry::$RegPath" -ErrorAction SilentlyContinue
+    $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows\PowerShell\Transcription"
+    $RegItem = Get-ItemProperty -Path "Registry::$($RegKey)" -ErrorAction SilentlyContinue
     
-    if ($Item) {
+    if ($RegItem) {
         $Result = New-Object -TypeName PSObject
-        $Result | Add-Member -MemberType "NoteProperty" -Name "EnableTranscripting" -Value $(if ($null -eq $Item.EnableTranscripting) { "(null)" } else { $Item.EnableTranscripting })
-        $Result | Add-Member -MemberType "NoteProperty" -Name "EnableInvocationHeader" -Value $(if ($null -eq $Item.EnableInvocationHeader) { "(null)" } else { $Item.EnableInvocationHeader })
-        $Result | Add-Member -MemberType "NoteProperty" -Name "OutputDirectory" -Value $(if ($null -eq $Item.OutputDirectory) { "(null)" } else { $Item.OutputDirectory })
+        $Result | Add-Member -MemberType "NoteProperty" -Name "EnableTranscripting" -Value $(if ($null -eq $RegItem.EnableTranscripting) { "(null)" } else { $RegItem.EnableTranscripting })
+        $Result | Add-Member -MemberType "NoteProperty" -Name "EnableInvocationHeader" -Value $(if ($null -eq $RegItem.EnableInvocationHeader) { "(null)" } else { $RegItem.EnableInvocationHeader })
+        $Result | Add-Member -MemberType "NoteProperty" -Name "OutputDirectory" -Value $(if ($null -eq $RegItem.OutputDirectory) { "(null)" } else { $RegItem.OutputDirectory })
         $Result
     }
 }
@@ -232,24 +227,23 @@ function Invoke-BitlockerCheck {
     $MachineRole = Invoke-MachineRoleCheck
     if ($MachineRole.Name -notlike "WinNT") { continue }
 
-    $RegPath = "HKLM\SYSTEM\CurrentControlSet\Control\BitLockerStatus"
-    $Value = "BootStatus"
+    $RegKey = "HKLM\SYSTEM\CurrentControlSet\Control\BitLockerStatus"
+    $RegValue = "BootStatus"
+    $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
 
-    $Item = Get-ItemProperty -Path "Registry::$($RegPath)" -Name $Value -ErrorAction SilentlyContinue
-
-    if ($null -eq $Item) {
+    if ($null -eq $RegData) {
         $Description = "BitLocker is not configured"
     }
     else {
-        $Description = $(if ($Item.$Value -ge 1) { "BitLocker is enabled" } else { "BitLocker is disabled" })
+        $Description = $(if ($RegData -ge 1) { "BitLocker is enabled" } else { "BitLocker is disabled" })
     }
 
     $Result = New-Object -TypeName PSObject
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegPath
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $Value
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $Item.$Value) { "(null)" } else { $Item.$Value })
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
     $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $($Item.$Value -ge 1)
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $($RegData -ge 1)
     $Result
 }
 
@@ -278,11 +272,11 @@ function Invoke-LsaProtectionCheck {
 
     $OsVersion = Get-WindowsVersion
 
-    $RegPath = "HKLM\SYSTEM\CurrentControlSet\Control\Lsa"
-    $Value = "RunAsPPL"
-    $Item = Get-ItemProperty -Path "Registry::$($RegPath)" -Name $Value -ErrorAction SilentlyContinue
+    $RegKey = "HKLM\SYSTEM\CurrentControlSet\Control\Lsa"
+    $RegValue = "RunAsPPL"
+    $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
 
-    $Description = $(if ($Item.$Value -ge 1) { "RunAsPPL is enabled" } else { "RunAsPPL is not enabled" })
+    $Description = $(if ($RegData -ge 1) { "RunAsPPL is enabled" } else { "RunAsPPL is not enabled" })
 
     # If < Windows 8.1 / 2012 R2
     if (-not ($OsVersion.Major -ge 10 -or (($OsVersion.Major -eq 6) -and ($OsVersion.Minor -ge 3)))) {
@@ -290,11 +284,11 @@ function Invoke-LsaProtectionCheck {
     }
 
     $Result = New-Object -TypeName PSObject
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegPath
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $Value
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $Item.$Value) { "(null)" } else { $Item.$Value })
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
     $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $($Item.$Value -ge 1)
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $($RegData -ge 1)
     $Result
 }
 
@@ -384,5 +378,11 @@ function Invoke-BiosModeCheck {
     #>
 
     Get-UEFIStatus
-    Get-SecureBootStatus
+
+    $SecureBoot = Get-SecureBootStatus
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value "Secure Boot"
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $SecureBoot.Compliance
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $SecureBoot.Description
+    $Result
 }
