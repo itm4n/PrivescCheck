@@ -315,7 +315,7 @@ function Invoke-PrintNightmareCheck {
     License: BSD 3-Clause
     
     .DESCRIPTION
-    Fully up-to-date machines are still vulnerable to the PrintNightmare exploit if the "Point and Print Restrictions" Group policy is configured to allow users to install printer drivers or add print servers without administrator privileges. More precisely, if "NoWarningNoElevationOnInstall" or "UpdatePromptSettings" is set to 1, the machine is vulnerable. There is one exception though. If the patch for CVE-2021-34527 was installed, the "RestrictDriverInstallationToAdministrators" parameter can be set to 1 (or a value greater than 1) to override the "Point and Print" settings. In this case, only administrators can install printer drivers or print servers, regardless of the two other values. The "PackagePointAndPrintOnly" setting can also be set to 1 to only allow drivers to be downloaded and installed from a predefined list of print servers.
+    Fully up-to-date machines are still vulnerable to the PrintNightmare exploit if the "Point and Print Restrictions" Group policy is configured to allow users to install printer drivers or add print servers without administrator privileges. More precisely, if "NoWarningNoElevationOnInstall" or "UpdatePromptSettings" is set to 1, the machine is vulnerable. There is one exception though. If the patch for CVE-2021-34527 was installed, the "RestrictDriverInstallationToAdministrators" parameter can be set to 1 (or a value greater than 1) to override the "Point and Print" settings. In this case, only administrators can install printer drivers or print servers, regardless of the two other values. The "PackagePointAndPrintServerList" setting can also be set to 1 to only allow drivers to be downloaded and installed from a predefined list of print servers.
     
     .EXAMPLE
     PS C:\> Invoke-PrintNightmareCheck
@@ -324,25 +324,26 @@ function Invoke-PrintNightmareCheck {
     Value       : NoWarningNoElevationOnInstall
     Data        : 1
     Description : Do not show warning or elevation prompt
-    Compliance  : False
 
     Key         : HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PointAndPrint
     Value       : UpdatePromptSettings
     Data        : 2
     Description : Do not show warning or elevation prompt
-    Compliance  : False
 
     Key         : HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PointAndPrint
     Value       : RestrictDriverInstallationToAdministrators
     Data        : 0
     Description : Non-administrators can install print drivers
-    Compliance  : False
 
     Key         : HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PointAndPrint
     Value       : PackagePointAndPrintOnly
     Data        : (null)
-    Description : Users are not restricted to package-aware point and print
-    Compliance  : False
+    Description : Users are not restricted to package-aware point and print only
+
+    Key         : HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PointAndPrint
+    Value       : PackagePointAndPrintServerList
+    Data        : (null)
+    Description : Package point and print is not restricted to specific print servers
 
     .LINK
     https://msrc.microsoft.com/update-guide/vulnerability/CVE-2021-34527
@@ -350,6 +351,7 @@ function Invoke-PrintNightmareCheck {
     https://admx.help/?Category=Windows_10_2016&Policy=Microsoft.Policies.Printing::PointAndPrint_Restrictions_Win7
     https://admx.help/?Category=PrintNightmare&Policy=PrintNightmare::POL_0F5609EA_BBB4_43FB_839A_231E44CEDD71
     https://admx.help/?Category=Windows_10_2016&Policy=Microsoft.Policies.Printing::PackagePointAndPrintOnly
+    https://admx.help/?Category=Windows_10_2016&Policy=Microsoft.Policies.Printing::PackagePointAndPrintServerList
     #>
 
     [CmdletBinding()] Param()
@@ -429,9 +431,8 @@ function Invoke-PrintNightmareCheck {
     $Result | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $($null -eq $RegItem.$RegValue -or $RegItem.$RegValue -eq 1)
     [object[]]$Results += $Result
 
-    # If "PackagePointAndPrintOnly" is enabled, clients can only install signed drivers from a 
-    # predefined list of print servers. This list is defined in thrhough the "ListofServers" subkey.
-    # The content of the regisry key should be checked manually.
+    # If "PackagePointAndPrintOnly" is enabled, users will only be able to point and print to 
+    # printers that use package-aware drivers predefined list of print servers.
     $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PointAndPrint"
     $RegValue = "PackagePointAndPrintOnly"
     $RegItem = Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue
@@ -439,7 +440,7 @@ function Invoke-PrintNightmareCheck {
         $Description = "Users are not restricted to package-aware point and print only"
     }
     else {
-        $Description = "Users are restricted to package-aware point and print only (check 'HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PointAndPrint\ListofServers')."
+        $Description = "Users can only point and print to printers that use package-aware drivers"
     }
     Write-Verbose "PackagePointAndPrintOnly: $($Description)"
     $Result = New-Object -TypeName PSObject
@@ -449,7 +450,28 @@ function Invoke-PrintNightmareCheck {
     $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
     $Result | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $($RegItem.$RegValue -eq 1)
     [object[]]$Results += $Result
-    
+
+    # If "PackagePointAndPrintServerList" is enabled, clients can only install signed drivers from 
+    # a predefined list of print servers. This list is defined in thrhough the "ListofServers" 
+    # subkey. The content of the regisry key should be checked manually.
+    $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PointAndPrint"
+    $RegValue = "PackagePointAndPrintServerList"
+    $RegItem = Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue
+    if ($null -eq $RegItem.$RegValue -or $RegItem.$RegValue -eq 0) {
+        $Description = "Package point and print is not restricted to specific print servers"
+    }
+    else {
+        $Description = "Package point and print is restricted to specific print servers (check 'HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PointAndPrint\ListofServers')"
+    }
+    Write-Verbose "PackagePointAndPrintServerList: $($Description)"
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegItem.$RegValue) { "(null)" } else { $RegItem.$RegValue })
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $($RegItem.$RegValue -eq 1)
+    [object[]]$Results += $Result
+
     # The system is vulnerable only if none of the checked items are compliant. So loop through all
     # the results and return as soon as one of them is marked as compliant. Note: we could also
     # immediately return after one item is seen as compliant, but this method allows us to have the
