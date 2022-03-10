@@ -455,7 +455,7 @@ function Invoke-PrintNightmareCheck {
     $Result = New-Object -TypeName PSObject
     $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
     $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegValue) { "(null)" } else { $RegValue })
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
     $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
     $Result | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $($RegValue -eq 1)
     [object[]]$Results += $Result

@@ -1,5 +1,11 @@
 # Changelog
 
+## 2022-03-10
+
+### Fixed
+
+- A typo in the Print Nightmare check following the previous code refactoring
+
 ## 2022-03-08
 
 ### Changed
