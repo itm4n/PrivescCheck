@@ -3080,15 +3080,62 @@ function Get-ShadowCopies {
     [System.Runtime.InteropServices.Marshal]::FreeHGlobal($Buffer) | Out-Null
 }
 
-function Test-IsDomainJoined {
+function Get-ADDomain {
 
     [CmdletBinding()] Param()
 
     $RegKey = "HKLM\System\CurrentControlSet\Services\Tcpip\Parameters"
     $RegValue = "Domain"
-    $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+    (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+}
 
-    return (-not [string]::IsNullOrEmpty($RegData))
+function Test-IsDomainJoined {
+
+    [CmdletBinding()] Param()
+
+    return (-not [string]::IsNullOrEmpty($(Get-ADDomain)))
+}
+
+function Convert-DomainName {
+
+    [CmdletBinding()] Param(
+        [string]$FullyQualifiedName,
+        [string]$DistinguishedName
+    )
+
+    if (-not [string]::IsNullOrEmpty($FullyQualifiedName)) {
+        "DC=" + ($FullyQualifiedName.Split('.') -join ",DC=")
+        return
+    }
+
+    if (-not [string]::IsNullOrEmpty($DistinguishedName)) {
+        ($DistinguishedName.Split(',') | ForEach-Object { $_.Replace("DC=", "") }) -join "."
+        return
+    }
+}
+
+function Get-MachineRole {
+
+    [CmdletBinding()] Param()
+
+    BEGIN {
+        $FriendlyNames = @{
+            "WinNT"     = "Workstation";
+            "LanmanNT"  = "Domain Controller";
+            "ServerNT"  = "Server";
+        }
+    }
+
+    PROCESS {
+        $RegKey = "HKLM\SYSTEM\CurrentControlSet\Control\ProductOptions"
+        $RegValue = "ProductType"
+        $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -ErrorAction SilentlyContinue).$RegValue
+    
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $RegData
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Role" -Value $(try { $FriendlyNames[$RegData] } catch { "" })
+        $Result
+    }
 }
 
 function Get-RemoteDesktopUserSessionList {

@@ -195,156 +195,131 @@ function Invoke-UdpEndpointsCheck {
 function Invoke-WlanProfilesCheck {
     <#
     .SYNOPSIS
-    Enumerates the saved Wifi profiles and extract the cleartext key/passphrase when applicable
+    List saved WLAN profiles and try to determine if they are compliance or not.
 
     Author: @itm4n
     License: BSD 3-Clause
     
     .DESCRIPTION
-    The built-in "netsh" command allows one to list the saved Wifi profiles and extract the cleartext key or passphrase when applicable (e.g.: "netsh wlan show profile MyWifiProfile key=clear"). This function achieves the same goal. It iterates the list of Wlan interfaces in order to enumerate all the Wifi profiles which can be accessed in the context of the current user. If a network is configured with WEP or PSK authentication, it will attempt to extract the cleartext value of the key or passphrase. 
-    
-    .EXAMPLE
-    PS C:\> Invoke-WlanProfilesCheck
-
-    Profile        : MySecretAccessPoint
-    SSID           : MySecretAccessPoint
-    Authentication : WPA2PSK
-    PassPhrase     : AvErYsEcReTpAsSpHrAsE
-    Interface      : Compact Wireless-G USB Network Adapter
-    State          : Connected
+    This cmdlet invokes the 'Get-WlanProfileList' helper and then performs a series of tests on each returned item. For now, only 802.1x profiles are checked. Therefore, we assume that any other profile is 'compliant' by default. Example of a typical compliance issue: the authentication method is PEAP+MSCHAPv2, but the identity of the authentication server is not verified; an evil twin attack could therefore be used to capture or relay the credentials of the user/machine.
     #>
 
     [CmdletBinding()] Param()
 
-    function Convert-ProfileXmlToObject {
+    Get-WlanProfileList | ForEach-Object {
 
-        [CmdletBinding()] Param(
-            [String]$ProfileXml
-        )
+        # Assume compliance by default because there are authentication schemes that we do not support
+        # (yet?). We will perform a series of checks on some parameters. As soon as a parameter does not
+        # pass a test, we set the 'Compliance' status to 'False'. If a test does not pass, the description
+        # variable is populated with a text that provides a description of the issue.
+        $Description = ""
+        $Compliance = $true
 
-        $Xml = [xml] $ProfileXml
+        if ($_.Dot1X) {
 
-        $Name = $Xml.WLANProfile.name
-        $Ssid = $Xml.WLANProfile.SSIDConfig.SSID.name 
-        $Authentication = $Xml.WLANProfile.MSM.security.authEncryption.authentication
-        $PassPhrase = $Xml.WLANProfile.MSM.security.sharedKey.keyMaterial
-
-        $ProfileResult = New-Object -TypeName PSObject
-        $ProfileResult | Add-Member -MemberType "NoteProperty" -Name "Profile" -Value $Name
-        $ProfileResult | Add-Member -MemberType "NoteProperty" -Name "SSID" -Value $Ssid
-        $ProfileResult | Add-Member -MemberType "NoteProperty" -Name "Authentication" -Value $Authentication
-        $ProfileResult | Add-Member -MemberType "NoteProperty" -Name "PassPhrase" -Value $PassPhrase
-        $ProfileResult
-    }
-
-    $ERROR_SUCCESS = 0
-
-    try {
-        [IntPtr]$ClientHandle = [IntPtr]::Zero
-        [UInt32]$NegotiatedVersion = 0
-        $Result = $Wlanapi::WlanOpenHandle(2, [IntPtr]::Zero, [ref]$NegotiatedVersion, [ref]$ClientHandle)
-        if ($Result -eq $ERROR_SUCCESS) {
-    
-            Write-Verbose "WlanOpenHandle() OK - Handle: $($ClientHandle)"
-    
-            [IntPtr]$InterfaceListPtr = [IntPtr]::Zero
-            $Result = $Wlanapi::WlanEnumInterfaces($ClientHandle, [IntPtr]::Zero, [ref]$InterfaceListPtr)
-            if ($Result -eq $ERROR_SUCCESS) {
-    
-                Write-Verbose "WlanEnumInterfaces() OK - Interface list pointer: 0x$($InterfaceListPtr.ToString('X8'))"
-    
-                $NumberOfInterfaces = [Runtime.InteropServices.Marshal]::ReadInt32($InterfaceListPtr)
-                Write-Verbose "Number of Wlan interfaces: $($NumberOfInterfaces)"
-    
-                # Calculate the pointer to the first WLAN_INTERFACE_INFO structure 
-                $WlanInterfaceInfoPtr = [IntPtr] ($InterfaceListPtr.ToInt64() + 8) # dwNumberOfItems + dwIndex
-    
-                for ($i = 0; $i -lt $NumberOfInterfaces; $i++) {
-    
-                    $WlanInterfaceInfo = [System.Runtime.InteropServices.Marshal]::PtrToStructure($WlanInterfaceInfoPtr, [type] $WLAN_INTERFACE_INFO)
-    
-                    Write-Verbose "InterfaceInfo struct size: $([Runtime.InteropServices.Marshal]::SizeOf($WlanInterfaceInfo))" 
-                    Write-Verbose "Wlan interface Guid: $($WlanInterfaceInfo.InterfaceGuid)"
-                    Write-Verbose "Wlan interface: $($WlanInterfaceInfo.InterfaceDescription)"
-                    Write-Verbose "Wlan interface State: $($WlanInterfaceInfo.State -as $WLAN_INTERFACE_STATE)"
-    
-                    [IntPtr]$ProfileListPtr = [IntPtr]::Zero
-                    $Result = $Wlanapi::WlanGetProfileList($ClientHandle, $WlanInterfaceInfo.InterfaceGuid, [IntPtr]::Zero, [ref] $ProfileListPtr)
-                    if ($Result -eq $ERROR_SUCCESS) {
-    
-                        Write-Verbose "WlanGetProfileList() OK - Profile list pointer: 0x$($ProfileListPtr.ToString('X8'))"
-    
-                        $NumberOfProfiles = [Runtime.InteropServices.Marshal]::ReadInt32($ProfileListPtr)
-                        Write-Verbose "Number of profiles: $($NumberOfProfiles)"
-    
-                        # Calculate the pointer to the first WLAN_PROFILE_INFO structure 
-                        $WlanProfileInfoPtr = [IntPtr] ($ProfileListPtr.ToInt64() + 8) # dwNumberOfItems + dwIndex
-    
-                        for ($j = 0; $j -lt $NumberOfProfiles; $j++) {
-    
-                            $WlanProfileInfo = [System.Runtime.InteropServices.Marshal]::PtrToStructure($WlanProfileInfoPtr, [type] $WLAN_PROFILE_INFO)
-                            Write-Verbose "Wlan profile: $($WlanProfileInfo.ProfileName)"
-    
-                            [String]$ProfileXml = ""
-                            [UInt32]$WlanProfileFlags = 4 # WLAN_PROFILE_GET_PLAINTEXT_KEY
-                            [UInt32]$WlanProfileAccessFlags = 0
-                            $Result = $Wlanapi::WlanGetProfile($ClientHandle, $WlanInterfaceInfo.InterfaceGuid, $WlanProfileInfo.ProfileName, [IntPtr]::Zero, [ref]$ProfileXml, [ref]$WlanProfileFlags, [ref]$WlanProfileAccessFlags)
-                            if ($Result -eq $ERROR_SUCCESS) {
-    
-                                Write-Verbose "WlanGetProfile() OK"
-    
-                                $Item = Convert-ProfileXmlToObject -ProfileXml $ProfileXml
-                                $Item | Add-Member -MemberType "NoteProperty" -Name "Interface" -Value $WlanInterfaceInfo.InterfaceDescription
-                                $Item | Add-Member -MemberType "NoteProperty" -Name "State" -Value $($WlanInterfaceInfo.State -as $WLAN_INTERFACE_STATE)
-                                $Item
-    
-                            }
-                            else {
-                                Write-Verbose "WlanGetProfile() failed (Err: $($Result))"
-                            }
-    
-                            # Calculate the pointer to the next WLAN_PROFILE_INFO structure 
-                            $WlanProfileInfoPtr = [IntPtr] ($WlanProfileInfoPtr.ToInt64() + [System.Runtime.InteropServices.Marshal]::SizeOf($WlanProfileInfo))
-                        }
-    
-                        # cleanup
-                        $Wlanapi::WlanFreeMemory($ProfileListPtr)
-    
-                    }
-                    else {
-                        Write-Verbose "WlanGetProfileList() failed (Err: $($Result))"
-                    }
-    
-                    # Calculate the pointer to the next WLAN_INTERFACE_INFO structure 
-                    $WlanInterfaceInfoPtr = [IntPtr] ($WlanInterfaceInfoPtr.ToInt64() + [System.Runtime.InteropServices.Marshal]::SizeOf($WlanInterfaceInfo))
+            $PerformServerValidation = $_.Eap.PerformServerValidation
+            $PerformServerValidationDescription = $_.Eap.PerformServerValidationDescription
+            if ($null -ne $PerformServerValidation) {
+                if ($PerformServerValidation -eq $false) {
+                    $Compliance = $false
+                    $Description = "$($Description)$($PerformServerValidationDescription) "
                 }
-    
-                # cleanup
-                $Wlanapi::WlanFreeMemory($InterfaceListPtr)
-    
+            }
+
+            $ServerValidationDisablePrompt = $_.Eap.ServerValidationDisablePrompt
+            $ServerValidationDisablePromptDescription = $_.Eap.ServerValidationDisablePromptDescription
+            if ($null -ne $ServerValidationDisablePrompt) {
+                if ($ServerValidationDisablePrompt -eq $false) {
+                    $Compliance = $false
+                    $Description = "$($Description)$($ServerValidationDisablePromptDescription) "
+                }
+            }
+
+            $TrustedRootCAs = $_.Eap.TrustedRootCAs
+            if ($null -eq $TrustedRootCAs) {
+                $Compliance = $false
+                $Description = "$($Description)No explicit trusted root CA is specified. "
             }
             else {
-                Write-Verbose "WlanEnumInterfaces() failed (Err: $($Result))"
+                # TODO: ensure that only a domain CA is specified. Not sure how I should do that yet...
             }
+
+            if ($null -ne $_.InnerEap) {
+                if ($_.InnerEapTypeId -eq 26) {
+                    # If MS-CHAPv2 is used for authentication, user (or machine) credentials are used. It is 
+                    # recommended to use certificate-based authentication instead as user credentials could be cracked
+                    # or relayed.
+                    $Compliance = $false
+                    $Description = "$($Description)MS-CHAPv2 is used for authentication. "
+                }
+            }
+        }
+
+        $_ | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+        $_ | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $Compliance
+        $_ | Select-Object -Property * -ExcludeProperty Eap,InnerEap
+    }
+}
+
+function Invoke-AirstrikeAttackCheck {
+    <#
+    .SYNOPSIS
+    Check whether the 'Do not display network selection UI' policy is enforced.
     
-            # cleanup
-            $Result = $Wlanapi::WlanCloseHandle($ClientHandle, [IntPtr]::Zero)
-            if ($Result -eq $ERROR_SUCCESS) {
-                Write-Verbose "WlanCloseHandle() OK"
+    .DESCRIPTION
+    This cmdlet first checks whether the tested machined is a workstation with a version of Windows that supports the policy 'Do not display network selection UI'. If so, it checks wheter it was enforced by reading the corresponding registry key/value. If the value is not set to 1, the result is not compliant.
+    
+    .EXAMPLE
+    PS C:\> Invoke-AirstrikeAttackCheck
+
+    Key         : HKLM\SOFTWARE\Policies\Microsoft\Windows\System
+    Value       : DontDisplayNetworkSelectionUI
+    Data        : (null)
+    Description : The network selection UI is displayed on the logon screen.
+    Compliance  : False
+
+    .LINK
+    https://shenaniganslabs.io/2021/04/13/Airstrike.html
+    https://admx.help/?Category=Windows_10_2016&Policy=Microsoft.Policies.WindowsLogon::DontDisplayNetworkSelectionUI
+    #>
+
+    [CmdletBinding()] Param()
+
+    $Compliance = $true
+
+    $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows\System"
+    $RegValue = "DontDisplayNetworkSelectionUI"
+    $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -ErrorAction SilentlyContinue).$RegValue
+
+    $MachineRole = (Get-MachineRole).Name
+    if ($MachineRole -eq "WinNT") {
+
+        $WindowsVersion = Get-WindowsVersion
+        if ((($WindowsVersion.Major -eq 6) -and ($WindowsVersion.Minor -ge 2)) -or ($WindowsVersion.Major -gt 6)) {
+
+            if ($RegData -ge 1) {
+                $Description = "The network selection UI is not displayed on the logon screen."
             }
             else {
-                Write-Verbose "WlanCloseHandle() failed (Err: $($Result))"
+                $Compliance = $false
+                $Description = "The network selection UI is displayed on the logon screen."
             }
-    
         }
         else {
-            Write-Verbose "WlanOpenHandle() failed (Err: $($Result))"
+            $Description = "OS version not supported."
         }
     }
-    catch {
-        # The Wlan API probably doesn't exist on this machine.
-        if ($Error[0]) { Write-Verbose -Message $Error[0] }
+    else {
+        $Description = "The current machine is not a workstation."
     }
+
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $Compliance
+    $Result
 }
 
 function Convert-SocketAddressToObject {
@@ -792,5 +767,429 @@ function Get-NetworkEndpoints {
     }
     else {
         Write-Verbose ([ComponentModel.Win32Exception] $LastError)
+    }
+}
+
+function Convert-WlanXmlProfile {
+    <#
+    .SYNOPSIS
+    Convert a WLAN XML profile to a custom PS object.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+    
+    .DESCRIPTION
+    This cmdlet takes a WLAN XML profile as an input, parses it, and return a custom object that contains the profile's key information, based on the type of authentication in use. For 802.1x profiles, it returns object(s) containing the detailed configuration. Only the main 802.1x authentication schemes are supported (see the 'Notes' section).
+    
+    .PARAMETER WlanProfile
+    A string representing a WLAN profile as an XML document.
+
+    .EXAMPLE
+    PS C:\> Convert-WlanXmlProfile -WlanProfile $WlanProfile
+
+    SSID           : wp2-access-point
+    ConnectionType : ESS (Infrastructure)
+    ConnectionMode : auto
+    Authentication : WPA2PSK
+    Encryption     : AES
+    Dot1X          : False
+
+    .EXAMPLE
+    PS C:\> Convert-WlanXmlProfile -WlanProfile $WlanProfile
+
+    SSID                  : eap-tls-access-point
+    ConnectionType        : ESS (Infrastructure)
+    ConnectionMode        : auto
+    Authentication        : WPA2
+    Encryption            : AES
+    Dot1X                 : True
+    AuthenticationModeRaw : user
+    AuthenticationMode    : Use user credentials only.
+    EapTypeId             : 13
+    EapType               : EAP-TLS
+    Eap                   : @{CredentialsSource=Certificate; ServerValidationDisablePrompt=True; ServerValidationDisablePromptComment=Authentication fails is the certificate is not trusted.; ServerValidationNames=; AcceptServerName=False; AcceptServerNameComment=The server name is not verified.; TrustedRootCAs=0563b8630d62d75abbc8ab1e4bdfb5a899b24d43; TrustedRootCAsComment=DigiCert Assured ID Root CA; PerformServerValidation=False; PerformServerValidationComment=Server validation is not performed.}
+    
+    .NOTES
+    Supported EAP methods:
+        Microsoft implements the following EAP methods: MS-EAP / MSCHAPv2 (26), TLS (13), PEAP (25), SIM (18), AKA (23), AKA' (50), TTLS (21), TEAP (55). In this function, we handle only TLS (13), PEAP (25), TTLS (21), and MSCHAPv2 (26).
+
+    .LINK
+    https://docs.microsoft.com/en-us/windows/win32/nativewifi/portal
+    #>
+
+    [CmdletBinding()] Param(
+        [ValidateNotNullOrEmpty()]
+        [string]$WlanProfile
+    )
+
+    BEGIN {
+        function ConvertTo-Boolean {
+            param([object]$Text)
+            if ($null -eq $Text) { Write-Warning "$($MyInvocation.MyCommand.Name) | Null input, assuming False"; return $False }
+            if ($Text.GetType() -like "*XmlElement") { $Text = $(if ([string]::IsNullOrEmpty($Text.innerText)) { $Text } else { $Text.innerText }) }
+            try { [System.Convert]::ToBoolean($Text) } catch { Write-Warning "Failed to convert to boolean: $($Text)" }
+        }
+
+        function Get-ConnectionTypeName {
+            param([string]$ConnectionType)
+            if ([string]::IsNullOrEmpty($ConnectionType)) { return }
+            $Enumeration = @{ "ESS" = "Infrastructure" ; "IBSS" = "Ad-hoc" }
+            try { $Enumeration[$ConnectionType] } catch { }
+        }
+
+        function Get-EapTypeName {
+            param([string]$MethodType)
+            if ([string]::IsNullOrEmpty($MethodType)) { return }
+            $Enumeration = @{ "13" = "EAP-TLS" ; "18" = "EAP-SIM" ; "21" = "EAP-TTLS" ; "23" = "EAP-AKA" ; "25" = "PEAP" ; "26" = "MS-EAP" ; "29" = "EAP-MSCHAP-V2" ; "50" = "EAP-AKA'" ; "55" = "TEAP" }
+            try { $Enumeration[$MethodType] } catch { "Unknown" }
+        }
+
+        function Get-CertificateName {
+            param([string]$Thumbprint)
+            if ([string]::IsNullOrEmpty($Thumbprint)) { ""; return }
+            $Certificate = Get-ChildItem "Cert:\LocalMachine\Root\$($Thumbprint.Replace(' ', ''))" -ErrorAction SilentlyContinue
+            if ($null -eq $Certificate) { "Unknown Certificate"; return }
+            ($Certificate.Subject.Split(',')[0]).Split('=')[1]
+        }
+
+        function Get-AuthModeDescription {
+            param([string]$AuthMode)
+            if ([string]::IsNullOrEmpty($AuthMode)) { return }
+            $Enumeration = @{ "machineOrUser" = "Use user credentials when a user is logged on, use machine credentials otherwise." ; "machine" = "Use machine credentials only." ; "user" = "Use user credentials only." ; "guest" = "Use guest (empty) credentials only." }
+            try { $Enumeration[$AuthMode] } catch { "Unknown" }
+        }
+
+        function Get-ServerValidationPromptDescription {
+            param([boolean]$PromptDisabled)
+            if ($PromptDisabled) { "Authentication fails is the certificate is not trusted." } else { "The user can be prompted for server validation." }
+        }
+
+        function Get-ServerValidationDescription {
+            param([boolean]$PerformValidation)
+            if ($PerformValidation) { "Server validation is performed." } else { "Server validation is not performed." }
+        }
+
+        function Get-AcceptServerNameDescription {
+            param([boolean]$AcceptServerName)
+            if ($AcceptServerName) { "The server name is verified." } else { "The server name is not verified." }
+        }
+
+        function Get-UseWinLogonCredentialsDescription {
+            param([boolean]$UseWinLogonCredentials)
+            if ($UseWinLogonCredentials) { "EAP MS-CHAPv2 obtains credentials from winlogon." } else { "EAP MS-CHAPv2 obtains credentials from the user." }
+        }
+
+        function Get-TrustedRootCAs {
+            param([System.Xml.XmlElement]$Node, [string]$Name)
+            if ($null -eq $Node) { Write-Warning "$($MyInvocation.MyCommand.Name) | Input node is null."; return }
+            $TrustedRootCAs = $Node.GetElementsByTagName($Name) | ForEach-Object { $_.InnerText.Replace(" ", "") }
+            $TrustedRootCANames = $TrustedRootCAs | ForEach-Object { Get-CertificateName -Thumbprint $_ }
+            $Result = New-Object -TypeName PSObject
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Thumbprints" -Value ($TrustedRootCAs -join ", ")
+            $Result | Add-Member -MemberType "NoteProperty" -Name "DisplayNames" -Value ($TrustedRootCANames -join ", ")
+            $Result
+        }
+
+        function Get-EapType {
+            param([System.Xml.XmlElement]$Node)
+            if ($null -eq $Node) { Write-Warning "$($MyInvocation.MyCommand.Name) | Input node is null."; return }
+            $EapTypeId = $(if ([string]::IsNullOrEmpty($Node.Type.InnerText)) { $Node.Type } else { $Node.Type.InnerText })
+            $Result = New-Object -TypeName PSObject
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Id" -Value $EapTypeId
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value (Get-EapTypeName -MethodType $EapTypeId)
+            $Result
+        }
+
+        function Get-EapTlsConfig {
+            param([System.Xml.XmlElement]$Node)
+            if ($null -eq $Node) { Write-Warning "$($MyInvocation.MyCommand.Name) | Input node is null."; return }
+            $CredentialsSource = $(
+                if ($null -ne $Node.EapType.CredentialsSource.SmartCard) { "SmartCard" }
+                elseif ($null -ne $Node.EapType.CredentialsSource.CertificateStore) { "Certificate" }
+            )
+            $ServerValidationNode = $Node.EapType.ServerValidation
+            $ServerValidationDisablePrompt = ConvertTo-Boolean -Text $ServerValidationNode.DisableUserPromptForServerValidation
+            $AcceptServerName = ConvertTo-Boolean -Text $Node.EapType.AcceptServerName
+            $PerformServerValidation = ConvertTo-Boolean -Text $Node.EapType.PerformServerValidation
+            $TrustedRootCAs = Get-TrustedRootCAs -Node $ServerValidationNode -Name "TrustedRootCA"
+            $Result = New-Object -TypeName PSObject
+            $Result | Add-Member -MemberType "NoteProperty" -Name "CredentialsSource" -Value $CredentialsSource
+            $Result | Add-Member -MemberType "NoteProperty" -Name "ServerValidationDisablePrompt" -Value $ServerValidationDisablePrompt
+            $Result | Add-Member -MemberType "NoteProperty" -Name "ServerValidationDisablePromptDescription" -Value (Get-ServerValidationPromptDescription -PromptDisabled $ServerValidationDisablePrompt)
+            $Result | Add-Member -MemberType "NoteProperty" -Name "ServerValidationNames" -Value $ServerValidationNode.ServerNames
+            $Result | Add-Member -MemberType "NoteProperty" -Name "AcceptServerName" -Value $AcceptServerName
+            $Result | Add-Member -MemberType "NoteProperty" -Name "AcceptServerNameDescription" -Value (Get-AcceptServerNameDescription -AcceptServerName $AcceptServerName)
+            $Result | Add-Member -MemberType "NoteProperty" -Name "TrustedRootCAs" -Value $TrustedRootCAs.Thumbprints
+            $Result | Add-Member -MemberType "NoteProperty" -Name "TrustedRootCAsDescription" -Value $TrustedRootCAs.DisplayNames
+            $Result | Add-Member -MemberType "NoteProperty" -Name "PerformServerValidation" -Value $PerformServerValidation
+            $Result | Add-Member -MemberType "NoteProperty" -Name "PerformServerValidationDescription" -Value (Get-ServerValidationDescription -PerformValidation $PerformServerValidation)
+            $Result
+        }
+
+        function Get-EapTtlsConfig {
+            param([System.Xml.XmlElement]$Node)
+            if ($null -eq $Node) { Write-Warning "$($MyInvocation.MyCommand.Name) | Input node is null."; return }
+            $ServerValidationNode = $Node.ServerValidation
+            $ServerValidationDisablePrompt = ConvertTo-Boolean -Text $ServerValidationNode.DisablePrompt
+            $TrustedRootCAs = Get-TrustedRootCAs -Node $ServerValidationNode -Name "TrustedRootCAHash"
+            $Result = New-Object -TypeName PSObject
+            $Result | Add-Member -MemberType "NoteProperty" -Name "ServerValidationDisablePrompt" -Value $ServerValidationDisablePrompt
+            $Result | Add-Member -MemberType "NoteProperty" -Name "ServerValidationDisablePromptDescription" -Value (Get-ServerValidationPromptDescription -PromptDisabled $ServerValidationDisablePrompt)
+            $Result | Add-Member -MemberType "NoteProperty" -Name "ServerValidationNames" -Value $ServerValidationNode.ServerNames
+            $Result | Add-Member -MemberType "NoteProperty" -Name "TrustedRootCAs" -Value $TrustedRootCAs.Thumbprints
+            $Result | Add-Member -MemberType "NoteProperty" -Name "TrustedRootCAsDescription" -Value $TrustedRootCAs.DisplayNames
+            $Result
+        }
+
+        function Get-EapPeapConfig {
+            param([System.Xml.XmlElement]$Node)
+            if ($null -eq $Node) { Write-Warning "$($MyInvocation.MyCommand.Name) | Input node is null."; return }
+            $ServerValidationNode = $Node.EapType.ServerValidation
+            $ServerValidationDisablePrompt = ConvertTo-Boolean -Text $ServerValidationNode.DisableUserPromptForServerValidation
+            $TrustedRootCAs = Get-TrustedRootCAs -Node $ServerValidationNode -Name "TrustedRootCA"
+            $AcceptServerName = ConvertTo-Boolean -Text $Node.EapType.PeapExtensions.AcceptServerName
+            $PerformServerValidation = ConvertTo-Boolean -Text $Node.EapType.PeapExtensions.PerformServerValidation
+            $Result = New-Object -TypeName PSObject
+            $Result | Add-Member -MemberType "NoteProperty" -Name "ServerValidationDisablePrompt" -Value $ServerValidationDisablePrompt
+            $Result | Add-Member -MemberType "NoteProperty" -Name "ServerValidationDisablePromptDescription" -Value (Get-ServerValidationPromptDescription -PromptDisabled $ServerValidationDisablePrompt)
+            $Result | Add-Member -MemberType "NoteProperty" -Name "ServerValidationNames" -Value $ServerValidationNode.ServerNames
+            $Result | Add-Member -MemberType "NoteProperty" -Name "AcceptServerName" -Value $AcceptServerName
+            $Result | Add-Member -MemberType "NoteProperty" -Name "AcceptServerNameDescription" -Value (Get-AcceptServerNameDescription -AcceptServerName $AcceptServerName)
+            $Result | Add-Member -MemberType "NoteProperty" -Name "TrustedRootCAs" -Value $TrustedRootCAs.Thumbprints
+            $Result | Add-Member -MemberType "NoteProperty" -Name "TrustedRootCAsDescription" -Value $TrustedRootCAs.DisplayNames
+            $Result | Add-Member -MemberType "NoteProperty" -Name "PerformServerValidation" -Value $PerformServerValidation
+            $Result | Add-Member -MemberType "NoteProperty" -Name "PerformServerValidationDescription" -Value (Get-ServerValidationDescription -PerformValidation $PerformServerValidation)
+            $Result
+        }
+
+        function Get-EapMsChapv2Config {
+            param([System.Xml.XmlElement]$Node)
+            if ($null -eq $Node) { Write-Warning "$($MyInvocation.MyCommand.Name) | Input node is null."; return }
+            $UseWinLogonCredentials = ConvertTo-Boolean -Text $Node.EapType.UseWinLogonCredentials
+            $Result = New-Object -TypeName PSObject
+            $Result | Add-Member -MemberType "NoteProperty" -Name "UseWinLogonCredentials" -Value $UseWinLogonCredentials
+            $Result | Add-Member -MemberType "NoteProperty" -Name "UseWinLogonCredentialsDescription" -Value (Get-UseWinLogonCredentialsDescription -UseWinLogonCredentials $UseWinLogonCredentials)
+            $Result
+        }
+
+        function Get-EapConfig {
+            param([System.Xml.XmlElement]$Node, [string]$Type)
+            if ($null -eq $Node) { Write-Warning "$($MyInvocation.MyCommand.Name) | Input node is null."; return }
+            switch ($Type) {
+                "13" {
+                    Get-EapTlsConfig -Node $Node.Eap
+                }
+                "21" {
+                    Get-EapTtlsConfig -Node $Node.EapTtls
+                }
+                "25" {
+                    Get-EapPeapConfig -Node $Node.Eap
+                }
+                "26" {
+                    Get-EapMsChapv2Config -Node $Node.Eap
+                }
+                default {
+                    Write-Warning "$($MyInvocation.MyCommand.Name) | Unsupported EAP type: $($Type)"
+                }
+            }
+        }
+    }
+    
+    PROCESS {
+
+        if ([string]::IsNullOrEmpty($WlanProfile)) { Write-Warning "$($MyInvocation.MyCommand.Name) | Failed to get content: $($ProfileFileItem.FullName)"; return }
+        try { $XmlFile = [xml]$WlanProfile } catch { Write-Warning "$($MyInvocation.MyCommand.Name) | Failed to parse XML: $($ProfileFileItem.FullName)"; return }
+
+        $WifiProfiles = $XmlFile.GetElementsByTagName("WLANProfile")
+
+        foreach ($WifiProfile in $WifiProfiles) {
+
+            $Result = New-Object -TypeName PSObject
+            $Result | Add-Member -MemberType "NoteProperty" -Name "SSID" -Value $WifiProfile.SSIDConfig.SSID.name
+            $Result | Add-Member -MemberType "NoteProperty" -Name "ConnectionType" -Value "$($WifiProfile.connectionType) ($(Get-ConnectionTypeName -ConnectionType $WifiProfile.connectionType))"
+            $Result | Add-Member -MemberType "NoteProperty" -Name "ConnectionMode" -Value $(if (($WifiProfile.connectionType -eq "ESS") -and ([string]::IsNullOrEmpty($WifiProfile.connectionMode))) { "auto" } else { $WifiProfile.connectionMode })
+
+            $SecurityConfig = $WifiProfile.MSM.security
+            if ($null -eq $SecurityConfig) { Write-Warning "SSID: '$($Result.SSID)' | 'Security' node not found."; return }
+            $UseDot1X = ConvertTo-Boolean -Text $SecurityConfig.authEncryption.useOneX
+
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Authentication" -Value $SecurityConfig.authEncryption.authentication
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Encryption" -Value $SecurityConfig.authEncryption.encryption
+            $Result | Add-Member -MemberType "NoteProperty" -Name "PassPhrase" -Value $SecurityConfig.sharedKey.keyMaterial
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Dot1X" -Value $UseDot1X
+            
+            # If 802.1x is not used, we can return the profile straight away.
+            if (-not $UseDot1X) { $Result; return }
+
+            # The OneX node holds the 802.1x configuration. When 'useOneX' is set to true, this node must
+            # be present in the 'WLANProfile' XML document. All the information regarding the 802.1x 
+            # configuration can be found within this node.
+            $OneXNode = $SecurityConfig.OneX
+            if ($null -eq $OneXNode) { Write-Warning "SSID: '$($Result.SSID)' | 'OneX' node not found."; return }
+            $AuthenticationMode = $(if ([string]::IsNullOrEmpty($OneXNode.authMode)) { "machineOrUser" } else { $OneXNode.authMode })
+
+            $Result | Add-Member -MemberType "NoteProperty" -Name "AuthenticationMode" -Value $AuthenticationMode
+            $Result | Add-Member -MemberType "NoteProperty" -Name "AuthenticationModeDescription" -Value (Get-AuthModeDescription -AuthMode $AuthenticationMode)
+            
+            # Get EAP type from the EapMethod element.
+            $EapType = Get-EapType -Node $OneXNode.EAPConfig.EapHostConfig.EapMethod
+            if ($null -eq $EapType) { Write-Warning "SSID: '$($Result.SSID)' | EAP type not found."; return }
+
+            $Result | Add-Member -MemberType "NoteProperty" -Name "EapTypeId" -Value $EapType.Id
+            $Result | Add-Member -MemberType "NoteProperty" -Name "EapType" -Value $EapType.Name
+
+            # The 802.1x configuration can be stored either in "clear" text or as a binary blob. We only 
+            # handle the case the configuration is stored in "clear" text. Otherwise, the ignore the Wi-Fi 
+            # profile and print a warning message.
+            $ConfigNode = $OneXNode.EAPConfig.EapHostConfig.Config
+            if ($null -eq $ConfigNode) { Write-Warning "SSID: '$($Result.SSID)' | 'Config' node not found."; return }
+
+            $EapConfig = Get-EapConfig -Node $ConfigNode -Type $EapType.Id
+            if ($null -eq $EapConfig) { Write-Warning "SSID: '$($Result.SSID)' | Failed to parse EAP configuration."; return }
+
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Eap" -Value $EapConfig
+            $Result | Add-Member -MemberType "NoteProperty" -Name "EapStr" -Value ($EapConfig | Format-List | Out-String).Trim()
+
+            # In some cases, there is an additional EAP layer. This may happen when, for example, the initial
+            # EAP layer is PEAP, and then MS-CHAPv2 is used to authenticate the user. In this case, we parse 
+            # the next 'Eap' node, and add the configuration to the object. Otherwise, we simply return the 
+            # the result object and stop there.
+            if ($null -eq $ConfigNode.Eap.EapType.Eap) {
+                Write-Verbose "SSID: '$($Result.SSID)' | There is no inner EAP configuration."
+                $Result
+                return
+            }
+
+            $InnerEapType = Get-EapType -Node $ConfigNode.Eap.EapType.Eap
+            if ($null -eq $InnerEapType) { Write-Warning "SSID: '$($Result.SSID)' | Inner EAP type not found."; return }
+
+            $Result | Add-Member -MemberType "NoteProperty" -Name "InnerEapTypeId" -Value $InnerEapType.Id
+            $Result | Add-Member -MemberType "NoteProperty" -Name "InnerEapType" -Value $InnerEapType.Name
+
+            $InnerEapConfig = Get-EapConfig -Node $ConfigNode.Eap.EapType -Type $InnerEapType.Id
+            if ($null -eq $InnerEapConfig) { Write-Warning "SSID: '$($Result.SSID)' | Failed to parse inner EAP configuration."; return }
+
+            $Result | Add-Member -MemberType "NoteProperty" -Name "InnerEap" -Value $InnerEapConfig
+            $Result | Add-Member -MemberType "NoteProperty" -Name "InnerEapStr" -Value ($InnerEapConfig | Format-List | Out-String).Trim()
+
+            $Result
+        }
+    }
+}
+
+function Get-WlanProfileList {
+    <#
+    .SYNOPSIS
+    Enumerates the saved Wifi profiles.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+    
+    .DESCRIPTION
+    This cmdlet leverages the WLAN API to enumerate saved Wi-Fi profiles. WLAN profiles are stored as XML document. For each profile, the helper cmdlet 'Convert-WlanXmlProfile' is invoked in order to transform this XML document into a custom PS object that is easier to check. In case of a WPA2-PSK profile, the clear-text passphrase will be returned (if possible). In case of a 802.1x profile, detailed information will be returned, depending of the type of authentication.
+    
+    .EXAMPLE
+    PS C:\> Get-WlanProfileList
+
+    SSID           : wpa2-psk-ap
+    ConnectionType : ESS (Infrastructure)
+    ConnectionMode : manual
+    Authentication : WPA2PSK
+    Encryption     : AES
+    PassPhrase     : ClearTextPassphraseHere
+    Dot1X          : False
+
+    SSID                          : ttls-ap
+    ConnectionType                : ESS (Infrastructure)
+    ConnectionMode                : auto
+    Authentication                : WPA2
+    Encryption                    : AES
+    PassPhrase                    :
+    Dot1X                         : True
+    AuthenticationMode            : machineOrUser
+    AuthenticationModeDescription : Use user credentials when a user is logged on, use machine credentials otherwise.
+    EapTypeId                     : 21
+    EapType                       : EAP-TTLS
+    Eap                           : @{ServerValidationDisablePrompt=False; ServerValidationDisablePromptDescription=The user can be prompted for server validation.; ServerValidationNames=;
+                                    TrustedRootCAs=8f43288ad272f3103b6fb1428485ea3014c0bcfe; TrustedRootCAsDescription=Microsoft Root Certificate Authority 2011}
+    EapStr                        : ServerValidationDisablePrompt            : False
+                                    ServerValidationDisablePromptDescription : The user can be prompted for server validation.
+                                    ServerValidationNames                    :
+                                    TrustedRootCAs                           : 8f43288ad272f3103b6fb1428485ea3014c0bcfe
+                                    TrustedRootCAsDescription                : Microsoft Root Certificate Authority 2011
+    #>
+
+    [CmdletBinding()] Param()
+
+    try {
+
+        [IntPtr]$ClientHandle = [IntPtr]::Zero
+        [UInt32]$NegotiatedVersion = 0
+        [UInt32]$ClientVersion = 2 # Client version for Windows Vista and Windows Server 2008
+        $Result = $Wlanapi::WlanOpenHandle($ClientVersion, [IntPtr]::Zero, [ref]$NegotiatedVersion, [ref]$ClientHandle)
+        if ($Result -ne 0) {
+            Write-Warning "$($MyInvocation.MyCommand.Name) | WlanOpenHandle() failed (Err: $($Result))"
+            return
+        }
+
+        [IntPtr]$InterfaceListPtr = [IntPtr]::Zero
+        $Result = $Wlanapi::WlanEnumInterfaces($ClientHandle, [IntPtr]::Zero, [ref]$InterfaceListPtr)
+        if ($Result -ne 0) {
+            Write-Warning "$($MyInvocation.MyCommand.Name) | WlanEnumInterfaces() failed (Err: $($Result))"
+            $Wlanapi::WlanCloseHandle($ClientHandle, [IntPtr]::Zero)
+            return
+        }
+
+        $NumberOfInterfaces = [Runtime.InteropServices.Marshal]::ReadInt32($InterfaceListPtr)
+        Write-Verbose "$($MyInvocation.MyCommand.Name) | Number of WLAN interfaces: $($NumberOfInterfaces)"
+
+        $WlanInterfaceInfoPtr = [IntPtr] ($InterfaceListPtr.ToInt64() + 8) # dwNumberOfItems + dwIndex
+
+        for ($i = 0; $i -lt $NumberOfInterfaces; $i++) {
+
+            $WlanInterfaceInfo = [System.Runtime.InteropServices.Marshal]::PtrToStructure($WlanInterfaceInfoPtr, [type]$WLAN_INTERFACE_INFO)
+
+            [IntPtr]$ProfileListPtr = [IntPtr]::Zero
+            $Result = $Wlanapi::WlanGetProfileList($ClientHandle, $WlanInterfaceInfo.InterfaceGuid, [IntPtr]::Zero, [ref]$ProfileListPtr)
+            if ($Result -eq 0) {
+                
+                $NumberOfProfiles = [Runtime.InteropServices.Marshal]::ReadInt32($ProfileListPtr)
+                Write-Verbose "$($MyInvocation.MyCommand.Name) | Number of WLAN profiles: $($NumberOfProfiles)"
+
+                $WlanProfileInfoPtr = [IntPtr] ($ProfileListPtr.ToInt64() + 8) # dwNumberOfItems + dwIndex
+                
+                for ($j = 0; $j -lt $NumberOfProfiles; $j++) {
+
+                    $WlanProfileInfo = [System.Runtime.InteropServices.Marshal]::PtrToStructure($WlanProfileInfoPtr, [type] $WLAN_PROFILE_INFO)
+
+                    [String]$ProfileXml = ""
+                    [UInt32]$WlanProfileFlags = 4 # WLAN_PROFILE_GET_PLAINTEXT_KEY
+                    [UInt32]$WlanProfileAccessFlags = 0
+                    $Result = $Wlanapi::WlanGetProfile($ClientHandle, $WlanInterfaceInfo.InterfaceGuid, $WlanProfileInfo.ProfileName, [IntPtr]::Zero, [ref]$ProfileXml, [ref]$WlanProfileFlags, [ref]$WlanProfileAccessFlags)
+                    if ($Result -eq 0) {
+                        Convert-WlanXmlProfile -WlanProfile $ProfileXml
+                    }
+                    else {
+                        Write-Warning "$($MyInvocation.MyCommand.Name) | WlanGetProfile() failed (Err: $($Result))"
+                    }
+
+                    $WlanProfileInfoPtr = [IntPtr] ($WlanProfileInfoPtr.ToInt64() + [System.Runtime.InteropServices.Marshal]::SizeOf($WlanProfileInfo))
+                }
+
+                $Wlanapi::WlanFreeMemory($ProfileListPtr)
+            }
+            else {
+                Write-Warning "$($MyInvocation.MyCommand.Name) | WlanGetProfileList() failed (Err: $($Result))"
+            }
+
+            $WlanInterfaceInfoPtr = [IntPtr] ($WlanInterfaceInfoPtr.ToInt64() + [System.Runtime.InteropServices.Marshal]::SizeOf($WlanInterfaceInfo))
+        }
+
+        $null = $Wlanapi::WlanFreeMemory($InterfaceListPtr)
+        $null = $Wlanapi::WlanCloseHandle($ClientHandle, [IntPtr]::Zero)
+    }
+    catch {
+        # The Wlan API probably does not exist on this machine.
+        if ($Error[0]) { Write-Warning $Error[0] }
     }
 }

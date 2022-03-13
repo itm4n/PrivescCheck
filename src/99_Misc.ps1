@@ -307,7 +307,7 @@ function Invoke-UsersHomeFolderCheck {
         $Result = New-Object -TypeName PSObject
         $Result | Add-Member -MemberType "NoteProperty" -Name "HomeFolderPath" -Value $FolderPath
         $Result | Add-Member -MemberType "NoteProperty" -Name "Read" -Value $ReadAccess
-        $Result | Add-Member -MemberType "NoteProperty" -Name "NamWritee" -Value $WriteAccess
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $WriteAccess
         $Result
     }
 }
@@ -338,22 +338,7 @@ function Invoke-MachineRoleCheck {
     
     [CmdletBinding()] Param()
 
-    $RegKey = "HKLM\SYSTEM\CurrentControlSet\Control\ProductOptions"
-    $RegValue = "ProductType"
-    $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -ErrorAction SilentlyContinue).$RegValue
-
-    $FriendlyNames = @{
-        "WinNT"     = "Workstation";
-        "LanmanNT"  = "Domain Controller";
-        "ServerNT"  = "Server";
-    }
-
-    if ($RegData) {
-        $Result = New-Object -TypeName PSObject
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $RegData
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Role" -Value $FriendlyNames[$RegData]
-        $Result
-    }
+    Get-MachineRole
 }
 
 function Invoke-EndpointProtectionCheck {

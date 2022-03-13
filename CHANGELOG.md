@@ -1,5 +1,17 @@
 # Changelog
 
+## 2022-03-13
+
+### Added
+
+- Network > Get-WlanProfileList, a helper function that retrieves the list of saved Wi-Fi profiles through the Windows API
+- Network > Convert-WlanXmlProfile, a helper function that converts a WLAN XML profile to a custom PS object
+- Network > Invoke-AirstrikeAttackCheck, check whether a workstation would be vulnerable to the Airstrike attack
+
+### Changed
+
+- Network > Invoke-WlanProfilesCheck, this check now detects potential issues in 802.1x Wi-Fi profiles
+
 ## 2022-03-10
 
 ### Fixed
