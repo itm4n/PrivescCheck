@@ -190,21 +190,21 @@ function Invoke-PrivescCheck {
         else {
             # If the 'Silent' option was specified, don't print the output of the check but write a progress bar
             # and show the name of the check which is being run. Note: if we are not running in a console window
-            # Write-Progress will fail, so use Write-Host to print the completion percentage instead.
+            # Write-Progress will fail, so use Write-Output to print the completion percentage instead.
             $Completion = [UInt32](($CheckCounter * 100) / ($AllChecks.Count))
 
             if (Test-IsRunningInConsole) {
                 Write-Progress -Activity "$($Check.Category.ToUpper()) > $($Check.DisplayName)" -Status "Progress: $($Completion)%" -PercentComplete $Completion
             }
             else {
-                Write-Host "[$($Completion)%] $($Check.Category.ToUpper()) > $($Check.DisplayName)"
+                Write-Output "[$($Completion)%] $($Check.Category.ToUpper()) > $($Check.DisplayName)"
             }
         }
     }
 
     # Print a report on the terminal as an 'ASCII-art' table with colors using 'Write-Host'. Therefore,
     # this will be only visible if run from a 'real' terminal.
-    Write-PrivescCheckAsciiReport
+    Show-PrivescCheckAsciiReport
 
     # If the 'Report' option was specified, write a report to a file using the value of this parameter
     # as the basename (or path + basename). The extension is then determined based on the chosen
@@ -289,6 +289,7 @@ function Invoke-Check {
 
 function Write-CheckBanner {
 
+    [OutputType([String])]
     [CmdletBinding()] Param(
         [Object]
         $Check
@@ -335,6 +336,7 @@ function Write-CheckBanner {
 
 function Write-CheckResult {
 
+    [OutputType([String])]
     [CmdletBinding()] Param(
         [Object]
         $CheckResult
@@ -416,6 +418,7 @@ function Write-XmlReport {
 
 function Write-HtmlReport {
 
+    [OutputType([String])]
     [CmdletBinding()] Param(
         [Object[]]
         $AllResults
@@ -553,7 +556,7 @@ $($JavaScript)
     $Html
 }
 
-function Write-PrivescCheckAsciiReport {
+function Show-PrivescCheckAsciiReport {
     <#
     .SYNOPSIS
 
@@ -568,7 +571,7 @@ function Write-PrivescCheckAsciiReport {
 
     .EXAMPLE
 
-    PS C:\> Write-PrivescCheckAsciiReport
+    PS C:\> Show-PrivescCheckAsciiReport
 
     +-----------------------------------------------------------------------------+
     |                         ~~~ PrivescCheck Report ~~~                         |

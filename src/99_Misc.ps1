@@ -78,8 +78,7 @@ function Invoke-SystemStartupHistoryCheck {
     #>
 
     [CmdletBinding()] Param(
-        [Int]
-        $TimeSpanInDays = 31
+        [Int]$TimeSpanInDays = 31
     )
 
     try {
@@ -136,17 +135,16 @@ function Invoke-SystemStartupCheck {
     [CmdletBinding()] Param()
 
     try {
-        $TickcountMilliseconds = [PrivescCheck.Win32]::GetTickCount64()
+        $TickcountMilliseconds = $kernel32::GetTickCount64()
 
         $StartupDate = (Get-Date).AddMilliseconds(-$TickcountMilliseconds)
 
         $Result = New-Object -TypeName PSObject
         $Result | Add-Member -MemberType "NoteProperty" -Name "Time" -Value "$(Convert-DateToString -Date $StartupDate)"
         $Result
-
     }
     catch {
-        # We are dealing with the Windows API so let's silently catch any exception, just in case...
+        Write-Warning "$($MyInvocation.MyCommand) | $($_)"
     }
 }
 
@@ -258,7 +256,7 @@ function Invoke-LocalAdminGroupCheck {
         }
     }
     catch {
-        Write-Verbose $_.Exception
+        Write-Verbose "$($_.Exception)"
     }
 }
 
@@ -564,6 +562,7 @@ function Invoke-HijackableDllsCheck {
 
     function Test-DllExists {
 
+        [OutputType([Boolean])]
         [CmdletBinding()] Param(
             [String]$Name
         )

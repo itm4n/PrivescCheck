@@ -34,8 +34,7 @@ function Invoke-WinlogonCheck {
     #>
 
     [CmdletBinding()] Param(
-        [Switch]
-        $Remote = $false
+        [Switch]$Remote = $false
     )
 
     if ($Remote) {
@@ -340,13 +339,8 @@ function Invoke-GPPPasswordCheck {
         [Switch]$Remote
     )
 
-    try {
-        Add-Type -Assembly System.Security
-        Add-Type -Assembly System.Core
-    }
-    catch {
-        # do nothing
-    }
+    try { Add-Type -Assembly System.Security } catch { Write-Warning "Failed to load assembly: System.Security" }
+    try { Add-Type -Assembly System.Core } catch { Write-Warning "Failed to load assembly: System.Core" }
 
     function Get-DecryptedPassword {
         [CmdletBinding()] Param(
@@ -499,6 +493,8 @@ function Invoke-PowerShellHistoryCheck {
     Matches       : 12
     #>
 
+    [CmdletBinding()] Param()
+
     $HistoryFilePath = "$env:APPDATA\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt"
     $HistoryFileContent = Get-Content -Path $HistoryFilePath -ErrorAction SilentlyContinue -ErrorVariable ErrorGetContent
 
@@ -613,7 +609,7 @@ function Invoke-SensitiveHiveFileAccessCheck {
             }
         }
         catch {
-            # trap because Get-Acl doesn't handle -ErrorAction SilentlyContinue nicely
+            $null = $_
         }
     }
 }

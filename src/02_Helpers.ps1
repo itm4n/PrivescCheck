@@ -3,6 +3,7 @@ function Test-IsRunningInConsole {
 }
 
 function Convert-FiletimeToDatetime {
+    [OutputType([DateTime])]
     [CmdletBinding()] Param(
         [Parameter(Position = 1, Mandatory=$true)]
         [Object] # FILETIME
@@ -24,7 +25,7 @@ function Convert-SidStringToSid {
         $IdentityUser.Translate([System.Security.Principal.SecurityIdentifier])
     }
     catch {
-
+        Write-Warning "$($MyInvocation.MyCommand) | Failed to translate SID: $($Sid)"
     }
 }
 
@@ -49,6 +50,7 @@ function Convert-SidToName {
     NT AUTHORITY\SYSTEM
     #>
 
+    [OutputType([String])]
     [CmdletBinding()] Param(
         [String]$Sid
     )
@@ -65,6 +67,7 @@ function Convert-SidToName {
 
 function Convert-PSidToStringSid {
 
+    [OutputType([String])]
     [CmdletBinding()] Param(
         [Parameter(Mandatory=$true)]
         [IntPtr]$PSid
@@ -103,7 +106,6 @@ function Convert-PSidToNameAndType {
     $Domain.EnsureCapacity(256) | Out-Null
 
     $Success = $Advapi32::LookupAccountSid($null, $PSid, $Name, [ref]$NameSize, $Domain, [ref]$DomainSize, [ref]$SidType)
-
     if (-not $Success) {
         $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
         Write-Verbose "LookupAccountSid - $([ComponentModel.Win32Exception] $LastError)"
@@ -145,9 +147,9 @@ function Convert-DateToString {
     2020-01-16 - 10:26:11
     #>
 
+    [OutputType([String])]
     [CmdletBinding()] Param(
-        [System.DateTime]
-        $Date
+        [System.DateTime]$Date
     )
 
     $OutString = ""
@@ -186,10 +188,10 @@ function Get-WindowsVersion {
 
 function Test-IsKnownService {
 
+    [OutputType([Boolean])]
     [CmdletBinding()] Param(
         [Parameter(Mandatory=$true)]
-        [Object]
-        $Service
+        [Object]$Service
     )
 
     $SeparationCharacterSets = @('"', "'", ' ', "`"'", '" ', "' ", "`"' ")
@@ -235,15 +237,11 @@ function Get-ProcessTokenHandle {
     The access flags used to open the Token.
     #>
 
+    [OutputType([IntPtr])]
     [CmdletBinding()] Param(
-        [UInt32]
-        $ProcessId = 0,
-
-        [UInt32]
-        $ProcessAccess = $ProcessAccessRightsEnum::QueryInformation,
-
-        [UInt32]
-        $TokenAccess = $TokenAccessRightsEnum::Query
+        [UInt32]$ProcessId = 0,
+        [UInt32]$ProcessAccess = $ProcessAccessRightsEnum::QueryInformation,
+        [UInt32]$TokenAccess = $TokenAccessRightsEnum::Query
     )
 
     if ($ProcessId -eq 0) {
@@ -263,7 +261,6 @@ function Get-ProcessTokenHandle {
 
     [IntPtr]$TokenHandle = [IntPtr]::Zero
     $Success = $Advapi32::OpenProcessToken($ProcessHandle, $TokenAccess, [ref]$TokenHandle)
-
     if (-not $Success) {
         $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
         Write-Verbose "OpenProcessToken - $([ComponentModel.Win32Exception] $LastError)"
@@ -291,19 +288,16 @@ function Get-TokenInformationData {
     The type of information to retrieve from the Token.
     #>
 
+    [OutputType([IntPtr])]
     [CmdletBinding()] Param(
         [Parameter(Mandatory=$true)]
-        [IntPtr]
-        $TokenHandle,
-
+        [IntPtr]$TokenHandle,
         [Parameter(Mandatory=$true)]
-        [UInt32]
-        $InformationClass
+        [UInt32]$InformationClass
     )
 
     $DataSize = 0
     $Success = $Advapi32::GetTokenInformation($TokenHandle, $InformationClass, 0, $null, [ref]$DataSize)
-
     if ($DataSize -eq 0) {
         $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
         Write-Verbose "GetTokenInformation - $([ComponentModel.Win32Exception] $LastError)"
@@ -315,7 +309,6 @@ function Get-TokenInformationData {
     [IntPtr]$DataPtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($DataSize)
 
     $Success = $Advapi32::GetTokenInformation($TokenHandle, $InformationClass, $DataPtr, $DataSize, [ref]$DataSize)
-
     if (-not $Success) {
         $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
         Write-Verbose "GetTokenInformation - $([ComponentModel.Win32Exception] $LastError)"
@@ -364,13 +357,10 @@ function Get-TokenInformationGroups {
     #>
 
     [CmdletBinding()] Param(
-        [UInt32]
-        $ProcessId = 0,
-
+        [UInt32]$ProcessId = 0,
         [Parameter(Mandatory=$true)]
         [ValidateSet("Groups", "RestrictedSids", "LogonSid", "Capabilities", "DeviceGroups", "RestrictedDeviceGroups")]
-        [String]
-        $InformationClass
+        [String]$InformationClass
     )
 
     $InformationClasses = @{
@@ -484,8 +474,7 @@ function Get-TokenInformationPrivileges {
     #>
 
     [CmdletBinding()] Param(
-        [UInt32]
-        $ProcessId = 0
+        [UInt32]$ProcessId = 0
     )
 
     $PrivilegeDescriptions = @{
@@ -606,8 +595,7 @@ function Get-TokenInformationIntegrityLevel {
     #>
 
     [CmdletBinding()] Param(
-        [UInt32]
-        $ProcessId = 0
+        [UInt32]$ProcessId = 0
     )
 
     $TokenHandle = Get-ProcessTokenHandle -ProcessId $ProcessId
@@ -654,9 +642,9 @@ function Get-TokenInformationSessionId {
     1
     #>
 
+    [OutputType([Int32])]
     [CmdletBinding()] Param(
-        [UInt32]
-        $ProcessId = 0
+        [UInt32]$ProcessId = 0
     )
 
     $TokenHandle = Get-ProcessTokenHandle -ProcessId $ProcessId
@@ -703,8 +691,7 @@ function Get-TokenInformationStatistics {
     #>
 
     [CmdletBinding()] Param(
-        [UInt32]
-        $ProcessId = 0
+        [UInt32]$ProcessId = 0
     )
 
     $TokenHandle = Get-ProcessTokenHandle -ProcessId $ProcessId
@@ -744,8 +731,7 @@ function Get-TokenInformationOrigin {
     #>
 
     [CmdletBinding()] Param(
-        [UInt32]
-        $ProcessId = 0
+        [UInt32]$ProcessId = 0
     )
 
     $TokenHandle = Get-ProcessTokenHandle -ProcessId $ProcessId
@@ -785,8 +771,7 @@ function Get-TokenInformationSource {
     #>
 
     [CmdletBinding()] Param(
-        [UInt32]
-        $ProcessId = 0
+        [UInt32]$ProcessId = 0
     )
 
     $TokenHandle = Get-ProcessTokenHandle -ProcessId $ProcessId -TokenAccess $TokenAccessRightsEnum::QuerySource
@@ -826,8 +811,7 @@ function Get-TokenInformationUser {
     #>
 
     [CmdletBinding()] Param(
-        [UInt32]
-        $ProcessId = 0
+        [UInt32]$ProcessId = 0
     )
 
     $TokenHandle = Get-ProcessTokenHandle -ProcessId $ProcessId
@@ -875,8 +859,7 @@ function Get-InstalledPrograms {
     #>
 
     [CmdletBinding()] Param(
-        [Switch]
-        $Filtered = $false
+        [Switch]$Filtered = $false
     )
 
     $IgnoredPrograms = @("Common Files", "Internet Explorer", "ModifiableWindowsApps", "PackageManagement", "Windows Defender", "Windows Defender Advanced Threat Protection", "Windows Mail", "Windows Media Player", "Windows Multimedia Platform", "Windows NT", "Windows Photo Viewer", "Windows Portable Devices", "Windows Security", "WindowsPowerShell", "Microsoft.NET", "Windows Portable Devices", "dotnet", "MSBuild", "Intel", "Reference Assemblies")
@@ -1007,7 +990,6 @@ function Get-ServiceControlManagerDacl {
         }
 
         $null = $Advapi32::CloseServiceHandle($ServiceManagerHandle)
-
     }
     else {
         Write-Verbose ([ComponentModel.Win32Exception] $LastError)
@@ -1053,8 +1035,7 @@ function Get-FileDacl {
     #>
 
     [CmdletBinding()] Param(
-        [String]
-        $Path
+        [String]$Path
     )
 
     $DesiredAccess = $FileAccessRightsEnum::ReadControl
@@ -1085,8 +1066,6 @@ function Get-FileDacl {
         return
     }
 
-    # Write-Verbose "GetSecurityInfo OK - SecurityDescriptorPtr: $('{0:x}' -f $SecurityDescriptorPtr) - SidOwnerPtr: $('{0:x}' -f $SidOwnerPtr) - SidGroupPtr: $('{0:x}' -f $SidGroupPtr)"
-
     $OwnerSidString = Convert-PSidToStringSid -PSid $SidOwnerPtr
     $OwnerSidInfo = Convert-PSidToNameAndType -PSid $SidOwnerPtr
     $GroupSidString = Convert-PSidToStringSid -PSid $SidGroupPtr
@@ -1104,8 +1083,6 @@ function Get-FileDacl {
         return
     }
 
-    # Write-Verbose "ConvertSecurityDescriptorToStringSecurityDescriptor OK - SDDL: $SecurityDescriptorString"
-
     $SecurityDescriptorNewPtr = [IntPtr]::Zero
     $SecurityDescriptorNewSize = 0
     $Success = $Advapi32::ConvertStringSecurityDescriptorToSecurityDescriptor($SecurityDescriptorString, 1, [ref]$SecurityDescriptorNewPtr, [ref]$SecurityDescriptorNewSize)
@@ -1117,8 +1094,6 @@ function Get-FileDacl {
         $Kernel32::CloseHandle($FileHandle) | Out-Null
         return
     }
-
-    # Write-Verbose "ConvertStringSecurityDescriptorToSecurityDescriptor OK - Size: $SecurityDescriptorNewSize"
 
     $SecurityDescriptorNewBytes = New-Object Byte[]($SecurityDescriptorNewSize)
     for ($i = 0; $i -lt $SecurityDescriptorNewSize; $i++) {
@@ -1247,8 +1222,8 @@ function Get-ServiceList {
         # If the cached service list hasn't been initialized yet, enumerate all services and populate the
         # cache.
 
-        $ServicesRegPath = "Registry::HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services"
-        $RegAllServices = Get-ChildItem -Path $ServicesRegPath -ErrorAction SilentlyContinue
+        $ServicesRegPath = "HKLM\SYSTEM\CurrentControlSet\Services"
+        $RegAllServices = Get-ChildItem -Path "Registry::$($ServicesRegPath)" -ErrorAction SilentlyContinue
 
         $RegAllServices | ForEach-Object { [void]$CachedServiceList.Add((Get-ServiceFromRegistry -Name $_.PSChildName)) }
     }
@@ -1375,7 +1350,7 @@ function Get-ModifiablePath {
                 }
             }
             catch {
-                # because Split-Path doesn't handle -ErrorAction SilentlyContinue nicely
+                $null = $_
             }
         }
     }
@@ -1533,7 +1508,7 @@ function Get-ModifiablePath {
                     }
                 }
                 catch {
-                    # trap because Get-Acl doesn't handle -ErrorAction SilentlyContinue nicely
+                    $null = $_
                 }
             }
         }
@@ -1542,13 +1517,11 @@ function Get-ModifiablePath {
 
 function Get-UnquotedPath {
 
+    [OutputType([String])]
     [CmdletBinding()] Param(
         [Parameter(Mandatory=$true)]
-        [String]
-        $Path,
-
-        [Switch]
-        $Spaces = $false
+        [String]$Path,
+        [Switch]$Spaces = $false
     )
 
     # Check Check if the path starts with a " or '
@@ -1582,7 +1555,7 @@ function Get-ExploitableUnquotedPath {
     #>
 
     [CmdletBinding()] Param(
-        [String] $Path
+        [String]$Path
     )
 
     $PermissionsAddFile = @("WriteData/AddFile", "DeleteChild", "WriteDAC", "WriteOwner")
@@ -1627,7 +1600,7 @@ function Get-ExploitableUnquotedPath {
             }
         }
         catch {
-            # because Split-Path doesn't handle -ErrorAction SilentlyContinue nicely
+            $null = $_
         }
     }
 }
@@ -1657,8 +1630,7 @@ function Get-ModifiableRegistryPath {
     [CmdletBinding()]
     Param(
         [Parameter(Mandatory=$true, ValueFromPipeline=$true, ValueFromPipelineByPropertyName=$true)]
-        [String[]]
-        $Path
+        [String[]]$Path
     )
 
     BEGIN {
@@ -1745,7 +1717,7 @@ function Get-ModifiableRegistryPath {
             }
         }
         catch {
-            # trap because Get-Acl doesn't handle -ErrorAction SilentlyContinue nicely
+            $null = $_
         }
     }
 }
@@ -1789,9 +1761,8 @@ function Add-ServiceDacl {
     param (
         [Parameter(Position=0, Mandatory=$true, ValueFromPipeline=$true, ValueFromPipelineByPropertyName=$true)]
         [Alias('ServiceName')]
-        [String[]]
         [ValidateNotNullOrEmpty()]
-        $Name
+        [String[]]$Name
     )
 
     BEGIN {
@@ -2196,7 +2167,7 @@ function Get-HotFixList {
         # script.
         $InstalledKBs = New-Object -TypeName System.Collections.ArrayList
 
-        $AllPackages = Get-ChildItem -Path "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\Packages" -ErrorAction SilentlyContinue -ErrorVariable ErrorGetChildItem
+        $AllPackages = Get-ChildItem -Path "Registry::HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\Packages" -ErrorAction SilentlyContinue -ErrorVariable ErrorGetChildItem
 
         if (-not $ErrorGetChildItem) {
 
@@ -2266,7 +2237,7 @@ function Get-SccmCacheFolder {
     License: BSD 3-Clause
     #>
 
-    [CmdletBinding()] param ()
+    [CmdletBinding()] param()
 
     $CcmCachePath = Join-Path -Path $env:windir -ChildPath "CCMCache"
     Get-Item -Path $CcmCachePath -ErrorAction SilentlyContinue | Select-Object -Property FullName,Attributes,Exists
@@ -2308,7 +2279,7 @@ function Get-ScheduledTaskList {
     CurrentUserIsOwner : False
     #>
 
-    [CmdletBinding()] param ()
+    [CmdletBinding()] param()
 
     function Get-ScheduledTasks {
 
@@ -2499,8 +2470,7 @@ function Convert-CredentialBlobToString {
 
     [CmdletBinding()] Param(
         [Parameter(Position = 1, Mandatory=$true)]
-        [Object] # CREDENTIAL
-        $RawObject
+        [Object]$RawObject # CREDENTIAL
     )
 
     if (-not ($RawObject.CredentialBlobSize -eq 0)) {
@@ -2545,12 +2515,10 @@ function Get-VaultCreds {
     Persist    : 2 - LOCAL_MACHINE
     Flags      : 0
     Credential : dBa2F06TTsrvSeLbyoW8
-
     #>
 
     [CmdletBinding()] Param(
-        [Switch]
-        $Filtered = $false
+        [Switch]$Filtered = $false
     )
 
     # CRED_ENUMERATE_ALL_CREDENTIALS = 0x1
@@ -2589,7 +2557,6 @@ function Get-VaultCreds {
         }
 
         $Advapi32::CredFree($CredentialsPtr)
-
     }
     else {
         # If there is no saved credentials, CredEnumerate sets the last error to ERROR_NOT_FOUND but this
@@ -2803,25 +2770,21 @@ function Get-VaultList {
 
                             $VaultItemPtr = [IntPtr] ($VaultItemPtr.ToInt64() + [Runtime.InteropServices.Marshal]::SizeOf([Type] $VaultItemType))
                         }
-
                     }
                     catch [Exception] {
                         Write-Verbose $_.Exception.Message
                     }
-
                 }
                 else {
                     Write-Verbose "VaultEnumerateItems() failed - Err: 0x$($Result.ToString('X8'))"
                 }
 
                 $Vaultcli::VaultCloseVault([ref]$VaultHandle) | Out-Null
-
             }
             else {
                 Write-Verbose "VaultOpenVault() failed - Err: 0x$($Result.ToString('X8'))"
             }
         }
-
     }
     else {
         Write-Verbose "VaultEnumerateVaults() failed - Err: 0x$($Result.ToString('X8'))"
@@ -3068,8 +3031,7 @@ function Get-ShadowCopies {
         $TypeName = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($ObjectDirectoryInformation.TypeName.Buffer)
         $Name = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($ObjectDirectoryInformation.Name.Buffer)
 
-        if ($TypeName -eq "Device" -and $Name -like "*VolumeShadowCopy*")
-        {
+        if ($TypeName -eq "Device" -and $Name -like "*VolumeShadowCopy*") {
             $Result = New-Object -TypeName PSObject
             $Result | Add-Member -MemberType "NoteProperty" -Name "Volume" -Value $Name
             $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $(Join-Path -Path "\\?\GLOBALROOT\Device\" -ChildPath $Name)

@@ -41,7 +41,7 @@ function Invoke-UacCheck {
     https://labs.f-secure.com/blog/enumerating-remote-access-policies-through-gpo/
     #>
 
-    [CmdletBinding()]Param()
+    [CmdletBinding()] Param()
 
     $RegKey = "HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\System"
     $RegValue = "EnableLUA"
@@ -132,7 +132,7 @@ function Invoke-LapsCheck {
     Compliance  : False
     #>
 
-    [CmdletBinding()]Param()
+    [CmdletBinding()] Param()
 
     $RegKey = "HKLM\SOFTWARE\Policies\Microsoft Services\AdmPwd"
     $RegValue = "AdmPwdEnabled"
@@ -187,7 +187,7 @@ function Invoke-PowershellTranscriptionCheck {
     Set an output directory and set the policy as Enabled
     #>
 
-    [CmdletBinding()]Param()
+    [CmdletBinding()] Param()
 
     $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows\PowerShell\Transcription"
     $RegItem = Get-ItemProperty -Path "Registry::$($RegKey)" -ErrorAction SilentlyContinue
@@ -222,7 +222,7 @@ function Invoke-BitlockerCheck {
     Result      : BitLocker is not enabled
     #>
 
-    [CmdletBinding()]Param()
+    [CmdletBinding()] Param()
 
     $MachineRole = Invoke-MachineRoleCheck
     if ($MachineRole.Name -notlike "WinNT") { continue }
@@ -313,7 +313,7 @@ function Invoke-CredentialGuardCheck {
     Compliance                            : False
     #>
 
-    [CmdletBinding()]Param()
+    [CmdletBinding()] Param()
 
     $OsVersion = Get-WindowsVersion
 

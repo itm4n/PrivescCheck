@@ -2,13 +2,19 @@
 
 ## 2022-04-07
 
+### Added
+
+- Explicit output types where possible
+
 ### Changed
 
 - Rewrite the Builder and the Loader
+- Rename "Write-PrivescCheckAsciiReport" to "Show-PrivescCheckAsciiReport"
 
 ### Removed
 
 - Trailing spaces in the entire code (code cleanup)
+- Empty catch blocks
 
 ## 2022-03-13
 

@@ -114,8 +114,7 @@ function Invoke-ServicesUnquotedPathCheck {
     #>
 
     [CmdletBinding()] Param(
-        [switch]
-        $Info = $false
+        [switch]$Info = $false
     )
 
     # Get all services which have a non-empty ImagePath (exclude drivers as well)

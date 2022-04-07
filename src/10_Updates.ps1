@@ -63,8 +63,7 @@ function Invoke-HotFixCheck {
     #>
 
     [CmdletBinding()] Param(
-        [switch]
-        $Info
+        [switch]$Info
     )
 
     # Get the list of installed patches

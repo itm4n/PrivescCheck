@@ -29,7 +29,7 @@ function Invoke-NetworkAdaptersCheck {
     DNSSuffixList   :
     #>
 
-    [CmdletBinding()]Param()
+    [CmdletBinding()] Param()
 
     Get-NetworkAdaptersList | Where-Object { $_.Type -eq "Ethernet" -or $_.Type -eq "IEEE80211" } | Select-Object -Property Name,FriendlyName,Type,Status,DnsSuffix,Description,PhysicalAddress,Flags,IPv6,IPv4,Gateway,DHCPv4Server,DHCPv6Server,DnsServers,DNSSuffixList
 }
@@ -73,7 +73,7 @@ function Invoke-TcpEndpointsCheck {
     IPv6 TCP   [::]:49669         LISTENING  656 services
     #>
 
-    [CmdletBinding()]Param(
+    [CmdletBinding()] Param(
         [Switch]$Filtered
     )
 
@@ -158,7 +158,7 @@ function Invoke-UdpEndpointsCheck {
     IPv6 UDP   [fe80::3a:b6c0:b5f0:a05e%12]:51005 N/A   5088 svchost
     #>
 
-    [CmdletBinding()]Param(
+    [CmdletBinding()] Param(
         [Switch]$Filtered
     )
 
@@ -642,10 +642,8 @@ function Get-NetworkEndpoints {
     #>
 
     [CmdletBinding()] Param(
-        [Switch]
-        $IPv6 = $false, # IPv4 by default
-        [Switch]
-        $UDP = $false # TCP by default
+        [Switch]$IPv6 = $false, # IPv4 by default
+        [Switch]$UDP = $false # TCP by default
     )
 
     $AF_INET6 = 23
@@ -834,7 +832,7 @@ function Convert-WlanXmlProfile {
             param([string]$ConnectionType)
             if ([string]::IsNullOrEmpty($ConnectionType)) { return }
             $Enumeration = @{ "ESS" = "Infrastructure" ; "IBSS" = "Ad-hoc" }
-            try { $Enumeration[$ConnectionType] } catch { }
+            try { $Enumeration[$ConnectionType] } catch { Write-Warning "Unknown connection type: $($ConnectionType)" }
         }
 
         function Get-EapTypeName {

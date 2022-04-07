@@ -10,7 +10,7 @@ function Invoke-RegistryAlwaysInstallElevatedCheck {
     AlwaysInstallElevated can be configured in both HKLM and HKCU. "If the AlwaysInstallElevated value is not set to "1" under both of the preceding registry keys, the installer uses elevated privileges to install managed applications and uses the current user's privilege level for unmanaged applications."
     #>
 
-    [CmdletBinding()]Param()
+    [CmdletBinding()] Param()
 
     $Results = @()
 
@@ -153,7 +153,7 @@ function Invoke-HardenedUNCPathCheck {
       * https://beyondsecurity.com/scan-pentest-network-vulnerabilities-in-group-policy-allows-code-execution-ms15-011.html
     #>
 
-    [CmdletBinding()]Param()
+    [CmdletBinding()] Param()
 
     # Hardened UNC paths ensure that the communication between a client and a Domain Controller
     # cannot be tampered with, so this setting only applies to domain-joined machines. If the
@@ -266,8 +266,7 @@ function Invoke-SccmCacheFolderCheck {
     #>
 
     [CmdletBinding()] param (
-        [switch]
-        $Info = $false
+        [switch]$Info = $false
     )
 
     Get-SccmCacheFolder | ForEach-Object {
@@ -515,7 +514,7 @@ function Invoke-DriverCoInstallersCheck {
     Compliance  : False
     #>
 
-    [CmdletBinding()]Param()
+    [CmdletBinding()] Param()
 
     $RegKey = "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Device Installer"
     $RegValue = "DisableCoInstallers"

@@ -163,8 +163,7 @@ function Invoke-ApplicationsOnStartupCheck {
     #>
 
     [CmdletBinding()] Param(
-        [switch]
-        $Info = $false
+        [switch]$Info = $false
     )
 
     # Is it relevant to check HKCU entries???
@@ -248,27 +247,12 @@ function Invoke-ApplicationsOnStartupCheck {
                     if ($IsModifiable) { $Result } # If vulnerable, report
                 }
                 catch {
-                    # do nothing
+                    Write-Warning "$($MyInvocation.MyCommand) [ Failed to create Shortcut object from path: $($EntryPath)"
                 }
             }
         }
     }
 }
-
-# function Invoke-ApplicationsOnStartupVulnCheck {
-#     <#
-#     .SYNOPSIS
-#     Enumerates startup applications that can be modified by the current user
-
-#     Author: @itm4n
-#     License: BSD 3-Clause
-
-#     .DESCRIPTION
-#     Some applications can be set as "startup" applications for all users. If a user can modify one of these apps, they would potentially be able to run arbitrary code in the context of other users. Therefore, low-privileged users should not be able to modify the files used by such application.
-#     #>
-
-#     Invoke-ApplicationsOnStartupCheck | Where-Object { $_.IsModifiable }
-# }
 
 function Invoke-RunningProcessCheck {
     <#
@@ -314,8 +298,7 @@ function Invoke-RunningProcessCheck {
     #>
 
     [CmdletBinding()] Param(
-        [Switch]
-        $Self = $false
+        [Switch]$Self = $false
     )
 
     $CurrentUser = $CurrentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
