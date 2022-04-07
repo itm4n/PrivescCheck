@@ -5,13 +5,13 @@ function Invoke-UacCheck {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     The state of UAC can be determined based on the value of the parameter "EnableLUA" in the following registry key:
     HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\System
     0 = Disabled
-    1 = Enabled 
-    
+    1 = Enabled
+
     .EXAMPLE
     PS C:\> Invoke-UacCheck | fl
 
@@ -20,7 +20,7 @@ function Invoke-UacCheck {
     Data        : 1
     Description : UAC is enabled
     Compliance  : True
-    
+
     .NOTES
     "UAC was formerly known as Limited User Account (LUA)."
     IF EnableLUA = 0
@@ -40,7 +40,7 @@ function Invoke-UacCheck {
     https://docs.microsoft.com/en-us/windows-hardware/customize/desktop/unattend/microsoft-windows-lua-settings-enablelua
     https://labs.f-secure.com/blog/enumerating-remote-access-policies-through-gpo/
     #>
-    
+
     [CmdletBinding()]Param()
 
     $RegKey = "HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\System"
@@ -56,8 +56,8 @@ function Invoke-UacCheck {
     $Result | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $($RegData -ge 1)
     $Result
 
-    # If UAC is enabled, check LocalAccountTokenFilterPolicy to determine if only the built-in 
-    # administrator can get a high integrity token remotely or if any local user that is a 
+    # If UAC is enabled, check LocalAccountTokenFilterPolicy to determine if only the built-in
+    # administrator can get a high integrity token remotely or if any local user that is a
     # member of the Administrators group can also get one.
     if ($RegData -ge 1) {
 
@@ -83,7 +83,7 @@ function Invoke-UacCheck {
         $Result
 
         # If LocalAccountTokenFilterPolicy != 1, i.e. local admins other than RID 500 are not granted a
-        # high integrity token. However, we need to check if other restrictions apply to the built-in 
+        # high integrity token. However, we need to check if other restrictions apply to the built-in
         # administrator as well.
         if ($null -eq $RegData -or $RegData -eq 0) {
 
@@ -118,7 +118,7 @@ function Invoke-LapsCheck {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     The status of LAPS can be check using the following registry key: HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft Services\AdmPwd
 
@@ -131,7 +131,7 @@ function Invoke-LapsCheck {
     Description : LAPS is not configured
     Compliance  : False
     #>
-    
+
     [CmdletBinding()]Param()
 
     $RegKey = "HKLM\SOFTWARE\Policies\Microsoft Services\AdmPwd"
@@ -161,17 +161,17 @@ function Invoke-PowershellTranscriptionCheck {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     Powershell Transcription is used to log PowerShell scripts execution. It can be configured thanks to the Group Policy Editor. The settings are stored in the following registry key: HKLM\SOFTWARE\Policies\Microsoft\Windows\PowerShell\Transcription
-    
+
     .EXAMPLE
     PS C:\> Invoke-PowershellTranscriptionCheck | fl
 
     EnableTranscripting    : 1
     EnableInvocationHeader : 1
     OutputDirectory        : C:\Transcripts
-    
+
     .NOTES
     If PowerShell Transcription is configured, the settings can be found here:
 
@@ -181,17 +181,17 @@ function Invoke-PowershellTranscriptionCheck {
         EnableTranscripting    REG_DWORD    0x1
         OutputDirectory    REG_SZ    C:\Transcripts
         EnableInvocationHeader    REG_DWORD    0x1
-    
+
     To enable PowerShell Transcription:
     Group Policy Editor > Administrative Templates > Windows Components > Windows PowerShell > PowerShell Transcription
     Set an output directory and set the policy as Enabled
     #>
-    
+
     [CmdletBinding()]Param()
 
     $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows\PowerShell\Transcription"
     $RegItem = Get-ItemProperty -Path "Registry::$($RegKey)" -ErrorAction SilentlyContinue
-    
+
     if ($RegItem) {
         $Result = New-Object -TypeName PSObject
         $Result | Add-Member -MemberType "NoteProperty" -Name "EnableTranscripting" -Value $(if ($null -eq $RegItem.EnableTranscripting) { "(null)" } else { $RegItem.EnableTranscripting })
@@ -208,10 +208,10 @@ function Invoke-BitlockerCheck {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     When BitLocker is enabled on the system drive, the value "BootStatus" is set to 1 in the following registry key: 'HKLM\SYSTEM\CurrentControlSet\Control\BitLockerStatus'.
-    
+
     .EXAMPLE
     PS C:\> Invoke-BitlockerCheck
 
@@ -254,10 +254,10 @@ function Invoke-LsaProtectionCheck {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     Invokes the helper function Get-LsaRunAsPPLStatus
-    
+
     .EXAMPLE
     PS C:\> Invoke-LsaProtectionCheck
 
@@ -299,7 +299,7 @@ function Invoke-CredentialGuardCheck {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     Invokes the helper function Get-CredentialGuardStatus
 
@@ -326,7 +326,7 @@ function Invoke-CredentialGuardCheck {
 
                 $Compliance = $false
                 $Description = "Credential Guard is configured but is not running"
-    
+
                 $DeviceGuardSecurityServicesRunning = (Get-ComputerInfo).DeviceGuardSecurityServicesRunning
                 if ($DeviceGuardSecurityServicesRunning -match 'CredentialGuard') {
                     $Compliance = $true
@@ -347,7 +347,7 @@ function Invoke-CredentialGuardCheck {
         $Compliance = $false
         $Description = "Credential Guard is not supported on this OS"
     }
-    
+
     $Result = New-Object -TypeName PSObject
     $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value "Credential Guard"
     $Result | Add-Member -MemberType "NoteProperty" -Name "DeviceGuardSecurityServicesConfigured" -Value $(if ($null -eq $DeviceGuardSecurityServicesConfigured) { "(null)" } else { $DeviceGuardSecurityServicesConfigured })
@@ -364,10 +364,10 @@ function Invoke-BiosModeCheck {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     Invokes the helper functions Get-UEFIStatus and Get-SecureBootStatus
-    
+
     .EXAMPLE
     PS C:\> Invoke-BiosModeCheck
 

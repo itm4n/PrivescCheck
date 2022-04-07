@@ -35,13 +35,13 @@ function Convert-SidToName {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     This helper function takes a user SID as an input parameter and returns the account name associated to this SID. If an account name cannot be found, nothing is returned.
-    
+
     .PARAMETER Sid
     A user account SID, e.g.: S-1-5-18.
-    
+
     .EXAMPLE
     An example
     PS C:\> Convert-SidToName -Sid S-1-5-18"
@@ -132,19 +132,19 @@ function Convert-DateToString {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
-    The output string is a simplified version of the ISO format: YYYY-MM-DD hh:mm:ss. 
-    
+    The output string is a simplified version of the ISO format: YYYY-MM-DD hh:mm:ss.
+
     .PARAMETER Date
     A System.DateTime object
-    
+
     .EXAMPLE
     PS C:\> $Date = Get-Date; Convert-DateToString -Date $Date
 
     2020-01-16 - 10:26:11
     #>
-    
+
     [CmdletBinding()] Param(
         [System.DateTime]
         $Date
@@ -221,20 +221,20 @@ function Get-ProcessTokenHandle {
     <#
     .SYNOPSIS
     Open a Process Token handle
-    
+
     .DESCRIPTION
     This helper function returns a Process Token handle.
-    
+
     .PARAMETER ProcessId
     The ID of a Process. By default, the value is zero, which means open the current Process.
-    
+
     .PARAMETER ProcessAccess
     The access flags used to open the Process.
-    
+
     .PARAMETER TokenAccess
     The access flags used to open the Token.
     #>
-    
+
     [CmdletBinding()] Param(
         [UInt32]
         $ProcessId = 0,
@@ -258,7 +258,7 @@ function Get-ProcessTokenHandle {
             return
         }
     }
-    
+
     Write-Verbose "Process handle: $('{0:8x}' -f $ProcessHandle)"
 
     [IntPtr]$TokenHandle = [IntPtr]::Zero
@@ -280,13 +280,13 @@ function Get-TokenInformationData {
     <#
     .SYNOPSIS
     Get information about a Token.
-    
+
     .DESCRIPTION
     This helper function leverages the Windows API (GetTokenInformation) to get various information about a Token. It takes a Token handle and an information class as the input parameter and returns a pointer to a buffer that contains the result data. The returned buffer must be freed with a call to FreeHGlobal.
-    
+
     .PARAMETER TokenHandle
     A Token handle.
-    
+
     .PARAMETER InformationClass
     The type of information to retrieve from the Token.
     #>
@@ -330,19 +330,19 @@ function Get-TokenInformationGroups {
     <#
     .SYNOPSIS
     List the groups of a Token.
-    
+
     Author: @itm4n
     License: BSD 3-Clause
 
     .DESCRIPTION
     This function leverages the Windows API (GetTokenInformation) to list the groups that are associated to a token.
-    
+
     .PARAMETER ProcessId
     The ID of a Process to retrieve information from. By default, the value is zero, which means retrieve information from the current process.
-    
+
     .PARAMETER InformationClass
     The type of group to retrieve. Supported values are: "Groups", "RestrictedSids", "LogonSid", "Capabilities", "DeviceGroups" and "RestrictedDeviceGroups".
-    
+
     .EXAMPLE
     PS C:\> Get-TokenInformationGroups -InformationClass Groups
 
@@ -419,13 +419,13 @@ function Get-TokenInformationGroups {
     Write-Verbose "Number of groups: $($TokenGroups.GroupCount)"
 
     # Offset of the first SID_AND_ATTRIBUTES structure is +4 in 32-bits, and +8 in 64-bits (because
-    # of the structure alignment in memory). Therefore we can use [IntPtr]::Size as the offset's 
+    # of the structure alignment in memory). Therefore we can use [IntPtr]::Size as the offset's
     # value for the first item in the array.
     $CurrentGroupPtr = [IntPtr] ($TokenGroupsPtr.ToInt64() + [IntPtr]::Size)
     for ($i = 0; $i -lt $TokenGroups.GroupCount; $i++) {
 
         $CurrentGroup = [Runtime.InteropServices.Marshal]::PtrToStructure($CurrentGroupPtr, [type] $SID_AND_ATTRIBUTES)
-        
+
         $GroupAttributes = $SupportedGroupAttributes.GetEnumerator() | ForEach-Object {
             if ( $_.value -band $CurrentGroup.Attributes ) {
                 $_.name
@@ -434,7 +434,7 @@ function Get-TokenInformationGroups {
 
         $SidInfo = Convert-PSidToNameAndType -PSid $CurrentGroup.Sid
         $SidString = Convert-PSidToStringSid -PSid $CurrentGroup.Sid
-        
+
         $GroupType = $SupportedTypes.GetEnumerator() | ForEach-Object {
             if ( $_.value -eq $SidInfo.Type ) {
                 $_.name
@@ -464,13 +464,13 @@ function Get-TokenInformationPrivileges {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     This function leverages the Windows API (GetTokenInformation) to list the privileges that are associated to a token.
-    
+
     .PARAMETER ProcessId
     The ID of Process. By default, the value is zero, which means retrieve information from the current process.
-    
+
     .EXAMPLE
     PS C:\> Get-TokenInformationPrivileges
 
@@ -590,13 +590,13 @@ function Get-TokenInformationIntegrityLevel {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     This function leverages the Windows API (GetTokenInformation) to get the integrity level of a Token.
-    
+
     .PARAMETER ProcessId
     The ID of Process. By default, the value is zero, which means retrieve information from the current process.
-    
+
     .EXAMPLE
     PS C:\> Get-TokenInformationIntegrityLevel
 
@@ -604,7 +604,7 @@ function Get-TokenInformationIntegrityLevel {
     ----                                   ---          ----
     Mandatory Label\Medium Mandatory Level S-1-16-8192 Label
     #>
-    
+
     [CmdletBinding()] Param(
         [UInt32]
         $ProcessId = 0
@@ -641,13 +641,13 @@ function Get-TokenInformationSessionId {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     This function leverages the Windows API (GetTokenInformation) to get the session ID of a Token.
-    
+
     .PARAMETER ProcessId
     The ID of Process. By default, the value is zero, which means retrieve information from the current process.
-    
+
     .EXAMPLE
     PS C:\> Get-TokenInformationSessionId
 
@@ -680,13 +680,13 @@ function Get-TokenInformationStatistics {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     This function leverages the Windows API (GetTokenInformation) to get general statistics about a Token.
-    
+
     .PARAMETER ProcessId
     The ID of Process. By default, the value is zero, which means retrieve information from the current process.
-    
+
     .EXAMPLE
     PS C:\> Get-TokenInformationStatistics
 
@@ -717,7 +717,7 @@ function Get-TokenInformationStatistics {
 
     [System.Runtime.InteropServices.Marshal]::FreeHGlobal($TokenStatisticsPtr)
     $Kernel32::CloseHandle($TokenHandle) | Out-Null
-    
+
     $TokenStatistics
 }
 
@@ -728,13 +728,13 @@ function Get-TokenInformationOrigin {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     This function leverages the Windows API (GetTokenInformation) to get the origin of a Token.
-    
+
     .PARAMETER ProcessId
     The ID of Process. By default, the value is zero, which means retrieve information from the current process.
-    
+
     .EXAMPLE
     PS C:\> Get-TokenInformationOrigin
 
@@ -769,13 +769,13 @@ function Get-TokenInformationSource {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     This function leverages the Windows API (GetTokenInformation) to get the source of a Token.
-    
+
     .PARAMETER ProcessId
     The ID of Process. By default, the value is zero, which means retrieve information from the current process.
-    
+
     .EXAMPLE
     PS C:\> Get-TokenInformationSource
 
@@ -810,13 +810,13 @@ function Get-TokenInformationUser {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     This function leverages the Windows API (GetTokenInformation) to get the user associated to a Token.
-    
+
     .PARAMETER ProcessId
     The ID of a Process to retrieve information from. By default, the value is zero, which means retrieve information from the current process.
-    
+
     .EXAMPLE
     PS C:\> Get-TokenInformationUser
 
@@ -854,17 +854,17 @@ function Get-TokenInformationUser {
 function Get-InstalledPrograms {
     <#
     .SYNOPSIS
-    Helper - Enumerates the installed applications 
+    Helper - Enumerates the installed applications
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     This looks for applications installed in the common "Program Files" and "Program Files (x86)" folders. It also enumerates installed applications thanks to the registry by looking for all the subkeys in "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall".
 
     .PARAMETER Filtered
     If True, only non-default applications are returned. Otherwise, all the applications are returned. The filter is base on a list of known applications which are known to be installed by default (e.g.: "Windows Defender").
-    
+
     .EXAMPLE
     PS C:\> Get-InstalledPrograms -Filtered
 
@@ -873,7 +873,7 @@ function Get-InstalledPrograms {
     d----        29/11/2019     10:51            Npcap
     d----        29/11/2019     10:51            Wireshark
     #>
-    
+
     [CmdletBinding()] Param(
         [Switch]
         $Filtered = $false
@@ -885,14 +885,14 @@ function Get-InstalledPrograms {
 
     # List all items in 'C:\Program Files' and 'C:\Program Files (x86)'
     $PathProgram32 = Join-Path -Path $env:SystemDrive -ChildPath "Program Files (x86)"
-    $PathProgram64 = Join-Path -Path $env:SystemDrive -ChildPath "Program Files" 
+    $PathProgram64 = Join-Path -Path $env:SystemDrive -ChildPath "Program Files"
 
     $Items = Get-ChildItem -Path $PathProgram32,$PathProgram64 -ErrorAction SilentlyContinue
     if ($Items) {
         [void]$InstalledPrograms.AddRange($Items)
     }
-    
-    $RegInstalledPrograms = Get-ChildItem -Path "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall" 
+
+    $RegInstalledPrograms = Get-ChildItem -Path "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"
     $RegInstalledPrograms6432 = Get-ChildItem -Path "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall" -ErrorAction SilentlyContinue
     if ($RegInstalledPrograms6432) { $RegInstalledPrograms += $RegInstalledPrograms6432 }
 
@@ -932,10 +932,10 @@ function Get-ServiceControlManagerDacl {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     The SCM (Service Control Manager) has its own DACL which defines which users/groups can connect / create services / enumerate services / etc. This function requests Read access to the SCM and queries this DACL. The DACL is returned as a Security Descriptor, which is a binary blob. Therefore, it is converted to a list of ACE objects, which can then be easily used by the caller.
-    
+
     .EXAMPLE
     PS C:\> Get-ServiceControlManagerDacl
 
@@ -953,7 +953,7 @@ function Get-ServiceControlManagerDacl {
     PropagationFlags   : None
     AuditFlags         : None
     ...
-    
+
     .NOTES
     https://docs.microsoft.com/en-us/windows/win32/services/service-security-and-access-rights
     #>
@@ -983,7 +983,7 @@ function Get-ServiceControlManagerDacl {
             if ($Success) {
 
                 $RawSecurityDescriptor = New-Object Security.AccessControl.RawSecurityDescriptor -ArgumentList $BinarySecurityDescriptor, 0
-                
+
                 $Dacl = $RawSecurityDescriptor.DiscretionaryAcl
 
                 if ($null -eq $Dacl) {
@@ -1021,13 +1021,13 @@ function Get-FileDacl {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     This function leverages the Windows API to get some security information about a file, such as the owner and the DACL.
-    
+
     .PARAMETER Path
     The path of a file such as "C:\Windows\win.ini", "\\.pipe\spoolss"
-    
+
     .EXAMPLE
     PS C:\> Get-FileDacl -Path C:\Windows\win.ini
 
@@ -1137,7 +1137,7 @@ function Get-FileDacl {
     $Result | Add-Member -MemberType "NoteProperty" -Name "Access" -Value $RawSecurityDescriptor.DiscretionaryAcl
     $Result | Add-Member -MemberType "NoteProperty" -Name "SDDL" -Value $SecurityDescriptorString
     $Result
-    
+
     $Kernel32::LocalFree($SecurityDescriptorNewPtr) | Out-Null
     $Kernel32::LocalFree($SecurityDescriptorPtr) | Out-Null
     $Kernel32::CloseHandle($FileHandle) | Out-Null
@@ -1150,13 +1150,13 @@ function Get-ServiceFromRegistry {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     Services' configuration is stored in teh registry under "HKLM\SYSTEM\CurrentControlSet\Services". For each service, a subkey is created and contains all the information we need. So we can just query this key to get a service's configuration.
-    
+
     .PARAMETER Name
     Name of a service.
-    
+
     .EXAMPLE
     PS C:\> Get-ServiceFromRegistry -Name Spooler
 
@@ -1200,18 +1200,18 @@ function Get-ServiceList {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     This uses the registry to enumerate the services by looking for the subkeys of "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services". This allows any user to get information about all the services. So, even if non-privileged users can't access the details of a service through the Service Control Manager, they can do so simply by accessing the registry.
-    
+
     .PARAMETER FilterLevel
-    This parameter can be used to filter out the result returned by the function based on the 
+    This parameter can be used to filter out the result returned by the function based on the
     following criteria:
-        FilterLevel = 0 - No filtering 
+        FilterLevel = 0 - No filtering
         FilterLevel = 1 - Exclude 'Services with empty ImagePath'
-        FilterLevel = 2 - Exclude 'Services with empty ImagePath' + 'Drivers' 
-        FilterLevel = 3 - Exclude 'Services with empty ImagePath' + 'Drivers' + 'Known services' 
-    
+        FilterLevel = 2 - Exclude 'Services with empty ImagePath' + 'Drivers'
+        FilterLevel = 3 - Exclude 'Services with empty ImagePath' + 'Drivers' + 'Known services'
+
     .EXAMPLE
     PS C:\> Get-ServiceList -FilterLevel 3
 
@@ -1223,7 +1223,7 @@ function Get-ServiceList {
     Type         : Win32OwnProcess
     RegistryKey  : HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\VMTools
     RegistryPath : Microsoft.PowerShell.Core\Registry::HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\VMTools
-    
+
     .NOTES
     A service "Type" can be one of the following:
         KernelDriver = 1
@@ -1231,10 +1231,10 @@ function Get-ServiceList {
         Adapter = 4
         RecognizerDriver = 8
         Win32OwnProcess = 16
-        Win32ShareProcess = 32 
+        Win32ShareProcess = 32
         InteractiveProcess = 256
     #>
-    
+
     [CmdletBinding()] Param(
         [Parameter(Mandatory=$true)]
         [ValidateSet(0,1,2,3)]
@@ -1244,7 +1244,7 @@ function Get-ServiceList {
 
     if ($CachedServiceList.Count -eq 0) {
 
-        # If the cached service list hasn't been initialized yet, enumerate all services and populate the 
+        # If the cached service list hasn't been initialized yet, enumerate all services and populate the
         # cache.
 
         $ServicesRegPath = "Registry::HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services"
@@ -1290,7 +1290,7 @@ function Get-ModifiablePath {
     .DESCRIPTION
     Takes a complex path specification of an initial file/folder path with possible configuration files, 'tokenizes' the string in a number of possible ways, and enumerates the ACLs for each path that currently exists on the system. Any path that the current user has modification rights on is returned in a custom object that contains the modifiable path, associated permission set, and the IdentityReference with the specified rights. The SID of the current user and any group he/she are a part of are used as the comparison set against the parsed path DACLs.
 
-    @itm4n: I made some small changes to the original code in order to prevent false positives as much as possible. 
+    @itm4n: I made some small changes to the original code in order to prevent false positives as much as possible.
 
     .PARAMETER Path
     The string path to parse for modifiable files. Required
@@ -1315,7 +1315,7 @@ function Get-ModifiablePath {
     C:\Vuln\config.ini         {ReadAttributes, ReadCo... NT AUTHORITY\Authentic...
     ...
     #>
-    
+
     [CmdletBinding()]
     Param(
         [Parameter(Mandatory=$true, ValueFromPipeline=$true, ValueFromPipelineByPropertyName=$true)]
@@ -1364,7 +1364,7 @@ function Get-ModifiablePath {
             Param(
                 [String]$Path
             )
-    
+
             try {
                 $ParentPath = Split-Path $Path -Parent
                 if ($ParentPath -and $(Test-Path -Path $ParentPath -ErrorAction SilentlyContinue)) {
@@ -1415,7 +1415,7 @@ function Get-ModifiablePath {
             else {
 
                 $TargetPath = $([System.Environment]::ExpandEnvironmentVariables($TargetPath)).Trim()
-                
+
                 foreach ($SeparationCharacterSet in $SeparationCharacterSets) {
 
                     $TargetPath.Split($SeparationCharacterSet) | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.trim())) } | ForEach-Object {
@@ -1425,13 +1425,13 @@ function Get-ModifiablePath {
                             if ($SeparationCharacterSet -notmatch ' ') {
 
                                 $TempPath = $([System.Environment]::ExpandEnvironmentVariables($_)).Trim()
-    
-                                # If the candidate path is something like '/svc', skip it because it will be interpreted as 
-                                # 'C:\svc'. It should filter out a lot of false postives. There is also a small chance that 
-                                # it will exclude actual vulnerable paths in some very particular cases where a path such 
+
+                                # If the candidate path is something like '/svc', skip it because it will be interpreted as
+                                # 'C:\svc'. It should filter out a lot of false postives. There is also a small chance that
+                                # it will exclude actual vulnerable paths in some very particular cases where a path such
                                 # as '/Temp/Something' is used as an argument. This seems very unlikely though.
-                                if ((-not ($TempPath -Like "/*")) -and (-not ($TempPath -match "^[A-Z]:`$"))) { 
-    
+                                if ((-not ($TempPath -Like "/*")) -and (-not ($TempPath -match "^[A-Z]:`$"))) {
+
                                     if (-not [String]::IsNullOrEmpty($TempPath)) {
 
                                         # Does the object exist? Be it a file or a directory.
@@ -1439,7 +1439,7 @@ function Get-ModifiablePath {
 
                                             $ResolvedPath = Resolve-Path -Path $TempPath | Select-Object -ExpandProperty Path
                                             $CandidatePaths += $ResolvedPath
-                        
+
                                             # If the path corresponds to a file, we want to check its parent directory as well. There are cases
                                             # where the target file is configured with secure permissions but a user can still add files in the
                                             # same folder. In such case, a DLL proxying attack is still possible.
@@ -1448,7 +1448,7 @@ function Get-ModifiablePath {
                                             }
                                         }
                                         else {
-                        
+
                                             # If the path doesn't correspond to an existing file or directory, find the first existing parent
                                             # directory (if such directory exists) and add it to the list of candidate paths.
                                             $CandidatePaths += Get-FirstExistingParentFolder -Path $TempPath
@@ -1489,28 +1489,28 @@ function Get-ModifiablePath {
 
                             # If the type of the current ACE is not 'Allow', ignore it.
                             if ($Ace.AccessControlType -notmatch 'Allow') { continue }
-    
+
                             # If the object we are checking is a directory (i.e. a Container), the Propagation flags are very
-                            # important. This value determines whether the ACE applies to the object itself only or to the 
+                            # important. This value determines whether the ACE applies to the object itself only or to the
                             # child objects only. Although PropagationFlags allows a bitwise combination of its member values,
-                            # they are not really compatible with one another. For example, it can have the value 
-                            # NoPropagateInherit (1), which indicates that the ACE is not propagated to child objects. The 
+                            # they are not really compatible with one another. For example, it can have the value
+                            # NoPropagateInherit (1), which indicates that the ACE is not propagated to child objects. The
                             # other possible value is InheritOnly (2) and indicates that the ACE is propagated *only* to child
-                            # objects. Anyway, what's important to us is making sure that PropagationFlags does not contain the 
+                            # objects. Anyway, what's important to us is making sure that PropagationFlags does not contain the
                             # value InheritOnly.
                             if ($Ace.PropagationFlags -band ([System.Security.AccessControl.PropagationFlags]"InheritOnly").value__) { continue }
-        
+
                             $Permissions = $AccessMask.Keys | Where-Object { $Ace.FileSystemRights.value__ -band $_ } | ForEach-Object { $accessMask[$_] }
-    
+
                             # the set of permission types that allow for modification
                             $Comparison = Compare-Object -ReferenceObject $Permissions -DifferenceObject @('GenericWrite', 'GenericAll', 'MaximumAllowed', 'WriteOwner', 'WriteDAC', 'WriteData/AddFile', 'AppendData/AddSubdirectory') -IncludeEqual -ExcludeDifferent
-    
+
                             if ($Comparison) {
-    
+
                                 if ($Ace.IdentityReference -notmatch '^S-1-5.*' -and $Ace.IdentityReference -notmatch '^S-1-15-.*') {
-    
+
                                     if (-not ($TranslatedIdentityReferences[$Ace.IdentityReference])) {
-    
+
                                         # translate the IdentityReference if it's a username and not a SID
                                         $IdentityUser = New-Object System.Security.Principal.NTAccount($Ace.IdentityReference)
                                         $TranslatedIdentityReferences[$Ace.IdentityReference] = $IdentityUser.Translate([System.Security.Principal.SecurityIdentifier]) | Select-Object -ExpandProperty Value
@@ -1520,7 +1520,7 @@ function Get-ModifiablePath {
                                 else {
                                     $IdentitySID = $Ace.IdentityReference
                                 }
-    
+
                                 if ($CurrentUserSids -contains $IdentitySID) {
                                     $Result = New-Object -TypeName PSObject
                                     $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $CandidatePath
@@ -1573,10 +1573,10 @@ function Get-ExploitableUnquotedPath {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     Parse a path, determine if it's "unquoted" and check whether it's exploitable.
-    
+
     .PARAMETER Path
     A path (or a command line for example)
     #>
@@ -1610,7 +1610,7 @@ function Get-ExploitableUnquotedPath {
 
             # Does the parent folder exist?
             if (-not (Test-Path -Path $BinFolder -ErrorAction SilentlyContinue)) { continue }
-    
+
             $ModifiablePaths = $BinFolder | Get-ModifiablePath | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
             foreach ($ModifiablePath in $ModifiablePaths) {
 
@@ -1639,13 +1639,13 @@ function Get-ModifiableRegistryPath {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     Any registry path that the current user has modification rights on is returned in a custom object that contains the modifiable path, associated permission set, and the IdentityReference with the specified rights. The SID of the current user and any group he/she are a part of are used as the comparison set against the parsed path DACLs.
-    
+
     .PARAMETER Path
     A registry key path. Required
-    
+
     .EXAMPLE
     PS C:\> Get-ModifiableRegistryPath -Path "Registry::HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\DVWS"
 
@@ -1653,7 +1653,7 @@ function Get-ModifiableRegistryPath {
     IdentityReference : NT AUTHORITY\Authenticated Users
     Permissions       : {ReadControl, ReadData/ListDirectory, AppendData/AddSubdirectory, WriteData/AddFile...}
     #>
-    
+
     [CmdletBinding()]
     Param(
         [Parameter(Mandatory=$true, ValueFromPipeline=$true, ValueFromPipelineByPropertyName=$true)]
@@ -1747,7 +1747,7 @@ function Get-ModifiableRegistryPath {
         catch {
             # trap because Get-Acl doesn't handle -ErrorAction SilentlyContinue nicely
         }
-    } 
+    }
 }
 
 
@@ -1803,7 +1803,7 @@ function Add-ServiceDacl {
                 [ValidateScript({ $_ -as 'ServiceProcess.ServiceController' })]
                 $Service
             )
-            Add-Type -AssemblyName System.ServiceProcess # ServiceProcess is not loaded by default  
+            Add-Type -AssemblyName System.ServiceProcess # ServiceProcess is not loaded by default
             $GetServiceHandle = [ServiceProcess.ServiceController].GetMethod('GetServiceHandle', [Reflection.BindingFlags] 'Instance, NonPublic')
             $ReadControl = 0x00020000
             $RawHandle = $GetServiceHandle.Invoke($Service, @($ReadControl))
@@ -1838,7 +1838,7 @@ function Add-ServiceDacl {
                         $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
 
                         if ($Result) {
-                            
+
                             $RawSecurityDescriptor = New-Object Security.AccessControl.RawSecurityDescriptor -ArgumentList $BinarySecurityDescriptor, 0
 
                             $RawDacl = $RawSecurityDescriptor.DiscretionaryAcl
@@ -1876,17 +1876,17 @@ function Get-UEFIStatus {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
-    Invokes the "GetFirmwareEnvironmentVariable()" function from the Windows API with dummy parameters. Indeed, the queried value doesn't matter, what matters is the last error code, which you can get by invoking "GetLastError()". If the return code is ERROR_INVALID_FUNCTION, this means that the function is not supported by the BIOS so it's LEGACY. Otherwise, the error code will indicate that it cannot find the requested variable, which means that the function is supported by the BIOS so it's UEFI. 
-    
+    Invokes the "GetFirmwareEnvironmentVariable()" function from the Windows API with dummy parameters. Indeed, the queried value doesn't matter, what matters is the last error code, which you can get by invoking "GetLastError()". If the return code is ERROR_INVALID_FUNCTION, this means that the function is not supported by the BIOS so it's LEGACY. Otherwise, the error code will indicate that it cannot find the requested variable, which means that the function is supported by the BIOS so it's UEFI.
+
     .EXAMPLE
     PS C:\> Get-UEFIStatus
 
-    Name Status Description      
+    Name Status Description
     ---- ------ -----------
     UEFI   True BIOS mode is UEFI
-    
+
     .NOTES
     https://github.com/xcat2/xcat-core/blob/master/xCAT-server/share/xcat/netboot/windows/detectefi.cpp
     https://docs.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-getfirmwareenvironmentvariablea
@@ -1907,12 +1907,12 @@ function Get-UEFIStatus {
         if ($Result -gt 0) {
             if ($FirmwareType -eq 1) {
                 # FirmwareTypeBios = 1
-                $Status = $false 
+                $Status = $false
                 $Description = "BIOS mode is Legacy"
             }
             elseif ($FirmwareType -eq 2) {
                 # FirmwareTypeUefi = 2
-                $Status = $true 
+                $Status = $true
                 $Description = "BIOS mode is UEFI"
             }
             else {
@@ -1929,19 +1929,19 @@ function Get-UEFIStatus {
 
         $null = $Kernel32::GetFirmwareEnvironmentVariable("", "{00000000-0000-0000-0000-000000000000}", [IntPtr]::Zero, 0)
         $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-    
+
         $ERROR_INVALID_FUNCTION = 1
         if ($LastError -eq $ERROR_INVALID_FUNCTION) {
-            $Status = $false 
+            $Status = $false
             $Description = "BIOS mode is Legacy"
             Write-Verbose ([ComponentModel.Win32Exception] $LastError)
         }
         else {
-            $Status = $true 
+            $Status = $true
             $Description = "BIOS mode is UEFI"
             Write-Verbose ([ComponentModel.Win32Exception] $LastError)
         }
-        
+
     }
     else {
         $Description = "Cannot check BIOS mode"
@@ -1961,10 +1961,10 @@ function Get-SecureBootStatus {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
-    In case of a UEFI BIOS, you can check whether 'Secure Boot' is enabled by looking at the 'UEFISecureBootEnabled' value of the following registry key: 'HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\SecureBoot\State'. 
-    
+    In case of a UEFI BIOS, you can check whether 'Secure Boot' is enabled by looking at the 'UEFISecureBootEnabled' value of the following registry key: 'HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\SecureBoot\State'.
+
     .EXAMPLE
     PS C:\> Get-SecureBootStatus
 
@@ -1972,7 +1972,7 @@ function Get-SecureBootStatus {
     ----        ------ -----------
     Secure Boot   True Secure Boot is enabled
     #>
-    
+
     [CmdletBinding()]Param()
 
     $RegKey = "HKLM\SYSTEM\CurrentControlSet\Control\SecureBoot\State"
@@ -2008,13 +2008,13 @@ function Get-UnattendSensitiveData {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
-    Unattend files are XML documents which may contain cleartext passwords if they are not properly sanitized. Most of the time, "Password" fields will be replaced by the generic "*SENSITIVE*DATA*DELETED*" mention but sometimes, the original value remains and is either present in its plaintext form or base64-encoded form. If a non-empty password field is found and if it's not equal to the default "*SENSITIVE*DATA*DELETED*", this function will return the corresponding set of credentials: domain, username and (decoded) password. 
-    
+    Unattend files are XML documents which may contain cleartext passwords if they are not properly sanitized. Most of the time, "Password" fields will be replaced by the generic "*SENSITIVE*DATA*DELETED*" mention but sometimes, the original value remains and is either present in its plaintext form or base64-encoded form. If a non-empty password field is found and if it's not equal to the default "*SENSITIVE*DATA*DELETED*", this function will return the corresponding set of credentials: domain, username and (decoded) password.
+
     .PARAMETER Path
     The Path of the "unattend.xml" file to parse
-    
+
     .EXAMPLE
     PS C:\> Get-UnattendSensitiveData -Path C:\Windows\Panther\Unattend.xml
 
@@ -2023,8 +2023,8 @@ function Get-UnattendSensitiveData {
     Credentials  contoso.com Administrator Password1
     LocalAccount N/A         John          Password1
     AutoLogon    .           Administrator P@ssw0rd
-    
-    .NOTES 
+
+    .NOTES
     A password can be stored in three formats:
 
     1) Simple string
@@ -2032,7 +2032,7 @@ function Get-UnattendSensitiveData {
         <Password>Password</Password>
 
     2) XML node + plain value
-    
+
         <Password>
             <Value>Password</Value>
             <PlainText>true</PlainText>
@@ -2043,7 +2043,7 @@ function Get-UnattendSensitiveData {
         <Password>
             <Value>UABhAHMAcwB3AG8AcgBkAA==</Value>
             <PlainText>false</PlainText>
-        </Password> 
+        </Password>
 
     /!\ UNICODE encoding!
     #>
@@ -2091,11 +2091,11 @@ function Get-UnattendSensitiveData {
                 $Result
             }
         }
-    
+
         $Xml.GetElementsByTagName("LocalAccount") | ForEach-Object {
 
             $Password = Get-DecodedPassword -XmlNode $_.Password
-    
+
             if ((-not [String]::IsNullOrEmpty($Password)) -and (-not ($Password -eq "*SENSITIVE*DATA*DELETED*"))) {
                 $Result = New-Object -TypeName PSObject
                 $Result | Add-Member -MemberType "NoteProperty" -Name "Type" -Value "LocalAccount"
@@ -2105,7 +2105,7 @@ function Get-UnattendSensitiveData {
                 $Result
             }
         }
-    
+
         $Xml.GetElementsByTagName("AutoLogon") | ForEach-Object {
 
             $Password = Get-DecodedPassword -XmlNode $_.Password
@@ -2140,10 +2140,10 @@ function Get-HotFixList {
     <#
     .SYNOPSIS
     Helper - Gets a list of installed updates and hotfixes.
-    
+
     .DESCRIPTION
     This check reads the registry in order to enumerate all the installed KB hotfixes. The output is sorted by date so that most recent patches appear first in the list. The output is similar to the output of the built-in 'Get-HotFix' powershell command. There is a major difference between this script and the 'Get-HotFix' command though. The latter relies on WMI to delegate the "enumeration" whereas this script directly parses the registry. The other benefit of this method is that it allows one to extract more information related to the KBs (although it's not in the output of this script). If the current user can't read the registry, the script falls back to the built-in 'Get-HotFix' cmdlet.
-    
+
     .EXAMPLE
     PS C:\> Get-HotFixList
 
@@ -2192,19 +2192,19 @@ function Get-HotFixList {
     if ($CachedHotFixList.Count -eq 0) {
 
         # In the registry, one KB may have multiple entries because it can be split up into multiple
-        # packages. This array will help keep track of KBs that have already been checked by the 
+        # packages. This array will help keep track of KBs that have already been checked by the
         # script.
         $InstalledKBs = New-Object -TypeName System.Collections.ArrayList
 
         $AllPackages = Get-ChildItem -Path "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\Packages" -ErrorAction SilentlyContinue -ErrorVariable ErrorGetChildItem
-        
+
         if (-not $ErrorGetChildItem) {
 
             $AllPackages | ForEach-Object {
-        
+
                 # Filter only KB-related packages
                 if (($_.Name | Split-Path -Leaf) -Like "Package_*_for_KB*") {
-            
+
                     $PackageProperties = $_ | Get-ItemProperty
 
                     # Get the KB id, e.g.: KBXXXXXXX
@@ -2216,17 +2216,17 @@ function Get-HotFixList {
 
                             # Add the KB id to the list so we don't check it multiple times
                             [void]$InstalledKBs.Add($PackageName)
-        
+
                             # Who installed this update?
                             $InstalledBy = Convert-SidToName -Sid $PackageProperties.InstallUser
-                            
-                            # Get the install date. It's stored in the registry just like a FILETIME structure. So, we have to 
+
+                            # Get the install date. It's stored in the registry just like a FILETIME structure. So, we have to
                             # combine the low part and the high part and convert the result to a DateTime object.
                             $DateHigh = $PackageProperties.InstallTimeHigh
                             $DateLow = $PackageProperties.InstallTimeLow
                             $FileTime = $DateHigh * [Math]::Pow(2, 32) + $DateLow
                             $InstallDate = [DateTime]::FromFileTime($FileTime)
-        
+
                             # Parse the package metadata file and extract some useful information...
                             $ServicingPackagesPath = Join-Path -Path $env:windir -ChildPath "servicing\Packages"
                             $PackagePath = Join-Path -Path $ServicingPackagesPath -ChildPath $PackageProperties.InstallName
@@ -2276,13 +2276,13 @@ function Get-ScheduledTaskList {
     <#
     .SYNOPSIS
     Helper - Enumerate all the scheduled task that are not disabled and that are visible to the current user.
-    
+
     Author: @itm4n
     License: BSD 3-Clause
 
     .DESCRIPTION
     Connect to the task scheduler service and retrieve a list of all the scheduled tasks that are visible to the current user.
-    
+
     .EXAMPLE
     PS C:\> Get-ScheduledTaskList | Select-Object -last 3
 
@@ -2331,15 +2331,15 @@ function Get-ScheduledTaskList {
 
             $ScheduleService = New-Object -ComObject("Schedule.Service")
             $ScheduleService.Connect()
-    
+
             Get-ScheduledTasks -Service $ScheduleService -TaskPath "\" | ForEach-Object {
-    
+
                 if ($_.Enabled) {
-    
+
                     $TaskName = $_.Name
                     $TaskPath = $_.Path
                     $TaskFile = Join-Path -Path $(Join-Path -Path $env:windir -ChildPath "System32\Tasks") -ChildPath $TaskPath
-    
+
                     [xml]$TaskXml = $_.Xml
 
                     $Principal = $TaskXml.GetElementsByTagName("Principal")
@@ -2360,12 +2360,12 @@ function Get-ScheduledTaskList {
 
                     # We got a SID, convert it to the corresponding friendly name
                     $PrincipalName = Convert-SidToName -Sid $PrincipalSid
-    
-                    # According to the documentation, a Task can have up to 32 Actions. These Actions can be of 4 
-                    # different Types: Exec, ComHandler, SendEmail, and ShowMessage. Here, we are only interested in 
+
+                    # According to the documentation, a Task can have up to 32 Actions. These Actions can be of 4
+                    # different Types: Exec, ComHandler, SendEmail, and ShowMessage. Here, we are only interested in
                     # Exec Actions. However, as there can be more than one item, we need to iterate the list and create
-                    # a new object for each Action. This will potentially create multiple Task objects with the same 
-                    # Name but that's not really an issue. Note that, usually, Tasks are defined with only one Action. 
+                    # a new object for each Action. This will potentially create multiple Task objects with the same
+                    # Name but that's not really an issue. Note that, usually, Tasks are defined with only one Action.
                     # So that's still an edge case.
                     $TaskXml.GetElementsByTagName("Exec") | ForEach-Object {
 
@@ -2399,7 +2399,7 @@ function Get-ScheduledTaskList {
             }
         }
 
-        $CachedScheduledTaskList | ForEach-Object { 
+        $CachedScheduledTaskList | ForEach-Object {
             $_
         }
 
@@ -2416,15 +2416,15 @@ function Get-RpcRange {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     This function is a helper for the Invoke-TcpEndpointsCheck function. Windows uses a set of RPC ports that are randomly allocated in the range 49152-65535 by default. If we want to filter out these listening ports we must first figure out this set of ports. The aim of this function is to guess this range using basic statistics on a given array of port numbers. We can quite reliably identify the RPC port set because they are concentrated in a very small range. It's not 100% reliable but it will do the job most of the time.
-    
+
     .PARAMETER Ports
     An array of port numbers
-    
+
     .EXAMPLE
-    PS C:\> Get-RpcRange -Ports $Ports 
+    PS C:\> Get-RpcRange -Ports $Ports
 
     MinPort MaxPort
     ------- -------
@@ -2445,7 +2445,7 @@ function Get-RpcRange {
             [Int]$Span
         )
 
-        $Stats = @() 
+        $Stats = @()
         For ($i = $MinPort; $i -lt $MaxPort; $i += $Span) {
             $Counter = 0
             foreach ($Port in $Ports) {
@@ -2453,17 +2453,17 @@ function Get-RpcRange {
                     $Counter += 1
                 }
             }
-            $RangeStats = New-Object -TypeName PSObject 
+            $RangeStats = New-Object -TypeName PSObject
             $RangeStats | Add-Member -MemberType "NoteProperty" -Name "MinPort" -Value $i
             $RangeStats | Add-Member -MemberType "NoteProperty" -Name "MaxPort" -Value ($i + $Span)
             $RangeStats | Add-Member -MemberType "NoteProperty" -Name "PortsInRange" -Value $Counter
-            $Stats += $RangeStats 
+            $Stats += $RangeStats
         }
         $Stats
     }
 
-    # We split the range 49152-65536 into blocks of size 32 and then, we take the block which has 
-    # greater number of ports in it. 
+    # We split the range 49152-65536 into blocks of size 32 and then, we take the block which has
+    # greater number of ports in it.
     $Stats = Get-Stats -Ports $Ports -MinPort 49152 -MaxPort 65536 -Span 32
 
     $MaxStat = $null
@@ -2471,7 +2471,7 @@ function Get-RpcRange {
         if ($Stat.PortsInRange -gt $MaxStat.PortsInRange) {
             $MaxStat = $Stat
         }
-    } 
+    }
 
     For ($i = 0; $i -lt 8; $i++) {
         $Span = ($MaxStat.MaxPort - $MaxStat.MinPort) / 2
@@ -2484,7 +2484,7 @@ function Get-RpcRange {
                 $MaxStat = $NewStats[0]
             }
             else {
-                break 
+                break
             }
         }
     }
@@ -2507,7 +2507,7 @@ function Convert-CredentialBlobToString {
 
         $TestFlags = 2 # IS_TEXT_UNICODE_STATISTICS
         $IsUnicode = $Advapi32::IsTextUnicode($RawObject.CredentialBlob, $RawObject.CredentialBlobSize, [ref]$TestFlags)
-        
+
         if ($IsUnicode) {
             Write-Verbose "Encoding of input text is UNICODE"
             $Result = [Runtime.InteropServices.Marshal]::PtrToStringUni($RawObject.CredentialBlob, $RawObject.CredentialBlobSize / 2)
@@ -2528,16 +2528,16 @@ function Get-VaultCreds {
     <#
     .SYNOPSIS
     Helper - Enumerates Windows Credentials
-    
+
     .DESCRIPTION
     Invokes the Windows API to enumerate the credentials that are stored in the user's vault (Windows Credentials).
-    
+
     .PARAMETER Filtered
     If True, only entries with a readable (i.e. non-empty) password are returned.
-    
+
     .EXAMPLE
     PS C:\> Get-VaultCreds -Filtered
-    
+
     TargetName : LegacyGeneric:target=https://github.com/
     UserName   : user@example.com
     Comment    :
@@ -2545,7 +2545,7 @@ function Get-VaultCreds {
     Persist    : 2 - LOCAL_MACHINE
     Flags      : 0
     Credential : dBa2F06TTsrvSeLbyoW8
-    
+
     #>
 
     [CmdletBinding()] Param(
@@ -2564,13 +2564,13 @@ function Get-VaultCreds {
         Write-Verbose "CredEnumerate() OK - Count: $($Count)"
 
         # CredEnumerate() returns an array of $Count PCREDENTIAL pointers, so we need to iterate this array
-        # in order to get each PCREDENTIAL pointer. Then we can use this pointer to convert a blob of 
+        # in order to get each PCREDENTIAL pointer. Then we can use this pointer to convert a blob of
         # unmanaged memory to a CREDENTIAL object.
 
         for ($i = 0; $i -lt $Count; $i++) {
 
             $CredentialPtrOffset = [IntPtr] ($CredentialsPtr.ToInt64() + [IntPtr]::Size * $i)
-            $CredentialPtr = [System.Runtime.InteropServices.Marshal]::ReadIntPtr($CredentialPtrOffset) 
+            $CredentialPtr = [System.Runtime.InteropServices.Marshal]::ReadIntPtr($CredentialPtrOffset)
             $Cred = [System.Runtime.InteropServices.Marshal]::PtrToStructure($CredentialPtr, [type] $CREDENTIAL)
             $CredStr = Convert-CredentialBlobToString $Cred
 
@@ -2593,7 +2593,7 @@ function Get-VaultCreds {
     }
     else {
         # If there is no saved credentials, CredEnumerate sets the last error to ERROR_NOT_FOUND but this
-        # doesn't mean that the function really failed. The same thing applies for the error code 
+        # doesn't mean that the function really failed. The same thing applies for the error code
         # ERROR_NO_SUCH_LOGON_SESSION.
         Write-Verbose ([ComponentModel.Win32Exception] $LastError)
     }
@@ -2678,7 +2678,7 @@ function Get-VaultList {
             }
 
             # ElementType_String
-            0x07 { 
+            0x07 {
                 $StringPtr = [Runtime.InteropServices.Marshal]::ReadIntPtr($VaultItemDataValuePtr)
                 [Runtime.InteropServices.Marshal]::PtrToStringUni($StringPtr)
             }
@@ -2712,13 +2712,13 @@ function Get-VaultList {
 
             # ElementType_Max
             0x0d {
-                
+
             }
         }
     }
 
     $VaultsCount = 0
-    $VaultGuids = [IntPtr]::Zero 
+    $VaultGuids = [IntPtr]::Zero
     $Result = $Vaultcli::VaultEnumerateVaults(0, [ref]$VaultsCount, [ref]$VaultGuids)
 
     if ($Result -eq 0) {
@@ -2741,7 +2741,7 @@ function Get-VaultList {
                 Write-Verbose "VaultOpenVault() OK - Vault Handle: 0x$($VaultHandle.ToString('X8'))"
 
                 $VaultItemsCount = 0
-                $ItemsPtr = [IntPtr]::Zero 
+                $ItemsPtr = [IntPtr]::Zero
                 $Result = $Vaultcli::VaultEnumerateItems($VaultHandle, 0x0200, [ref]$VaultItemsCount, [ref]$ItemsPtr)
 
                 $VaultItemPtr = $ItemsPtr
@@ -2764,9 +2764,9 @@ function Get-VaultList {
                                 # Windows 8+
                                 $VaultItemType = [type] $VAULT_ITEM_8
                             }
-    
+
                             $VaultItem = [Runtime.InteropServices.Marshal]::PtrToStructure($VaultItemPtr, [type] $VaultItemType)
-    
+
                             if ($OSVersion.Major -le 6 -and $OSVersion.Minor -le 1) {
                                 # Windows 7
                                 $PasswordItemPtr = [IntPtr]::Zero
@@ -2777,7 +2777,7 @@ function Get-VaultList {
                                 $PasswordItemPtr = [IntPtr]::Zero
                                 $Result = $Vaultcli::VaultGetItem8($VaultHandle, [ref]$VaultItem.SchemaId, $VaultItem.Resource, $VaultItem.Identity, $VaultItem.PackageSid, [IntPtr]::Zero, 0, [ref]$PasswordItemPtr)
                             }
-    
+
                             if ($Result -eq 0) {
 
                                 Write-Verbose "VaultGetItem() OK - ItemPtr: 0x$($PasswordItemPtr.ToString('X8'))"
@@ -2789,7 +2789,7 @@ function Get-VaultList {
                             else {
                                 Write-Verbose "VaultGetItem() failed - Err: 0x$($Result.ToString('X8'))"
                             }
-    
+
                             if ((-not $Filtered) -or ($Filtered -and (-not [String]::IsNullOrEmpty($Password)))) {
 
                                 $Result = New-Object -TypeName PSObject
@@ -2806,7 +2806,7 @@ function Get-VaultList {
 
                     }
                     catch [Exception] {
-                        Write-Verbose $_.Exception.Message 
+                        Write-Verbose $_.Exception.Message
                     }
 
                 }
@@ -2909,7 +2909,7 @@ function Test-ServiceDaclPermission {
             'GenericRead'           = [UInt32]'0x80000000'
             'AllAccess'             = [UInt32]'0x000F01FF'
         }
-        
+
         $CheckAllPermissionsInSet = $false
 
         if ($PSBoundParameters['Permissions']) {
@@ -2935,27 +2935,27 @@ function Test-ServiceDaclPermission {
 
             $TargetService = $IndividualService | Add-ServiceDacl
 
-            # We might not be able to access the Service at all so we must check whether Add-ServiceDacl 
+            # We might not be able to access the Service at all so we must check whether Add-ServiceDacl
             # returned something.
-            if ($TargetService -and $TargetService.Dacl) { 
+            if ($TargetService -and $TargetService.Dacl) {
 
                 # Enumerate all group SIDs the current user is a part of
                 $UserIdentity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
                 $CurrentUserSids = $UserIdentity.Groups | Select-Object -ExpandProperty Value
                 $CurrentUserSids += $UserIdentity.User.Value
 
-                # Check all the Dacl objects of the current service 
+                # Check all the Dacl objects of the current service
                 foreach ($Ace in $TargetService.Dacl) {
 
                     $MatchingDaclFound = $false
 
-                    # An ACE object contains two properties we want to check: a SID and a list of AccessRights. First, 
-                    # we want to check if the current Dacl SID is in the list of SIDs of the current user 
+                    # An ACE object contains two properties we want to check: a SID and a list of AccessRights. First,
+                    # we want to check if the current Dacl SID is in the list of SIDs of the current user
                     if ($CurrentUserSids -contains $Ace.SecurityIdentifier) {
 
                         if ($CheckAllPermissionsInSet) {
 
-                            # If a Permission Set was specified, we want to make sure that we have all the necessary access 
+                            # If a Permission Set was specified, we want to make sure that we have all the necessary access
                             # rights
                             $AllMatched = $true
                             foreach ($TargetPermission in $TargetPermissions) {
@@ -2970,7 +2970,7 @@ function Test-ServiceDaclPermission {
                                 $TargetService | Add-Member -MemberType "NoteProperty" -Name "AccessRights" -Value $Ace.AccessRights
                                 $TargetService | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $(Convert-SidToName -Sid $Ace.SecurityIdentifier)
                                 $TargetService
-                                $MatchingDaclFound = $true 
+                                $MatchingDaclFound = $true
                             }
                         }
                         else {
@@ -2981,7 +2981,7 @@ function Test-ServiceDaclPermission {
                                     $TargetService | Add-Member -MemberType "NoteProperty" -Name "AccessRights" -Value $Ace.AccessRights
                                     $TargetService | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $(Convert-SidToName -Sid $Ace.SecurityIdentifier)
                                     $TargetService
-                                    $MatchingDaclFound = $true 
+                                    $MatchingDaclFound = $true
                                     break
                                 }
                             }
@@ -2989,7 +2989,7 @@ function Test-ServiceDaclPermission {
                     }
 
                     if ($MatchingDaclFound) {
-                        # As soon as we find a matching Dacl, we can stop searching 
+                        # As soon as we find a matching Dacl, we can stop searching
                         break
                     }
                 }
@@ -3130,7 +3130,7 @@ function Get-MachineRole {
         $RegKey = "HKLM\SYSTEM\CurrentControlSet\Control\ProductOptions"
         $RegValue = "ProductType"
         $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -ErrorAction SilentlyContinue).$RegValue
-    
+
         $Result = New-Object -TypeName PSObject
         $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $RegData
         $Result | Add-Member -MemberType "NoteProperty" -Name "Role" -Value $(try { $FriendlyNames[$RegData] } catch { "" })
@@ -3145,10 +3145,10 @@ function Get-RemoteDesktopUserSessionList {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     This cmdlet simply invokes the WTSEnumerateSessionsEx API to enumerate the sessions of the logged-on users. This API returns a list of TS_SESSION_INFO_1W structures containing the sessions info.
-    
+
     .EXAMPLE
     PS C:\> Get-RemoteDesktopUserSessionList
 
@@ -3176,7 +3176,7 @@ function Get-RemoteDesktopUserSessionList {
     $Level = 1
     $SessionInfoListPtr = [IntPtr] 0
     $SessionInfoCount = [UInt32] 0
-    
+
     $Success = $Wtsapi32::WTSEnumerateSessionsEx(0, [ref]$Level, 0, [ref]$SessionInfoListPtr, [ref]$SessionInfoCount)
     Write-Verbose "WTSEnumerateSessionsEx: $($Success) | Count: $($SessionInfoCount) | List: 0x$('{0:x16}' -f [Int64]$SessionInfoListPtr)"
 

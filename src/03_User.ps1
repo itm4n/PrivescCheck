@@ -5,10 +5,10 @@ function Invoke-UserCheck {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     Get various information about the current user.
-    
+
     .EXAMPLE
     PS C:\> Invoke-UserCheck
 
@@ -22,9 +22,9 @@ function Invoke-UserCheck {
     ModifiedId       : 00000000-00032748
     Source           : User32  (00000000-000323db)
     #>
-    
+
     [CmdletBinding()] Param()
-    
+
     $TokenUser = Get-TokenInformationUser
     $TokenIntegrityLevel = Get-TokenInformationIntegrityLevel
     $TokenSessionId = Get-TokenInformationSessionId
@@ -54,10 +54,10 @@ function Invoke-UserGroupsCheck {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     Enumerates groups the current user belongs to.
-    
+
     .EXAMPLE
     PS C:\> Invoke-UserGroupsCheck
 
@@ -77,10 +77,10 @@ function Invoke-UserGroupsCheck {
     NT AUTHORITY\NTLM Authentication       WellKnownGroup S-1-5-64-10
     Mandatory Label\Medium Mandatory Level Label          S-1-16-8192
     #>
-    
+
     [CmdletBinding()] Param()
 
-    Get-TokenInformationGroups -InformationClass Groups | Select-Object Name,Type,SID    
+    Get-TokenInformationGroups -InformationClass Groups | Select-Object Name,Type,SID
 }
 
 function Invoke-UserRestrictedSidsCheck {
@@ -90,10 +90,10 @@ function Invoke-UserRestrictedSidsCheck {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     This check leverages the Get-TokenInformationGroups helper function to list the restricted SIDs that are associated to the current user's Token. This may provide some useful information in case the current token is WRITE RESTRICTED.
-    
+
     .EXAMPLE
     PS C:\> Invoke-UserRestrictedSidsCheck
 
@@ -120,10 +120,10 @@ function Invoke-UserPrivilegesCheck {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     Enumerates all the privileges of the current user thanks to the Get-UserPrivileges helper function, and compares them against a list of privileges that can be leveraged for local privilege escalation.
-    
+
     .EXAMPLE
     Name                    State   Description                               Exploitable
     ----                    -----   -----------                               -----------
@@ -131,7 +131,7 @@ function Invoke-UserPrivilegesCheck {
     SeImpersonatePrivilege  Enabled Impersonate a client after authentication        True
     #>
 
-    [CmdletBinding()] Param()    
+    [CmdletBinding()] Param()
 
     $HighPotentialPrivileges = "SeAssignPrimaryTokenPrivilege", "SeImpersonatePrivilege", "SeCreateTokenPrivilege", "SeDebugPrivilege", "SeLoadDriverPrivilege", "SeRestorePrivilege", "SeTakeOwnershipPrivilege", "SeTcbPrivilege", "SeBackupPrivilege", "SeManageVolumePrivilege", "SeRelabelPrivilege"
 
@@ -147,21 +147,21 @@ function Invoke-UserEnvCheck {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     Environment variables may contain sensitive information such as database credentials or API keys.
     #>
 
-    [CmdletBinding()] Param() 
+    [CmdletBinding()] Param()
 
     [String[]] $Keywords = "key", "passw", "secret", "pwd", "creds", "credential", "api"
 
     Get-ChildItem -Path env: | ForEach-Object {
 
         $EntryName = $_.Name
-        $EntryValue = $_.Value 
+        $EntryValue = $_.Value
         $CheckVal = "$($_.Name) $($_.Value)"
-        
+
         foreach ($Keyword in $Keywords) {
 
             if ($CheckVal -Like "*$($Keyword)*") {

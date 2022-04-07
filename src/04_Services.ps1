@@ -5,10 +5,10 @@ function Invoke-InstalledServicesCheck {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     It uses the custom "Get-ServiceList" function to get a filtered list of services that are configured on the local machine. Then it returns each result in a custom PS object, indicating the name, display name, binary path, user and start mode of the service.
-    
+
     .EXAMPLE
     PS C:\> Invoke-InstalledServicesCheck | ft
 
@@ -16,7 +16,7 @@ function Invoke-InstalledServicesCheck {
     ----    -----------  ---------                                           ----        ---------
     VMTools VMware Tools "C:\Program Files\VMware\VMware Tools\vmtoolsd.exe" LocalSystem Automatic
     #>
-    
+
     [CmdletBinding()] Param()
 
     Get-ServiceList -FilterLevel 3 | Select-Object -Property Name,DisplayName,ImagePath,User,StartMode
@@ -29,12 +29,12 @@ function Invoke-ServicesPermissionsRegistryCheck {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
-    The configuration of the services is maintained in the registry. Being able to modify these registry keys means being able to change the settings of a service. In addition, a complete machine reboot isn't necessary for these settings to be taken into account. Only the affected service needs to be restarted. 
-    
+    The configuration of the services is maintained in the registry. Being able to modify these registry keys means being able to change the settings of a service. In addition, a complete machine reboot isn't necessary for these settings to be taken into account. Only the affected service needs to be restarted.
+
     .EXAMPLE
-    PS C:\> Invoke-ServicesPermissionsRegistryCheck 
+    PS C:\> Invoke-ServicesPermissionsRegistryCheck
 
     Name              : DVWS
     ImagePath         : C:\DVWS\Vuln Service\service.exe
@@ -46,11 +46,11 @@ function Invoke-ServicesPermissionsRegistryCheck {
     UserCanStart      : True
     UserCanStop       : True
     #>
-    
+
     [CmdletBinding()] Param()
-    
-    # Get all services except the ones with an empty ImagePath or Drivers 
-    $AllServices = Get-ServiceList -FilterLevel 2 
+
+    # Get all services except the ones with an empty ImagePath or Drivers
+    $AllServices = Get-ServiceList -FilterLevel 2
     Write-Verbose "Enumerating $($AllServices.Count) services..."
 
     foreach ($Service in $AllServices) {
@@ -88,14 +88,14 @@ function Invoke-ServicesPermissionsRegistryCheck {
 function Invoke-ServicesUnquotedPathCheck {
     <#
     .SYNOPSIS
-    Enumerates all the services with an unquoted path. For each one of them, enumerates paths that the current user can modify. Based on the original "Get-ServiceUnquoted" function from PowerUp. 
+    Enumerates all the services with an unquoted path. For each one of them, enumerates paths that the current user can modify. Based on the original "Get-ServiceUnquoted" function from PowerUp.
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     In my version of this function, I tried to eliminate as much false positives as possible. PowerUp tends to report "C:\" as exploitable whenever a program located in "C:\Program Files" is identified. The problem is that we cannot write "C:\program.exe" so the service wouldn't be exploitable. We can only create folders in "C:\" by default.
-    
+
     .PARAMETER Info
     Use this option to return all services with an unquoted path containing spaces without checking if they are vulnerable.
 
@@ -112,7 +112,7 @@ function Invoke-ServicesUnquotedPathCheck {
     UserCanStart      : False
     UserCanStop       : False
     #>
-    
+
     [CmdletBinding()] Param(
         [switch]
         $Info = $false
@@ -121,7 +121,7 @@ function Invoke-ServicesUnquotedPathCheck {
     # Get all services which have a non-empty ImagePath (exclude drivers as well)
     $Services = Get-ServiceList -FilterLevel 2
     Write-Verbose "Enumerating $($Services.Count) services..."
-    
+
     # $PermissionsAddFile = @("WriteData/AddFile", "DeleteChild", "WriteDAC", "WriteOwner")
     # $PermissionsAddFolder = @("AppendData/AddSubdirectory", "DeleteChild", "WriteDAC", "WriteOwner")
 
@@ -176,10 +176,10 @@ function Invoke-ServicesImagePermissionsCheck {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
-    FIrst, it enumerates the services thanks to the custom "Get-ServiceList" function. For each result, it checks the permissions of the ImagePath setting thanks to the "Get-ModifiablePath" function. Each result is returned in a custom PS object. 
-    
+    FIrst, it enumerates the services thanks to the custom "Get-ServiceList" function. For each result, it checks the permissions of the ImagePath setting thanks to the "Get-ModifiablePath" function. Each result is returned in a custom PS object.
+
     .EXAMPLE
     PS C:\> Invoke-ServicesImagePermissionsCheck
 
@@ -193,16 +193,16 @@ function Invoke-ServicesImagePermissionsCheck {
     UserCanStart      : False
     UserCanStop       : False
     #>
-    
+
     [CmdletBinding()] Param()
-    
+
     $Services = Get-ServiceList -FilterLevel 2
     Write-Verbose "Enumerating $($Services.Count) services..."
 
     foreach ($Service in $Services) {
 
         $Service.ImagePath | Get-ModifiablePath | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) } | Foreach-Object {
-            
+
             $Status = "Unknown"
             $UserCanStart = $false
             $UserCanStop = $false
@@ -233,17 +233,17 @@ function Invoke-ServicesImagePermissionsCheck {
 function Invoke-ServicesPermissionsCheck {
     <#
     .SYNOPSIS
-    Enumerates the services the current can modify through the service manager. In addition, it shows whether the service can be started/restarted. 
-    
+    Enumerates the services the current can modify through the service manager. In addition, it shows whether the service can be started/restarted.
+
     Author: @itm4n
     License: BSD 3-Clause
 
     .DESCRIPTION
     This is based on the original "Get-ModifiableService" from PowerUp.
-    
+
     .EXAMPLE
     PS C:\> Invoke-ServicesPermissionsCheck
-    
+
     Name           : DVWS
     ImagePath      : C:\DVWS\Vuln Service\service.exe
     User           : LocalSystem
@@ -254,19 +254,19 @@ function Invoke-ServicesPermissionsCheck {
     .LINK
     https://github.com/PowerShellMafia/PowerSploit/blob/master/Privesc/PowerUp.ps1
     #>
-    
+
     [CmdletBinding()] Param()
 
-    # Get-ServiceList returns a list of custom Service objects. The properties of a custom Service 
+    # Get-ServiceList returns a list of custom Service objects. The properties of a custom Service
     # object are: Name, DisplayName, User, ImagePath, StartMode, Type, RegsitryKey, RegistryPath.
-    # We also apply the FilterLevel 1 to filter out services which have an empty ImagePath 
+    # We also apply the FilterLevel 1 to filter out services which have an empty ImagePath
     $Services = Get-ServiceList -FilterLevel 1
     Write-Verbose "Enumerating $($Services.Count) services..."
 
-    # For each custom Service object in the list 
+    # For each custom Service object in the list
     foreach ($Service in $Services) {
 
-        # Get a 'real' Service object and the associated DACL, based on its name 
+        # Get a 'real' Service object and the associated DACL, based on its name
         $TargetService = Test-ServiceDaclPermission -Name $Service.Name -PermissionSet 'ChangeConfig'
 
         if ($TargetService) {
@@ -302,10 +302,10 @@ function Invoke-SCMPermissionsCheck {
     <#
     .SYNOPSIS
     Checks whether the permissions of the SCM allows the current user to perform privileged actions.
-    
+
     .DESCRIPTION
     The SCM (Service Control Manager) has its own DACL, which is defined by the system. Though, it is possible to apply a custom one using the built-in "sc.exe" command line tool and a modified SDDL string for example. However, such manipulation is dangerous and is prone to errors. Therefore, the objective of this function is to check whether the current user as any modification rights on the SCM itself.
-    
+
     .EXAMPLE
     PS C:\> Invoke-SCMPermissionsCheck
 
@@ -330,9 +330,9 @@ function Invoke-SCMPermissionsCheck {
         }
 
         $PermissionReference = @(
-            $ServiceControlManagerAccessRightsEnum::CreateService, 
-            $ServiceControlManagerAccessRightsEnum::ModifyBootConfig, 
-            $ServiceControlManagerAccessRightsEnum::AllAccess, 
+            $ServiceControlManagerAccessRightsEnum::CreateService,
+            $ServiceControlManagerAccessRightsEnum::ModifyBootConfig,
+            $ServiceControlManagerAccessRightsEnum::AllAccess,
             $ServiceControlManagerAccessRightsEnum::GenericWrite
         )
 

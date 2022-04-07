@@ -1,5 +1,15 @@
 # Changelog
 
+## 2022-04-07
+
+### Changed
+
+- Rewrite the Builder and the Loader
+
+### Removed
+
+- Trailing spaces in the entire code (code cleanup)
+
 ## 2022-03-13
 
 ### Added

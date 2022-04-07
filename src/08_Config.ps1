@@ -5,11 +5,11 @@ function Invoke-RegistryAlwaysInstallElevatedCheck {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     AlwaysInstallElevated can be configured in both HKLM and HKCU. "If the AlwaysInstallElevated value is not set to "1" under both of the preceding registry keys, the installer uses elevated privileges to install managed applications and uses the current user's privilege level for unmanaged applications."
     #>
-    
+
     [CmdletBinding()]Param()
 
     $Results = @()
@@ -56,10 +56,10 @@ function Invoke-WsusConfigCheck {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     A system can be compromised if the updates are not requested using HTTPS but HTTP. If the URL of the update server (WUServer) starts with HTTP and UseWUServer=1, then the update requests are vulnerable to MITM attacks.
-    
+
     .EXAMPLE
     PS C:\> Invoke-WsusConfigCheck
 
@@ -69,7 +69,7 @@ function Invoke-WsusConfigCheck {
 
     .NOTES
     "Beginning with the September 2020 cumulative update, HTTP-based intranet servers will be secure by default. [...] we are no longer allowing HTTP-based intranet servers to leverage user proxy by default to detect updates." The SetProxyBehaviorForUpdateDetection value determines whether this default behavior can be overriden. The default value is 0. If it is set to 1, WSUS can use user proxy settings as a fallback if detection using system proxy fails. See links 1 and 2 below for more details.
-    
+
     .LINK
     https://techcommunity.microsoft.com/t5/windows-it-pro-blog/changes-to-improve-security-for-windows-devices-scanning-wsus/ba-p/1645547
     https://docs.microsoft.com/en-us/windows/client-management/mdm/policy-csp-update#update-setproxybehaviorforupdatedetection
@@ -116,14 +116,14 @@ function Invoke-HardenedUNCPathCheck {
 
     Author: Adrian Vollmer - SySS GmbH (@mr_mitm), @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     If a UNC path to a file share is not hardened, Windows does not check the SMB server's identity when establishing the connection. This allows privilege escalation if the path to SYSVOL is not hardened, because a man-in-the-middle can inject malicious GPOs when group policies are updated.
 
     A group policy update can be triggered with 'gpupdate /force'. Exploits exist; check Impacket's karmaSMB server. A legit DC must be available at the same time.
 
     On Windows >= 10, UNC paths are hardened by default for SYSVOL and NETLOGON so, in this case, we just ensure that mutual authentication and integrity mode were not disabled. On Windows < 10 on the other hand, SYSVOL and NETLOGON UNC paths must be explicitely hardened. Note that this only applies to domain-joined machines.
-    
+
     .EXAMPLE
     PS C:\> Invoke-HardenedUNCPathCheck
 
@@ -144,7 +144,7 @@ function Invoke-HardenedUNCPathCheck {
     Value       : \\*\NETLOGON
     Data        :
     Description : Hardened UNC path is not configured.
-    
+
     .NOTES
     References:
       * https://support.microsoft.com/en-us/topic/ms15-011-vulnerability-in-group-policy-could-allow-remote-code-execution-february-10-2015-91b4bda2-945d-455b-ebbb-01d1ec191328
@@ -156,13 +156,13 @@ function Invoke-HardenedUNCPathCheck {
     [CmdletBinding()]Param()
 
     # Hardened UNC paths ensure that the communication between a client and a Domain Controller
-    # cannot be tampered with, so this setting only applies to domain-joined machines. If the 
+    # cannot be tampered with, so this setting only applies to domain-joined machines. If the
     # current machine is not domain-joined, return immediately.
 
     if (-not (Test-IsDomainJoined)) {
         return
     }
-    
+
     $OsVersionMajor = (Get-WindowsVersion).Major
 
     $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows\NetworkProvider\HardenedPaths"
@@ -174,7 +174,7 @@ function Invoke-HardenedUNCPathCheck {
         # explicitely disabled.
 
         Get-Item -Path "Registry::$RegKey" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty property | ForEach-Object {
-            
+
             $RegValue = $_
             $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
             Write-Verbose "Value: $($RegValue) - Data: $($RegData)"
@@ -208,7 +208,7 @@ function Invoke-HardenedUNCPathCheck {
         }
     }
     else {
-        
+
         # If Windows < 10, paths are not hardened by default. Therefore, the "HardenedPaths" registry
         # should contain at least two entries, as per Microsoft recommendations. One for SYSVOL and one
         # for NETLOGON: '\\*\SYSVOL' and '\\*\NETLOGON'. However, a list of server would be valid as
@@ -257,7 +257,7 @@ function Invoke-SccmCacheFolderCheck {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     If the SCCM cache folder exists ('C:\Windows\CCMCache'), this check will return some information about the item, such as the ACL. This allows for further manual analysis.
 
@@ -288,13 +288,13 @@ function Invoke-DllHijackingCheck {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     First, it reads the system environment PATH from the registry. Then, for each entry, it checks whether the current user has write permissions.
     #>
-    
+
     [CmdletBinding()] Param()
-    
+
     $RegKey = "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment"
     $RegValue = "Path"
     $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue).$RegValue
@@ -322,10 +322,10 @@ function Invoke-PrintNightmareCheck {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     Fully up-to-date machines are still vulnerable to the PrintNightmare exploit if the "Point and Print Restrictions" Group policy is configured to allow users to install printer drivers or add print servers without administrator privileges. More precisely, if "NoWarningNoElevationOnInstall" or "UpdatePromptSettings" is set to 1, the machine is vulnerable. There is one exception though. If the patch for CVE-2021-34527 was installed, the "RestrictDriverInstallationToAdministrators" parameter can be set to 1 (or a value greater than 1) to override the "Point and Print" settings. In this case, only administrators can install printer drivers or print servers, regardless of the two other values. The "PackagePointAndPrintServerList" setting can also be set to 1 to only allow drivers to be downloaded and installed from a predefined list of print servers.
-    
+
     .EXAMPLE
     PS C:\> Invoke-PrintNightmareCheck
 
@@ -394,7 +394,7 @@ function Invoke-PrintNightmareCheck {
     $Result | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $($null -eq $RegData -or $RegData -eq 0)
     [object[]]$Results += $Result
 
-    # If "UpdatePromptSettings" is not set, the default value is 0, which means "Show warning and 
+    # If "UpdatePromptSettings" is not set, the default value is 0, which means "Show warning and
     # elevation prompt" (i.e. not vulnerable).
     $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PointAndPrint"
     $RegValue = "UpdatePromptSettings"
@@ -419,8 +419,8 @@ function Invoke-PrintNightmareCheck {
 
     # With the patch for CVE-2021-34527, MS added the "RestrictDriverInstallationToAdministrators"
     # setting. If this is set to 1 or any non-zero value then the Point and Print Restrictions Group
-    # policy settings (i.e. the two previous registry values) are overridden and only administrators 
-    # can install printer drivers on a print server. "Updates released August 10, 2021 or later have 
+    # policy settings (i.e. the two previous registry values) are overridden and only administrators
+    # can install printer drivers on a print server. "Updates released August 10, 2021 or later have
     # a default of 1 (enabled)."
     $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PointAndPrint"
     $RegValue = "RestrictDriverInstallationToAdministrators"
@@ -440,7 +440,7 @@ function Invoke-PrintNightmareCheck {
     $Result | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $($null -eq $RegData -or $RegData -eq 1)
     [object[]]$Results += $Result
 
-    # If "PackagePointAndPrintOnly" is enabled, users will only be able to point and print to 
+    # If "PackagePointAndPrintOnly" is enabled, users will only be able to point and print to
     # printers that use package-aware drivers predefined list of print servers.
     $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PointAndPrint"
     $RegValue = "PackagePointAndPrintOnly"
@@ -460,8 +460,8 @@ function Invoke-PrintNightmareCheck {
     $Result | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $($RegValue -eq 1)
     [object[]]$Results += $Result
 
-    # If "PackagePointAndPrintServerList" is enabled, clients can only install signed drivers from 
-    # a predefined list of print servers. This list is defined in thrhough the "ListofServers" 
+    # If "PackagePointAndPrintServerList" is enabled, clients can only install signed drivers from
+    # a predefined list of print servers. This list is defined in thrhough the "ListofServers"
     # subkey. The content of the regisry key should be checked manually.
     $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PointAndPrint"
     $RegValue = "PackagePointAndPrintServerList"
@@ -504,7 +504,7 @@ function Invoke-DriverCoInstallersCheck {
 
     .DESCRIPTION
     The automatic installation as SYSTEM of additional software alongside device drivers can be a vector for privesc, if this software can be manipulated into executing arbitrary code. This can be prevented by setting the DisableCoInstallers key in HKLM. Credit to @wdormann https://twitter.com/wdormann/status/1432703702079508480.
-    
+
     .EXAMPLE
     Ps C:\> Invoke-DriverCoInstallersCheck
 

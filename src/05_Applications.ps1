@@ -5,10 +5,10 @@ function Invoke-InstalledProgramsCheck {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     Uses the custom "Get-InstalledPrograms" function to get a filtered list of installed programs and then returns each result as a simplified PS object, indicating the name and the path of the application.
-    
+
     .EXAMPLE
     PS C:\> Invoke-InstalledProgramsCheck | ft
 
@@ -17,7 +17,7 @@ function Invoke-InstalledProgramsCheck {
     Npcap           C:\Program Files\Npcap
     Wireshark       C:\Program Files\Wireshark
     #>
-    
+
     [CmdletBinding()] Param()
 
     Get-InstalledPrograms -Filtered | Select-Object -Property Name,FullName
@@ -30,10 +30,10 @@ function Invoke-ModifiableProgramsCheck {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     For each non-default application, enumerates the .exe and .dll files that the current user has modify permissions on.
-    
+
     .EXAMPLE
     PS C:\> Invoke-ModifiableProgramsCheck | ft
 
@@ -43,19 +43,19 @@ function Invoke-ModifiableProgramsCheck {
     C:\Program Files\VulnApp\app.exe    DESKTOP-FEOHNOM\user {WriteOwner, Delete, WriteAttributes, Synchronize...}
     C:\Program Files\VulnApp\foobar.dll DESKTOP-FEOHNOM\user {WriteOwner, Delete, WriteAttributes, Synchronize...}
     #>
-    
+
     [CmdletBinding()] Param()
 
     $Items = Get-InstalledPrograms -Filtered
 
     foreach ($Item in $Items) {
-        
+
         $SearchPath = New-Object -TypeName System.Collections.ArrayList
         [void]$SearchPath.Add([String]$(Join-Path -Path $Item.FullName -ChildPath "\*")) # Do this to avoid the use of -Depth which is PSH5+
         [void]$SearchPath.Add([String]$(Join-Path -Path $Item.FullName -ChildPath "\*\*")) # Do this to avoid the use of -Depth which is PSH5+
-        
-        $ChildItems = Get-ChildItem -Path $SearchPath -ErrorAction SilentlyContinue -ErrorVariable GetChildItemError 
-        
+
+        $ChildItems = Get-ChildItem -Path $SearchPath -ErrorAction SilentlyContinue -ErrorVariable GetChildItemError
+
         if (-not $GetChildItemError) {
 
             $ChildItems | ForEach-Object {
@@ -65,9 +65,9 @@ function Invoke-ModifiableProgramsCheck {
                 }
                 else {
                     # Check only .exe and .dll ???
-                    # TODO: maybe consider other extensions 
+                    # TODO: maybe consider other extensions
                     if ($_.FullName -Like "*.exe" -or $_.FullName -Like "*.dll") {
-                        $ModifiablePaths = $_ | Get-ModifiablePath -LiteralPaths 
+                        $ModifiablePaths = $_ | Get-ModifiablePath -LiteralPaths
                     }
                 }
 
@@ -90,10 +90,10 @@ function Invoke-ProgramDataCheck {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     This script first lists all the subfolders under 'C:\ProgramData\'. For each folder that is not a "known" default Windows folder, it lists all the files and folders it contains. If a modifiable file or folder is found, it is reported by the script.
-    
+
     .EXAMPLE
     PS C:\> Invoke-ProgramDataCheck
 
@@ -123,11 +123,11 @@ function Invoke-ProgramDataCheck {
     $IgnoredProgramData = @("Microsoft", "Microsoft OneDrive", "Package Cache", "Packages", "SoftwareDistribution", "ssh", "USOPrivate", "USOShared", "")
 
     Get-ChildItem -Path $env:ProgramData | ForEach-Object {
-    
+
         if ($_ -is [System.IO.DirectoryInfo] -and (-not ($IgnoredProgramData -contains $_.Name))) {
-    
+
             $_ | Get-ChildItem -Recurse -Force -ErrorAction SilentlyContinue | ForEach-Object {
-                        
+
                 $_ | Get-ModifiablePath -LiteralPaths | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
             }
         }
@@ -141,10 +141,10 @@ function Invoke-ApplicationsOnStartupCheck {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
-    Applications can be run on startup or whenever a user logs on. They can be either configured in the registry or by adding an shortcut file (.LNK) in a Start Menu folder. 
-    
+    Applications can be run on startup or whenever a user logs on. They can be either configured in the registry or by adding an shortcut file (.LNK) in a Start Menu folder.
+
     .PARAMETER Info
     Report all start-up applications, whether or not the application path is vulnerable.
 
@@ -188,10 +188,10 @@ function Invoke-ApplicationsOnStartupCheck {
 
                 $ModifiablePaths = $RegKeyValueData | Get-ModifiablePath | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
                 if (([Object[]]$ModifiablePaths).Length -gt 0) {
-                    $IsModifiable = $true 
+                    $IsModifiable = $true
                 }
                 else {
-                    $IsModifiable = $false 
+                    $IsModifiable = $false
                 }
 
                 $Result = New-Object -TypeName PSObject
@@ -207,14 +207,14 @@ function Invoke-ApplicationsOnStartupCheck {
     }
 
     $Root = (Get-Item -Path $env:windir).PSDrive.Root
-    
+
     # We want to check only startup applications that affect all users
     # [String[]]$FileSystemPaths = "\Users\All Users\Start Menu\Programs\Startup", "\Users\$env:USERNAME\Start Menu\Programs\Startup"
     [String[]]$FileSystemPaths = "\Users\All Users\Start Menu\Programs\Startup"
 
     $FileSystemPaths | ForEach-Object {
 
-        $StartupFolderPath = Join-Path -Path $Root -ChildPath $_ 
+        $StartupFolderPath = Join-Path -Path $Root -ChildPath $_
 
         $StartupFolders = Get-ChildItem -Path $StartupFolderPath -ErrorAction SilentlyContinue
 
@@ -262,7 +262,7 @@ function Invoke-ApplicationsOnStartupCheck {
 
 #     Author: @itm4n
 #     License: BSD 3-Clause
-    
+
 #     .DESCRIPTION
 #     Some applications can be set as "startup" applications for all users. If a user can modify one of these apps, they would potentially be able to run arbitrary code in the context of other users. Therefore, low-privileged users should not be able to modify the files used by such application.
 #     #>
@@ -277,13 +277,13 @@ function Invoke-RunningProcessCheck {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
-    First, it lists all the processes thanks to the built-in "Get-Process" function. Then, it filters the result in order to return only the non-default Windows processes. By default, this function returns only process that are NOT owned by teh current user but you can use the "-Self" flag to get them. 
-    
+    First, it lists all the processes thanks to the built-in "Get-Process" function. Then, it filters the result in order to return only the non-default Windows processes. By default, this function returns only process that are NOT owned by teh current user but you can use the "-Self" flag to get them.
+
     .PARAMETER Self
     Use this flag to get a list of all the process owned by the current user
-    
+
     .EXAMPLE
     PS C:\> Invoke-RunningProcessCheck | ft
 
@@ -312,15 +312,15 @@ function Invoke-RunningProcessCheck {
     winlogon               676 N/A               1
     WmiPrvSE              3972 N/A               0
     #>
-    
+
     [CmdletBinding()] Param(
         [Switch]
         $Self = $false
     )
 
-    $CurrentUser = $CurrentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name 
+    $CurrentUser = $CurrentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
 
-    $IgnoredProcessNames = @("Idle", "services", "Memory Compression", "TrustedInstaller", "PresentationFontCache", "Registry", "ServiceShell", "System", 
+    $IgnoredProcessNames = @("Idle", "services", "Memory Compression", "TrustedInstaller", "PresentationFontCache", "Registry", "ServiceShell", "System",
     "csrss", # Client/Server Runtime Subsystem
     "dwm", # Desktop Window Manager
     "msdtc", # Microsoft Distributed Transaction Coordinator
@@ -328,7 +328,7 @@ function Invoke-RunningProcessCheck {
     "svchost" # Service Host
     )
 
-    $AllProcess = Get-Process 
+    $AllProcess = Get-Process
 
     foreach ($Process in $AllProcess) {
 
@@ -340,20 +340,20 @@ function Invoke-RunningProcessCheck {
 
             if ($Self) {
                 if ($ProcessUser -eq $CurrentUser) {
-                    $ReturnProcess = $true 
+                    $ReturnProcess = $true
                 }
             }
             else {
                 if (-not ($ProcessUser -eq $CurrentUser)) {
 
-                    # Here, I check whether 'C:\Windows\System32\<PROC_NAME>.exe' exists. Not ideal but it's a quick 
-                    # way to check whether it's a built-in binary. There might be some issues because of the 
-                    # FileSystem Redirector if the script is run from a 32-bits instance of powershell.exe (-> 
+                    # Here, I check whether 'C:\Windows\System32\<PROC_NAME>.exe' exists. Not ideal but it's a quick
+                    # way to check whether it's a built-in binary. There might be some issues because of the
+                    # FileSystem Redirector if the script is run from a 32-bits instance of powershell.exe (->
                     # SysWow64 instead of System32).
                     $PotentialImagePath = Join-Path -Path $env:SystemRoot -ChildPath "System32"
                     $PotentialImagePath = Join-Path -Path $PotentialImagePath -ChildPath "$($Process.name).exe"
 
-                    # If we can't find it in System32, add it to the list 
+                    # If we can't find it in System32, add it to the list
                     if (-not (Test-Path -Path $PotentialImagePath)) {
                         $ReturnProcess = $true
                     }

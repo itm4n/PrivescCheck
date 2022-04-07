@@ -2,16 +2,16 @@ function New-DynamicModule {
     <#
     .SYNOPSIS
     Short description
-    
+
     .DESCRIPTION
     Long description
-    
+
     .PARAMETER ModuleName
     Parameter description
-    
+
     .EXAMPLE
     An example
-    
+
     .NOTES
     https://github.com/jborean93/PowerShell-AnsibleVault/blob/master/AnsibleVault/Private/Invoke-Win32Api.ps1
     #>
@@ -92,50 +92,50 @@ function New-Enum {
         WINDOWS_BOOT_APPLICATION = 16
     }
     #>
-    
+
     [OutputType([Type])]
     Param (
         [Parameter(Position = 0, Mandatory = $true)]
         [ValidateScript( { ($_ -is [Reflection.Emit.ModuleBuilder]) -or ($_ -is [Reflection.Assembly]) })]
         $Module,
-    
+
         [Parameter(Position = 1, Mandatory = $true)]
         [ValidateNotNullOrEmpty()]
         [String]
         $FullName,
-    
+
         [Parameter(Position = 2, Mandatory = $true)]
         [Type]
         $Type,
-    
+
         [Parameter(Position = 3, Mandatory = $true)]
         [ValidateNotNullOrEmpty()]
         [Hashtable]
         $EnumElements,
-    
+
         [Switch]
         $Bitfield
     )
-    
+
     if ($Module -is [Reflection.Assembly]) {
         return ($Module.GetType($FullName))
     }
-    
+
     $EnumType = $Type -as [Type]
-    
+
     $EnumBuilder = $Module.DefineEnum($FullName, 'Public', $EnumType)
-    
+
     if ($Bitfield) {
         $FlagsConstructor = [FlagsAttribute].GetConstructor(@())
         $FlagsCustomAttribute = New-Object Reflection.Emit.CustomAttributeBuilder($FlagsConstructor, @())
         $EnumBuilder.SetCustomAttribute($FlagsCustomAttribute)
     }
-    
+
     foreach ($Key in $EnumElements.Keys) {
         # Apply the specified enum type to each element
         $null = $EnumBuilder.DefineLiteral($Key, $EnumElements[$Key] -as $EnumType)
     }
-    
+
     $EnumBuilder.CreateType()
 }
 

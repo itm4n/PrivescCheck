@@ -5,10 +5,10 @@ function Invoke-ScheduledTasksImagePermissionsCheck {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
-    This function enumerates all the scheduled tasks which are visible by the current user but are not owned by the current user. For each task, it extracts the command line and checks whether it contains a path pointing to a modifiable file. If a task is run as the current user, it is filtered out. 
-    
+    This function enumerates all the scheduled tasks which are visible by the current user but are not owned by the current user. For each task, it extracts the command line and checks whether it contains a path pointing to a modifiable file. If a task is run as the current user, it is filtered out.
+
     .EXAMPLE
     PS C:\> Invoke-ScheduledTasksImagePermissionsCheck
 
@@ -48,11 +48,11 @@ function Invoke-ScheduledTasksUnquotedPathCheck {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
 
     This script first enumerates all the tasks that are visible to the current user. Then, it checks the 'Command' value to see if it is not surrounded by quotes (unquoted path). If so, it checks whether the path contains spaces and if one of the intermediate directories is exploitable. Note that, as a low privileged user, not all the tasks are visible.
-    
+
     .EXAMPLE
 
     PS C:\> Invoke-ScheduledTasksUnquotedPathCheck
@@ -66,7 +66,7 @@ function Invoke-ScheduledTasksUnquotedPathCheck {
     ModifiablePath     : C:\APPS
     IdentityReference  : NT AUTHORITY\Authenticated Users
     Permissions        : {Delete, WriteAttributes, Synchronize, ReadControl...}
-    
+
     #>
 
     [CmdletBinding()] Param()

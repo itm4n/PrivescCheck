@@ -5,10 +5,10 @@ function Invoke-SystemInfoCheck {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     Reads the "Product Name" from the registry and gets the full version string based on the operating system.
-    
+
     .EXAMPLE
     Invoke-SystemInfoCheck | fl
 
@@ -17,7 +17,7 @@ function Invoke-SystemInfoCheck {
     .LINK
     https://techthoughts.info/windows-version-numbers/
     #>
-    
+
     [CmdletBinding()] Param()
 
     $OsVersion = Get-WindowsVersion
@@ -46,13 +46,13 @@ function Invoke-SystemStartupHistoryCheck {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     It uses the Event Log to get a list of all the events that indicate a system startup. The start event of the Event Log service is used as a reference.
-    
+
     .PARAMETER TimeSpanInDays
     An optional parameter indicating the time span to check in days. e.g.: check the last 31 days.
-    
+
     .EXAMPLE
     PS C:\> Invoke-SystemStartupHistoryCheck
 
@@ -72,11 +72,11 @@ function Invoke-SystemStartupHistoryCheck {
         12 2019-12-26 - 10:56:38
         13 2019-12-25 - 12:12:14
         14 2019-12-24 - 17:41:04
-    
+
     .NOTES
     Event ID 6005: The Event log service was started, i.e. system startup theoretically.
     #>
-    
+
     [CmdletBinding()] Param(
         [Int]
         $TimeSpanInDays = 31
@@ -114,13 +114,13 @@ function Invoke-SystemStartupCheck {
     <#
     .SYNOPSIS
     Gets the last system startup time
-    
+
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
-    Gets the tickcount in milliseconds thanks to the GetTickCount64 Win32 function and substracts the value to the current date. This yields the date and time of the last system startup. The result is returned in a custom PS Object containing a string representation of the DateTime object. 
-    
+    Gets the tickcount in milliseconds thanks to the GetTickCount64 Win32 function and substracts the value to the current date. This yields the date and time of the last system startup. The result is returned in a custom PS Object containing a string representation of the DateTime object.
+
     .EXAMPLE
     PS C:\> Invoke-SystemStartupCheck
 
@@ -132,8 +132,8 @@ function Invoke-SystemStartupCheck {
     [Environment]::TickCount is a 32-bit signed integer
     The max value it can hold is 49.7 days. That's why GetTickCount64() is used instead.
     #>
-    
-    [CmdletBinding()] Param() 
+
+    [CmdletBinding()] Param()
 
     try {
         $TickcountMilliseconds = [PrivescCheck.Win32]::GetTickCount64()
@@ -143,7 +143,7 @@ function Invoke-SystemStartupCheck {
         $Result = New-Object -TypeName PSObject
         $Result | Add-Member -MemberType "NoteProperty" -Name "Time" -Value "$(Convert-DateToString -Date $StartupDate)"
         $Result
-    
+
     }
     catch {
         # We are dealing with the Windows API so let's silently catch any exception, just in case...
@@ -157,19 +157,19 @@ function Invoke-SystemDrivesCheck {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     This function is a wrapper for the "Get-PSDrive" standard cmdlet. For each result returned by "Get-PSDrive", a custom PS object is returned, indicating the drive letter (if applicable), the display name (if applicable) and the description.
-    
+
     .EXAMPLE
-    PS C:\> Invoke-SystemDrivesCheck 
+    PS C:\> Invoke-SystemDrivesCheck
 
     Root DisplayRoot Description
     ---- ----------- -----------
     C:\              OS
     E:\              DATA
     #>
-    
+
     [CmdletBinding()] Param()
 
     $Drives = Get-PSDrive -PSProvider "FileSystem"
@@ -190,10 +190,10 @@ function Invoke-LocalAdminGroupCheck {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
-    For every member of the local admin group, it will check whether it's a local/domain user/group. If it's local it will also check if the account is enabled. 
-    
+    For every member of the local admin group, it will check whether it's a local/domain user/group. If it's local it will also check if the account is enabled.
+
     .EXAMPLE
     PS C:\> Invoke-LocalAdminGroupCheck
 
@@ -201,9 +201,9 @@ function Invoke-LocalAdminGroupCheck {
     ----          ---- ------- ---------
     Administrator User    True     False
     lab-admin     User    True      True
-    
+
     .NOTES
-    S-1-5-32-544 = SID of the local admin group 
+    S-1-5-32-544 = SID of the local admin group
     #>
 
     [CmdletBinding()] Param()
@@ -212,10 +212,10 @@ function Invoke-LocalAdminGroupCheck {
     $LocalAdminGroupName = $LocalAdminGroupFullname.Split('\')[1]
     Write-Verbose "Admin group name: $LocalAdminGroupName"
 
-    $AdsiComputer = [ADSI]("WinNT://$($env:COMPUTERNAME),computer") 
+    $AdsiComputer = [ADSI]("WinNT://$($env:COMPUTERNAME),computer")
 
     try {
-        $LocalAdminGroup = $AdsiComputer.psbase.children.find($LocalAdminGroupName, "Group") 
+        $LocalAdminGroup = $AdsiComputer.psbase.children.find($LocalAdminGroupName, "Group")
 
         if ($LocalAdminGroup) {
 
@@ -225,7 +225,7 @@ function Invoke-LocalAdminGroupCheck {
                 Write-Verbose "Found an admin member: $MemberName"
 
                 $Member = $AdsiComputer.Children | Where-Object { (($_.SchemaClassName -eq "User") -or ($_.SchemaClassName -eq "Group")) -and ($_.Name -eq $MemberName) }
-                
+
                 if ($Member) {
 
                     if ($Member.SchemaClassName -eq "User") {
@@ -233,7 +233,7 @@ function Invoke-LocalAdminGroupCheck {
                         $MemberIsEnabled = -not $($UserFlags -band $ADS_USER_FLAGS::AccountDisable)
                         $MemberType = "User"
                         $MemberIsLocal = $true
-                    } 
+                    }
                     elseif ($Member.SchemaClassName -eq "Group") {
                         $GroupType = $Member.GroupType.value
                         $MemberIsLocal = $($GroupType -band $GROUP_TYPE_FLAGS::ResourceGroup)
@@ -255,7 +255,7 @@ function Invoke-LocalAdminGroupCheck {
                 $Result | Add-Member -MemberType "NoteProperty" -Name "IsEnabled" -Value $MemberIsEnabled
                 $Result
             }
-        } 
+        }
     }
     catch {
         Write-Verbose $_.Exception
@@ -269,10 +269,10 @@ function Invoke-UsersHomeFolderCheck {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
-    Enumerates the folders located in C:\Users\. For each one, this function checks whether the folder is readable and/or writable by the current user. 
-    
+    Enumerates the folders located in C:\Users\. For each one, this function checks whether the folder is readable and/or writable by the current user.
+
     .EXAMPLE
     PS C:\> Invoke-UsersHomeFolderCheck
 
@@ -284,7 +284,7 @@ function Invoke-UsersHomeFolderCheck {
     #>
 
     [CmdletBinding()] Param()
-    
+
     $UsersHomeFolder = Join-Path -Path $((Get-Item $env:windir).Root) -ChildPath Users
 
     Get-ChildItem -Path $UsersHomeFolder | ForEach-Object {
@@ -293,10 +293,10 @@ function Invoke-UsersHomeFolderCheck {
         $ReadAccess = $false
         $WriteAccess = $false
 
-        $null = Get-ChildItem -Path $FolderPath -ErrorAction SilentlyContinue -ErrorVariable ErrorGetChildItem 
+        $null = Get-ChildItem -Path $FolderPath -ErrorAction SilentlyContinue -ErrorVariable ErrorGetChildItem
         if (-not $ErrorGetChildItem) {
 
-            $ReadAccess = $true 
+            $ReadAccess = $true
 
             $ModifiablePaths = $FolderPath | Get-ModifiablePath -LiteralPaths
             if (([Object[]]$ModifiablePaths).Length -gt 0) {
@@ -319,23 +319,23 @@ function Invoke-MachineRoleCheck {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     The role of the machine can be checked by reading the following registry key: HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\ProductOptions. The "ProductType" value represents the role of the machine.
-    
+
     .EXAMPLE
     PS C:\> Invoke-MachineRoleCheck
 
-    Name  Role       
-    ----  ----       
+    Name  Role
+    ----  ----
     WinNT WorkStation
-    
+
     .NOTES
     WinNT = workstation
     LanmanNT = domain controller
     ServerNT = server
     #>
-    
+
     [CmdletBinding()] Param()
 
     Get-MachineRole
@@ -344,11 +344,11 @@ function Invoke-MachineRoleCheck {
 function Invoke-EndpointProtectionCheck {
     <#
     .SYNOPSIS
-    Gets a list of security software products 
-    
+    Gets a list of security software products
+
     .DESCRIPTION
     This check was inspired by the script Invoke-EDRChecker.ps1 (PwnDexter). It enumerates the DLLs that are loaded in the current process, the processes that are currently running, the installed applications and the installed services. For each one of these entries, it extracts some metadata and checks whether it contains some known strings related to a given security software product. If there is a match, the corresponding entry is returned along with the data that was matched.
-    
+
     .EXAMPLE
     PS C:\> Invoke-EndpointProtectionCheck
 
@@ -382,7 +382,7 @@ function Invoke-EndpointProtectionCheck {
     Windows Defender Service               ImagePath="C:\ProgramData\Microsoft\Windows Defender\platform\4.18.2008.9-0\NisSrv.exe"
     Windows Defender Service               DisplayName=@C:\Program Files\Windows Defender\MpAsDesc.dll,-310
     Windows Defender Service               ImagePath="C:\ProgramData\Microsoft\Windows Defender\platform\4.18.2008.9-0\MsMpEng.exe"
-    
+
     .NOTES
     Credit goes to PwnDexter: https://github.com/PwnDexter/Invoke-EDRChecker
     #>
@@ -454,7 +454,7 @@ function Invoke-EndpointProtectionCheck {
 
     # Need to store all the results into one arraylist so we can sort them on the product name.
     $Results = New-Object System.Collections.ArrayList
-    
+
     # Check DLLs loaded in the current process
     Get-Process -Id $PID -Module | ForEach-Object {
 
@@ -485,7 +485,7 @@ function Invoke-EndpointProtectionCheck {
         }
     }
 
-    # Check installed applications 
+    # Check installed applications
     Get-InstalledPrograms | Select-Object -Property Name | ForEach-Object {
 
         Find-ProtectionSoftware -Object $_ | ForEach-Object {
@@ -498,7 +498,7 @@ function Invoke-EndpointProtectionCheck {
         }
     }
 
-    # Check installed services 
+    # Check installed services
     Get-ServiceList -FilterLevel 1 | ForEach-Object {
 
         Find-ProtectionSoftware -Object $_ | ForEach-Object {
@@ -521,10 +521,10 @@ function Invoke-HijackableDllsCheck {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     On Windows, some services load DLLs without using a "secure" search path. Therefore, they try to load them from the folders listing in the %PATH% environment variable. If one of these folders is configured with weak permissions, a local attacker may plant a malicious version of a DLL in order to execute arbitrary code in the context of the service.
-    
+
     .EXAMPLE
     PS C:\> Invoke-HijackableDllsCheck
 
@@ -575,8 +575,8 @@ function Invoke-HijackableDllsCheck {
         [void]$WindowsDirectories.Add($env:windir)
 
         foreach ($WindowsDirectory in [String[]]$WindowsDirectories) {
-            $Path = Join-Path -Path $WindowsDirectory -ChildPath $Name 
-            $null = Get-Item -Path $Path -ErrorAction SilentlyContinue -ErrorVariable ErrorGetItem 
+            $Path = Join-Path -Path $WindowsDirectory -ChildPath $Name
+            $null = Get-Item -Path $Path -ErrorAction SilentlyContinue -ErrorVariable ErrorGetItem
             if (-not $ErrorGetItem) {
                 return $true
             }
@@ -593,7 +593,7 @@ function Invoke-HijackableDllsCheck {
             [Boolean]$RebootRequired = $true
         )
 
-        $Service = Get-ServiceFromRegistry -Name $ServiceName 
+        $Service = Get-ServiceFromRegistry -Name $ServiceName
         if ($Service -and ($Service.StartMode -ne "Disabled")) {
 
             if (-not (Test-DllExists -Name $DllName)) {
@@ -649,10 +649,10 @@ function Invoke-NamedPipePermissionsCheck {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     List modifiable named pipes that are not owned by the current user.
-    
+
     .EXAMPLE
     An example
     #>
@@ -686,8 +686,8 @@ function Invoke-NamedPipePermissionsCheck {
         }
 
         $PermissionReference = @(
-            $FileAccessRightsEnum::Delete, 
-            $FileAccessRightsEnum::WriteDac, 
+            $FileAccessRightsEnum::Delete,
+            $FileAccessRightsEnum::WriteDac,
             $FileAccessRightsEnum::WriteOwner,
             $FileAccessRightsEnum::FileWriteEa,
             $FileAccessRightsEnum::FileWriteAttributes
@@ -729,13 +729,13 @@ function Invoke-DefenderExclusionsCheck {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     This check was inspired by a tweet from @splinter_code (see notes), mentioning the fact that Defender's exclusions can be listed as an unpriv user through the registry. This information is indeed stored in two registry keys (local and GPO) that are configured with a DACL that allows "Everyone" to read them. However, in some versions of Windows 10/11, the DACL is reportedly configured differently and would thus not grant read access for low-priv users.
 
     .NOTES
     @splinter_code: https://twitter.com/splinter_code/status/1481073265380581381
-    
+
     .EXAMPLE
     PS C:\> Invoke-DefenderExclusionsCheck
 
@@ -782,10 +782,10 @@ function Invoke-UserSessionListCheck {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     This check is essentially a wrapper for the helper function Get-RemoteDesktopUserSessionList.
-    
+
     .EXAMPLE
     PS C:\> Invoke-UserSessionListCheck
 
