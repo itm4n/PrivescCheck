@@ -2,6 +2,10 @@
 
 ## 2022-06-08
 
+### Added
+
+- The value of the 'DisableWindowsUpdateAccess' setting is now reported in the WSUS check.
+
 ### Fixed
 
 - System PATH parsing improved to ensure we do not check empty paths
