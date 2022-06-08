@@ -1,5 +1,11 @@
 # Changelog
 
+## 2022-06-08
+
+### Fixed
+
+- System PATH parsing improved to ensure we do not check empty paths
+
 ## 2022-04-07
 
 ### Added

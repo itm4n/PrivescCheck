@@ -297,19 +297,16 @@ function Invoke-DllHijackingCheck {
     $RegKey = "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment"
     $RegValue = "Path"
     $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue).$RegValue
-    $Paths = $RegData.Split(';')
+    $Paths = $RegData.Split(';') | ForEach-Object { $_.Trim() } | Where-Object { -not [String]::IsNullOrEmpty($_) }
 
     foreach ($Path in $Paths) {
-        if (-not [String]::IsNullOrEmpty($Path)) {
-            $Path | Get-ModifiablePath -LiteralPaths | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) } | Foreach-Object {
-
-                $Result = New-Object -TypeName PSObject
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $Path
-                $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $_.ModifiablePath
-                $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $_.IdentityReference
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value $_.Permissions
-                $Result
-            }
+        $Path | Get-ModifiablePath -LiteralPaths | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) } | Foreach-Object {
+            $Result = New-Object -TypeName PSObject
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $Path
+            $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $_.ModifiablePath
+            $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $_.IdentityReference
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value $_.Permissions
+            $Result
         }
     }
 }
