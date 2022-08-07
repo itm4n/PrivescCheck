@@ -55,7 +55,7 @@ function Invoke-ServicesPermissionsRegistryCheck {
 
     foreach ($Service in $AllServices) {
 
-        Get-ModifiableRegistryPath -Path "Registry::$($Service.RegistryPath)" | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) } | Foreach-Object {
+        Get-ModifiableRegistryPath -Path "$($Service.RegistryPath)" | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) } | Foreach-Object {
 
             $Status = "Unknown"
             $UserCanStart = $false

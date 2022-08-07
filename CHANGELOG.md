@@ -1,5 +1,13 @@
 # Changelog
 
+## 2022-08-07
+
+### Changed
+
+- DACL checking is now done in a dedicated cmdlet (Get-AclModificationRights) which can currently handle objects of types "File", "Directory" and "Registry Key".
+- The Get-ModifiablePath and Get-ModifiableRegistryPath cmdlets now use the generic Get-AclModificationRights cmdlet.
+- Deny ACEs are now taken into account when checking DACLs.
+
 ## 2022-06-08
 
 ### Added
