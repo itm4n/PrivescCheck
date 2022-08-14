@@ -1,5 +1,11 @@
 # Changelog
 
+## 2022-08-14
+
+### Changed
+
+- Second try to supporting deny-only SIDs when checking DACLs (Get-AclModificationRights).
+
 ## 2022-08-07
 
 ### Changed

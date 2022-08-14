@@ -1273,6 +1273,7 @@ function Get-AclModificationRights {
     
     .EXAMPLE
     PS C:\> Get-AclModificationRights -Path C:\Temp\foo123.txt -Type File
+    
     ModifiablePath    : C:\Temp\foo123.txt
     IdentityReference : NT AUTHORITY\Authenticated Users
     Permissions       : Delete, WriteAttributes, Synchronize, ReadControl, ReadData, AppendData, WriteExtendedAttributes,
@@ -1395,10 +1396,14 @@ function Get-AclModificationRights {
         $UserIdentity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
         $CurrentUserSids = $UserIdentity.Groups | Select-Object -ExpandProperty Value
         $CurrentUserSids += $UserIdentity.User.Value
+        # $CurrentUserSids = [string[]](Get-TokenInformationUser | Select-Object -ExpandProperty SID)
+        # $CurrentUserSids += [string[]](Get-TokenInformationGroups -InformationClass Groups | Select-Object -ExpandProperty SID)
+        $CurrentUserDenySids = [string[]](Get-TokenInformationGroups -InformationClass RestrictedSids | Select-Object -ExpandProperty SID)
 
         $ResolvedIdentities = @{}
 
         function Convert-NameToSid {
+
             Param([String]$Name)
 
             if (($Name -match '^S-1-5.*') -or ($Name -match '^S-1-15-.*')) { $Name; return }
@@ -1455,9 +1460,13 @@ function Get-AclModificationRights {
                     # (e.g.: a file in a directory or a sub-key of a registry key).
                     if ($DenyAce.PropagationFlags -band ([System.Security.AccessControl.PropagationFlags]"InheritOnly").value__) { continue }
         
-                    # Convert the ACE's identity reference name to its SID and ignore the ACE if this SID is not in
-                    # the current user's SID list.
+                    # Convert the ACE's identity reference name to its SID. If the SID is not in the list
+                    # of deny-only SIDs of the current Token, ignore it. If the SID does not match the 
+                    # current user SID or the SID of any of its groups, ignore it as well.
+                    # Note: deny-only SIDs are only used to check access-denied ACEs.
+                    # https://docs.microsoft.com/en-us/windows/win32/secauthz/sid-attributes-in-an-access-token
                     $IdentityReferenceSid = Convert-NameToSid -Name $DenyAce.IdentityReference
+                    if ($CurrentUserDenySids -notcontains $IdentityReferenceSid) { continue }
                     if ($CurrentUserSids -notcontains $IdentityReferenceSid) { continue }
     
                     $Restrictions = $TypeAccessMask.Keys | Where-Object { $DenyAce.$TypeAccessRights.value__ -band $_ } | ForEach-Object { $TypeAccessMask[$_] }
