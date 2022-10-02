@@ -28,9 +28,11 @@ First, load the script in the current session (the first "`.`" is a shortcut for
 ```powershell
 # Case #1: Execution policy is already set to "Bypass", so simply load the script.
 . .\PrivescCheck.ps1
-# Case #2: Default execution policy is set, so set it to "Bypass" for the current PowerShell process and load the script.
+# Case #2: Default execution policy is set, so set it to "Bypass" for the current
+# PowerShell process and load the script.
 Set-ExecutionPolicy Bypass -Scope process -Force; . .\PrivescCheck.ps1
-# Case #3: Execution policy is locked down, so get the file's content and pipe it to Invoke-Expression.
+# Case #3: Execution policy is locked down, so get the file's content and pipe it
+# to Invoke-Expression.
 Get-Content .\PrivescCheck.ps1 | Out-String | IEX
 ```
 
