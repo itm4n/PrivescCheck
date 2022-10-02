@@ -1396,9 +1396,7 @@ function Get-AclModificationRights {
         $UserIdentity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
         $CurrentUserSids = $UserIdentity.Groups | Select-Object -ExpandProperty Value
         $CurrentUserSids += $UserIdentity.User.Value
-        # $CurrentUserSids = [string[]](Get-TokenInformationUser | Select-Object -ExpandProperty SID)
-        # $CurrentUserSids += [string[]](Get-TokenInformationGroups -InformationClass Groups | Select-Object -ExpandProperty SID)
-        $CurrentUserDenySids = [string[]](Get-TokenInformationGroups -InformationClass RestrictedSids | Select-Object -ExpandProperty SID)
+        $CurrentUserDenySids = [string[]](Get-TokenInformationGroups -InformationClass Groups | Where-Object { $_.Attributes.Equals("UseForDenyOnly") } | Select-Object -ExpandProperty SID)
 
         $ResolvedIdentities = @{}
 
