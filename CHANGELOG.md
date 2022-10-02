@@ -1,5 +1,12 @@
 # Changelog
 
+## 2022-10-02
+
+### Fixed
+
+- Incorrect handling of deny-only groups in file ACL checks.
+- Issue with Metasploit caused by the presence of a null byte in the output.
+
 ## 2022-08-14
 
 ### Changed
