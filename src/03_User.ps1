@@ -32,7 +32,7 @@ function Invoke-UserCheck {
     $TokenOrigin = Get-TokenInformationOrigin
     $TokenSource = Get-TokenInformationSource
 
-    $TokenSourceName = [System.Text.Encoding]::ASCII.GetString($TokenSource.SourceName) -replace " ", ""
+    $TokenSourceName = [System.Text.Encoding]::ASCII.GetString($TokenSource.SourceName).Trim([char]0) -replace " ", ""
 
     $Result = New-Object -TypeName PSObject
     $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $TokenUser.DisplayName
