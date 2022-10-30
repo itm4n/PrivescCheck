@@ -43,20 +43,25 @@ function Remove-CommentsFromScriptBlock {
         $ScriptBlock
     )
 
-    $IsComment = $False
+    $IsCommentBlock = $False
     $Output = ""
 
     ForEach ($Line in $ScriptBlock.Split("`n")) {
         if ($Line -like "*<#*") {
-            $IsComment = $True
+            $IsCommentBlock = $True
         }
 
-        if (-not $IsComment) {
+        if ((-not $IsCommentBlock) -and ($Line -match "^\s*#.*")) {
+            # Write-Host "Comment line: $($Line)"
+            continue
+        }
+
+        if (-not $IsCommentBlock) {
             $Output += "$Line`n"
         }
 
         if ($Line -like "*#>*") {
-            $IsComment = $False
+            $IsCommentBlock = $False
         }
     }
 
@@ -94,10 +99,6 @@ Get-ChildItem -Path ".\src\*" | ForEach-Object {
     $ModuleFilename = $_.Name
 
     try {
-        . $ModulePath
-        Write-Host -ForegroundColor Green "[OK] " -NoNewline
-        Write-Host "Loaded module file $ModuleFilename"
-
         $ModuleName = ($ModuleFilename.Split('.')[0]).Split('_')[1]
 
         [void] $Modules.Add($ModuleName)
@@ -108,12 +109,19 @@ Get-ChildItem -Path ".\src\*" | ForEach-Object {
         # Strip out comments
         $ScriptBlock = Remove-CommentsFromScriptBlock -ScriptBlock $ScriptBlock
 
+        # Is the script block detected by AMSI after stripping the comments?
+        # Note: if the script block is caught by AMSI, an exception is triggered, so we go
+        # directly to the "catch" block. Otherwise, it means that the module was sucessfully 
+        # loaded.
+        $ScriptBlock | Invoke-Expression
+
+        Write-Host -ForegroundColor Green "[OK] " -NoNewline
+        Write-Host "Loaded module file $ModuleFilename"
+
         # Compress and Base64 encode script block
         $ScriptBlockBase64 = Convert-ToBase64CompressedScriptBlock -ScriptBlock $ScriptBlock
 
-        # $ScriptOutput += "# ------------------------------------`r`n"
-        # $ScriptOutput += "# Module $ModuleName`r`n"
-        # $ScriptOutput += "# ------------------------------------`r`n"
+        # Store each compressed block in a string variable
         $ScriptOutput += "`$ScriptBlock$($ModuleName) = `"$($ScriptBlockBase64)`"`r`n"
     }
     catch [Exception] {

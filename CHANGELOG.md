@@ -1,5 +1,11 @@
 # Changelog
 
+## 2022-10-30
+
+### Changed
+
+- The builder now removes all the comments, thus lowering the chance of detection by AMSI.
+
 ## 2022-10-02
 
 ### Fixed
