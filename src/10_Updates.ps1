@@ -67,53 +67,53 @@ function Invoke-HotFixCheck {
     )
 
     # Get the list of installed patches
-    $HotFixList = Get-HotFixList | Sort-Object -Property "InstalledOn" -Descending
+    $HotFixList = Get-HotFixList | Sort-Object -Property "InstalledOnDate" -Descending
 
     # If the list is empty, return
     if ($(([Object[]]$HotFixList).Length) -eq 0) { return }
 
     # If Info, return the list directly
-    if ($Info) { $HotFixList; return }
+    if ($Info) { $HotFixList | Select-Object HotFixID,Description,InstalledBy,InstalledOn; return }
 
     # To get the latest patch, we can simple get the first item in the list because it is sorted in
     # descending order.
     $LatestHotfix = $HotFixList | Select-Object -First 1
-    $TimeSpan = New-TimeSpan -Start $LatestHotfix.InstalledOn -End $(Get-Date)
+    $TimeSpan = New-TimeSpan -Start $LatestHotfix.InstalledOnDate -End $(Get-Date)
 
     if ($TimeSpan.TotalDays -gt 31) {
-        $LatestHotfix
+        $LatestHotfix | Select-Object HotFixID,Description,InstalledBy,InstalledOn
     }
     else {
         Write-Verbose "At least one hotfix was installed in the last 31 days."
     }
 }
 
-function Invoke-HotFixVulnCheck {
-    <#
-    .SYNOPSIS
-    Checks whether any hotfix has been installed in the last 31 days.
+# function Invoke-HotFixVulnCheck {
+#     <#
+#     .SYNOPSIS
+#     Checks whether any hotfix has been installed in the last 31 days.
 
-    .DESCRIPTION
-    This script first lists all the installed hotfixes. If no result is returned, this will be reported as a finding. If at least one result is returned, the script will check the first one (which corresponds to the latest hotfix). If it's more than 31 days old, it will be returned.
-    #>
+#     .DESCRIPTION
+#     This script first lists all the installed hotfixes. If no result is returned, this will be reported as a finding. If at least one result is returned, the script will check the first one (which corresponds to the latest hotfix). If it's more than 31 days old, it will be returned.
+#     #>
 
-    [CmdletBinding()] Param()
+#     [CmdletBinding()] Param()
 
-    $Hotfixes = Get-HotFixList | Sort-Object -Property "InstalledOn" -Descending
+#     $Hotfixes = Get-HotFixList | Sort-Object -Property "InstalledOn" -Descending
 
-    if ($(([Object[]]$Hotfixes).Length) -gt 0) {
+#     if ($(([Object[]]$Hotfixes).Length) -gt 0) {
 
-        $LatestHotfix = $Hotfixes | Select-Object -First 1
-        $TimeSpan = New-TimeSpan -Start $LatestHotfix.InstalledOn -End $(Get-Date)
+#         $LatestHotfix = $Hotfixes | Select-Object -First 1
+#         $TimeSpan = New-TimeSpan -Start $LatestHotfix.InstalledOn -End $(Get-Date)
 
-        if ($TimeSpan.TotalDays -gt 31) {
-            $LatestHotfix
-        }
-        else {
-            Write-Verbose "At least one hotfix was installed in the last 31 days."
-        }
-    }
-    else {
-        Write-Verbose "The hotfix history is empty."
-    }
-}
+#         if ($TimeSpan.TotalDays -gt 31) {
+#             $LatestHotfix
+#         }
+#         else {
+#             Write-Verbose "At least one hotfix was installed in the last 31 days."
+#         }
+#     }
+#     else {
+#         Write-Verbose "The hotfix history is empty."
+#     }
+# }

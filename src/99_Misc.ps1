@@ -819,3 +819,198 @@ function Invoke-UserSessionListCheck {
         $Result
     }
 }
+
+function Invoke-ExploitableLeakedHandlesCheck {
+    <#
+    .SYNOPSIS
+    List leaked handles to privileged objects such as Processes, Threads, and Files.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+    
+    .DESCRIPTION
+    This check attempts to enumerate handles to privileged objects that are inherited in processes we can open with the PROCESS_DUP_HANDLE access right. If the granted access rights of the handle are interesting and we can duplicate it, this could result in a privilege escalation. For instance, a process running as SYSTEM could open another process running as SYSTEM with the parameter bInheritHandle set to TRUE, and then create subprocesses as a low-privileged user. In this case, we might be able to duplicate the handle, and access the process running as SYSTEM, resulting in a privilege escalation.
+
+    .NOTES
+    Currently, only the following object types are handled: Process, Thread, File.
+
+    .EXAMPLE
+    PS C:\> Invoke-ExploitableLeakedHandlesCheck
+
+    Object             : -137928846962496
+    UniqueProcessId    : 15304
+    HandleValue        : 188
+    GrantedAccess      : 2097151
+    HandleAttributes   : 2
+    ObjectTypeIndex    : 7
+    ObjectType         : Process
+    ObjectName         :
+    HandleProcessId    : 664
+    HandleAccessRights : AllAccess
+
+    .LINK
+    https://aptw.tf/2022/02/10/leaked-handle-hunting.html
+    http://dronesec.pw/blog/2019/08/22/exploiting-leaked-process-and-thread-handles/
+    https://github.com/lab52io/LeakedHandlesFinder/
+    #>
+
+    [CmdletBinding()] Param()
+
+    $CandidateHandles = Get-SystemInformationExtendedHandles -InheritedOnly | Where-Object { $_.UniqueProcessId -ne $Pid }
+    $ProcessHandles = @{}
+    $DosDevices = @{}
+
+    (Get-PSDrive -PSProvider "FileSystem" | Select-Object -ExpandProperty Root).Trim('\') | ForEach-Object {
+        $DosDevices += @{ $_ = Convert-DosDeviceToDevicePath -DosDevice $_ }
+    }
+
+    foreach ($Handle in $CandidateHandles) {
+
+        $HandleProcessId = $Handle.UniqueProcessId.ToInt32()
+
+        # Is the handle's granted access interesting?
+        switch ($Handle.ObjectType) {
+
+            "Process" {
+                # PROCESS_CREATE_PROCESS | PROCESS_CREATE_THREAD | PROCESS_DUP_HANDLE | PROCESS_VM_*
+                $GrantedAccessMask = 0x0080 -bor 0x0002 -bor 0x0040 -bor 0x0008 -bor 0x0010 -bor 0x0020
+            }
+
+            "Thread" {
+                # THREAD_DIRECT_IMPERSONATION | THREAD_SET_CONTEXT
+                $GrantedAccessMask = 0x0200 -bor 0x0010
+            }
+
+            "File" {
+                # FILE_WRITE_DATA | FILE_APPEND_DATA
+                $GrantedAccessMask = 0x0002 -bor 0x0004
+            }
+
+            default {
+                $GrantedAccessMask = 0
+            }
+        }
+
+        if (($GrantedAccessMask -eq 0) -or (($Handle.GrantedAccess -band $GrantedAccessMask) -eq 0)) { continue }
+
+        # Try to open the process holding the handle with PROCESS_DUP_HANDLE. If it succeeds, this means
+        # that we can duplicate the handle. Otherwise, the handle will not be exploitable. Whatever the
+        # result, save it to a local hashtable for future use.
+        if ($ProcessHandles.Keys -notcontains $HandleProcessId) {
+            $ProcHandle = $Kernel32::OpenProcess($ProcessAccessRightsEnum::DupHandle, $false, $HandleProcessId)
+            $ProcessHandles += @{ $HandleProcessId = $ProcHandle }
+        }
+
+        # If we don't have a valid handle for the process holding the target handle, we won't be able to 
+        # exploit it, so we can ignore it.
+        if (($null -eq $ProcessHandles[$HandleProcessId]) -or ($ProcessHandles[$HandleProcessId] -eq [IntPtr]::Zero)) {
+            continue
+        }
+
+        $HandleName = $null
+        $KeepHandle = $false
+
+        $DUPLICATE_SAME_ACCESS = 2
+        [IntPtr]$HandleDup = [IntPtr]::Zero
+        if ($Kernel32::DuplicateHandle($ProcessHandles[$HandleProcessId], $Handle.HandleValue, $Kernel32::GetCurrentProcess(), [ref] $HandleDup, 0, $false, $DUPLICATE_SAME_ACCESS)) {
+
+            if (($Handle.GrantedAccess -ne 0x0012019f) -and ($Handle.GrantedAccess -ne 0x1A019F) -and ($Handle.GrantedAccess -ne 0x1048576f) -and ($Handle.GrantedAccess -ne 0x120189)) {
+                $HandleName = Get-ObjectName -ObjectHandle $HandleDup
+            }
+
+            $Handle | Add-Member -MemberType "NoteProperty" -Name "ObjectName" -Value $HandleName
+
+            switch ($Handle.ObjectType) {
+
+                "Process" {
+                    # Query the PID of the target Process. We assume that we have at least the PROCESS_QUERY_INFORMATION
+                    # or PROCESS_QUERY_LIMITED_INFORMATION right on the handle.
+                    $HandleProcessId = $Kernel32::GetProcessId($HandleDup)
+                    if ($HandleProcessId -eq 0) {
+                        $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+                        Write-Verbose "GetProcessId KO - $([ComponentModel.Win32Exception] $LastError)"
+                        continue
+                    }
+
+                    $Handle | Add-Member -MemberType "NoteProperty" -Name "HandleProcessId" -Value $HandleProcessId
+
+                    # Can we open the target Process directly with the same access rights? If so, the handle is of no
+                    # interest for privilege escalation.
+                    $TargetProcessHandle = $Kernel32::OpenProcess($Handle.GrantedAccess, $false, $HandleProcessId)
+                    if ($TargetProcessHandle -ne [IntPtr]::Zero) {
+                        $null = $Kernel32::CloseHandle($TargetProcessHandle)
+                        continue
+                    }
+
+                    $Handle | Add-Member -MemberType "NoteProperty" -Name "HandleAccessRights" -Value ($Handle.GrantedAccess -as $ProcessAccessRightsEnum)
+    
+                    $KeepHandle = $true
+                }
+    
+                "Thread" {
+                    # Query the TID of the target Thread. We assume we have at least THREAD_QUERY_INFORMATION
+                    # or THREAD_QUERY_LIMITED_INFORMATION rights on the handle.
+                    $TargetThreadId = $Kernel32::GetThreadId($HandleDup)
+                    if ($TargetThreadId -eq 0) {
+                        $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+                        Write-Verbose "GetThreadId KO - $([ComponentModel.Win32Exception] $LastError)"
+                        continue
+                    }
+
+                    $Handle | Add-Member -MemberType "NoteProperty" -Name "HandleThreadId" -Value $TargetThreadId
+
+                    # Can we open the Thread directly with the same access rights? If so, the handle is of no
+                    # interest for privilege escalation.
+                    $TargetThreadHandle = $Kernel32::OpenThread($Handle.GrantedAccess, $false, $TargetThreadId)
+                    if ($TargetThreadHandle -ne [IntPtr]::Zero) {
+                        $null = $Kernel32::CloseHandle($TargetThreadHandle)
+                        continue
+                    }
+    
+                    $KeepHandle = $true
+                }
+    
+                "File" {
+                    # Keep handles to files we don't already have write access to.
+    
+                    if ([String]::IsNullOrEmpty($HandleName)) { continue }
+    
+                    # For each path replace the device path with the DOS device name. For instance, transform the path
+                    # '\Device\HarddiskVolume\Temp\test.txt' into 'C:\Temp\test.txt'.
+                    foreach ($DosDevice in $DosDevices.Keys) {
+                        if ($HandleName.StartsWith($DosDevices[$DosDevice])) {
+                            $HandleName = $HandleName.Replace($DosDevices[$DosDevice], $DosDevice)
+                            break
+                        }
+                    }
+    
+                    # Handle only typical files and directories here, like 'C:\path\to\file.txt'. Ignore device paths 
+                    # such as '\Device\Afd'.
+                    if ($HandleName -notmatch "^?:\\.*$") { continue }
+
+                    # Do we have write access on the target file?
+                    $ModifiablePath = Get-ModifiablePath -LiteralPaths $HandleName
+                    if ($null -ne $ModifiablePath) { continue }
+    
+                    $KeepHandle = $true
+                }
+    
+                default {
+                    # Keep handle by default in case we add another object type and want to test the output.
+                    $KeepHandle = $true
+                }
+            }
+
+            $null = $Kernel32::CloseHandle($HandleDup)
+        }
+
+        if (-not $KeepHandle) { continue }
+        
+        $Handle
+    }
+
+    # Cleanup time. We need to close all the process handles we opened.
+    foreach ($ProcessHandle in $ProcessHandles.Values) {
+        $null = $Kernel32::CloseHandle($ProcessHandle)
+    }
+}

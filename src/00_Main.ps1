@@ -1,6 +1,8 @@
 $global:CachedServiceList = New-Object -TypeName System.Collections.ArrayList
 $global:CachedHotFixList = New-Object -TypeName System.Collections.ArrayList
 $global:CachedScheduledTaskList = New-Object -TypeName System.Collections.ArrayList
+$global:CachedCurrentUserSids = $null
+$global:CachedCurrentUserDenySids = $null
 $global:ResultArrayList = New-Object -TypeName System.Collections.ArrayList
 [string[]] $global:KeywordsOfInterest = "key", "passw", "secret", "pwd", "creds", "credential", "api"
 
@@ -142,6 +144,7 @@ function Invoke-PrivescCheck {
 "MISC_STARTUP_LAST",                "Invoke-SystemStartupCheck",                    "Misc",             "Last System Startup",                  "Info", "Info",     "Table",    "True",     "True",         "False",        "Determine the last system startup date and time based on the current tick count. Note that this might be unreliable."
 "MISC_DRIVES",                      "Invoke-SystemDrivesCheck",                     "Misc",             "Filesystem Drives",                    "Info", "Info",     "Table",    "True",     "True",         "False",        "List partitions, removable storage and mapped network shares."
 "MISC_NAMED_PIPES",                 "Invoke-NamedPipePermissionsCheck",             "Misc",             "Named Pipes Permission",               "Info", "Info",     "List",     "True",     "False",        "True",         "List modifiable named pipes that are not owned by the current user."
+"MISC_LEAKED_HANDLES",              "Invoke-ExploitableLeakedHandlesCheck",         "Misc",             "Exploitable leaked handles",           "Info", "Info",     "List",     "True",     "False",        "False",        "List leaked handles to privileged objects such as Processes, Threads, and Files."
 "@
 
     # Reset all global ArrayLists on startup

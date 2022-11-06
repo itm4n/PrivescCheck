@@ -127,6 +127,20 @@ function Convert-PSidToNameAndType {
     $Result
 }
 
+function Convert-PSidToRid {
+
+    [CmdletBinding()] Param(
+        [Parameter(Mandatory=$true)]
+        [IntPtr]$PSid
+    )
+
+    $SubAuthorityCountPtr = $Advapi32::GetSidSubAuthorityCount($PSid)
+    $SubAuthorityCount = [Runtime.InteropServices.Marshal]::ReadByte($SubAuthorityCountPtr)
+    $SubAuthorityPtr = $Advapi32::GetSidSubAuthority($PSid, $SubAuthorityCount - 1)
+    $SubAuthority = [UInt32] [Runtime.InteropServices.Marshal]::ReadInt32($SubAuthorityPtr)
+    $SubAuthority
+}
+
 function Convert-DateToString {
     <#
     .SYNOPSIS
@@ -152,10 +166,74 @@ function Convert-DateToString {
         [System.DateTime]$Date
     )
 
-    $OutString = ""
-    $OutString += $Date.ToString('yyyy-MM-dd - HH:mm:ss')
-    #$OutString += " ($($Date.ToString('o')))" # ISO format
-    $OutString
+    if ($null -ne $Date) {
+        $OutString = ""
+        $OutString += $Date.ToString('yyyy-MM-dd - HH:mm:ss')
+        $OutString
+    }
+}
+
+function Convert-DosDeviceToDevicePath {
+    <#
+    .SYNOPSIS
+    Helper - Convert a DOS device name (e.g. C:) to its device path
+
+    Author: @itm4n
+    License: BSD 3-Clause
+    
+    .DESCRIPTION
+    This function leverages the QueryDosDevice API to get the path of a DOS device (e.g. C: -> \Device\HarddiskVolume4)
+    
+    .PARAMETER DosDevice
+    A DOS device name such as C:
+    #>
+
+    [OutputType([String])]
+    [CmdletBinding()] Param(
+        [Parameter(Mandatory=$true)]
+        [String]$DosDevice
+    )
+
+    $TargetPathLen = 260
+    $TargetPathPtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($TargetPathLen * 2)
+    $TargetPathLen = $Kernel32::QueryDosDevice($DosDevice, $TargetPathPtr, $TargetPathLen)
+
+    if ($TargetPathLen -eq 0) {
+        [System.Runtime.InteropServices.Marshal]::FreeHGlobal($TargetPathPtr)
+        $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+        Write-Verbose "QueryDosDevice('$($DosDevice)') - $([ComponentModel.Win32Exception] $LastError)"
+        return
+    }
+
+    [System.Runtime.InteropServices.Marshal]::PtrToStringUni($TargetPathPtr)
+    [System.Runtime.InteropServices.Marshal]::FreeHGlobal($TargetPathPtr)
+}
+
+function Get-CurrentUserSids {
+
+    [CmdletBinding()] Param()
+
+    if ($null -eq $global:CachedCurrentUserSids) {
+        $UserIdentity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
+        $global:CachedCurrentUserSids = $UserIdentity.Groups | Select-Object -ExpandProperty Value
+        $global:CachedCurrentUserSids += $UserIdentity.User.Value
+    }
+
+    $global:CachedCurrentUserSids
+}
+
+function Get-CurrentUserDenySids {
+
+    [CmdletBinding()] Param()
+
+    if ($null -eq $global:CachedCurrentUserDenySids) {
+        $global:CachedCurrentUserDenySids = [string[]](Get-TokenInformationGroups -InformationClass Groups | Where-Object { $_.Attributes.Equals("UseForDenyOnly") } | Select-Object -ExpandProperty SID)
+        if ($null -eq $global:CachedCurrentUserDenySids) {
+            $global:CachedCurrentUserDenySids = @()
+        }
+    }
+
+    $global:CachedCurrentUserDenySids
 }
 
 function Get-WindowsVersion {
@@ -252,12 +330,10 @@ function Get-ProcessTokenHandle {
 
         if ($ProcessHandle -eq [IntPtr]::Zero) {
             $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-            Write-Verbose "OpenProcess - $([ComponentModel.Win32Exception] $LastError)"
+            Write-Verbose "OpenProcess($($ProcessId), 0x$('{0:x8}' -f $ProcessAccess))) - $([ComponentModel.Win32Exception] $LastError)"
             return
         }
     }
-
-    Write-Verbose "Process handle: $('{0:8x}' -f $ProcessHandle)"
 
     [IntPtr]$TokenHandle = [IntPtr]::Zero
     $Success = $Advapi32::OpenProcessToken($ProcessHandle, $TokenAccess, [ref]$TokenHandle)
@@ -272,6 +348,84 @@ function Get-ProcessTokenHandle {
 
     $TokenHandle
 }
+
+# function Get-ProcessParentPid {
+
+#     [OutputType([UInt32])]
+#     [CmdletBinding()] Param(
+#         [Parameter(Mandatory=$true)]
+#         [UInt32]$ProcessId
+#     )
+
+#     $ProcessHandle = $Kernel32::OpenProcess($ProcessAccessRightsEnum::QueryLimitedInformation, $false, $ProcessId)
+#     if ($ProcessHandle -eq [IntPtr]::Zero) {
+#         $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+#         Write-Verbose "OpenProcess - $([ComponentModel.Win32Exception] $LastError)"
+#         return
+#     }
+
+#     [UInt32]$DataSize = [System.Runtime.InteropServices.Marshal]::SizeOf([type] $PPROCESS_BASIC_INFORMATION)
+#     [IntPtr]$ProcessInformationPtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($DataSize)
+#     [UInt32]$ReturnLength = 0
+
+#     # ProcessBasicInformation = 0
+#     $Status = $Ntdll::NtQueryInformationProcess($ProcessHandle, 0, $ProcessInformationPtr, $DataSize, [ref] $ReturnLength)
+
+#     $Kernel32::CloseHandle($ProcessHandle) | Out-Null
+
+#     if ($Status -ne 0) {
+#         [System.Runtime.InteropServices.Marshal]::FreeHGlobal($ProcessInformationPtr)
+#         Write-Verbose "NtQueryInformationProcess - 0x$('{0:x8}' -f $Status)"
+#         return
+#     }
+
+#     $ProcessInformation = [System.Runtime.InteropServices.Marshal]::PtrToStructure($ProcessInformationPtr, [type] $PPROCESS_BASIC_INFORMATION)
+#     [System.Runtime.InteropServices.Marshal]::FreeHGlobal($ProcessInformationPtr)
+
+#     $ProcessInformation.InheritedFromUniqueProcessId.ToInt32()
+# }
+
+# function Get-ProcessObjectAddress {
+
+#     [OutputType([Object[]])]
+#     [CmdletBinding()] Param(
+#         [UInt32]$ProcessId = 0
+#     )
+
+#     $ProcessHandles = @{}
+
+#     foreach ($Process in Get-Process) {
+        
+#         $ProcessHandle = $Kernel32::OpenProcess($ProcessAccessRightsEnum::QueryLimitedInformation, $false, $Process.Id)
+#         if ($ProcessHandle -eq [IntPtr]::Zero) {
+#             $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+#             Write-Verbose "OpenProcess($($Process.Id)) - $([ComponentModel.Win32Exception] $LastError)"
+#             continue
+#         }
+
+#         $ProcessHandles += @{ $ProcessHandle = $Process.Id}
+#     }
+
+#     $MyHandles = Get-SystemInformationExtendedHandles -ProcessId $Pid
+
+#     foreach ($ProcessHandle in $ProcessHandles.Keys) {
+
+#         $ObjectAddress = $MyHandles | Where-Object { $_.HandleValue -eq $ProcessHandle } | Select-Object -ExpandProperty Object
+
+#         $Result = New-Object -TypeName PSObject
+#         $Result | Add-Member -MemberType "NoteProperty" -Name "ProcessId" -Value $ProcessHandles[$ProcessHandle]
+#         $Result | Add-Member -MemberType "NoteProperty" -Name "ObjectAddress" -Value $ObjectAddress
+
+#         if ($ProcessId -ne 0) {
+#             if ($ProcessId -eq $ProcessHandles[$ProcessHandle]) { $Result; break }
+#         }
+#         else {
+#             $Result
+#         }
+
+#         $null = $Kernel32::CloseHandle($ProcessHandle)
+#     }
+# }
 
 function Get-TokenInformationData {
     <#
@@ -303,8 +457,6 @@ function Get-TokenInformationData {
         Write-Verbose "GetTokenInformation - $([ComponentModel.Win32Exception] $LastError)"
         return
     }
-
-    Write-Verbose "GetTokenInformation() OK - DataSize = $DataSize"
 
     [IntPtr]$DataPtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($DataSize)
 
@@ -405,8 +557,6 @@ function Get-TokenInformationGroups {
     if (-not $TokenGroupsPtr) { $Kernel32::CloseHandle($TokenHandle) | Out-Null; return }
 
     $TokenGroups = [Runtime.InteropServices.Marshal]::PtrToStructure($TokenGroupsPtr, [type] $TOKEN_GROUPS)
-
-    Write-Verbose "Number of groups: $($TokenGroups.GroupCount)"
 
     # Offset of the first SID_AND_ATTRIBUTES structure is +4 in 32-bits, and +8 in 64-bits (because
     # of the structure alignment in memory). Therefore we can use [IntPtr]::Size as the offset's
@@ -598,16 +748,17 @@ function Get-TokenInformationIntegrityLevel {
         [UInt32]$ProcessId = 0
     )
 
-    $TokenHandle = Get-ProcessTokenHandle -ProcessId $ProcessId
+    $TokenHandle = Get-ProcessTokenHandle -ProcessId $ProcessId -ProcessAccess $ProcessAccessRightsEnum::QueryLimitedInformation
     if (-not $TokenHandle) { return }
 
-    $TokenIntegrityLevelPtr = Get-TokenInformationData -TokenHandle $TokenHandle -InformationClass $TOKEN_INFORMATION_CLASS::TokenIntegrityLevel
-    if (-not $TokenIntegrityLevelPtr) { $Kernel32::CloseHandle($TokenHandle) | Out-Null; return }
+    $TokenMandatoryLabelPtr = Get-TokenInformationData -TokenHandle $TokenHandle -InformationClass $TOKEN_INFORMATION_CLASS::TokenIntegrityLevel
+    if (-not $TokenMandatoryLabelPtr) { $Kernel32::CloseHandle($TokenHandle) | Out-Null; return }
 
-    $TokenIntegrityLevel = [System.Runtime.InteropServices.Marshal]::PtrToStructure($TokenIntegrityLevelPtr, [type] $TOKEN_MANDATORY_LABEL)
+    $TokenMandatoryLabel = [System.Runtime.InteropServices.Marshal]::PtrToStructure($TokenMandatoryLabelPtr, [type] $TOKEN_MANDATORY_LABEL)
 
-    $SidString = Convert-PSidToStringSid -PSid $TokenIntegrityLevel.Label.Sid
-    $SidInfo = Convert-PSidToNameAndType -PSid $TokenIntegrityLevel.Label.Sid
+    $SidString = Convert-PSidToStringSid -PSid $TokenMandatoryLabel.Label.Sid
+    $SidInfo = Convert-PSidToNameAndType -PSid $TokenMandatoryLabel.Label.Sid
+    $TokenIntegrityLevel = Convert-PSidToRid -PSid $TokenMandatoryLabel.Label.Sid
 
     $Result = New-Object -TypeName PSObject
     $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $SidInfo.Name
@@ -615,8 +766,9 @@ function Get-TokenInformationIntegrityLevel {
     $Result | Add-Member -MemberType "NoteProperty" -Name "DisplayName" -Value $SidInfo.DisplayName
     $Result | Add-Member -MemberType "NoteProperty" -Name "SID" -Value $SidString
     $Result | Add-Member -MemberType "NoteProperty" -Name "Type" -Value ($SidInfo.Type -as $SID_NAME_USE)
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Level" -Value $TokenIntegrityLevel
 
-    [System.Runtime.InteropServices.Marshal]::FreeHGlobal($TokenIntegrityLevelPtr)
+    [System.Runtime.InteropServices.Marshal]::FreeHGlobal($TokenMandatoryLabelPtr)
     $Kernel32::CloseHandle($TokenHandle) | Out-Null
 
     $Result
@@ -834,6 +986,291 @@ function Get-TokenInformationUser {
     [System.Runtime.InteropServices.Marshal]::FreeHGlobal($TokenUserPtr)
     $Kernel32::CloseHandle($TokenHandle) | Out-Null
 }
+
+function Get-ObjectName {
+    <#
+    .SYNOPSIS
+    Get the name of a Kernel object (if it has one).
+
+    Author: @itm4n
+    License: BSD 3-Clause
+    
+    .DESCRIPTION
+    This function leverages the NtQueryObject syscall to get the name of a Kernel object based on its handle.
+    
+    .PARAMETER ObjectHandle
+    The handle of an object for wchich we should retrieve the name.
+    #>
+
+    [OutputType([String])]
+    [CmdletBinding()] Param(
+        [Parameter(Mandatory=$true)]
+        [IntPtr]$ObjectHandle
+    )
+
+    [UInt32]$DataSize = 0x1000
+    [IntPtr]$ObjectNamePtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($DataSize)
+    [UInt32]$ReturnLength = 0
+
+    while ($true) {
+
+        # ObjectNameInformation = 1
+        $Status = $Ntdll::NtQueryObject($ObjectHandle, 1, $ObjectNamePtr, $DataSize, [ref] $ReturnLength)
+        if ($Status -eq 0xC0000004) {
+            $DataSize = $DataSize * 2
+            $ObjectNamePtr = [System.Runtime.InteropServices.Marshal]::ReAllocHGlobal($ObjectNamePtr, $DataSize)
+        }
+        else {
+            break
+        }
+    }
+
+    if ($Status -ne 0) {
+        [System.Runtime.InteropServices.Marshal]::FreeHGlobal($ObjectNamePtr)
+        Write-Verbose "NtQueryObject - 0x$('{0:x8}' -f $Status)"
+        return
+    }
+
+    $ObjectName = [Runtime.InteropServices.Marshal]::PtrToStructure($ObjectNamePtr, [type] $OBJECT_NAME_INFORMATION)
+    [Runtime.InteropServices.Marshal]::PtrToStringUni($ObjectName.Name.Buffer)
+
+    [System.Runtime.InteropServices.Marshal]::FreeHGlobal($ObjectNamePtr)
+}
+
+function Get-ObjectTypes {
+    <#
+    .SYNOPSIS
+    Get a list of kernel object types.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+    
+    .DESCRIPTION
+    Helper - This function leverages the NtQueryObject syscall to list the object types and return a list of PS custom objects containing their index and name.
+    #>
+
+    [OutputType([Object[]])]
+    [CmdletBinding()] Param()
+
+    [UInt32]$DataSize = 0x10000
+    [IntPtr]$ObjectTypesPtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($DataSize)
+    [UInt32]$ReturnLength = 0
+
+    while ($true) {
+
+        # ObjectTypesInformation = 3
+        $Status = $Ntdll::NtQueryObject([IntPtr]::Zero, 3, $ObjectTypesPtr, $DataSize, [ref] $ReturnLength)
+        if ($Status -eq 0xC0000004) {
+            $DataSize = $DataSize * 2
+            $ObjectTypesPtr = [System.Runtime.InteropServices.Marshal]::ReAllocHGlobal($ObjectTypesPtr, $DataSize)
+        }
+        else {
+            break
+        }
+    }
+
+    if ($Status -ne 0) {
+        [System.Runtime.InteropServices.Marshal]::FreeHGlobal($ObjectTypesPtr)
+        Write-Verbose "NtQueryObject - 0x$('{0:x8}' -f $Status)"
+        return
+    }
+
+    $NumberOfTypes = [UInt32] [Runtime.InteropServices.Marshal]::ReadInt32($ObjectTypesPtr)
+
+    Write-Verbose "Number of types: $($NumberOfTypes)"
+
+    $Offset = (4 + [IntPtr]::Size - 1) -band (-bnot ([IntPtr]::Size - 1))
+    $CurrentTypePtr = [IntPtr] ($ObjectTypesPtr.ToInt64() + $Offset)
+
+    for ($i = 0; $i -lt $NumberOfTypes; $i++) {
+
+        $CurrentType = [Runtime.InteropServices.Marshal]::PtrToStructure($CurrentTypePtr, [type] $OBJECT_TYPE_INFORMATION)
+
+        $TypeName = [Runtime.InteropServices.Marshal]::PtrToStringUni($CurrentType.TypeName.Buffer)
+
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Index" -Value $CurrentType.TypeIndex
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $TypeName
+        $Result
+
+        $Offset = [Runtime.InteropServices.Marshal]::SizeOf([type] $OBJECT_TYPE_INFORMATION)
+        $Offset += ($CurrentType.TypeName.MaximumLength + [IntPtr]::Size - 1) -band (-bnot ([IntPtr]::Size - 1))
+        $CurrentTypePtr = [IntPtr] ($CurrentTypePtr.ToInt64() + $Offset)
+    }
+
+    [System.Runtime.InteropServices.Marshal]::FreeHGlobal($ObjectTypesPtr)
+}
+
+function Get-SystemInformationData {
+    <#
+    .SYNOPSIS
+    Helper - Get system information through a syscall
+
+    Author: @itm4n
+    License: BSD 3-Clause
+    
+    .DESCRIPTION
+    This helper leverages the syscall NtQuerySystemInformation to retrieve information about the system.
+    
+    .PARAMETER InformationClass
+    The class of information to retrieve (e.g. basic, code integrity, processes, handles).
+
+    .NOTES
+    The information class is not defined as an enumeration because it is too big. Use hardcoded values instead when calling this function.
+    #>
+
+    [OutputType([IntPtr])]
+    [CmdletBinding()] Param(
+        [Parameter(Mandatory=$true)]
+        [UInt32]$InformationClass
+    )
+
+    [UInt32]$DataSize = 0x10000
+    [IntPtr]$SystemInformationPtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($DataSize)
+    [UInt32]$ReturnLength = 0
+
+    while ($true) {
+
+        $Status = $Ntdll::NtQuerySystemInformation($InformationClass, $SystemInformationPtr, $DataSize, [ref] $ReturnLength)
+        if ($Status -eq 0xC0000004) {
+            $DataSize = $DataSize * 2
+            $SystemInformationPtr = [System.Runtime.InteropServices.Marshal]::ReAllocHGlobal($SystemInformationPtr, $DataSize)
+        }
+        else {
+            break
+        }
+    }
+
+    if ($Status -ne 0) {
+        [System.Runtime.InteropServices.Marshal]::FreeHGlobal($SystemInformationPtr)
+        Write-Verbose "NtQuerySystemInformation - 0x$('{0:x8}' -f $Status)"
+        return
+    }
+
+    $SystemInformationPtr
+}
+
+function Get-SystemInformationExtendedHandles {
+    <#
+    .SYNOPSIS
+    Helper - List system handle information
+
+    Author: @itm4n
+    License: BSD 3-Clause
+    
+    .DESCRIPTION
+    This helper calls another helper function - Get-SystemInformationData - in order to get a list of extended system handle information.
+    
+    .PARAMETER InheritedOnly
+    Include only handles that are inherited from another process.
+    
+    .PARAMETER ProcessId
+    Include only handles that are opened in a specific process.
+    
+    .PARAMETER TypeIndex
+    Include only handles of a certain object type.
+
+    .EXAMPLE
+    PS C:\> Get-SystemInformationExtendedHandles -InheritedOnly
+
+    Object           : -91242903594912
+    UniqueProcessId  : 5980
+    HandleValue      : 2964
+    GrantedAccess    : 4
+    HandleAttributes : 2
+    ObjectTypeIndex  : 42
+    ObjectType       : Section
+
+    [...]
+    #>
+
+    [CmdletBinding()] Param(
+        [Switch]$InheritedOnly = $false,
+        [UInt32]$ProcessId = 0,
+        [UInt32]$TypeIndex = 0
+    )
+
+    $ObjectTypes = Get-ObjectTypes
+
+    # SystemExtendedHandleInformation = 64
+    $SystemHandlesPtr = Get-SystemInformationData -InformationClass 64
+    if (-not $SystemHandlesPtr) { return }
+
+    $SystemHandles = [System.Runtime.InteropServices.Marshal]::PtrToStructure($SystemHandlesPtr, [type] $SYSTEM_HANDLE_INFORMATION_EX)
+    
+    Write-Verbose "Number of handles: $($SystemHandles.NumberOfHandles)"
+
+    $CurrentHandleInfoPtr = [IntPtr] ($SystemHandlesPtr.ToInt64() + ([IntPtr]::Size * 2))
+    for ($i = 0; $i -lt $SystemHandles.NumberOfHandles; $i++) {
+
+        # Get the handle information structure at the current pointer.
+        $CurrentHandleInfo = [Runtime.InteropServices.Marshal]::PtrToStructure($CurrentHandleInfoPtr, [type] $SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX)
+
+        # Pre-calculate the pointer for the next handle information structure.
+        $CurrentHandleInfoPtr = [IntPtr] ($CurrentHandleInfoPtr.ToInt64() + [Runtime.InteropServices.Marshal]::SizeOf([type] $SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX))
+
+        # If InheritedOnly, ignore handles that are not inherited (HANDLE_INHERIT = 0x2).
+        if ($InheritedOnly -and (($CurrentHandleInfo.HandleAttributes -band 0x2) -ne 0x2)) { continue }
+
+        # If a PID filter is set, ignore handles that are not associated to this process.
+        if (($ProcessId -ne 0) -and ($CurrentHandleInfo.UniqueProcessId -ne $ProcessId)) { continue }
+
+        # If an object type index is set, ignore handles that are not of this type.
+        if (($TypeIndex -ne 0) -and ($CurrentHandleInfo.ObjectTypeIndex -ne $TypeIndex)) { continue }
+
+        $Result = $CurrentHandleInfo | Select-Object Object,UniqueProcessId,HandleValue,GrantedAccess,HandleAttributes,ObjectTypeIndex
+        $Result | Add-Member -MemberType "NoteProperty" -Name "ObjectType" -Value $($ObjectTypes | Where-Object { $_.Index -eq $CurrentHandleInfo.ObjectTypeIndex } | Select-Object -ExpandProperty Name)
+        $Result
+    }
+
+    [System.Runtime.InteropServices.Marshal]::FreeHGlobal($SystemHandlesPtr)
+}
+
+# function Get-Toolhelp32SnapshotProcess {
+#     <#
+#     .SYNOPSIS
+#     Helper - Enumerate processes
+
+#     Author: @itm4n
+#     License: BSD 3-Clause
+    
+#     .DESCRIPTION
+#     This function leverages the Toolhelp32Snapshot API set to enumerate basic information about the currently running processes.
+#     #>
+
+#     [CmdletBinding()] Param()
+
+#     # TH32CS_SNAPPROCESS = 0x00000002
+#     $SnaphostHandle = $Kernel32::CreateToolhelp32Snapshot(0x00000002, 0)
+#     if ($SnaphostHandle -eq -1) {
+#         $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+#         Write-Verbose "CreateToolhelp32Snapshot KO - $([ComponentModel.Win32Exception] $LastError)"
+#         return
+#     }
+
+#     $ProcessEntry = New-Object WinApiModule.PROCESSENTRY32
+#     $ProcessEntry.Size = [Runtime.InteropServices.Marshal]::SizeOf([type] $PROCESSENTRY32)
+#     $ProcessEntryPtr = [Runtime.InteropServices.Marshal]::AllocHGlobal([Runtime.InteropServices.Marshal]::SizeOf([type] $PROCESSENTRY32))
+#     [Runtime.InteropServices.Marshal]::StructureToPtr($ProcessEntry, $ProcessEntryPtr, $true)
+
+#     if (-not $Kernel32::Process32First($SnaphostHandle, $ProcessEntryPtr)) {
+#         $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+#         Write-Verbose "Process32First KO - $([ComponentModel.Win32Exception] $LastError)"
+#         [Runtime.InteropServices.Marshal]::FreeHGlobal($ProcessEntryPtr)
+#         $null = $Kernel32::CloseHandle($SnaphostHandle)
+#         return
+#     }
+
+#     do {
+#         $ProcessEntry = [Runtime.InteropServices.Marshal]::PtrToStructure($ProcessEntryPtr, [type] $PROCESSENTRY32)
+#         $Result = $ProcessEntry | Select-Object ProcessId,Threads,ParentProcessId,Flags
+#         $Result | Add-Member -MemberType "NoteProperty" -Name "ExeFile" -Value ($ProcessEntry.ExeFile -join "")
+#         $Result
+#     } while ($Kernel32::Process32Next($SnaphostHandle, $ProcessEntryPtr))
+
+#     [Runtime.InteropServices.Marshal]::FreeHGlobal($ProcessEntryPtr)
+#     $null = $Kernel32::CloseHandle($SnaphostHandle)
+# }
 
 function Get-InstalledPrograms {
     <#
@@ -1393,10 +1830,8 @@ function Get-AclModificationRights {
             $TypeRegistryKey = @('SetValue', 'CreateSubKey', 'Delete', 'WriteDAC', 'WriteOwner')
         }
 
-        $UserIdentity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
-        $CurrentUserSids = $UserIdentity.Groups | Select-Object -ExpandProperty Value
-        $CurrentUserSids += $UserIdentity.User.Value
-        $CurrentUserDenySids = [string[]](Get-TokenInformationGroups -InformationClass Groups | Where-Object { $_.Attributes.Equals("UseForDenyOnly") } | Select-Object -ExpandProperty SID)
+        $CurrentUserSids = Get-CurrentUserSids
+        $CurrentUserDenySids = Get-CurrentUserDenySids
 
         $ResolvedIdentities = @{}
 
@@ -1472,7 +1907,8 @@ function Get-AclModificationRights {
                 }
             }
             
-            if ($AllowAces) { # Need to make sure it not null because of PSv2
+            # Need to make sure it not null because of PSv2
+            if ($AllowAces) {
                 foreach ($AllowAce in $AllowAces) {
 
                     # Ignore "InheritOnly" ACEs because they only apply to child objects, not to the object itself
@@ -1597,7 +2033,7 @@ function Get-ModifiablePath {
             if ($PSBoundParameters['LiteralPaths']) {
 
                 $TempPath = $([System.Environment]::ExpandEnvironmentVariables($TargetPath))
-
+                
                 if (Test-Path -Path $TempPath -ErrorAction SilentlyContinue) {
 
                     $ResolvedPath = Resolve-Path -Path $TempPath | Select-Object -ExpandProperty Path
@@ -2245,7 +2681,7 @@ function Get-HotFixList {
                 $Info | Add-Member -MemberType "NoteProperty" -Name "SupportInformation" -Value "$($_.supportInformation)"
             }
 
-            $PackageContentXml.GetElementsByTagName("package") | ForEach-Object {
+            $PackageContentXml.GetElementsByTagName("package") | Where-Object { $null -ne $_.identifier } | ForEach-Object {
 
                 $Info | Add-Member -MemberType "NoteProperty" -Name "Identifier" -Value "$($_.identifier)"
                 $Info | Add-Member -MemberType "NoteProperty" -Name "ReleaseType" -Value "$($_.releaseType)"
@@ -2269,7 +2705,7 @@ function Get-HotFixList {
             $AllPackages | ForEach-Object {
 
                 # Filter only KB-related packages
-                if (($_.Name | Split-Path -Leaf) -Like "Package_*_for_KB*") {
+                if (($_.Name | Split-Path -Leaf) -Like "Package_*for_KB*") {
 
                     $PackageProperties = $_ | Get-ItemProperty
 
@@ -2302,7 +2738,8 @@ function Get-HotFixList {
                             $Result | Add-Member -MemberType "NoteProperty" -Name "HotFixID" -Value "$PackageName"
                             $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value "$($PackageInfo.ReleaseType)"
                             $Result | Add-Member -MemberType "NoteProperty" -Name "InstalledBy" -Value "$InstalledBy"
-                            $Result | Add-Member -MemberType "NoteProperty" -Name "InstalledOn" -Value $InstallDate
+                            $Result | Add-Member -MemberType "NoteProperty" -Name "InstalledOnDate" -Value $InstallDate
+                            $Result | Add-Member -MemberType "NoteProperty" -Name "InstalledOn" -Value (Convert-DateToString -Date $InstallDate)
 
                             [void]$CachedHotFixList.Add($Result)
                         }
@@ -2313,6 +2750,8 @@ function Get-HotFixList {
         else {
             # If we can't read the registry, fall back to the built-in 'Get-HotFix' cmdlet
             Get-HotFix | Select-Object HotFixID,Description,InstalledBy,InstalledOn | ForEach-Object {
+                $_ | Add-Member -MemberType "NoteProperty" -Name "InstalledOnDate" -Value $_.InstalledOn
+                $_.InstalledOn = Convert-DateToString -Date $_.InstalledOn
                 [void]$CachedHotFixList.Add($_)
             }
         }
@@ -2985,6 +3424,8 @@ function Test-ServiceDaclPermission {
                 $TargetPermissions = @('GenericAll', 'AllAccess')
             }
         }
+
+        $CurrentUserSids = Get-CurrentUserSids
     }
 
     PROCESS {
@@ -2996,11 +3437,6 @@ function Test-ServiceDaclPermission {
             # We might not be able to access the Service at all so we must check whether Add-ServiceDacl
             # returned something.
             if ($TargetService -and $TargetService.Dacl) {
-
-                # Enumerate all group SIDs the current user is a part of
-                $UserIdentity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
-                $CurrentUserSids = $UserIdentity.Groups | Select-Object -ExpandProperty Value
-                $CurrentUserSids += $UserIdentity.User.Value
 
                 # Check all the Dacl objects of the current service
                 foreach ($Ace in $TargetService.Dacl) {

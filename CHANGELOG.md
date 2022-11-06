@@ -1,5 +1,20 @@
 # Changelog
 
+## 2022-11-06
+
+### Added
+
+- Misc > Invoke-ExploitableLeakedHandlesCheck
+
+### Changed
+
+- Added a cache for user group SIDs and deny SIDs. Deny SIDs in particular caused a significant overhead in Get-ModifiablePath. The performance gain is substantial.
+- The dates in the hotfix list are now displayed in ISO format to avoid confusion.
+
+### Fixed
+
+- Get-HotFixList missed some update packages because the regular expression used to browse the registry was incorrect.
+
 ## 2022-10-30
 
 ### Changed
