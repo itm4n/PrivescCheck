@@ -4,50 +4,80 @@ This script aims to __enumerate common Windows configuration issues__ that can b
 
 You can find more information about PrivescCheck [here](INFORMATION.md).
 
-## Quick start
+## Use from a command prompt
 
-### From a command prompt
-
-Assuming, the file `PrivescCheck.ps1` is located in the current directory...
+__Usage #1:__ Basic usage
 
 ```bat
-REM Basic usage
 powershell -ep bypass -c ". .\PrivescCheck.ps1; Invoke-PrivescCheck"
-REM Extended mode
+```
+
+__Usage #2:__ Extended mode
+
+```bat
 powershell -ep bypass -c ". .\PrivescCheck.ps1; Invoke-PrivescCheck -Extended"
-REM Extended mode + Write a report file (default format is raw text)
+```
+
+__Usage #3:__ Extended mode + Write a report file (default format is raw text)
+
+```bat
 powershell -ep bypass -c ". .\PrivescCheck.ps1; Invoke-PrivescCheck -Extended -Report PrivescCheck_%COMPUTERNAME%"
-REM Extended mode + Write report files in other formats
+```
+
+__Usage #4:__ Extended mode + Write report files in other formats
+
+```bat
 powershell -ep bypass -c ". .\PrivescCheck.ps1; Invoke-PrivescCheck -Extended -Report PrivescCheck_%COMPUTERNAME% -Format TXT,CSV,HTML,XML"
 ```
 
-### From a PowerShell prompt
+## Use from a PowerShell prompt
 
-First, load the script in the current session (the first "`.`" is a shortcut for `Import-Module`).
+### 1. Load the script as a module
+
+__Case #1:__ Execution policy is already set to `Bypass`, so simply load the script.
 
 ```powershell
-# Case #1: Execution policy is already set to "Bypass", so simply load the script.
 . .\PrivescCheck.ps1
-# Case #2: Default execution policy is set, so set it to "Bypass" for the current
-# PowerShell process and load the script.
-Set-ExecutionPolicy Bypass -Scope process -Force; . .\PrivescCheck.ps1
-# Case #3: Execution policy is locked down, so get the file's content and pipe it
-# to Invoke-Expression.
+```
+
+__Case #2:__ Default execution policy is set, so set it to `Bypass` for the current PowerShell process and load the script.
+
+```powershell
+Set-ExecutionPolicy Bypass -Scope process -Force
+. .\PrivescCheck.ps1
+```
+
+__Case #3:__ Execution policy is locked down, so get the file's content and pipe it to `Invoke-Expression`.
+
+```powershell
 Get-Content .\PrivescCheck.ps1 | Out-String | IEX
 ```
 
+### 2. Run the script
+
 Then, use the `Invoke-PrivescCheck` cmdlet.
 
+__Usage #1:__ Basic usage
+
 ```powershell
-# Show usage
-Get-Help Invoke-PrivescCheck
-# Basic usage
 Invoke-PrivescCheck
-# Extended mode
+```
+
+__Usage #2:__ Extended mode
+
+```powershell
 Invoke-PrivescCheck -Extended
-# Extended mode + Write a report file (default format is raw text)
+```
+
+__Usage #3:__ Extended mode + Write a report file (default format is raw text)
+
+```powershell
 Invoke-PrivescCheck -Extended -Report "PrivescCheck_$($env:COMPUTERNAME)"
-# Extended mode + Write report files in other formats
+```
+
+__Usage #4:__ Extended mode + Write report files in other formats
+
+```powershell
 Invoke-PrivescCheck -Extended -Report "PrivescCheck_$($env:COMPUTERNAME)" -Format TXT,CSV,HTML,XML
 ```
 
@@ -73,15 +103,3 @@ msf6 exploit(multi/handler) > sessions -t 120 -i 1
 [*] Starting interaction with 1...
 meterpreter > powershell_execute "Invoke-PrivescCheck"
 ```
-
-## Bug reporting. Feature Request. Overall enhancement.
-
-- You think you identified a bug or a false positive/negative?
-- You think a particular check is missing?
-- You think something could be improved?
-
-That's awesome! :slightly_smiling_face: Please let me know by opening an issue and include as much detail as possible.
-
-Especially if it's a bug, I will need:
-- The Windows version and the PowerShell version.
-- The script output (do not forget to remove sensitive information).
