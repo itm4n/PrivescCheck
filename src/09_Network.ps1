@@ -749,7 +749,7 @@ function Get-NetworkEndpoints {
                 $Result | Add-Member -MemberType "NoteProperty" -Name "Endpoint" -Value $LocalAddress
                 $Result | Add-Member -MemberType "NoteProperty" -Name "State" -Value $(if ($UDP) { "N/A" } else { "LISTENING" } )
                 $Result | Add-Member -MemberType "NoteProperty" -Name "PID" -Value $ProcessId
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value (Get-Process -PID $ProcessId).ProcessName
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value (Get-Process -PID $ProcessId -ErrorAction SilentlyContinue).ProcessName
                 $Result
 
                 $Offset = [IntPtr] ($Offset.ToInt64() + [System.Runtime.InteropServices.Marshal]::SizeOf($TableEntry))

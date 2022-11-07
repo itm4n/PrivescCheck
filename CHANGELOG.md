@@ -1,5 +1,11 @@
 # Changelog
 
+## 2022-11-07
+
+### Fixed
+
+- Getting the name of a process (based on its PID) could fail when enumerating network endpoints. These errors are now silently ignored.
+
 ## 2022-11-06
 
 ### Added
