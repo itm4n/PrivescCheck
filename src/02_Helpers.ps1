@@ -1675,6 +1675,12 @@ function Get-ServiceList {
             # FilterLevel = 1 - Add the service to the list of its ImagePath is not empty
             if ($FilterLevel -le 1) { $ServiceItem; continue }
 
+            # Ignore services with no explicit type
+            if ($null -eq $ServiceItem.Type) {
+                Write-Warning "Service $($ServiceItem.Name) has no type"
+                continue
+            }
+
             $TypeMask = $ServiceTypeEnum::Win32OwnProcess -bor $ServiceTypeEnum::Win32ShareProcess -bor $ServiceTypeEnum::InteractiveProcess
             if (($ServiceItem.Type -band $TypeMask) -gt 0) {
 
