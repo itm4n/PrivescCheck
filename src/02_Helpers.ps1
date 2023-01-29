@@ -261,6 +261,9 @@ function Get-WindowsVersion {
     $Result | Add-Member -MemberType "NoteProperty" -Name "Revision" -Value 0
     $Result | Add-Member -MemberType "NoteProperty" -Name "MajorRevision" -Value 0
     $Result | Add-Member -MemberType "NoteProperty" -Name "MinorRevision" -Value 0
+    $Result | Add-Member -MemberType "NoteProperty" -Name "ReleaseId" -Value $RegItem.ReleaseId
+    $Result | Add-Member -MemberType "NoteProperty" -Name "UBR" -Value $RegItem.UBR
+    $Result | Add-Member -MemberType "NoteProperty" -Name "ProductName" -Value $RegItem.ProductName
     $Result
 }
 

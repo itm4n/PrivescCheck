@@ -22,19 +22,25 @@ function Invoke-SystemInfoCheck {
 
     $OsVersion = Get-WindowsVersion
 
-    $RegKey = "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion"
-    $RegItem = Get-ItemProperty -Path "Registry::$($RegKey)" -ErrorAction SilentlyContinue
-    if ($null -eq $RegItem) { return }
+    if ($null -eq $OsVersion) { return }
 
     if ($OsVersion.Major -ge 10) {
-        $OsVersionStr = "$($OsVersion.Major).$($OsVersion.Minor).$($OsVersion.Build) Version $($RegItem.ReleaseId) ($($OsVersion.Build).$($RegItem.UBR))"
+        $OsVersionStr = "$($OsVersion.Major).$($OsVersion.Minor).$($OsVersion.Build) Version $($OsVersion.ReleaseId) ($($OsVersion.Build).$($OsVersion.UBR))"
     }
     else {
         $OsVersionStr = "$($OsVersion.Major).$($OsVersion.Minor).$($OsVersion.Build) N/A Build $($OsVersion.Build)"
     }
 
+    # Windows 11 has the same version number as Windows 10. To differentiate them,
+    # we can use the build version though. According to Microsoft, if the build 
+    # version is greater than 22000, it is Windows 11.
+    $ProductName = $OsVersion.ProductName
+    if (($OsVersion.Major -ge 10) -and ($OsVersion.Build -ge 22000)) {
+        $ProductName = $ProductName -replace "Windows 10","Windows 11"
+    }
+
     $Result = New-Object -TypeName PSObject
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $RegItem.ProductName
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $ProductName
     $Result | Add-Member -MemberType "NoteProperty" -Name "Version" -Value $OsVersionStr
     $Result
 }

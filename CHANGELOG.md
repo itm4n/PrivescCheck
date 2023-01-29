@@ -1,5 +1,11 @@
 # Changelog
 
+## 2023-01-29
+
+### Fixed
+
+- The info check now shows the correct product name when running on Windows 11.
+
 ## 2022-11-07
 
 ### Fixed
