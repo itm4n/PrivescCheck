@@ -8,6 +8,10 @@
 - Changed the configuration of the Vault "cred" and "list" checks to enable them only in "Extended" mode to bypass Cortex behavioral detection.
 - Updated the help text of the main Invoke-PrivescCheck cmdlet as suggested in PR #45.
 
+### Fixed
+
+- The WinLogon credential check now ensures that the password values are not empty.
+
 ## 2023-01-29
 
 ### Fixed

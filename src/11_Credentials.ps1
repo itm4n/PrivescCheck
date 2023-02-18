@@ -133,7 +133,7 @@ function Invoke-WinlogonCheck {
         $RegKey = "HKLM\SOFTWARE\Microsoft\Windows NT\Currentversion\Winlogon"
         $RegItem = Get-ItemProperty -Path "Registry::$($RegKey)" -ErrorAction SilentlyContinue
 
-        if ($null -ne $RegItem.DefaultPassword) {
+        if (-not [String]::IsNullOrEmpty($RegItem.DefaultPassword)) {
             $Result = New-Object -TypeName PSObject
             $Result | Add-Member -MemberType "NoteProperty" -Name "Domain" -Value $RegItem.DefaultDomainName
             $Result | Add-Member -MemberType "NoteProperty" -Name "Username" -Value $RegItem.DefaultUserName
@@ -141,7 +141,7 @@ function Invoke-WinlogonCheck {
             $Result
         }
 
-        if ($null -ne $RegItem.AltDefaultPassword) {
+        if (-not [String]::IsNullOrEmpty($RegItem.AltDefaultPassword)) {
             $Result = New-Object -TypeName PSObject
             $Result | Add-Member -MemberType "NoteProperty" -Name "Domain" -Value $RegItem.AltDefaultDomainName
             $Result | Add-Member -MemberType "NoteProperty" -Name "Username" -Value $RegItem.AltDefaultUserName
