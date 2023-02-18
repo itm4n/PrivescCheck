@@ -647,22 +647,22 @@ $ServiceControlManagerAccessRightsEnum = New-Enum $Module WinApiModule.ServiceCo
 } -Bitfield
 
 $ProcessAccessRightsEnum = New-Enum $Module WinApiModule.ProcessAccessRights UInt32 @{
-    Terminate                           = '0x00000001'
-    CreateThread                        = '0x00000002'
-    SetSessionId                        = '0x00000004'
-    VmOperation                         = '0x00000008'
-    VmRead                              = '0x00000010'
-    VmWrite                             = '0x00000020'
-    DupHandle                           = '0x00000040'
-    CreateProcess                       = '0x00000080'
-    SetQuota                            = '0x00000100'
-    SetInformation                      = '0x00000200'
-    QueryInformation                    = '0x00000400'
-    SuspendResume                       = '0x00000800'
-    QueryLimitedInformation             = '0x00001000'
-    SetLimitedInformation               = '0x00002000'
-    AllAccess                           = '0x001FFFFF'
-    Synchronize                         = '0x00100000'
+    TERMINATE                           = '0x00000001'
+    CREATE_THREAD                       = '0x00000002'
+    SET_SESSIONID                       = '0x00000004'
+    VM_OPERATION                        = '0x00000008'
+    VM_READ                             = '0x00000010'
+    VM_WRITE                            = '0x00000020'
+    DUP_HANDLE                          = '0x00000040'
+    CREATE_PROCESS                      = '0x00000080'
+    SET_QUOTA                           = '0x00000100'
+    SET_INFORMATION                     = '0x00000200'
+    QUERY_INFORMATION                   = '0x00000400'
+    SUSPEND_RESUME                      = '0x00000800'
+    QUERY_LIMITED_INFORMATION           = '0x00001000'
+    SET_LIMITED_INFORMATION             = '0x00002000'
+    ALL_ACCESS                          = '0x001FFFFF' # STANDARD_RIGHTS_REQUIRED (0x000F0000L) | SYNCHRONIZE (0x00100000L) | 0xFFFF
+    SYNCHRONIZE                         = '0x00100000'
 } -Bitfield
 
 $TokenAccessRightsEnum = New-Enum $Module WinApiModule.TokenAccessRights UInt32 @{

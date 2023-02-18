@@ -1,5 +1,13 @@
 # Changelog
 
+## 2023-02-18
+
+### Changed
+
+- Modified the Process access rights enumeration to bypass Cortex AMSI detection (AMSI rule flagging the string "CreateThread" as malicious).
+- Changed the configuration of the Vault "cred" and "list" checks to enable them only in "Extended" mode to bypass Cortex behavioral detection.
+- Updated the help text of the main Invoke-PrivescCheck cmdlet as suggested in PR #45.
+
 ## 2023-01-29
 
 ### Fixed

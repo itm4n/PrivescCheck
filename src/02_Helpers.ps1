@@ -321,7 +321,7 @@ function Get-ProcessTokenHandle {
     [OutputType([IntPtr])]
     [CmdletBinding()] Param(
         [UInt32]$ProcessId = 0,
-        [UInt32]$ProcessAccess = $ProcessAccessRightsEnum::QueryInformation,
+        [UInt32]$ProcessAccess = $ProcessAccessRightsEnum::QUERY_INFORMATION,
         [UInt32]$TokenAccess = $TokenAccessRightsEnum::Query
     )
 
@@ -360,7 +360,7 @@ function Get-ProcessTokenHandle {
 #         [UInt32]$ProcessId
 #     )
 
-#     $ProcessHandle = $Kernel32::OpenProcess($ProcessAccessRightsEnum::QueryLimitedInformation, $false, $ProcessId)
+#     $ProcessHandle = $Kernel32::OpenProcess($ProcessAccessRightsEnum::QUERY_LIMITED_INFORMATION, $false, $ProcessId)
 #     if ($ProcessHandle -eq [IntPtr]::Zero) {
 #         $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
 #         Write-Verbose "OpenProcess - $([ComponentModel.Win32Exception] $LastError)"
@@ -399,7 +399,7 @@ function Get-ProcessTokenHandle {
 
 #     foreach ($Process in Get-Process) {
         
-#         $ProcessHandle = $Kernel32::OpenProcess($ProcessAccessRightsEnum::QueryLimitedInformation, $false, $Process.Id)
+#         $ProcessHandle = $Kernel32::OpenProcess($ProcessAccessRightsEnum::QUERY_LIMITED_INFORMATION, $false, $Process.Id)
 #         if ($ProcessHandle -eq [IntPtr]::Zero) {
 #             $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
 #             Write-Verbose "OpenProcess($($Process.Id)) - $([ComponentModel.Win32Exception] $LastError)"
@@ -751,7 +751,7 @@ function Get-TokenInformationIntegrityLevel {
         [UInt32]$ProcessId = 0
     )
 
-    $TokenHandle = Get-ProcessTokenHandle -ProcessId $ProcessId -ProcessAccess $ProcessAccessRightsEnum::QueryLimitedInformation
+    $TokenHandle = Get-ProcessTokenHandle -ProcessId $ProcessId -ProcessAccess $ProcessAccessRightsEnum::QUERY_LIMITED_INFORMATION
     if (-not $TokenHandle) { return }
 
     $TokenMandatoryLabelPtr = Get-TokenInformationData -TokenHandle $TokenHandle -InformationClass $TOKEN_INFORMATION_CLASS::TokenIntegrityLevel

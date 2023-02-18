@@ -903,7 +903,7 @@ function Invoke-ExploitableLeakedHandlesCheck {
         # that we can duplicate the handle. Otherwise, the handle will not be exploitable. Whatever the
         # result, save it to a local hashtable for future use.
         if ($ProcessHandles.Keys -notcontains $HandleProcessId) {
-            $ProcHandle = $Kernel32::OpenProcess($ProcessAccessRightsEnum::DupHandle, $false, $HandleProcessId)
+            $ProcHandle = $Kernel32::OpenProcess($ProcessAccessRightsEnum::DUP_HANDLE, $false, $HandleProcessId)
             $ProcessHandles += @{ $HandleProcessId = $ProcHandle }
         }
 
