@@ -291,10 +291,24 @@ function Test-IsKnownService {
             $File = Get-Item -Path $TempPathResolved -ErrorAction SilentlyContinue -ErrorVariable ErrorGetItem
             if ($ErrorGetItem) { continue }
 
-            if ($File -and ($File.VersionInfo.LegalCopyright -Like "*Microsoft Corporation*")) { return $true }
+            if ($File -and (Test-IsMicrosoftFile -File $File)) { return $true }
 
             return $false
         }
+    }
+
+    return $false
+}
+
+function Test-IsMicrosoftFile {
+
+    [CmdletBinding()] Param(
+        [Parameter(Mandatory=$true)]
+        [Object]$File
+    )
+
+    if ($File.VersionInfo.LegalCopyright -like "*Microsoft Corporation*") {
+        return $true
     }
 
     return $false
@@ -3704,5 +3718,23 @@ function Get-RemoteDesktopUserSessionList {
         $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
         Write-Verbose "WTSFreeMemoryEx - $([ComponentModel.Win32Exception] $LastError)"
         return
+    }
+}
+
+function Resolve-DriverImagePath {
+    
+    [CmdletBinding()]
+    param (
+        [Object]$Service
+    )
+
+    if ($Service.ImagePath -match "^\\SystemRoot\\") {
+        $Service.ImagePath -replace "\\SystemRoot",$env:SystemRoot
+    }
+    elseif ($Service.ImagePath -match "^System32\\") {
+        Join-Path -Path $env:SystemRoot -ChildPath $Service.ImagePath
+    }
+    else {
+        $Service.ImagePath
     }
 }

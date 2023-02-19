@@ -2,6 +2,12 @@
 
 ## 2023-02-18
 
+### Added
+
+- Services > Invoke-ThirdPartyDriversCheck, for enumerating third-party drivers.
+
+## 2023-02-18
+
 ### Changed
 
 - Modified the Process access rights enumeration to bypass Cortex AMSI detection (AMSI rule flagging the string "CreateThread" as malicious).

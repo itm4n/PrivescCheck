@@ -351,3 +351,71 @@ function Invoke-SCMPermissionsCheck {
         }
     }
 }
+
+function Invoke-ThirdPartyDriversCheck {
+    <#
+    .SYNOPSIS
+    Lists non-Microsoft drivers.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+    
+    .DESCRIPTION
+    For each service registered as a driver, the properties of the driver file are queried. If the file does not originate from Microsoft, the service object is reported. In addition, the file's metadata is appended to the object.
+    
+    .EXAMPLE
+    PS C:\> Invoke-ThirdPartyDriversCheck
+    
+    Name        : 3ware
+    ImagePath   : System32\drivers\3ware.sys
+    StartMode   : Boot
+    Type        : KernelDriver
+    Status      : Stopped
+    ProductName : LSI 3ware RAID Controller
+    Company     : LSI
+    Description : LSI 3ware SCSI Storport Driver
+    Version     : 5.01.00.051
+    Copyright   : Copyright (c) 2011 LSI
+
+    Name        : ADP80XX
+    ImagePath   : System32\drivers\ADP80XX.SYS
+    StartMode   : Boot
+    Type        : KernelDriver
+    Status      : Stopped
+    ProductName : PMC-Sierra HBA Controller
+    Company     : PMC-Sierra
+    Description : PMC-Sierra Storport  Driver For SPC8x6G SAS/SATA controller
+    Version     : 1.3.0.10769 (NT.150223-1854)
+    Copyright   : Copyright (C) PMC-Sierra 2001-2014
+
+    [...]
+    #>
+
+    [CmdletBinding()]param ()
+
+    $Services = Get-ServiceList -FilterLevel 1 | Where-Object { @('KernelDriver','FileSystemDriver','RecognizerDriver') -contains $_.Type }
+
+    foreach ($Service in $Services) {
+
+        $ImagePath = Resolve-DriverImagePath -Service $Service
+        if (-not (Test-Path -Path $ImagePath)) { Write-Warning "Service: $($Service.Name) | Path not found: $($ImagePath)"; continue }
+
+        $ImageFile = Get-Item -Path $ImagePath -ErrorAction SilentlyContinue
+        if ($null -eq $ImageFile) { "Failed to read file $($ImagePath)"; continue }
+        if (Test-IsMicrosoftFile -File $ImageFile) { continue }
+
+        $ServiceObject = Get-Service -Name $Service.Name -ErrorAction SilentlyContinue
+        if ($null -eq $ServiceObject) { Write-Warning "Failed to query service $($Service.Name)"; continue }
+
+        $VersionInfo = $ImageFile | Select-Object -ExpandProperty VersionInfo
+
+        $Result = $Service | Select-Object Name,ImagePath,StartMode,Type
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $ServiceObject.Status
+        $Result | Add-Member -MemberType "NoteProperty" -Name "ProductName" -Value $VersionInfo.ProductName.trim()
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Company" -Value $VersionInfo.CompanyName.trim()
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $VersionInfo.FileDescription.trim()
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Version" -Value $VersionInfo.FileVersion.trim()
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Copyright" -Value $VersionInfo.LegalCopyright.trim()
+        $Result
+    }
+}
