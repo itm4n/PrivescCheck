@@ -1,5 +1,12 @@
 # Changelog
 
+## 2023-05-23
+
+### Changed
+
+- A check's compliance result is no longer a Boolean. It is now represented as a String ("True", "False", "N/A").
+- In HTML reports, the "Compliance" result is handled similarly to "Severity" levels, using a label.
+
 ## 2023-02-18
 
 ### Added

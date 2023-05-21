@@ -268,21 +268,36 @@ function Invoke-Check {
     }
 
     if ($Check.Type -Like "Vuln") {
+        # Handle "Vuln" checks here.
         if ($Result) {
+            # If there is at least one result, it means that we found a vulnerability. So, set the 
+            # "Compliance" to False.
             $Check | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $false
         }
         else {
+            # If no object is returned, it means that no vulnerability was found. So, set the "Compliance"
+            # to True. Also, set the severity to "None".
             $Check.Severity = "None"
             $Check | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $true
         }
     }
     else {
-        # For Info checks, if the result object has a "Compliance" attribute, we will return this value
-        # as the "Compliance" for the check itself. Otherwise, we will set it to TRUE by default.
-        $Compliance = $true
-        ForEach ($Res in [object[]]$Result) {
-            if ($null -eq $Res.Compliance) { break }
-            if ($Res.Compliance -eq $false) { $Compliance = $false; break }
+        # Handle "Info" checks here.
+        if ($Result) {
+            # If the result list is not empty, iterate it and determine the compliance as follows. First,
+            # if we find an object that does not have a "Compliance" attribute, set the compliance to "N/A".
+            # However, if the returned objects have a "Compliance" attribute, then assume that the compliance
+            # is True by default, and set it to False as soon as we find a non-compliant result.
+            $Compliance = "True"
+            ForEach ($Res in [object[]]$Result) {
+                if ($null -eq $Res.Compliance) { $Compliance = "N/A"; break }
+                if ($Res.Compliance -eq $false) { $Compliance = "False"; break }
+            }
+        }
+        else {
+            # If the check did not yield any result, we cannot determine whether it is compliant or not. So,
+            # in this case, set the compliance to "N/A".
+            $Compliance = "N/A"
         }
         $Check | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $Compliance
         $Check.Severity = "None"
@@ -432,26 +447,31 @@ function Write-HtmlReport {
 var cells = document.getElementsByTagName('td');
 
 for (var i=0; i<cells.length; i++) {
+    var bg_color = null;
     if (cells[i].innerHTML == "True") {
-        cells[i].style.backgroundColor = '#00ff99';
+        bg_color = "bg_green";
     } else if (cells[i].innerHTML == "False") {
-        cells[i].style.backgroundColor = '#ff5050';
+        bg_color = "bg_red";
     } else if (cells[i].innerHTML == "Low") {
-      cells[i].innerHTML = "<span class=\"label low\">Low</span>"
+        bg_color = "bg_green";
     } else if (cells[i].innerHTML == "Medium") {
-      cells[i].innerHTML = "<span class=\"label medium\">Medium</span>"
+        bg_color = "bg_orange";
     } else if (cells[i].innerHTML == "High") {
-      cells[i].innerHTML = "<span class=\"label high\">High</span>"
+        bg_color = "bg_red";
     } else if (cells[i].innerHTML == "Info") {
-      cells[i].innerHTML = "<span class=\"label info\">Info</span>"
+        bg_color = "bg_blue";
     } else if (cells[i].innerHTML == "None") {
-        cells[i].innerHTML = "<span class=\"label other\">None</span>"
+        bg_color = "bg_grey";
     } else if (cells[i].innerHTML == "OK") {
-        cells[i].innerHTML = "<span class=\"label low\">OK</span>"
+        bg_color = "bg_green";
     } else if (cells[i].innerHTML == "KO") {
-        cells[i].innerHTML = "<span class=\"label high\">KO</span>"
+        bg_color = "bg_red";
     } else if (cells[i].innerHTML == "N/A") {
-        cells[i].innerHTML = "<span class=\"label other\">N/A</span>"
+        bg_color = "bg_grey";
+    }
+
+    if (bg_color) {
+        cells[i].innerHTML = "<span class=\"label " + bg_color + "\">" + cells[i].innerHTML + "</span>";
     }
 
     // If a cell is too large, we need to make it scrollable. But 'td' elements are not
@@ -532,11 +552,11 @@ tbody tr:hover {
     border-radius: 5px;
 }
 
-.low {background-color: #4CAF50;} /* Green */
-.info {background-color: #2196F3;} /* Blue */
-.medium {background-color: #ff9800;} /* Orange */
-.high {background-color: #f44336;} /* Red */
-.other {background-color: #cccccc;} /* Gray */
+.bg_green {background-color: #4CAF50;} /* Green */
+.bg_blue {background-color: #2196F3;} /* Blue */
+.bg_orange {background-color: #ff9800;} /* Orange */
+.bg_red {background-color: #f44336;} /* Red */
+.bg_grey {background-color: #cccccc;} /* Gray */
 "@
 
     $Html = @"
