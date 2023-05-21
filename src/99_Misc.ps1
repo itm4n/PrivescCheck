@@ -561,7 +561,7 @@ function Invoke-HijackableDllsCheck {
     RebootRequired : False
 
     .LINK
-    https://www.reddit.com/r/hacking/comments/b0lr05/a_few_binary_plating_0days_for_windows/?utm_source=amp&utm_medium=&utm_content=post_title
+    https://www.reddit.com/r/hacking/comments/b0lr05/a_few_binary_plating_0days_for_windows/
     #>
 
     [CmdletBinding()] Param()
@@ -595,7 +595,8 @@ function Invoke-HijackableDllsCheck {
             [String]$ServiceName,
             [String]$DllName,
             [String]$Description,
-            [Boolean]$RebootRequired = $true
+            [Boolean]$RebootRequired = $true,
+            [String]$Link
         )
 
         $Service = Get-ServiceFromRegistry -Name $ServiceName
@@ -608,6 +609,7 @@ function Invoke-HijackableDllsCheck {
                 $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
                 $Result | Add-Member -MemberType "NoteProperty" -Name "RunAs" -Value $Service.User
                 $Result | Add-Member -MemberType "NoteProperty" -Name "RebootRequired" -Value $RebootRequired
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Link" -Value $Link
                 $Result
             }
         }
@@ -615,15 +617,17 @@ function Invoke-HijackableDllsCheck {
 
     $OsVersion = Get-WindowsVersion
 
+    # Windows 10, 11, ?
     if ($OsVersion.Major -ge 10) {
-        Test-HijackableDll -ServiceName "CDPSvc" -DllName "cdpsgshims.dll" -Description "Loaded by CDPSvc upon service startup"
-        Test-HijackableDll -ServiceName "Schedule" -DllName "WptsExtensions.dll" -Description "Loaded by the Task Scheduler upon service startup"
+        Test-HijackableDll -ServiceName "CDPSvc" -DllName "cdpsgshims.dll" -Description "Loaded by the Connected Devices Platform Service (CDPSvc) upon startup." -Link "https://nafiez.github.io/security/eop/2019/11/05/windows-service-host-process-eop.html"
+        Test-HijackableDll -ServiceName "Schedule" -DllName "WptsExtensions.dll" -Description "Loaded by the Task Scheduler service (Schedule) upon startup." -Link "http://remoteawesomethoughts.blogspot.com/2019/05/windows-10-task-schedulerservice.html"
+        Test-HijackableDll -ServiceName "StorSvc" -DllName "SprintCSP.dll" -Description "Loaded by the Storage Service (StorSvc) when the RPC procedure 'SvcRebootToFlashingMode' is invoked." -RebootRequired $false -Link "https://github.com/blackarrowsec/redteam-research/tree/master/LPE%20via%20StorSvc"
     }
 
     # Windows 7, 8, 8.1
     if (($OsVersion.Major -eq 6) -and ($OsVersion.Minor -ge 1) -and ($OsVersion.Minor -le 3)) {
-        Test-HijackableDll -ServiceName "DiagTrack" -DllName "windowsperformancerecordercontrol.dll" -Description "Loaded by DiagTrack upon service startup or shutdown"
-        Test-HijackableDll -ServiceName "DiagTrack" -DllName "diagtrack_win.dll" -Description "Loaded by DiagTrack upon service startup"
+        Test-HijackableDll -ServiceName "DiagTrack" -DllName "windowsperformancerecordercontrol.dll" -Description "Loaded by the Connected User Experiences and Telemetry service (DiagTrack) upon startup or shutdown." -Link "https://www.reddit.com/r/hacking/comments/b0lr05/a_few_binary_plating_0days_for_windows/"
+        Test-HijackableDll -ServiceName "DiagTrack" -DllName "diagtrack_win.dll" -Description "Loaded by the Connected User Experiences and Telemetry service (DiagTrack) upon startup." -Link "https://www.reddit.com/r/hacking/comments/b0lr05/a_few_binary_plating_0days_for_windows/"
     }
 
     # Windows Vista, 7, 8
@@ -633,17 +637,17 @@ function Invoke-HijackableDllsCheck {
         if ((-not $ErrorGetService) -and ($Service.Status -eq "Stopped")) {
             $RebootRequired = $false
         }
-        Test-HijackableDll -ServiceName "IKEEXT" -DllName "wlbsctrl.dll" -Description "Loaded by IKEEXT upon service startup" -RebootRequired $RebootRequired
+        Test-HijackableDll -ServiceName "IKEEXT" -DllName "wlbsctrl.dll" -Description "Loaded by the IKE and AuthIP IPsec Keying Modules service (IKEEXT) upon startup." -RebootRequired $RebootRequired -Link "https://www.reddit.com/r/hacking/comments/b0lr05/a_few_binary_plating_0days_for_windows/"
     }
 
     # Windows 7
     if (($OsVersion.Major -eq 6) -and ($OsVersion.Minor -eq 1)) {
-        Test-HijackableDll -ServiceName "NetMan" -DllName "wlanhlp.dll" -Description "Loaded by NetMan when listing network interfaces" -RebootRequired $false
+        Test-HijackableDll -ServiceName "NetMan" -DllName "wlanhlp.dll" -Description "Loaded by the Network Connections service (NetMan) when listing network interfaces." -RebootRequired $false -Link "https://itm4n.github.io/windows-server-netman-dll-hijacking/"
     }
 
     # Windows 8, 8.1, 10
     if (($OsVersion.Major -ge 10) -or (($OsVersion.Major -eq 6) -and ($OsVersion.Minor -ge 2) -and ($OsVersion.Minor -le 3))) {
-        Test-HijackableDll -ServiceName "NetMan" -DllName "wlanapi.dll" -Description "Loaded by NetMan when listing network interfaces" -RebootRequired $false
+        Test-HijackableDll -ServiceName "NetMan" -DllName "wlanapi.dll" -Description "Loaded by the Network Connections service (NetMan) when listing network interfaces." -RebootRequired $false -Link "https://itm4n.github.io/windows-server-netman-dll-hijacking/"
     }
 }
 

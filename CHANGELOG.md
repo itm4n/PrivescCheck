@@ -2,6 +2,11 @@
 
 ## 2023-05-23
 
+### Added
+
+- The DLL "SprintCSP.dll" was added to the list of phantom DLLs that can be hijacked (service "StorSvc").
+- For each phantom DLL, a link to the (original?) source describing its discovery and exploitation is now provided.
+
 ### Changed
 
 - A check's compliance result is no longer a Boolean. It is now represented as a String ("True", "False", "N/A").
