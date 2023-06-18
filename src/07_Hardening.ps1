@@ -201,7 +201,7 @@ function Invoke-PowershellTranscriptionCheck {
     }
 }
 
-function Invoke-BitlockerCheck {
+function Invoke-BitLockerCheck {
     <#
     .SYNOPSIS
     Checks whether BitLocker is enabled.
@@ -215,35 +215,75 @@ function Invoke-BitlockerCheck {
     .EXAMPLE
     PS C:\> Invoke-BitlockerCheck
 
-    Description : Enable BitLocker drive encryption
-    Key         : HKLM\SYSTEM\CurrentControlSet\Control\BitLockerStatus
-    Value       : BootStatus
-    Data        : 0
-    Result      : BitLocker is not enabled
+    MachineRole        : Workstation
+    UseAdvancedStartup : 0 - Do not require additional authentication at startup (default)
+    EnableBDEWithNoTPM : 0 - Do not allow BitLocker without a compatible TPM (default)
+    UseTPM             : 1 - Require TPM (default)
+    UseTPMPIN          : 0 - Do not allow startup PIN with TPM (default)
+    UseTPMKey          : 0 - Do not allow startup key with TPM (default)
+    UseTPMKeyPIN       : 0 - Do not allow startup key and PIN with TPM (default)
+    Description        : BitLocker is enabled. Additional authentication is not required on startup. Authentication mode is 'TPM only'.
+    Compliance         : False
     #>
 
     [CmdletBinding()] Param()
 
-    $MachineRole = Invoke-MachineRoleCheck
-    if ($MachineRole.Name -notlike "WinNT") { continue }
-
-    $RegKey = "HKLM\SYSTEM\CurrentControlSet\Control\BitLockerStatus"
-    $RegValue = "BootStatus"
-    $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
-
-    if ($null -eq $RegData) {
-        $Description = "BitLocker is not configured"
-    }
-    else {
-        $Description = $(if ($RegData -ge 1) { "BitLocker is enabled" } else { "BitLocker is disabled" })
-    }
+    $MachineRole = Get-MachineRole
+    $Compliance = $false
 
     $Result = New-Object -TypeName PSObject
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
+    $Result | Add-Member -MemberType "NoteProperty" -Name "MachineRole" -Value $MachineRole.Role
+
+    if ($MachineRole.Name -eq "WinNT") {
+        $Config = Get-BitLockerConfiguration
+
+        # $Result | Add-Member -MemberType "NoteProperty" -Name "Status" -Value "$(if ($null -eq $Config.Status.Value) { "(null)" } else { $Config.Status.Value }) - $($Config.Status.Description)"
+        $Description = "$($Config.Status.Description) "
+
+        if ($Config.Status.Value -eq 1) {
+            $Result | Add-Member -MemberType "NoteProperty" -Name "UseAdvancedStartup" -Value "$($Config.UseAdvancedStartup.Value) - $($Config.UseAdvancedStartup.Description)"
+            $Result | Add-Member -MemberType "NoteProperty" -Name "EnableBDEWithNoTPM" -Value "$($Config.EnableBDEWithNoTPM.Value) - $($Config.EnableBDEWithNoTPM.Description)"
+            $Result | Add-Member -MemberType "NoteProperty" -Name "UseTPM" -Value "$($Config.UseTPM.Value) - $($Config.UseTPM.Description)"
+            $Result | Add-Member -MemberType "NoteProperty" -Name "UseTPMPIN" -Value "$($Config.UseTPMPIN.Value) - $($Config.UseTPMPIN.Description)"
+            $Result | Add-Member -MemberType "NoteProperty" -Name "UseTPMKey" -Value "$($Config.UseTPMKey.Value) - $($Config.UseTPMKey.Description)"
+            $Result | Add-Member -MemberType "NoteProperty" -Name "UseTPMKeyPIN" -Value "$($Config.UseTPMKeyPIN.Value) - $($Config.UseTPMKeyPIN.Description)"
+
+            if ($Config.UseAdvancedStartup.Value -eq 1) {
+                if (($Config.UseTPMPIN.Value -eq 1) -or ($Config.UseTPMKey.Value -eq 1) -or ($Config.UseTPMKeyPIN -eq 1)) {
+                    $Compliance = $true
+                    if ($Config.UseTPMPIN.Value -eq 1) {
+                        $Description = "$($Description)A PIN is required. "
+                    }
+                    if ($Config.UseTPMKey.Value -eq 1) {
+                        $Description = "$($Description)A startup key is required. "
+                    }
+                    if ($Config.UseTPMKeyPIN -eq 1) {
+                        $Description = "$($Description)A PIN and a startup key are required. "
+                    }
+                }
+                else {
+                    $Description = "$($Description)A second factor of authentication (PIN, startup key) is not explicitely required. "
+                    if ($Config.EnableBDEWithNoTPM.Value -eq 1) {
+                        $Description = "$($Description)BitLocker without a compatible TPM is allowed. "
+                    }
+                }
+            }
+            else {
+                $Description = "$($Description)Additional authentication is not required on startup. "
+                if ($Config.UseTPM.Value -eq 1) {
+                    $Description = "$($Description)Authentication mode is 'TPM only'. "
+                }
+            }
+        }
+    }
+    else {
+        # This is not a workstation, the BitLocker configuration is not relevant.
+        $Compliance = $true
+        $Description = "Not a workstation, BitLocker configuration is irrelevant."
+    }
+
     $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $($RegData -ge 1)
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $Compliance
     $Result
 }
 

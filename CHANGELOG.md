@@ -1,5 +1,12 @@
 # Changelog
 
+## 2023-06-18
+
+### Added
+
+- Updated the BitLocker check to report the startup authentication mode (TPM only, TPM+PIN, etc.).
+- A helper function was added to extract the BitLocker status and configuration.
+
 ## 2023-05-23
 
 ### Added
