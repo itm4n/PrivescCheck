@@ -348,12 +348,12 @@ function Invoke-PrintNightmareCheck {
     Data        : 0
     Description : Non-administrators can install print drivers
 
-    Key         : HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PointAndPrint
+    Key         : HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PackagePointAndPrint
     Value       : PackagePointAndPrintOnly
     Data        : (null)
     Description : Users are not restricted to package-aware point and print only
 
-    Key         : HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PointAndPrint
+    Key         : HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PackagePointAndPrint
     Value       : PackagePointAndPrintServerList
     Data        : (null)
     Description : Package point and print is not restricted to specific print servers
@@ -446,7 +446,7 @@ function Invoke-PrintNightmareCheck {
 
     # If "PackagePointAndPrintOnly" is enabled, users will only be able to point and print to
     # printers that use package-aware drivers predefined list of print servers.
-    $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PointAndPrint"
+    $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PackagePointAndPrint"
     $RegValue = "PackagePointAndPrintOnly"
     $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
     if ($null -eq $RegValue -or $RegValue -eq 0) {
@@ -467,14 +467,14 @@ function Invoke-PrintNightmareCheck {
     # If "PackagePointAndPrintServerList" is enabled, clients can only install signed drivers from
     # a predefined list of print servers. This list is defined in thrhough the "ListofServers"
     # subkey. The content of the regisry key should be checked manually.
-    $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PointAndPrint"
+    $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PackagePointAndPrint"
     $RegValue = "PackagePointAndPrintServerList"
     $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
     if ($null -eq $RegData -or $RegData -eq 0) {
         $Description = "Package point and print is not restricted to specific print servers"
     }
     else {
-        $Description = "Package point and print is restricted to specific print servers (check 'HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PointAndPrint\ListofServers')"
+        $Description = "Package point and print is restricted to specific print servers (check 'HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PackagePointAndPrint\ListofServers')"
     }
     Write-Verbose "$($RegValue): $($Description)"
     $Result = New-Object -TypeName PSObject
