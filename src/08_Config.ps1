@@ -449,7 +449,7 @@ function Invoke-PrintNightmareCheck {
     $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PackagePointAndPrint"
     $RegValue = "PackagePointAndPrintOnly"
     $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
-    if ($null -eq $RegValue -or $RegValue -eq 0) {
+    if ($null -eq $RegData -or $RegData -eq 0) {
         $Description = "Users are not restricted to package-aware point and print only"
     }
     else {
