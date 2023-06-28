@@ -377,6 +377,11 @@ function Invoke-PrintNightmareCheck {
     }
 
     $Results = @()
+    $PointAndPrintVulnerable = $true
+    $PackagePointAndPrintVulnerable = $false
+
+    # Important: if any of the 3 next settings is configured to prevent the installation of print
+    # drivers by a non-admin user, then the system is not vulnerable.
 
     # If "NoWarningNoElevationOnInstall" is not set, the default value is 0, which means "Show warning
     # and elevation prompt" (i.e. not vulnerable).
@@ -384,13 +389,15 @@ function Invoke-PrintNightmareCheck {
     $RegValue = "NoWarningNoElevationOnInstall"
     $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
     if ($null -eq $RegData -or $RegData -eq 0) {
-        $Description = "Show warning and elevation prompt"
+        $Description = "Show warning and elevation prompt."
+        if ($PointAndPrintVulnerable) { $PointAndPrintVulnerable = $false }
     }
     else {
-        $Description = "Do not show warning or elevation prompt"
+        $Description = "Do not show warning or elevation prompt."
     }
     Write-Verbose "$($RegValue): $($Description)"
     $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "Noteproperty" -Name "Policy" -Value "Point and Print Restrictions"
     $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
     $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
     $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
@@ -404,16 +411,18 @@ function Invoke-PrintNightmareCheck {
     $RegValue = "UpdatePromptSettings"
     $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
     if ($null -eq $RegData -or $RegData -eq 0) {
-        $Description = "Show warning and elevation prompt"
+        $Description = "Show warning and elevation prompt."
+        if ($PointAndPrintVulnerable) { $PointAndPrintVulnerable = $false }
     }
     elseif ($RegData -eq 1) {
         $Description = "Show warning only"
     }
     elseif ($RegData -eq 2) {
-        $Description = "Do not show warning or elevation prompt"
+        $Description = "Do not show warning or elevation prompt."
     }
     Write-Verbose "$($RegValue): $($Description)"
     $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "Noteproperty" -Name "Policy" -Value "Point and Print Restrictions"
     $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
     $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
     $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
@@ -430,13 +439,15 @@ function Invoke-PrintNightmareCheck {
     $RegValue = "RestrictDriverInstallationToAdministrators"
     $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
     if ($null -eq $RegData -or $RegData -eq 1) {
-        $Description = "Only administrators can install print drivers"
+        $Description = "The system limits installation of print drivers to Adminstrators of this computer."
+        if ($PointAndPrintVulnerable) { $PointAndPrintVulnerable = $false }
     }
     else {
-        $Description = "Non-administrators can install print drivers"
+        $Description = "The system does not limit installation of print drivers to this computer."
     }
     Write-Verbose "$($RegValue): $($Description)"
     $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "Noteproperty" -Name "Policy" -Value "Limits print driver installation to Administrators"
     $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
     $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
     $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
@@ -444,19 +455,25 @@ function Invoke-PrintNightmareCheck {
     $Result | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $($null -eq $RegData -or $RegData -eq 1)
     [object[]]$Results += $Result
 
+    # Important: both the 'PackagePointAndPrintServerList' and 'PackagePointAndPrintOnly'
+    # settings (see checks below) must be configured. If only one of them is set, the 
+    # system is still vulnerable.
+
     # If "PackagePointAndPrintOnly" is enabled, users will only be able to point and print to
     # printers that use package-aware drivers predefined list of print servers.
     $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PackagePointAndPrint"
     $RegValue = "PackagePointAndPrintOnly"
     $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
     if ($null -eq $RegData -or $RegData -eq 0) {
-        $Description = "Users are not restricted to package-aware point and print only"
+        $Description = "Users are not restricted to package-aware point and print only."
+        if (-not $PackagePointAndPrintVulnerable) { $PackagePointAndPrintVulnerable = $true }
     }
     else {
-        $Description = "Users can only point and print to printers that use package-aware drivers"
+        $Description = "Users are only able to point and print to printers that use package-aware drivers."
     }
     Write-Verbose "$($RegValue): $($Description)"
     $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "Noteproperty" -Name "Policy" -Value "Only use Package Point and print"
     $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
     $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
     $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
@@ -465,19 +482,21 @@ function Invoke-PrintNightmareCheck {
     [object[]]$Results += $Result
 
     # If "PackagePointAndPrintServerList" is enabled, clients can only install signed drivers from
-    # a predefined list of print servers. This list is defined in thrhough the "ListofServers"
+    # a predefined list of print servers. This list is defined in through the "ListofServers"
     # subkey. The content of the regisry key should be checked manually.
     $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PackagePointAndPrint"
     $RegValue = "PackagePointAndPrintServerList"
     $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
     if ($null -eq $RegData -or $RegData -eq 0) {
-        $Description = "Package point and print is not restricted to specific print servers"
+        $Description = "Package point and print is not restricted to specific print servers."
+        if (-not $PackagePointAndPrintVulnerable) { $PackagePointAndPrintVulnerable = $true }
     }
     else {
-        $Description = "Package point and print is restricted to specific print servers (check 'HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PackagePointAndPrint\ListofServers')"
+        $Description = "Users are only able to package point and print to print servers approved by the network administrator (check 'HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PackagePointAndPrint\ListofServers' for the list of approved servers)."
     }
     Write-Verbose "$($RegValue): $($Description)"
     $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "Noteproperty" -Name "Policy" -Value "Package Point and print - Approved servers"
     $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
     $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
     $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
@@ -485,14 +504,10 @@ function Invoke-PrintNightmareCheck {
     $Result | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $($RegData -eq 1)
     [object[]]$Results += $Result
 
-    # The system is vulnerable only if none of the checked items are compliant. So loop through all
-    # the results and return as soon as one of them is marked as compliant. Note: we could also
-    # immediately return after one item is seen as compliant, but this method allows us to have the
-    # whole picture, in case we were to transform this into an 'Info' check.
-    foreach ($Result in $Results) {
-        if ($Result.Compliance -eq $true) {
-            return
-        }
+    # The system is vulnerable if both the 'Point and Print' and 'Package Point and Print'
+    # configurations are vulnerable.
+    if ((-not $PointAndPrintVulnerable) -or (-not $PackagePointAndPrintVulnerable)) {
+        return
     }
 
     $Results | Select-Object -ExcludeProperty Compliance
