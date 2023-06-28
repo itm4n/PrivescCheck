@@ -1,5 +1,11 @@
 # Changelog
 
+## 2023-06-28
+
+### Fixed
+
+- Two of the registry keys in the Point & Print configuration check were incorrect.
+
 ## 2023-06-18
 
 ### Added
