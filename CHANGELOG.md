@@ -1,5 +1,11 @@
 # Changelog
 
+## 2023-07-01
+
+### Changed
+
+- The "PrintNightmare" check was fully renamed as "Point and Print configuration", which is more accurate. The code was also completely refactored. The tests that are implemented for the different variants of the exploit should also be more reliable.
+
 ## 2023-06-28
 
 ### Fixed
