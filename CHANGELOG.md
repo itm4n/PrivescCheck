@@ -1,5 +1,11 @@
 # Changelog
 
+## 2023-07-02
+
+### Changed
+
+- The "build" script now generates random variable names for the modules. To do so, it downloads the word list from the "PyFuscation" project. If it cannot download the list, it falls back to using the filename instead.
+
 ## 2023-07-01
 
 ### Changed

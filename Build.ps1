@@ -5,19 +5,21 @@ Usage:
 Notes:
     - [2021-11-28] Cortex XDR detected the loader. I had to split the base64 decoding and the GZip decompressing into two separate functions.
     - [2021-11-28] Cortex XDR detects repeated calls to "Invoke-Expression" as a malicious behavior. So, rather than calling "Invoke-Expression" on each script block, I now reconstruct the entire script and I call "Invoke-Expression" on the final result. Default AMSI seems to be OK with that as well.
+    - [2023-07-02] ESET seems to use a signature-based detection. Using randomly-generated variable names for the modules could do the trick here.
 #>
 
-$ErrorsCount = 0
+$ErrorCount = 0
 $ScriptOutput = "#Requires -Version 2`r`n`r`n"
 $OutputFile = "PrivescCheck.ps1"
+$WordlistUrl = "https://raw.githubusercontent.com/CBHue/PyFuscation/master/wordList.txt"
+$WordLen = 10
 
 $Modules = New-Object System.Collections.ArrayList
 
 function Convert-ToBase64CompressedScriptBlock {
 
     [CmdletBinding()] param(
-        [String]
-        $ScriptBlock
+        [String] $ScriptBlock
     )
 
     # Script block as String to Byte array
@@ -39,8 +41,7 @@ function Convert-ToBase64CompressedScriptBlock {
 function Remove-CommentsFromScriptBlock {
 
     [CmdletBinding()] param(
-        [String]
-        $ScriptBlock
+        [String] $ScriptBlock
     )
 
     $IsCommentBlock = $False
@@ -71,8 +72,7 @@ function Remove-CommentsFromScriptBlock {
 function Convert-FromBase64CompressedScriptBlock {
 
     [CmdletBinding()] param(
-        [String]
-        $ScriptBlock
+        [String] $ScriptBlock
     )
 
     # Base64 to Byte array of compressed data
@@ -93,13 +93,35 @@ function Convert-FromBase64CompressedScriptBlock {
     $Encoding.GetString($ScriptBlockEncoded) | Out-String
 }
 
+$UseRandomNames = $true
+
+try {
+    $Wordlist = (New-Object Net.WebClient).DownloadString($WordlistUrl)
+    $Wordlist = $Wordlist -split "`n"
+    $Wordlist = $Wordlist | Where-Object { (-not [string]::IsNullOrEmpty($_)) -and ($_.length -eq $WordLen) }
+}
+catch {
+    Write-Warning "Failed to download wordlist, fall back to module names."
+    $UseRandomNames = $false
+}
+
 Get-ChildItem -Path ".\src\*" | ForEach-Object {
 
     $ModulePath = $_.FullName
     $ModuleFilename = $_.Name
 
     try {
-        $ModuleName = ($ModuleFilename.Split('.')[0]).Split('_')[1]
+        if ($UseRandomNames) {
+            # Pick a random name from the wordlist.
+            $RandomName = Get-Random -InputObject $Wordlist -Count 1
+            $Wordlist = $Wordlist | Where-Object { $_ -ne $RandomName }
+            $ModuleName = $RandomName.ToLower()
+            $ModuleName = ([regex]$ModuleName[0].ToString()).Replace($ModuleName, $ModuleName[0].ToString().ToUpper(), 1)
+        }
+        else {
+            # Otherwise use the module name from the file name.
+            $ModuleName = ($ModuleFilename.Split('.')[0]).Split('_')[1]
+        }
 
         [void] $Modules.Add($ModuleName)
 
@@ -116,37 +138,33 @@ Get-ChildItem -Path ".\src\*" | ForEach-Object {
         $ScriptBlock | Invoke-Expression
 
         Write-Host -ForegroundColor Green "[OK] " -NoNewline
-        Write-Host "Loaded module file $ModuleFilename"
+        Write-Host "Loaded file $($ModuleFilename) (name: $($ModuleName))"
 
         # Compress and Base64 encode script block
         $ScriptBlockBase64 = Convert-ToBase64CompressedScriptBlock -ScriptBlock $ScriptBlock
 
         # Store each compressed block in a string variable
-        $ScriptOutput += "`$ScriptBlock$($ModuleName) = `"$($ScriptBlockBase64)`"`r`n"
+        $ScriptOutput += "`$$($ModuleName) = `"$($ScriptBlockBase64)`"`r`n"
     }
     catch [Exception] {
-        $ErrorsCount += 1
+        $ErrorCount += 1
         Write-Host -ForegroundColor Red "[KO] " -NoNewline
-        Write-Host "Failed to load module file $ModuleFilename"
+        Write-Host "Failed to load file $ModuleFilename"
         Write-Host -ForegroundColor Red "[ERROR]" $_.Exception.Message.Trim()
     }
 }
 
 # if no error, write the loader
-if ($ErrorsCount -eq 0) {
+if ($ErrorCount -eq 0) {
 
     $LoaderBlock = @"
 function Convert-FromBase64ToGzip {
-    [CmdletBinding()] param(
-        [string] `$String
-    )
+    [CmdletBinding()] param([string] `$String)
     [Convert]::FromBase64String(`$String)
 }
 
 function Convert-FromGzipToText {
-    [CmdletBinding()] param(
-        [byte[]] `$Bytes
-    )
+    [CmdletBinding()] param([byte[]] `$Bytes)
     `$is = New-Object IO.MemoryStream(, `$Bytes)
     `$gs = New-Object IO.Compression.GzipStream `$is, ([IO.Compression.CompressionMode]::Decompress)
     `$sr = New-Object IO.StreamReader(`$gs)
@@ -157,7 +175,7 @@ function Convert-FromGzipToText {
     `$sbd
 }
 
-`$Modules = @($( ($Modules | ForEach-Object { "`$ScriptBlock$($_)" }) -join ','))
+`$Modules = @($( ($Modules | ForEach-Object { "`$$($_)" }) -join ','))
 `$Modules | ForEach-Object {
     `$Decoded = Convert-FromBase64ToGzip -String `$_
     Convert-FromGzipToText -Bytes `$Decoded | Invoke-Expression
@@ -168,7 +186,7 @@ function Convert-FromGzipToText {
 }
 
 # If no error, write the script to the file
-if ($ErrorsCount -eq 0) {
+if ($ErrorCount -eq 0) {
 
     Write-Host -ForegroundColor Green "[OK] " -NoNewline
     Write-Host "Build complete!"
