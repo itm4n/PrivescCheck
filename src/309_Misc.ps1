@@ -937,9 +937,12 @@ function Invoke-ExploitableLeakedHandlesCheck {
     $ProcessHandles = @{}
     $DosDevices = @{}
 
-    (Get-PSDrive -PSProvider "FileSystem" | Select-Object -ExpandProperty Root).Trim('\') | ForEach-Object {
-        $DosDevices += @{ $_ = Convert-DosDeviceToDevicePath -DosDevice $_ }
+    (Get-PSDrive -PSProvider "FileSystem" | Select-Object -ExpandProperty Root) | ForEach-Object {
+        $DriverLetter = $_.Trim('\')
+        $DosDevices += @{ $DriverLetter = Convert-DosDeviceToDevicePath -DosDevice $DriverLetter }
     }
+
+    Write-Verbose "Checking $($CandidateHandles.Count) candidate handles..."
 
     foreach ($Handle in $CandidateHandles) {
 

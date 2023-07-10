@@ -826,6 +826,10 @@ function Get-SystemInformationExtendedHandles {
     $CurrentHandleInfoPtr = [IntPtr] ($SystemHandlesPtr.ToInt64() + ([IntPtr]::Size * 2))
     for ($i = 0; $i -lt $SystemHandles.NumberOfHandles; $i++) {
 
+        if (($i -ne 0) -and (($i % 5000) -eq 0)) {
+            Write-Verbose "Collected information about $($i)/$($SystemHandles.NumberOfHandles) handles."
+        }
+
         # Get the handle information structure at the current pointer.
         $CurrentHandleInfo = [Runtime.InteropServices.Marshal]::PtrToStructure($CurrentHandleInfoPtr, [type] $SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX)
 

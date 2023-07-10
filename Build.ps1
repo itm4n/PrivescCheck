@@ -168,7 +168,7 @@ function Invoke-Build {
         $Wordlist = (New-Object Net.WebClient).DownloadString($WordlistUrl)
         Write-Message "Wordlist downloaded from: $($WordlistUrl)"
         $Wordlist = $Wordlist -split "`n"
-        $Wordlist = $Wordlist | Where-Object { (-not [string]::IsNullOrEmpty($_)) -and ($_.length -eq $WordLen) }
+        $Wordlist = $Wordlist | Where-Object { (-not [string]::IsNullOrEmpty($_)) -and ($_.length -eq $WordLen) -and ($_.ToLower() -match "^[a-z]+$") }
         Write-Message -Type Success "Number of items in wordlist after filtering (word size=$($WordLen)): $($Wordlist.Count)"
     }
     catch {

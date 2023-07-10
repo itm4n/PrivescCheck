@@ -9,6 +9,8 @@
 ### Changed
 
 - Restructure the source code.
+- Improved enumeration of leaked handles for better compatibility with PSv2.
+- Check random module names with a regex to ensure they contain only a-z letters.
 
 ## 2023-07-02
 
