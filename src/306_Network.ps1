@@ -1,3 +1,89 @@
+function Get-RpcRange {
+    <#
+    .SYNOPSIS
+    Helper - Dynamically identifies the range of randomized RPC ports from a list of ports.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This function is a helper for the Invoke-TcpEndpointsCheck function. Windows uses a set of RPC ports that are randomly allocated in the range 49152-65535 by default. If we want to filter out these listening ports we must first figure out this set of ports. The aim of this function is to guess this range using basic statistics on a given array of port numbers. We can quite reliably identify the RPC port set because they are concentrated in a very small range. It's not 100% reliable but it will do the job most of the time.
+
+    .PARAMETER Ports
+    An array of port numbers
+
+    .EXAMPLE
+    PS C:\> Get-RpcRange -Ports $Ports
+
+    MinPort MaxPort
+    ------- -------
+    49664   49672
+    #>
+
+    [CmdletBinding()]Param(
+        [Parameter(Mandatory=$true)]
+        [Int[]]
+        $Ports
+    )
+
+    function Get-Stats {
+        [CmdletBinding()]Param(
+            [Int[]]$Ports,
+            [Int]$MinPort,
+            [Int]$MaxPort,
+            [Int]$Span
+        )
+
+        $Stats = @()
+        For ($i = $MinPort; $i -lt $MaxPort; $i += $Span) {
+            $Counter = 0
+            foreach ($Port in $Ports) {
+                if (($Port -ge $i) -and ($Port -lt ($i + $Span))) {
+                    $Counter += 1
+                }
+            }
+            $RangeStats = New-Object -TypeName PSObject
+            $RangeStats | Add-Member -MemberType "NoteProperty" -Name "MinPort" -Value $i
+            $RangeStats | Add-Member -MemberType "NoteProperty" -Name "MaxPort" -Value ($i + $Span)
+            $RangeStats | Add-Member -MemberType "NoteProperty" -Name "PortsInRange" -Value $Counter
+            $Stats += $RangeStats
+        }
+        $Stats
+    }
+
+    # We split the range 49152-65536 into blocks of size 32 and then, we take the block which has
+    # greater number of ports in it.
+    $Stats = Get-Stats -Ports $Ports -MinPort 49152 -MaxPort 65536 -Span 32
+
+    $MaxStat = $null
+    foreach ($Stat in $Stats) {
+        if ($Stat.PortsInRange -gt $MaxStat.PortsInRange) {
+            $MaxStat = $Stat
+        }
+    }
+
+    For ($i = 0; $i -lt 8; $i++) {
+        $Span = ($MaxStat.MaxPort - $MaxStat.MinPort) / 2
+        $NewStats = Get-Stats -Ports $Ports -MinPort $MaxStat.MinPort -MaxPort $MaxStat.MaxPort -Span $Span
+        if ($NewStats) {
+            if ($NewStats[0].PortsInRange -eq 0) {
+                $MaxStat = $NewStats[1]
+            }
+            elseif ($NewStats[1].PortsInRange -eq 0) {
+                $MaxStat = $NewStats[0]
+            }
+            else {
+                break
+            }
+        }
+    }
+
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "MinPort" -Value $MaxStat.MinPort
+    $Result | Add-Member -MemberType "NoteProperty" -Name "MaxPort" -Value $MaxStat.MaxPort
+    $Result
+}
+
 function Invoke-NetworkAdaptersCheck {
     <#
     .SYNOPSIS

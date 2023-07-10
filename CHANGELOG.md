@@ -1,5 +1,15 @@
 # Changelog
 
+## 2023-07-10
+
+### Added
+
+- Add a check for vulnerable drivers based on the list provided by loldrivers.io.
+
+### Changed
+
+- Restructure the source code.
+
 ## 2023-07-02
 
 ### Changed

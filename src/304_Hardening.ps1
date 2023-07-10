@@ -1,3 +1,315 @@
+function Get-UEFIStatus {
+    <#
+    .SYNOPSIS
+    Helper - Gets the BIOS mode of the machine (Legacy / UEFI)
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    Invokes the "GetFirmwareEnvironmentVariable()" function from the Windows API with dummy parameters. Indeed, the queried value doesn't matter, what matters is the last error code, which you can get by invoking "GetLastError()". If the return code is ERROR_INVALID_FUNCTION, this means that the function is not supported by the BIOS so it's LEGACY. Otherwise, the error code will indicate that it cannot find the requested variable, which means that the function is supported by the BIOS so it's UEFI.
+
+    .EXAMPLE
+    PS C:\> Get-UEFIStatus
+
+    Name Status Description
+    ---- ------ -----------
+    UEFI   True BIOS mode is UEFI
+
+    .NOTES
+    https://github.com/xcat2/xcat-core/blob/master/xCAT-server/share/xcat/netboot/windows/detectefi.cpp
+    https://docs.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-getfirmwareenvironmentvariablea
+    https://github.com/ChrisWarwick/GetUEFI/blob/master/GetFirmwareBIOSorUEFI.psm1
+    #>
+
+    [CmdletBinding()]Param()
+
+    $OsVersion = Get-WindowsVersion
+
+    # Windows >= 8/2012
+    if (($OsVersion.Major -ge 10) -or (($OsVersion.Major -ge 6) -and ($OsVersion.Minor -ge 2))) {
+
+        [UInt32]$FirmwareType = 0
+        $Result = $Kernel32::GetFirmwareType([ref]$FirmwareType)
+        $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+
+        if ($Result -gt 0) {
+            if ($FirmwareType -eq 1) {
+                # FirmwareTypeBios = 1
+                $Status = $false
+                $Description = "BIOS mode is Legacy"
+            }
+            elseif ($FirmwareType -eq 2) {
+                # FirmwareTypeUefi = 2
+                $Status = $true
+                $Description = "BIOS mode is UEFI"
+            }
+            else {
+                $Description = "BIOS mode is unknown"
+            }
+        }
+        else {
+            Write-Verbose ([ComponentModel.Win32Exception] $LastError)
+        }
+
+    # Windows = 7/2008 R2
+    }
+    elseif (($OsVersion.Major -eq 6) -and ($OsVersion.Minor -eq 1)) {
+
+        $null = $Kernel32::GetFirmwareEnvironmentVariable("", "{00000000-0000-0000-0000-000000000000}", [IntPtr]::Zero, 0)
+        $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+
+        $ERROR_INVALID_FUNCTION = 1
+        if ($LastError -eq $ERROR_INVALID_FUNCTION) {
+            $Status = $false
+            $Description = "BIOS mode is Legacy"
+            Write-Verbose ([ComponentModel.Win32Exception] $LastError)
+        }
+        else {
+            $Status = $true
+            $Description = "BIOS mode is UEFI"
+            Write-Verbose ([ComponentModel.Win32Exception] $LastError)
+        }
+
+    }
+    else {
+        $Description = "Cannot check BIOS mode"
+    }
+
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value "UEFI"
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $Status
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+    $Result
+}
+
+function Get-SecureBootStatus {
+    <#
+    .SYNOPSIS
+    Helper - Get the status of Secure Boot (enabled/disabled/unsupported)
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    In case of a UEFI BIOS, you can check whether 'Secure Boot' is enabled by looking at the 'UEFISecureBootEnabled' value of the following registry key: 'HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\SecureBoot\State'.
+
+    .EXAMPLE
+    PS C:\> Get-SecureBootStatus
+
+    Name        Status Description
+    ----        ------ -----------
+    Secure Boot   True Secure Boot is enabled
+    #>
+
+    [CmdletBinding()]Param()
+
+    $RegKey = "HKLM\SYSTEM\CurrentControlSet\Control\SecureBoot\State"
+    $RegValue = "UEFISecureBootEnabled"
+    $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+    if ($null -ne $RegData) {
+        if ($null -eq $RegData) {
+            $Description = "Secure Boot is not supported"
+        }
+        else {
+            if ($RegData -eq 1) {
+                $Description = "Secure Boot is enabled"
+            }
+            else {
+                $Description = "Secure Boot is disabled"
+            }
+        }
+    }
+    Write-Verbose "$($RegValue): $($Description)"
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $($RegData -eq 1)
+    $Result
+}
+
+function Get-MachineRole {
+
+    [CmdletBinding()] Param()
+
+    BEGIN {
+        $FriendlyNames = @{
+            "WinNT"     = "Workstation";
+            "LanmanNT"  = "Domain Controller";
+            "ServerNT"  = "Server";
+        }
+    }
+
+    PROCESS {
+        $RegKey = "HKLM\SYSTEM\CurrentControlSet\Control\ProductOptions"
+        $RegValue = "ProductType"
+        $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -ErrorAction SilentlyContinue).$RegValue
+
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $RegData
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Role" -Value $(try { $FriendlyNames[$RegData] } catch { "" })
+        $Result
+    }
+}
+
+function Get-BitLockerConfiguration {
+    <#
+    .SYNOPSIS
+    Get the BitLocker startup authentication configuration.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet retrieves information about the authentication mode used by the BitLocker configuration from the 'HKLM\Software\Policies\Microsoft\FVE' key (e.g. 'TPM only', 'TPM+PIN', etc.). 
+
+    .EXAMPLE
+    PS C:\> Get-BitLockerConfiguration
+
+    Status             : @{Value=1; Description=BitLocker is enabled}
+    UseTPM             : @{Value=1; Description=Require TPM (default)}
+    UseAdvancedStartup : @{Value=0; Description=Do not require additional authentication at startup (default)}
+    EnableBDEWithNoTPM : @{Value=0; Description=Do not allow BitLocker without a compatible TPM (default)}
+    UseTPMPIN          : @{Value=0; Description=Do not allow startup PIN with TPM (default)}
+    UseTPMKey          : @{Value=0; Description=Do not allow startup key with TPM (default)}
+    UseTPMKeyPIN       : @{Value=0; Description=Do not allow startup key and PIN with TPM (default)}
+
+    .LINK
+    https://www.geoffchappell.com/studies/windows/win32/fveapi/policy/index.htm
+    #>
+
+    [CmdletBinding()] param ()
+
+    BEGIN {
+        # Default values for FVE parameters in HKLM\Software\Policies\Microsoft\FVE
+        $FveConfig = @{
+            UseAdvancedStartup = 0
+            EnableBDEWithNoTPM = 0
+            UseTPM = 1
+            UseTPMPIN = 0
+            UseTPMKey = 0
+            UseTPMKeyPIN = 0
+        }
+
+        $FveUseAdvancedStartup = @(
+            "Do not require additional authentication at startup (default)",
+            "Require additional authentication at startup."
+        )
+
+        $FveEnableBDEWithNoTPM = @(
+            "Do not allow BitLocker without a compatible TPM (default)",
+            "Allow BitLocker without a compatible TPM"
+        )
+
+        $FveUseTPM = @(
+            "Do not allow TPM",
+            "Require TPM (default)",
+            "Allow TPM"
+        )
+
+        $FveUseTPMPIN = @(
+            "Do not allow startup PIN with TPM (default)",
+            "Require startup PIN with TPM",
+            "Allow startup PIN with TPM"
+        )
+
+        $FveUseTPMKey = @(
+            "Do not allow startup key with TPM (default)",
+            "Require startup key with TPM",
+            "Allow startup key with TPM"
+        )
+
+        $FveUseTPMKeyPIN = @(
+            "Do not allow startup key and PIN with TPM (default)",
+            "Require startup key and PIN with TPM",
+            "Allow startup key and PIN with TPM"
+        )
+
+        $FveConfigValues = @{
+            UseAdvancedStartup = $FveUseAdvancedStartup
+            EnableBDEWithNoTPM = $FveEnableBDEWithNoTPM
+            UseTPM = $FveUseTPM
+            UseTPMPIN = $FveUseTPMPIN
+            UseTPMKey = $FveUseTPMKey
+            UseTPMKeyPIN = $FveUseTPMKeyPIN
+        }
+    }
+
+    PROCESS {
+
+        $Result = New-Object -TypeName PSObject
+
+        $RegKey = "HKLM\SYSTEM\CurrentControlSet\Control\BitLockerStatus"
+        $RegValue = "BootStatus"
+        $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+    
+        $BitLockerEnabled = $false
+
+        if ($null -eq $RegData) {
+            $StatusDescription = "BitLocker is not configured."
+        }
+        else {
+            if ($RegData -ge 1) {
+                $BitLockerEnabled = $true
+                $StatusDescription = "BitLocker is enabled."
+            }
+            else {
+                $StatusDescription = "BitLocker is disabled."
+            }
+        }
+
+        $Item = New-Object -TypeName PSObject
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegData
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $StatusDescription
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $Item
+
+        $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\FVE"
+
+        $FveConfig.Clone().GetEnumerator() | ForEach-Object {
+            $RegValue = $_.name
+            $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+            if ($null -ne $RegData) {
+                $FveConfig[$_.name] = $RegData
+            }
+        }
+
+        if ($BitLockerEnabled) {
+            foreach ($FveConfigItem in $FveConfig.GetEnumerator()) {
+
+                $FveConfigValue = $FveConfigItem.name
+                $FveConfigValueDescriptions = $FveConfigValues[$FveConfigValue]
+                $IsValid = $true
+    
+                if (($FveConfigValue -eq "UseAdvancedStartup") -or ($FveConfigValue -eq "EnableBDEWithNoTPM")) {
+                    if (($FveConfig[$FveConfigValue] -ne 0) -and ($FveConfig[$FveConfigValue] -ne 1)) {
+                        $IsValid = $false
+                    }
+                }
+                elseif (($FveConfigValue -eq "UseTPM") -or ($FveConfigValue -eq "UseTPMPIN") -or ($FveConfigValue -eq "UseTPMKey") -or ($FveConfigValue -eq "UseTPMKeyPIN")) {
+                    if (($FveConfig[$FveConfigValue] -lt 0) -or ($FveConfig[$FveConfigValue] -gt 2)) {
+                        $IsValid = $false
+                    }
+                }
+    
+                if (-not $IsValid) {
+                    Write-Warning "Unexpected value for $($FveConfigValue): $($FveConfig[$FveConfigValue])"
+                    continue
+                }
+    
+                $Item = New-Object -TypeName PSObject
+                $Item | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $($FveConfig[$FveConfigValue])
+                $Item | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $($FveConfigValueDescriptions[$FveConfig[$FveConfigValue]])
+    
+                $Result | Add-Member -MemberType "NoteProperty" -Name $FveConfigValue -Value $Item
+            }
+        }
+
+        $Result
+    }
+}
+
 function Invoke-UacCheck {
     <#
     .SYNOPSIS

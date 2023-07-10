@@ -393,29 +393,73 @@ function Invoke-ThirdPartyDriversCheck {
 
     [CmdletBinding()]param ()
 
-    $Services = Get-ServiceList -FilterLevel 1 | Where-Object { @('KernelDriver','FileSystemDriver','RecognizerDriver') -contains $_.Type }
+    Get-DriverList | ForEach-Object {
 
-    foreach ($Service in $Services) {
+        $ImageFile = Get-Item -Path $_.ImagePathResolved -ErrorAction SilentlyContinue
 
-        $ImagePath = Resolve-DriverImagePath -Service $Service
-        if (-not (Test-Path -Path $ImagePath)) { Write-Warning "Service: $($Service.Name) | Path not found: $($ImagePath)"; continue }
+        if ($null -ne $ImageFile) {
 
-        $ImageFile = Get-Item -Path $ImagePath -ErrorAction SilentlyContinue
-        if ($null -eq $ImageFile) { "Failed to read file $($ImagePath)"; continue }
-        if (Test-IsMicrosoftFile -File $ImageFile) { continue }
+            if (-not (Test-IsMicrosoftFile -File $ImageFile)) {
 
-        $ServiceObject = Get-Service -Name $Service.Name -ErrorAction SilentlyContinue
-        if ($null -eq $ServiceObject) { Write-Warning "Failed to query service $($Service.Name)"; continue }
+                $ServiceObject = Get-Service -Name $_.Name -ErrorAction SilentlyContinue
+                if ($null -eq $ServiceObject) { Write-Warning "Failed to query service $($_.Name)"; continue }
+        
+                $VersionInfo = $ImageFile | Select-Object -ExpandProperty VersionInfo
 
-        $VersionInfo = $ImageFile | Select-Object -ExpandProperty VersionInfo
+                $Result = $_ | Select-Object Name,ImagePath,StartMode,Type
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $(if ($ServiceObject) { $ServiceObject.Status} else { "Unknown" })
+                $Result | Add-Member -MemberType "NoteProperty" -Name "ProductName" -Value $(if ($VersionInfo.ProductName) { $VersionInfo.ProductName.trim() } else { "Unknown" })
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Company" -Value $(if ($VersionInfo.CompanyName) { $VersionInfo.CompanyName.trim() } else { "Unknown" })
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $(if ($VersionInfo.FileDescription) { $VersionInfo.FileDescription.trim() } else { "Unknown" })
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Version" -Value $(if ($VersionInfo.FileVersion) { $VersionInfo.FileVersion.trim() } else { "Unknown" })
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Copyright" -Value $(if ($VersionInfo.LegalCopyright) { $VersionInfo.LegalCopyright.trim() } else { "Unknown" })
+                $Result
+            }
+        }
+        else {
+            Write-Warning "Failed to open file: $($_.ImagePathResolved)"
+        }
+    }
+}
 
-        $Result = $Service | Select-Object Name,ImagePath,StartMode,Type
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $ServiceObject.Status
-        $Result | Add-Member -MemberType "NoteProperty" -Name "ProductName" -Value $VersionInfo.ProductName.trim()
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Company" -Value $VersionInfo.CompanyName.trim()
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $VersionInfo.FileDescription.trim()
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Version" -Value $VersionInfo.FileVersion.trim()
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Copyright" -Value $VersionInfo.LegalCopyright.trim()
+function Invoke-VulnerableDriverCheck {
+    <#
+    .SYNOPSIS
+    Find vulnerable drivers.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+    
+    .DESCRIPTION
+    This check relies on the list of known vulnerable drivers provided by loldrivers.io to find vulnerable drivers installed on the host. For each installed driver, it computes its hash and chech whether it is in the list of vulnerable drivers.
+    
+    .EXAMPLE
+    PS C:\> Invoke-VulnerableDriverCheck
+
+    Name        : RTCore64
+    DisplayName : Micro-Star MSI Afterburner
+    ImagePath   : \SystemRoot\System32\drivers\RTCore64.sys
+    StartMode   : Automatic
+    Type        : KernelDriver
+    Status      : Running
+    Hash        : 01aa278b07b58dc46c84bd0b1b5c8e9ee4e62ea0bf7a695862444af32e87f1fd
+    Url         : https://www.loldrivers.io/drivers/e32bc3da-4db1-4858-a62c-6fbe4db6afbd
+    
+    .NOTES
+    When building the scripting, the driver list is downloaded from loldrivers.io, filtered, and exported again as a CSV file embedded in the script as a global variable.
+    #>#
+
+    [CmdletBinding()] param()
+
+    Get-DriverList | Find-VulnerableDriver | ForEach-Object {
+
+        $ServiceObject = Get-Service -Name $_.Name -ErrorAction SilentlyContinue
+        if ($null -eq $ServiceObject) { Write-Warning "Failed to query service $($_.Name)" }
+
+        $Result = $_ | Select-Object Name,DisplayName,ImagePath,StartMode,Type
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $(if ($ServiceObject) { $ServiceObject.Status} else { "Unknown" })
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Hash" -Value $_.FileHash
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Url" -Value $_.Url
         $Result
     }
 }

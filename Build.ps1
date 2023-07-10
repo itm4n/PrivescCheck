@@ -1,6 +1,6 @@
 <#
 Usage:
-    - powershell -ep bypass -c ".\Build.ps1"
+    - powershell -ep bypass -c ". .\Build.ps1; Invoke-Build"
 
 Notes:
     - [2021-11-28] Cortex XDR detected the loader. I had to split the base64 decoding and the GZip decompressing into two separate functions.
@@ -8,13 +8,70 @@ Notes:
     - [2023-07-02] ESET seems to use a signature-based detection. Using randomly-generated variable names for the modules could do the trick here.
 #>
 
-$ErrorCount = 0
-$ScriptOutput = "#Requires -Version 2`r`n`r`n"
-$OutputFile = "PrivescCheck.ps1"
-$WordlistUrl = "https://raw.githubusercontent.com/CBHue/PyFuscation/master/wordList.txt"
-$WordLen = 10
+function Write-Message {
 
-$Modules = New-Object System.Collections.ArrayList
+    [CmdletBinding()] param(
+        [Parameter(Position=0,Mandatory=$true)]
+        [String] $Message,
+        [ValidateSet("Success", "Info", "Warning", "Error")]
+        [String] $Type
+    )
+
+    $Symbol = "[*]"; $Color = "Blue"
+
+    switch ($Type) {
+        "Success" {
+            $Symbol = "[+]"; $Color = "Green"
+        }
+        "Warning" {
+            $Symbol = "[!]"; $Color = "Yellow"
+        }
+        "Error" {
+            $Symbol = "[-]"; $Color = "Red"
+        }
+    }
+
+    Write-Host -NoNewline -ForegroundColor "$Color" "$($Symbol) "
+    Write-Host "$Message"
+}
+
+function Get-LolDrivers {
+
+    [CmdletBinding()] param()
+
+    $LolDriversUrl = 'https://www.loldrivers.io/api/drivers.csv'
+    $WebClient = New-Object -TypeName 'System.Net.WebClient'
+    
+    try { $LolDriversCsv = $WebClient.DownloadString($LolDriversUrl) }
+    catch { Write-Message -Type Warning "Failed to download CSV file from loldrivers.io: $($_.Exception.Message.Trim())"; return }
+
+    Write-Message "Driver list downloaded from: $($LolDriversUrl)"
+
+    try { $LolDrivers = ConvertFrom-Csv -InputObject $LolDriversCsv }
+    catch { Write-Message -Type Warning "Failed to parse CSV file: $($_.Exception.Message.Trim())"; return }
+
+    Write-Message "Number of drivers in the list: $($LolDrivers.Count)"
+
+    $LolDriversVulnerable = $LolDrivers | Where-Object { $_.Category -like "*vulnerable*" }
+    Write-Message "Number of vulnerable drivers: $($LolDriversVulnerable.Count)"
+
+    $LolDriversVulnerable | ForEach-Object {
+
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Url" -Value "https://www.loldrivers.io/drivers/$($_.Id)"
+
+        $Hashes = [string[]] ($_.KnownVulnerableSamples_MD5 -split "," | ForEach-Object { $_.Trim() } | Where-Object { $_.Length -eq 32 })
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Md5" -Value ($Hashes -join ",")
+
+        $Hashes = [string[]] ($_.KnownVulnerableSamples_SHA1 -split "," | ForEach-Object { $_.Trim() } | Where-Object { $_.Length -eq 40 })
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Sha1" -Value ($Hashes -join ",")
+
+        $Hashes = [string[]] ($_.KnownVulnerableSamples_SHA256 -split "," | ForEach-Object { $_.Trim() } | Where-Object { $_.Length -eq 64 })
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Sha256" -Value ($Hashes -join ",")
+
+        $Result
+    }
+}
 
 function Convert-ToBase64CompressedScriptBlock {
 
@@ -53,7 +110,6 @@ function Remove-CommentsFromScriptBlock {
         }
 
         if ((-not $IsCommentBlock) -and ($Line -match "^\s*#.*")) {
-            # Write-Host "Comment line: $($Line)"
             continue
         }
 
@@ -93,76 +149,106 @@ function Convert-FromBase64CompressedScriptBlock {
     $Encoding.GetString($ScriptBlockEncoded) | Out-String
 }
 
-$UseRandomNames = $true
+function Invoke-Build {
 
-try {
-    $Wordlist = (New-Object Net.WebClient).DownloadString($WordlistUrl)
-    $Wordlist = $Wordlist -split "`n"
-    $Wordlist = $Wordlist | Where-Object { (-not [string]::IsNullOrEmpty($_)) -and ($_.length -eq $WordLen) }
-}
-catch {
-    Write-Warning "Failed to download wordlist, fall back to module names."
-    $UseRandomNames = $false
-}
+    [CmdletBinding()] param()
 
-Get-ChildItem -Path ".\src\*" | ForEach-Object {
+    $ErrorCount = 0
+    $ScriptOutput = "#Requires -Version 2`r`n`r`n"
+    $OutputFile = "PrivescCheck.ps1"
+    $WordlistUrl = "https://raw.githubusercontent.com/CBHue/PyFuscation/master/wordList.txt"
+    $WordLen = 10
+    $UseRandomNames = $true
 
-    $ModulePath = $_.FullName
-    $ModuleFilename = $_.Name
+    Write-Message "Build starts. Output file: $($OutputFile)"
+    
+    $Modules = New-Object System.Collections.ArrayList
 
     try {
-        if ($UseRandomNames) {
-            # Pick a random name from the wordlist.
-            $RandomName = Get-Random -InputObject $Wordlist -Count 1
-            $Wordlist = $Wordlist | Where-Object { $_ -ne $RandomName }
-            $ModuleName = $RandomName.ToLower()
-            $ModuleName = ([regex]$ModuleName[0].ToString()).Replace($ModuleName, $ModuleName[0].ToString().ToUpper(), 1)
-        }
-        else {
-            # Otherwise use the module name from the file name.
-            $ModuleName = ($ModuleFilename.Split('.')[0]).Split('_')[1]
-        }
-
-        [void] $Modules.Add($ModuleName)
-
-        # Read script block from module file
-        $ScriptBlock = Get-Content -Path $ModulePath | Out-String
-
-        # Strip out comments
-        $ScriptBlock = Remove-CommentsFromScriptBlock -ScriptBlock $ScriptBlock
-
-        # Is the script block detected by AMSI after stripping the comments?
-        # Note: if the script block is caught by AMSI, an exception is triggered, so we go
-        # directly to the "catch" block. Otherwise, it means that the module was sucessfully 
-        # loaded.
-        $ScriptBlock | Invoke-Expression
-
-        Write-Host -ForegroundColor Green "[OK] " -NoNewline
-        Write-Host "Loaded file $($ModuleFilename) (name: $($ModuleName))"
-
-        # Compress and Base64 encode script block
-        $ScriptBlockBase64 = Convert-ToBase64CompressedScriptBlock -ScriptBlock $ScriptBlock
-
-        # Store each compressed block in a string variable
-        $ScriptOutput += "`$$($ModuleName) = `"$($ScriptBlockBase64)`"`r`n"
+        $Wordlist = (New-Object Net.WebClient).DownloadString($WordlistUrl)
+        Write-Message "Wordlist downloaded from: $($WordlistUrl)"
+        $Wordlist = $Wordlist -split "`n"
+        $Wordlist = $Wordlist | Where-Object { (-not [string]::IsNullOrEmpty($_)) -and ($_.length -eq $WordLen) }
+        Write-Message -Type Success "Number of items in wordlist after filtering (word size=$($WordLen)): $($Wordlist.Count)"
     }
-    catch [Exception] {
-        $ErrorCount += 1
-        Write-Host -ForegroundColor Red "[KO] " -NoNewline
-        Write-Host "Failed to load file $ModuleFilename"
-        Write-Host -ForegroundColor Red "[ERROR]" $_.Exception.Message.Trim()
+    catch {
+        Write-Message -Type Warning "Failed to download wordlist, fall back to module names."
+        $UseRandomNames = $false
     }
-}
+    
+    Get-ChildItem -Path ".\src\*" | ForEach-Object {
+    
+        $ModulePath = $_.FullName
+        $ModuleFilename = $_.Name
+    
+        try {
+            if ($UseRandomNames) {
+                # Pick a random name from the wordlist.
+                $RandomName = Get-Random -InputObject $Wordlist -Count 1
+                $Wordlist = $Wordlist | Where-Object { $_ -ne $RandomName }
+                $ModuleName = $RandomName.ToLower()
+                $ModuleName = ([regex]$ModuleName[0].ToString()).Replace($ModuleName, $ModuleName[0].ToString().ToUpper(), 1)
+            }
+            else {
+                # Otherwise use the module name from the file name.
+                $ModuleName = ($ModuleFilename.Split('.')[0]).Split('_')[1]
+            }
+    
+            [void] $Modules.Add($ModuleName)
+    
+            # Read script block from module file
+            $ScriptBlock = Get-Content -Path $ModulePath | Out-String
 
-# if no error, write the loader
-if ($ErrorCount -eq 0) {
-
-    $LoaderBlock = @"
+            # Special case of the file containing the global variables. We need to insert the 
+            # vulnerable driver list.
+            if ($ModuleFilename -like "*global*") {
+                Write-Message "Populating file '$($ModuleFilename)' with list of vulnerable drivers..."
+                $LolDrivers = Get-LolDrivers
+                if ($null -ne $LolDrivers) {
+                    try {
+                        $LolDriversCsv = $LolDrivers | ConvertTo-Csv -Delimiter ";" | Out-String
+                        Write-Message "Driver list exported as CSV."
+                        $ScriptBlock = $ScriptBlock -replace "VULNERABLE_DRIVERS",$LolDriversCsv
+                        Write-Message -Type Success "Driver list written to '$($ModuleFilename)'."
+                    }
+                    catch {
+                        Write-Message -Type Error "Failed to populate driver list: $($_.Exception.Message.Trim())"
+                    }
+                }
+            }
+    
+            # Strip out comments
+            $ScriptBlock = Remove-CommentsFromScriptBlock -ScriptBlock $ScriptBlock
+    
+            # Is the script block detected by AMSI after stripping the comments?
+            # Note: if the script block is caught by AMSI, an exception is triggered, so we go
+            # directly to the "catch" block. Otherwise, it means that the module was sucessfully 
+            # loaded.
+            $ScriptBlock | Invoke-Expression
+    
+            Write-Message "File '$($ModuleFilename)' (name: '$($ModuleName)') was loaded successfully."
+    
+            # Compress and Base64 encode script block
+            $ScriptBlockBase64 = Convert-ToBase64CompressedScriptBlock -ScriptBlock $ScriptBlock
+    
+            # Store each compressed block in a string variable
+            $ScriptOutput += "`$$($ModuleName) = `"$($ScriptBlockBase64)`"`r`n"
+        }
+        catch [Exception] {
+            $ErrorCount += 1
+            Write-Message -Type Error "Failed to load file $($ModuleFilename): $($_.Exception.Message.Trim())"
+        }
+    }
+    
+    # if no error, write the loader
+    if ($ErrorCount -eq 0) {
+    
+        $LoaderBlock = @"
 function Convert-FromBase64ToGzip {
     [CmdletBinding()] param([string] `$String)
     [Convert]::FromBase64String(`$String)
 }
-
+    
 function Convert-FromGzipToText {
     [CmdletBinding()] param([byte[]] `$Bytes)
     `$is = New-Object IO.MemoryStream(, `$Bytes)
@@ -181,17 +267,14 @@ function Convert-FromGzipToText {
     Convert-FromGzipToText -Bytes `$Decoded | Invoke-Expression
 }
 "@
-
-    $ScriptOutput += "`r`n$($LoaderBlock)"
-}
-
-# If no error, write the script to the file
-if ($ErrorCount -eq 0) {
-
-    Write-Host -ForegroundColor Green "[OK] " -NoNewline
-    Write-Host "Build complete!"
-
-    $ScriptOutput | Out-File -FilePath $OutputFile -Encoding ascii
-    Write-Host -ForegroundColor Green "[OK] " -NoNewline
-    Write-Host "Script written to file $OutputFile"
+    
+        $ScriptOutput += "`r`n$($LoaderBlock)"
+    }
+    
+    # If no error, write the script to the file
+    if ($ErrorCount -eq 0) {
+        Write-Message -Type Success "Build complete!"
+        $ScriptOutput | Out-File -FilePath $OutputFile -Encoding ascii
+        Write-Message "Script written to file '$($OutputFile)'."
+    }
 }

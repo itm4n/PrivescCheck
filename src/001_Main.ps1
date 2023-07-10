@@ -1,11 +1,3 @@
-$global:CachedServiceList = New-Object -TypeName System.Collections.ArrayList
-$global:CachedHotFixList = New-Object -TypeName System.Collections.ArrayList
-$global:CachedScheduledTaskList = New-Object -TypeName System.Collections.ArrayList
-$global:CachedCurrentUserSids = $null
-$global:CachedCurrentUserDenySids = $null
-$global:ResultArrayList = New-Object -TypeName System.Collections.ArrayList
-[string[]] $global:KeywordsOfInterest = "key", "passw", "secret", "pwd", "creds", "credential", "api"
-
 function Invoke-PrivescCheck {
     <#
     .SYNOPSIS
@@ -87,6 +79,7 @@ function Invoke-PrivescCheck {
 "USER_ENV",                         "Invoke-UserEnvCheck",                          "User",             "Environment Variables",                "Info", "Info",     "Table",    "False",    "True",         "False",        "List the environment variables of the current process and try to identify any potentially sensitive information such as passwords or API secrets. This check is simply based on keyword matching and might not be entirely reliable."
 "SERVICE_INSTALLED",                "Invoke-InstalledServicesCheck",                "Services",         "Non-default Services",                 "Info", "Info",     "List",     "False",    "True",         "False",        "List all registered services and filter out the ones that are built into Windows. It does so by parsing the target executable's metadata."
 "SERVICE_THIRD_PARTY",              "Invoke-ThirdPartyDriversCheck",                "Services",         "Third-party Drivers",                  "Info", "Info",     "List",     "True",     "True",         "False",        "List third-party drivers (i.e. drivers that do not originate from Microsoft)."
+"SERVICE_VULN_DRIVER",              "Invoke-VulnerableDriverCheck",                 "Services",         "Vulnerable Drivers",                   "Vuln", "High",     "List",     "False",    "True",         "False",        "Find drivers that are known to be vulnerable using the list provided by loldrivers.io. Note: only vulnerable drivers are checked, not the ones that are categorized as 'malicious'."
 "SERVICE_PERMISSIONS",              "Invoke-ServicesPermissionsCheck",              "Services",         "Service Permissions",                  "Vuln", "High",     "List",     "False",    "False",        "False",        "Interact with the Service Control Manager (SCM) and check whether the current user can modify any registered service."
 "SERVICE_PERMISSIONS_REGISTRY",     "Invoke-ServicesPermissionsRegistryCheck",      "Services",         "Registry Permissions",                 "Vuln", "High",     "List",     "False",    "False",        "False",        "Parse the registry and check whether the current user can modify the configuration of any registered service."
 "SERVICE_IMAGE_PERMISSIONS",        "Invoke-ServicesImagePermissionsCheck",         "Services",         "Binary Permissions",                   "Vuln", "High",     "List",     "False",    "False",        "False",        "List all services and check whether the current user can modify the target executable or write files in its parent folder."
