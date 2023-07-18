@@ -651,7 +651,7 @@ function Get-AclModificationRights {
                     $Result = New-Object -TypeName PSObject
                     $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $Path
                     $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $AllowAce.IdentityReference
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value ($Permissions -join ", ")
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value $Permissions
                     $Result
                 }
             }
@@ -880,51 +880,60 @@ function Get-ExploitableUnquotedPath {
         [String]$Path
     )
 
-    $PermissionsAddFile = @("WriteData/AddFile", "DeleteChild", "WriteDAC", "WriteOwner")
-    # $PermissionsAddFolder = @("AppendData/AddSubdirectory", "DeleteChild", "WriteDAC", "WriteOwner")
-
-    $UnquotedPath = Get-UnquotedPath -Path $Path -Spaces
-
-    if ([String]::IsNullOrEmpty($UnquotedPath)) { return }
-
-    Write-Verbose "Found an unquoted path that contains spaces: $($UnquotedPath)"
-
-    $SplitPathArray = $UnquotedPath.Split(' ')
-    $ConcatPathArray = @()
-    for ($i=0; $i -lt $SplitPathArray.Count; $i++) {
-        $ConcatPathArray += $SplitPathArray[0..$i] -join ' '
+    BEGIN {
+        $PermissionsAddFile = @("AddFile", "DeleteChild", "WriteDAC", "WriteOwner")
     }
 
-    foreach ($ConcatPath in $ConcatPathArray) {
+    PROCESS {
 
-        # We exclude the binary path itself
-        if ($ConcatPath -like $UnquotedPath) { continue }
+        $UnquotedPath = Get-UnquotedPath -Path $Path -Spaces
 
-        try {
-            $BinFolder = Split-Path -Path $ConcatPath -Parent
+        if ([String]::IsNullOrEmpty($UnquotedPath)) { return }
+    
+        Write-Verbose "Found an unquoted path that contains spaces: $($UnquotedPath)"
+    
+        # Split path and build candidates paths
+        $SplitPathArray = $UnquotedPath.Split(' ')
+        $ConcatPathArray = @()
+        for ($i=0; $i -lt $SplitPathArray.Count; $i++) {
+            $ConcatPathArray += $SplitPathArray[0..$i] -join ' '
+        }
+        
+        foreach ($ConcatPath in $ConcatPathArray) {
+    
+            # We exclude the binary path itself
+            if ($ConcatPath -like $UnquotedPath) { continue }
 
-            # Does the parent folder exist?
-            if (-not (Test-Path -Path $BinFolder -ErrorAction SilentlyContinue)) { continue }
+            # Get parent folder. Split-Path does not handle errors nicely so catch exceptions
+            # and continue on failure.
+            try { $BinFolder = Split-Path -Path $ConcatPath -Parent -ErrorAction SilentlyContinue } catch { continue }
+    
+            # Split-Path failed without throwing an exception, so ignore and continue.
+            if ( $null -eq $BinFolder) { continue }
 
+            # If the parent folder does not exist, ignore and continue.
+            if ( -not (Test-Path -Path $BinFolder -ErrorAction SilentlyContinue) ) { continue }
+
+            # The parent folder exists, check if it is modifiable.
             $ModifiablePaths = $BinFolder | Get-ModifiablePath | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
-            foreach ($ModifiablePath in $ModifiablePaths) {
 
-                # Verify that the permissions that were returned by Get-ModifiablePath really allow us to add files.
-                $PermissionsSet = $PermissionsAddFile
+            foreach ($ModifiablePath in $ModifiablePaths) {
+    
+                # To exploit an unquoted path we need to create a file, so make sure that the
+                # permissions returned by Get-ModifiablePath really allow us to do that.
                 foreach ($Permission in $ModifiablePath.Permissions) {
 
-                    if ($PermissionsSet -contains $Permission) {
+                    if ($PermissionsAddFile -contains $Permission) {
 
+                        # If we find any permission that would allow us to write a file, we can report
+                        # the path.
                         $ModifiablePath
                         break
                     }
                 }
             }
         }
-        catch {
-            $null = $_
-        }
-    }
+    }    
 }
 
 function Get-ModifiableRegistryPath {

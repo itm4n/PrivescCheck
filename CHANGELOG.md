@@ -1,5 +1,11 @@
 # Changelog
 
+## 2023-07-18
+
+### Fixed
+
+- Fixed a regression causing false negatives in `Invoke-ServicesUnquotedPathCheck` (see issue #48).
+
 ## 2023-07-10
 
 ### Added
