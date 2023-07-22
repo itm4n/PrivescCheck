@@ -57,17 +57,32 @@ function Get-LolDrivers {
 
     $LolDriversVulnerable | ForEach-Object {
 
+        # Keep the UUID for future reference in the LOL drivers database.
         $Result = New-Object -TypeName PSObject
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Url" -Value "https://www.loldrivers.io/drivers/$($_.Id)"
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Id" -Value $_.Id
 
-        $Hashes = [string[]] ($_.KnownVulnerableSamples_MD5 -split "," | ForEach-Object { $_.Trim() } | Where-Object { $_.Length -eq 32 })
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Md5" -Value ($Hashes -join ",")
+        # Extract all the valid hashes from the data
+        $HashesMd5 = [string[]] ($_.KnownVulnerableSamples_MD5 -split "," | ForEach-Object { $_.Trim() } | Where-Object { $_.Length -eq 32 })
+        $HashesSha1 = [string[]] ($_.KnownVulnerableSamples_SHA1 -split "," | ForEach-Object { $_.Trim() } | Where-Object { $_.Length -eq 40 })
+        $HashesSha256 = [string[]] ($_.KnownVulnerableSamples_SHA256 -split "," | ForEach-Object { $_.Trim() } | Where-Object { $_.Length -eq 64 })
 
-        $Hashes = [string[]] ($_.KnownVulnerableSamples_SHA1 -split "," | ForEach-Object { $_.Trim() } | Where-Object { $_.Length -eq 40 })
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Sha1" -Value ($Hashes -join ",")
+        # Find the hash list that has the most values
+        $HashesMax = (@($HashesMd5.Count, $HashesSha1.Count, $HashesSha256.Count) | Measure-Object -Maximum).Maximum
 
-        $Hashes = [string[]] ($_.KnownVulnerableSamples_SHA256 -split "," | ForEach-Object { $_.Trim() } | Where-Object { $_.Length -eq 64 })
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Sha256" -Value ($Hashes -join ",")
+        # Keep the hash list that has the most values, prioritize the shortest hashes
+        # to minimize the total space they will take in the final script.
+        if ($HashesMd5.Count -eq $HashesMax) {
+            $Result | Add-Member -MemberType "NoteProperty" -Name "HashType" -Value "Md5"
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Hash" -Value ($HashesMd5 -join ",")
+        }
+        elseif ($HashesSha1.Count -eq $HashesMax) {
+            $Result | Add-Member -MemberType "NoteProperty" -Name "HashType" -Value "Sha1"
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Hash" -Value ($HashesSha1 -join ",")
+        }
+        elseif ($HashesSha256.Count -eq $HashesMax) {
+            $Result | Add-Member -MemberType "NoteProperty" -Name "HashType" -Value "Sha256"
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Hash" -Value ($HashesSha256 -join ",")
+        }
 
         $Result
     }

@@ -604,10 +604,9 @@ function Get-VulnerableDriverHashes {
 
     $VulnerableDriverList | ForEach-Object {
         $Result = New-Object -TypeName PSObject
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Url" -Value $_.Url
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Md5" -Value ([string[]] ($_.Md5 -split ","))
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Sha1" -Value ([string[]] ($_.Sha1 -split ","))
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Sha256" -Value ([string[]] ($_.Sha256 -split ","))
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Url" -Value "https://www.loldrivers.io/drivers/$($_.Id)"
+        $Result | Add-Member -MemberType "NoteProperty" -Name "HashType" -Value $_.HashType
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Hash" -Value ([string[]] ($_.Hash -split ","))
         $Result
     }
 }
@@ -629,44 +628,52 @@ function Find-VulnerableDriver {
         $ResultHash = ""
         $ResultUrl = ""
 
-        $FileHashSha256 = ""
-        $FileHashSha1 = ""
         $FileHashMd5 = ""
+        $FileHashSha1 = ""
+        $FileHashSha256 = ""
 
         foreach ($VulnerableDriverHash in $VulnerableDriverHashes) {
 
-            if ($null -ne $VulnerableDriverHash.Sha256) {
-                if ([String]::IsNullOrEmpty($FileHashSha256)) { $FileHashSha256 = Get-FileHashHex -FilePath $Service.ImagePathResolved -Algorithm SHA256 }
-                if ($VulnerableDriverHash.Sha256 -contains $FileHashSha256) {
-                    $ResultHash = $FileHashSha256
-                    $ResultUrl = $VulnerableDriverHash.Url
+            switch ($VulnerableDriverHash.HashType) {
+
+                "Md5" {
+                    if ([String]::IsNullOrEmpty($FileHashMd5)) { $FileHashMd5 = Get-FileHashHex -FilePath $Service.ImagePathResolved -Algorithm MD5 }
+                    if ($VulnerableDriverHash.Hash -contains $FileHashMd5) {
+                        $ResultHash = $FileHashMd5
+                        $ResultUrl = $VulnerableDriverHash.Url
+                    }
                     break
+                }
+
+                "Sha1" {
+                    if ([String]::IsNullOrEmpty($FileHashSha1)) { $FileHashSha1 = Get-FileHashHex -FilePath $Service.ImagePathResolved -Algorithm SHA1 }
+                    if ($VulnerableDriverHash.Hash -contains $FileHashSha1) {
+                        $ResultHash = $FileHashSha1
+                        $ResultUrl = $VulnerableDriverHash.Url
+                    }
+                    break
+                }
+
+                "Sha256" {
+                    if ([String]::IsNullOrEmpty($FileHashSha256)) { $FileHashSha256 = Get-FileHashHex -FilePath $Service.ImagePathResolved -Algorithm SHA256 }
+                    if ($VulnerableDriverHash.Hash -contains $FileHashSha256) {
+                        $ResultHash = $FileHashSha256
+                        $ResultUrl = $VulnerableDriverHash.Url
+                    }
+                    break
+                }
+
+                default {
+                    Write-Warning "Empty or invalid hash type: '$($VulnerableDriverHash.HashType)' ($($VulnerableDriverHash.Url))"
                 }
             }
 
-            if ($null -ne $VulnerableDriverHash.Sha1) {
-                if ([String]::IsNullOrEmpty($FileHashSha1)) { $FileHashSha1 = Get-FileHashHex -FilePath $Service.ImagePathResolved -Algorithm SHA1 }
-                if ($VulnerableDriverHash.Sha1 -contains $FileHashSha1) {
-                    $ResultHash = $FileHashSha1
-                    $ResultUrl = $VulnerableDriverHash.Url
-                    break
-                }
+            if (-not [String]::IsNullOrEmpty($ResultHash)) {
+                $Service | Add-Member -MemberType "NoteProperty" -Name "FileHash" -Value $ResultHash
+                $Service | Add-Member -MemberType "NoteProperty" -Name "Url" -Value $ResultUrl
+                $Service
+                break
             }
-
-            if ($null -ne $VulnerableDriverHash.Md5) {
-                if ([String]::IsNullOrEmpty($FileHashMd5)) { $FileHashMd5 = Get-FileHashHex -FilePath $Service.ImagePathResolved -Algorithm MD5 }
-                if ($VulnerableDriverHash.Md5 -contains $FileHashMd5) {
-                    $ResultHash = $FileHashMd5
-                    $ResultUrl = $VulnerableDriverHash.Url
-                    break
-                }
-            }
-        }
-
-        if (-not [String]::IsNullOrEmpty($ResultHash)) {
-            $Service | Add-Member -MemberType "NoteProperty" -Name "FileHash" -Value $ResultHash
-            $Service | Add-Member -MemberType "NoteProperty" -Name "Url" -Value $ResultUrl
-            $Service
         }
     }
 }

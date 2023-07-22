@@ -1,5 +1,11 @@
 # Changelog
 
+## 2023-07-22
+
+### Changed
+
+- Only one hash type is stored for each driver in the LOL drivers database to reduce the size of the final script.
+
 ## 2023-07-18
 
 ### Fixed
