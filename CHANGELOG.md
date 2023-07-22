@@ -6,6 +6,10 @@
 
 - Only one hash type is stored for each driver in the LOL drivers database to reduce the size of the final script.
 
+### Fixed
+
+- Fixed an latent issue that could cause module names to overlap in the final script.
+
 ## 2023-07-18
 
 ### Fixed

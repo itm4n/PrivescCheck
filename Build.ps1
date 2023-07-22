@@ -206,7 +206,8 @@ function Invoke-Build {
             }
             else {
                 # Otherwise use the module name from the file name.
-                $ModuleName = ($ModuleFilename.Split('.')[0]).Split('_')[1]
+                $ModuleNameSplit = ($ModuleFilename.Split('.')[0]).Split('_')
+                $ModuleName = $ModuleNameSplit[1..($ModuleNameSplit.Count-1)] -join '_'
             }
     
             [void] $Modules.Add($ModuleName)
