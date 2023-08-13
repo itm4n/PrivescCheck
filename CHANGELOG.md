@@ -1,5 +1,11 @@
 # Changelog
 
+## 2023-08-13
+
+### Fixed
+
+- Fixed a false negative that caused Credential Guard to be reported as not being running. This could occur when Windows enabled it by default because the machine meets all the hardware and software requirements.
+
 ## 2023-07-22
 
 ### Changed

@@ -669,41 +669,57 @@ function Invoke-CredentialGuardCheck {
 
     $OsVersion = Get-WindowsVersion
 
+    # Credential Guard is only available on Windows 10+
     if ($OsVersion.Major -ge 10) {
 
+        # This check requires the cmdlet Get-ComputerInfo, which is only available in PSv5.1+
         if ((($PSVersionTable.PSVersion.Major -eq 5) -and ($PSVersionTable.PSVersion.Minor -ge 1)) -or ($PSVersionTable.PSVersion.Major -gt 5)) {
 
-            $DeviceGuardSecurityServicesConfigured = (Get-ComputerInfo).DeviceGuardSecurityServicesConfigured
-            if ($DeviceGuardSecurityServicesConfigured -match 'CredentialGuard') {
+            $ComputerInfo = Get-ComputerInfo
+            $ServicesConfigured = $ComputerInfo.DeviceGuardSecurityServicesConfigured
+            $ServicesRunning = $ComputerInfo.DeviceGuardSecurityServicesRunning
+            $IsConfigured = $ServicesConfigured -match 'CredentialGuard'
+            $IsRunning = $ServicesRunning -match 'CredentialGuard'
 
-                $Compliance = $false
-                $Description = "Credential Guard is configured but is not running"
-
-                $DeviceGuardSecurityServicesRunning = (Get-ComputerInfo).DeviceGuardSecurityServicesRunning
-                if ($DeviceGuardSecurityServicesRunning -match 'CredentialGuard') {
+            if ($IsConfigured) {
+                if ($IsRunning) {
                     $Compliance = $true
-                    $Description = "Credential Guard is configured and running"
+                    $Description = "Credential Guard is configured and running."
+                }
+                else {
+                    $Compliance = $false
+                    $Description = "Credential Guard is configured but not running."
                 }
             }
             else {
-                $Compliance = $false
-                $Description = "Credential Guard is not configured"
+                if ($IsRunning) {
+                    # Starting with Windows 11 22H2 (Enterprise / Education), Credential Guard is
+                    # enabled by default if the machine follows all the hardware and software
+                    # requirements.
+                    # https://learn.microsoft.com/en-us/windows/security/identity-protection/credential-guard/credential-guard-manage
+                    $Compliance = $true
+                    $Description = "Credential Guard is not explictely configured, but running by default."
+                }
+                else {
+                    $Compliance = $false
+                    $Description = "Credential Guard is not configured."
+                }
             }
         }
         else {
             $Compliance = $false
-            $Description = "Check failed: Incompatible PS version"
+            $Description = "Check failed: Incompatible PS version."
         }
     }
     else {
         $Compliance = $false
-        $Description = "Credential Guard is not supported on this OS"
+        $Description = "Credential Guard is not supported on this version of Windows."
     }
 
     $Result = New-Object -TypeName PSObject
     $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value "Credential Guard"
-    $Result | Add-Member -MemberType "NoteProperty" -Name "DeviceGuardSecurityServicesConfigured" -Value $(if ($null -eq $DeviceGuardSecurityServicesConfigured) { "(null)" } else { $DeviceGuardSecurityServicesConfigured })
-    $Result | Add-Member -MemberType "NoteProperty" -Name "DeviceGuardSecurityServicesRunning" -Value $(if ($null -eq $DeviceGuardSecurityServicesRunning) { "(null)" } else { $DeviceGuardSecurityServicesConfigured })
+    $Result | Add-Member -MemberType "NoteProperty" -Name "DeviceGuardSecurityServicesConfigured" -Value $(if ($null -eq $ServicesConfigured) { "(null)" } else { $ServicesConfigured })
+    $Result | Add-Member -MemberType "NoteProperty" -Name "DeviceGuardSecurityServicesRunning" -Value $(if ($null -eq $ServicesRunning) { "(null)" } else { $ServicesRunning })
     $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
     $Result | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $Compliance
     $Result
