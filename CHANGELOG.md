@@ -1,5 +1,16 @@
 # Changelog
 
+## 2023-08-14
+
+### Changed
+
+- Reworked the script output using unicode characters.
+- Replaced the categories with main techniques from the Mitre Att&ck framework.
+
+### Removed
+
+- Removed the check "types" ("info"/"vuln") as this information was redundant with the severity. 
+
 ## 2023-08-13
 
 ### Fixed
