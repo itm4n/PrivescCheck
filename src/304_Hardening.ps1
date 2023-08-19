@@ -327,11 +327,20 @@ function Invoke-UacCheck {
     .EXAMPLE
     PS C:\> Invoke-UacCheck | fl
 
-    EnableLUA                     : 1 - UAC is enabled.
-    LocalAccountTokenFilterPolicy : (null) - Only the built-in Administrator account (RID 500) can be granted a high
-                                    integrity token when authenticating remotely (default).
-    FilterAdministratorToken      : (null) - The built-in administrator account (RID 500) is granted a high integrity
-                                    token when authenticating remotely (default).
+    Key         : HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\System
+    Value       : EnableLUA
+    Data        : 1
+    Description : UAC is enabled.
+
+    Key         : HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System
+    Value       : LocalAccountTokenFilterPolicy
+    Data        : (null)
+    Description : Only the built-in Administrator account (RID 500) can be granted a high integrity token when authenticating remotely (default).
+
+    Key         : HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System
+    Value       : FilterAdministratorToken
+    Data        : (null)
+    Description : The built-in administrator account (RID 500) is granted a high integrity token when authenticating remotely (default).
 
     .NOTES
     "UAC was formerly known as Limited User Account (LUA)."
@@ -355,9 +364,10 @@ function Invoke-UacCheck {
 
     [CmdletBinding()] param()
 
-    $Result = New-Object -TypeName PSObject
+    $Results = @()
     $Vulnerable = $false
 
+    # Check whether UAC is enabled.
     $RegKey = "HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\System"
     $RegValue = "EnableLUA"
     $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
@@ -369,7 +379,13 @@ function Invoke-UacCheck {
         $Vulnerable = $true
     }
 
-    $Result | Add-Member -MemberType "NoteProperty" -Name $RegValue -Value "$(if ($null -eq $RegData) { "(null)" } else { $RegData })"
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value "$(if ($null -eq $RegData) { "(null)" } else { $RegData })"
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Vulnerable" -Value $(($null -eq $RegData) -or ($RegData -eq 0))
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+    [object[]] $Results += $Result
 
     # If UAC is enabled, check LocalAccountTokenFilterPolicy to determine if only the built-in
     # administrator can get a high integrity token remotely or if any local user that is a
@@ -379,14 +395,20 @@ function Invoke-UacCheck {
     $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
 
     if ($RegData -ge 1) {
-        $Description = "$($Description) Local users that are members of the Administrators group are granted a high integrity token when authenticating remotely."
+        $Description = "Local users that are members of the Administrators group are granted a high integrity token when authenticating remotely."
         $Vulnerable = $true
     }
     else {
-        $Description = "$($Description) Only the built-in Administrator account (RID 500) can be granted a high integrity token when authenticating remotely (default)."
+        $Description = "Only the built-in Administrator account (RID 500) can be granted a high integrity token when authenticating remotely (default)."
     }
 
-    $Result | Add-Member -MemberType "NoteProperty" -Name $RegValue -Value "$(if ($null -eq $RegData) { "(null)" } else { $RegData })"
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value "$(if ($null -eq $RegData) { "(null)" } else { $RegData })"
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Vulnerable" -Value $($RegData -ge 1)
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+    [object[]] $Results += $Result
 
     # If LocalAccountTokenFilterPolicy != 1, i.e. local admins other than RID 500 are not granted a
     # high integrity token. However, we need to check if other restrictions apply to the built-in
@@ -396,18 +418,23 @@ function Invoke-UacCheck {
     $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
 
     if ($RegData -ge 1) {
-        $Description = "$($Description) The built-in Administrator account (RID 500) is only granted a medium integrity token when authenticating remotely."
+        $Description = "The built-in Administrator account (RID 500) is only granted a medium integrity token when authenticating remotely."
     }
     else {
-        $Description = "$($Description) The built-in administrator account (RID 500) is granted a high integrity token when authenticating remotely (default)."
+        $Description = "The built-in administrator account (RID 500) is granted a high integrity token when authenticating remotely (default)."
         $Vulnerable = $true
     }
 
-    $Result | Add-Member -MemberType "NoteProperty" -Name $RegValue -Value "$(if ($null -eq $RegData) { "(null)" } else { $RegData })"
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value "$(if ($null -eq $RegData) { "(null)" } else { $RegData })"
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Vulnerable" -Value $(($null -eq $RegData) -or ($RegData -eq 0))
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+    [object[]] $Results += $Result
 
     if ($Vulnerable) {
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
-        $Result
+        $Results
     }
 }
 
