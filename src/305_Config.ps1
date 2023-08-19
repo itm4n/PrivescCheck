@@ -13,22 +13,6 @@ function Get-SccmCacheFolder {
     Get-Item -Path $CcmCachePath -ErrorAction SilentlyContinue | Select-Object -Property FullName,Attributes,Exists
 }
 
-function Get-ADDomain {
-
-    [CmdletBinding()] Param()
-
-    $RegKey = "HKLM\System\CurrentControlSet\Services\Tcpip\Parameters"
-    $RegValue = "Domain"
-    (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
-}
-
-function Test-IsDomainJoined {
-
-    [CmdletBinding()] Param()
-
-    return (-not [string]::IsNullOrEmpty($(Get-ADDomain)))
-}
-
 function Get-PointAndPrintConfiguration {
     <#
     .SYNOPSIS

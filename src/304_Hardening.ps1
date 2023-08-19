@@ -444,26 +444,40 @@ function Invoke-LapsCheck {
     Compliance  : False
     #>
 
-    [CmdletBinding()] Param()
+    [CmdletBinding()] param()
+
+    # If the machine is not domain-joined, LAPS cannot be configured.
+    if (-not $(Test-IsDomainJoined)) {
+        Write-Verbose "The machine is not domain-joined, this check is irrelevant."
+        return
+    }
 
     $RegKey = "HKLM\SOFTWARE\Policies\Microsoft Services\AdmPwd"
     $RegValue = "AdmPwdEnabled"
     $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
-
+    $Vulnerable = $true
+    
     if ($null -eq $RegData) {
-        $Description = "LAPS is not configured"
+        $Description = "LAPS is not configured."
     }
     else {
-        $Description = $(if ($RegData -ge 1) { "LAPS is enabled" } else { "LAPS is disabled" })
+        if ($RegData -ge 1) {
+            $Description = "LAPS is enabled."
+            $Vulnerable = $false
+        }
+        else {
+            $Description = "LAPS is not enabled."
+        }
     }
 
-    $Result = New-Object -TypeName PSObject
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $($RegData -ge 1)
-    $Result
+    if ($Vulnerable) {
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+        $Result
+    }
 }
 
 function Invoke-PowershellTranscriptionCheck {
