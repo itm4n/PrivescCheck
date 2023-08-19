@@ -135,9 +135,7 @@ function Invoke-UserPrivilegesCheck {
 
     $HighPotentialPrivileges = "SeAssignPrimaryTokenPrivilege", "SeImpersonatePrivilege", "SeCreateTokenPrivilege", "SeDebugPrivilege", "SeLoadDriverPrivilege", "SeRestorePrivilege", "SeTakeOwnershipPrivilege", "SeTcbPrivilege", "SeBackupPrivilege", "SeManageVolumePrivilege", "SeRelabelPrivilege"
 
-    Get-TokenInformationPrivileges | ForEach-Object {
-        $_ | Add-Member -MemberType "NoteProperty" -Name "Exploitable" -Value ($HighPotentialPrivileges -contains $_.Name) -PassThru
-    }
+    Get-TokenInformationPrivileges | Where-Object { $HighPotentialPrivileges -contains $_.Name }
 }
 
 function Invoke-UserEnvCheck {

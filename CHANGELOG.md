@@ -17,6 +17,7 @@
 - The Driver Co-installer check now returns something only if the configuration is vulnerable.
 - The LSA protection check now returns something only if the configuration is vulnerable.
 - The BIOS mode check now returns something only if the configuration is vulnerable.
+- The user privilege check now returns only exploitable privileges.
 
 ## 2023-08-14
 
