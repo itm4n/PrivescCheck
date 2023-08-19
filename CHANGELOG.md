@@ -13,6 +13,7 @@
 - The AlwaysInstallElevated check was refactored.
 - The Point and Print config check was refactored.
 - The WLAN profile check was refactored.
+- The Airstrike attack check was refactored.
 
 ## 2023-08-14
 

@@ -362,50 +362,45 @@ function Invoke-AirstrikeAttackCheck {
     Key         : HKLM\SOFTWARE\Policies\Microsoft\Windows\System
     Value       : DontDisplayNetworkSelectionUI
     Data        : (null)
-    Description : The network selection UI is displayed on the logon screen.
-    Compliance  : False
+    Description : The network selection UI is displayed on the logon screen (default).
 
     .LINK
     https://shenaniganslabs.io/2021/04/13/Airstrike.html
     https://admx.help/?Category=Windows_10_2016&Policy=Microsoft.Policies.WindowsLogon::DontDisplayNetworkSelectionUI
     #>
 
-    [CmdletBinding()] Param()
+    [CmdletBinding()] param()
 
-    $Compliance = $true
+    # Check whether the machine is a workstation, otherwise irrelevant.
+    $MachineRole = Get-MachineRole
+    if ($MachineRole.Name -ne "WinNT") {
+        Write-Verbose "Not a workstation, this check is irrelevant."
+        return
+    }
 
+    # Check Windows version, if < 7, irrelevant.
+    $WindowsVersion = Get-WindowsVersion
+    if ((($WindowsVersion.Major -eq 6) -and ($WindowsVersion.Minor -lt 2)) -or ($WindowsVersion.Major -lt 6)) {
+        Write-Verbose "This version of Windows is not supported."
+        return
+    }
+
+    # Read the value of the 'DontDisplayNetworkSelectionUI' policy.
     $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows\System"
     $RegValue = "DontDisplayNetworkSelectionUI"
     $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -ErrorAction SilentlyContinue).$RegValue
 
-    $MachineRole = (Get-MachineRole).Name
-    if ($MachineRole -eq "WinNT") {
-
-        $WindowsVersion = Get-WindowsVersion
-        if ((($WindowsVersion.Major -eq 6) -and ($WindowsVersion.Minor -ge 2)) -or ($WindowsVersion.Major -gt 6)) {
-
-            if ($RegData -ge 1) {
-                $Description = "The network selection UI is not displayed on the logon screen."
-            }
-            else {
-                $Compliance = $false
-                $Description = "The network selection UI is displayed on the logon screen."
-            }
-        }
-        else {
-            $Description = "OS version not supported."
-        }
-    }
-    else {
-        $Description = "The current machine is not a workstation."
+    # If the policy is enabled, the machine is not vulnerable.
+    if ($RegData -ge 1) {
+        Write-Verbose "The policy 'DontDisplayNetworkSelectionUI' is enabled, not vulnerable."
+        return
     }
 
     $Result = New-Object -TypeName PSObject
     $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
     $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
     $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $Compliance
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value "The network selection UI is displayed on the logon screen (default)."
     $Result
 }
 
