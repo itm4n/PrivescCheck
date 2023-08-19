@@ -633,11 +633,10 @@ function Invoke-LsaProtectionCheck {
     .EXAMPLE
     PS C:\> Invoke-LsaProtectionCheck
 
-    Path        : HKLM\SYSTEM\CurrentControlSet\Control\Lsa
+    Key         : HKLM\SYSTEM\CurrentControlSet\Control\Lsa
     Value       : RunAsPPL
     Data        : (null)
-    Description : RunAsPPL is either not configured or disabled
-    Compliance  : False
+    Description : LSA protection is not enabled.
     #>
 
     [CmdletBinding()] Param()
