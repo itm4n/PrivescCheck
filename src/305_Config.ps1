@@ -27,12 +27,12 @@ function Get-PointAndPrintConfiguration {
     .EXAMPLE
     PS C:\> Get-PointAndPrintConfiguration
 
-    NoWarningNoElevationOnInstall              : @{Policy=Point and Print Restrictions > NoWarningNoElevationOnInstall; Value=0; Description=Show warning and elevation prompt (default).; Compliance=True}
-    UpdatePromptSettings                       : @{Policy=Point and Print Restrictions > UpdatePromptSettings; Value=0; Description=Show warning and elevation prompt (default).; Compliance=True}
-    TrustedServers                             : @{Policy=Point and Print Restrictions > TrustedServers; Value=0; Description=Users can point and print to any server (default).; Compliance=False}
-    ServerList                                 : @{Policy=Point and Print Restrictions > ServerList; Value=; Description=List of authorized Point and Print servers; Compliance=False}
-    RestrictDriverInstallationToAdministrators : @{Policy=Limits print driver installation to Administrators; Value=1; Description=Installing printer drivers when using Point and Print requires administrator privileges (default).; Compliance=True}
-    PackagePointAndPrintServerList             : @{Policy=Package Point and print - Approved servers > PackagePointAndPrintServerList; Value=0; Description=Package point and print will not be restricted to specific print servers (default).; Compliance=False}
+    NoWarningNoElevationOnInstall              : @{Policy=Point and Print Restrictions > NoWarningNoElevationOnInstall; Value=0; Description=Show warning and elevation prompt (default).; Vulnerable=False}
+    UpdatePromptSettings                       : @{Policy=Point and Print Restrictions > UpdatePromptSettings; Value=0; Description=Show warning and elevation prompt (default).; Vulnerable=False}
+    TrustedServers                             : @{Policy=Point and Print Restrictions > TrustedServers; Value=0; Description=Users can point and print to any server (default).; Vulnerable=True}
+    ServerList                                 : @{Policy=Point and Print Restrictions > ServerList; Value=; Description=List of authorized Point and Print servers; Vulnerable=True}
+    RestrictDriverInstallationToAdministrators : @{Policy=Limits print driver installation to Administrators; Value=1; Description=Installing printer drivers when using Point and Print requires administrator privileges (default).; Vulnerable=False}
+    PackagePointAndPrintServerList             : @{Policy=Package Point and print - Approved servers > PackagePointAndPrintServerList; Value=0; Description=Package point and print will not be restricted to specific print servers (default).; Vulnerable=True}
 
     .LINK
     https://support.microsoft.com/en-us/topic/kb5005652-manage-new-point-and-print-default-driver-installation-behavior-cve-2021-34481-873642bf-2634-49c5-a23b-6d8e9a302872
@@ -90,7 +90,7 @@ function Get-PointAndPrintConfiguration {
         $Item | Add-Member -MemberType "NoteProperty" -Name "Policy" -Value "Point and Print Restrictions > NoWarningNoElevationOnInstall"
         $Item | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegData
         $Item | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $NoWarningNoElevationOnInstallDescriptions[$RegData]
-        $Item | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $($RegData -eq 0)
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Vulnerable" -Value $($RegData -ne 0)
         $Result | Add-Member -MemberType "NoteProperty" -Name "NoWarningNoElevationOnInstall" -Value $Item
 
         # Policy: Computer Configuration > Administrative Templates > Printers > Point and Print Restrictions
@@ -109,7 +109,7 @@ function Get-PointAndPrintConfiguration {
         $Item | Add-Member -MemberType "NoteProperty" -Name "Policy" -Value "Point and Print Restrictions > UpdatePromptSettings"
         $Item | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegData
         $Item | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $UpdatePromptSettingsDescriptions[$RegData]
-        $Item | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $($RegData -eq 0)
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Vulnerable" -Value $($RegData -ne 0)
         $Result | Add-Member -MemberType "NoteProperty" -Name "UpdatePromptSettings" -Value $Item
 
         # Policy: Computer Configuration > Administrative Templates > Printers > Point and Print Restrictions
@@ -127,7 +127,7 @@ function Get-PointAndPrintConfiguration {
         $Item | Add-Member -MemberType "NoteProperty" -Name "Policy" -Value "Point and Print Restrictions > TrustedServers"
         $Item | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegData
         $Item | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $TrustedServersDescriptions[$RegData]
-        $Item | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $($RegData -eq 1)
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Vulnerable" -Value $($RegData -ne 1)
         $Result | Add-Member -MemberType "NoteProperty" -Name "TrustedServers" -Value $Item
 
         # Policy: Computer Configuration > Administrative Templates > Printers > Point and Print Restrictions
@@ -143,7 +143,7 @@ function Get-PointAndPrintConfiguration {
         $Item | Add-Member -MemberType "NoteProperty" -Name "Policy" -Value "Point and Print Restrictions > ServerList"
         $Item | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegData
         $Item | Add-Member -MemberType "NoteProperty" -Name "Description" -Value "List of authorized Point and Print servers"
-        $Item | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $(-not [String]::IsNullOrEmpty($RegData))
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Vulnerable" -Value $([String]::IsNullOrEmpty($RegData))
         $Result | Add-Member -MemberType "NoteProperty" -Name "ServerList" -Value $Item
 
         # Policy: Limits print driver installation to Administrators
@@ -161,7 +161,7 @@ function Get-PointAndPrintConfiguration {
         $Item | Add-Member -MemberType "NoteProperty" -Name "Policy" -Value "Limits print driver installation to Administrators"
         $Item | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegData
         $Item | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $RestrictDriverInstallationToAdministratorsDescriptions[$RegData]
-        $Item | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $($RegData -eq 1)
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Vulnerable" -Value $($RegData -ne 1)
         $Result | Add-Member -MemberType "NoteProperty" -Name "RestrictDriverInstallationToAdministrators" -Value $Item
 
         # Policy: Package Point and print - Approved servers
@@ -179,7 +179,7 @@ function Get-PointAndPrintConfiguration {
         $Item | Add-Member -MemberType "NoteProperty" -Name "Policy" -Value "Package Point and print - Approved servers > PackagePointAndPrintServerList"
         $Item | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegData
         $Item | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $PackagePointAndPrintServerListDescriptions[$RegData]
-        $Item | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $($RegData -eq 1)
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Vulnerable" -Value $($RegData -ne 1)
         $Result | Add-Member -MemberType "NoteProperty" -Name "PackagePointAndPrintServerList" -Value $Item
 
         $Result
@@ -528,35 +528,35 @@ function Invoke-PointAndPrintConfigCheck {
     Policy      : Limits print driver installation to Administrators
     Value       : 0
     Description : Installing printer drivers does not require administrator privileges.
-    Compliance  : False
+    Vulnerable  : True
 
     Policy      : Point and Print Restrictions > NoWarningNoElevationOnInstall
     Value       : 1
     Description : Do not show warning or elevation prompt.
-    Compliance  : False
+    Vulnerable  : True
 
     Policy      : Point and Print Restrictions > UpdatePromptSettings
     Value       : 2
     Description : Do not show warning or elevation prompt.
-    Compliance  : False
+    Vulnerable  : True
 
     Policy      : Point and Print Restrictions > TrustedServers
     Value       : 1
     Description : Users can only point and print to a predefined list of servers.
-    Compliance  : True
+    Vulnerable  : Fase
 
     Policy      : Package Point and print - Approved servers > PackagePointAndPrintServerList
     Value       : 1
     Description : Users will only be able to package point and print to print servers approved by the network administrator.
-    Compliance  : True
+    Vulnerable  : False
 
     Policy      : Point and Print Restrictions > ServerList
     Value       : printer.domain.local
     Description : List of authorized Point and Print servers
-    Compliance  : True
+    Vulnerable  : False
     #>
 
-    [CmdletBinding()] Param()
+    [CmdletBinding()] param()
 
     # If the Print Spooler is not installed or is disabled, return immediately
     $Service = Get-ServiceList -FilterLevel 2 | Where-Object { $_.Name -eq "Spooler" }
