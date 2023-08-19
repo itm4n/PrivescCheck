@@ -633,22 +633,25 @@ function Invoke-DriverCoInstallersCheck {
     Key         : HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Device Installer
     Value       : DisableCoInstallers
     Data        : (null)
-    Description : CoInstallers are enabled (default)
-    Compliance  : False
+    Description : CoInstallers are not disabled (default).
     #>
 
-    [CmdletBinding()] Param()
+    [CmdletBinding()] param()
 
     $RegKey = "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Device Installer"
     $RegValue = "DisableCoInstallers"
     $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
-    $Description = $(if ($RegData -ge 1) { "CoInstallers are disabled" } else { "CoInstallers are enabled (default)" })
+
+    # Driver Co-Installers are disabled
+    if ($RegData -ge 1) {
+        Write-Verbose "Driver Co-installers are disabled."
+        return
+    }
 
     $Result = New-Object -TypeName PSObject
     $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
     $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
     $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $($RegData -ge 1)
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value "Driver Co-installers are not disabled (default)."
     $Result
 }
