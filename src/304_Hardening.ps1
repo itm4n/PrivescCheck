@@ -22,7 +22,7 @@ function Get-UEFIStatus {
     https://github.com/ChrisWarwick/GetUEFI/blob/master/GetFirmwareBIOSorUEFI.psm1
     #>
 
-    [CmdletBinding()]Param()
+    [CmdletBinding()] param()
 
     $OsVersion = Get-WindowsVersion
 
@@ -37,15 +37,15 @@ function Get-UEFIStatus {
             if ($FirmwareType -eq 1) {
                 # FirmwareTypeBios = 1
                 $Status = $false
-                $Description = "BIOS mode is Legacy"
+                $Description = "BIOS mode is Legacy."
             }
             elseif ($FirmwareType -eq 2) {
                 # FirmwareTypeUefi = 2
                 $Status = $true
-                $Description = "BIOS mode is UEFI"
+                $Description = "BIOS mode is UEFI."
             }
             else {
-                $Description = "BIOS mode is unknown"
+                $Description = "BIOS mode is unknown."
             }
         }
         else {
@@ -62,18 +62,18 @@ function Get-UEFIStatus {
         $ERROR_INVALID_FUNCTION = 1
         if ($LastError -eq $ERROR_INVALID_FUNCTION) {
             $Status = $false
-            $Description = "BIOS mode is Legacy"
+            $Description = "BIOS mode is Legacy."
             Write-Verbose ([ComponentModel.Win32Exception] $LastError)
         }
         else {
             $Status = $true
-            $Description = "BIOS mode is UEFI"
+            $Description = "BIOS mode is UEFI."
             Write-Verbose ([ComponentModel.Win32Exception] $LastError)
         }
 
     }
     else {
-        $Description = "Cannot check BIOS mode"
+        $Description = "Cannot check BIOS mode."
     }
 
     $Result = New-Object -TypeName PSObject
@@ -97,26 +97,27 @@ function Get-SecureBootStatus {
     .EXAMPLE
     PS C:\> Get-SecureBootStatus
 
-    Name        Status Description
-    ----        ------ -----------
-    Secure Boot   True Secure Boot is enabled
+    Key         : HKLM\SYSTEM\CurrentControlSet\Control\SecureBoot\State
+    Value       : UEFISecureBootEnabled
+    Data        : 0
+    Description : Secure Boot is disabled
     #>
 
-    [CmdletBinding()]Param()
+    [CmdletBinding()] param()
 
     $RegKey = "HKLM\SYSTEM\CurrentControlSet\Control\SecureBoot\State"
     $RegValue = "UEFISecureBootEnabled"
     $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
     if ($null -ne $RegData) {
         if ($null -eq $RegData) {
-            $Description = "Secure Boot is not supported"
+            $Description = "Secure Boot is not supported."
         }
         else {
             if ($RegData -eq 1) {
-                $Description = "Secure Boot is enabled"
+                $Description = "Secure Boot is enabled."
             }
             else {
-                $Description = "Secure Boot is disabled"
+                $Description = "Secure Boot is disabled."
             }
         }
     }
@@ -126,7 +127,6 @@ function Get-SecureBootStatus {
     $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
     $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
     $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $($RegData -eq 1)
     $Result
 }
 
@@ -755,12 +755,25 @@ function Invoke-BiosModeCheck {
     Secure Boot  False Secure Boot is disabled
     #>
 
-    Get-UEFIStatus
-
     $SecureBoot = Get-SecureBootStatus
+
+    if ($SecureBoot.Data -ge 1) {
+        Write-Verbose "Secure Boot is enabled."
+        return
+    }
+
     $Result = New-Object -TypeName PSObject
     $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value "Secure Boot"
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $SecureBoot.Compliance
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Status" -Value ($SecureBoot.Data -ge 1)
     $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $SecureBoot.Description
     $Result
+
+    $Uefi = Get-UEFIStatus
+
+    if ($Uefi.Status) {
+        Write-Verbose "$($Uefi.Description)"
+        return
+    }
+
+    $Uefi
 }

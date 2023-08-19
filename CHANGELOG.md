@@ -15,6 +15,8 @@
 - The WLAN profile check was refactored.
 - The Airstrike attack check was refactored.
 - The Driver Co-installer check now returns something only if the configuration is vulnerable.
+- The LSA protection check now returns something only if the configuration is vulnerable.
+- The BIOS mode check now returns something only if the configuration is vulnerable.
 
 ## 2023-08-14
 
