@@ -644,23 +644,26 @@ function Invoke-LsaProtectionCheck {
 
     $OsVersion = Get-WindowsVersion
 
+    if (-not ($OsVersion.Major -ge 10 -or (($OsVersion.Major -eq 6) -and ($OsVersion.Minor -ge 3)))) {
+        Write-Verbose "LSA protection is not supported on this version of Windows."
+        return
+    }
+
     $RegKey = "HKLM\SYSTEM\CurrentControlSet\Control\Lsa"
     $RegValue = "RunAsPPL"
     $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
 
-    $Description = $(if ($RegData -ge 1) { "RunAsPPL is enabled" } else { "RunAsPPL is not enabled" })
-
-    # If < Windows 8.1 / 2012 R2
-    if (-not ($OsVersion.Major -ge 10 -or (($OsVersion.Major -eq 6) -and ($OsVersion.Minor -ge 3)))) {
-        $Description = "RunAsPPL is not supported on this OS"
+    # If LSA protection is enabled, return immediately.
+    if ($RegData -ge 1) {
+        Write-Verbose "LSA protection is enabled."
+        return
     }
 
     $Result = New-Object -TypeName PSObject
     $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
     $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
     $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $($RegData -ge 1)
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value "LSA protection is not enabled."
     $Result
 }
 
