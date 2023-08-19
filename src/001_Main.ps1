@@ -581,7 +581,8 @@ function Write-ShortReport {
 
     foreach ($Category in $Categories) {
 
-        $Vulnerabilities = $AllVulnerabilities | Where-Object { $_.Category -eq $Category }
+        $SeveritySort = "High", "Medium", "Low"
+        $Vulnerabilities = $AllVulnerabilities | Where-Object { $_.Category -eq $Category } | Sort-Object { $SeveritySort.IndexOf($_.Severity) }
 
         Write-Host -ForegroundColor White " $($Category)"
 

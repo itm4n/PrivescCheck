@@ -8,6 +8,7 @@
 - Move AD domain helpers to the global Helper file.
 - The LAPS check now returns something only if the configuration is vulnerable.
 - The UAC check now returns something only if the configuration is vulnerable.
+- Results are now sorted by severity in the short report.
 
 ## 2023-08-14
 
