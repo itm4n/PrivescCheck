@@ -1,5 +1,11 @@
 # Changelog
 
+## 2023-08-19
+
+### Changed
+
+- The BitLocker check now returns something only if the configuration is vulnerable.
+
 ## 2023-08-14
 
 ### Changed
