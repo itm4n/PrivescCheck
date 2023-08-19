@@ -9,6 +9,7 @@
 - The LAPS check now returns something only if the configuration is vulnerable.
 - The UAC check now returns something only if the configuration is vulnerable.
 - Results are now sorted by severity in the short report.
+- The Credential Guard check now returns something only if the configuration is vulnerable.
 
 ## 2023-08-14
 

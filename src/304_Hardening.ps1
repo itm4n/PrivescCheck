@@ -656,66 +656,54 @@ function Invoke-CredentialGuardCheck {
     DeviceGuardSecurityServicesRunning    : (null)
     Description                           : Credential Guard is not configured
     Compliance                            : False
+
+    .NOTES
+    Starting with Windows 11 22H2 (Enterprise / Education), Credential Guard is enabled by default if the machine follows all the hardware and software requirements.
+    https://learn.microsoft.com/en-us/windows/security/identity-protection/credential-guard/credential-guard-manage
     #>
 
     [CmdletBinding()] Param()
 
-    $OsVersion = Get-WindowsVersion
+    $Vulnerable = $false
 
     # Credential Guard is only available on Windows 10+
-    if ($OsVersion.Major -ge 10) {
+    $OsVersion = Get-WindowsVersion
+    if ($OsVersion.Major -lt 10) { return }
 
-        # This check requires the cmdlet Get-ComputerInfo, which is only available in PSv5.1+
-        if ((($PSVersionTable.PSVersion.Major -eq 5) -and ($PSVersionTable.PSVersion.Minor -ge 1)) -or ($PSVersionTable.PSVersion.Major -gt 5)) {
+    # This check requires the cmdlet Get-ComputerInfo, which is only available in PSv5.1+
+    if (($PSVersionTable.PSVersion.Major -lt 5) -or (($PSVersionTable.PSVersion.Major -eq 5) -and ($PSVersionTable.PSVersion.Minor -lt 1))) {
+        Write-Warning "Incompatible PowerShell version detected: PSv$($PSVersionTable.PSVersion.Major).$($PSVersionTable.PSVersion.Minor)"
+        return
+    }
 
-            $ComputerInfo = Get-ComputerInfo
-            $ServicesConfigured = $ComputerInfo.DeviceGuardSecurityServicesConfigured
-            $ServicesRunning = $ComputerInfo.DeviceGuardSecurityServicesRunning
-            $IsConfigured = $ServicesConfigured -match 'CredentialGuard'
-            $IsRunning = $ServicesRunning -match 'CredentialGuard'
-
-            if ($IsConfigured) {
-                if ($IsRunning) {
-                    $Compliance = $true
-                    $Description = "Credential Guard is configured and running."
-                }
-                else {
-                    $Compliance = $false
-                    $Description = "Credential Guard is configured but not running."
-                }
-            }
-            else {
-                if ($IsRunning) {
-                    # Starting with Windows 11 22H2 (Enterprise / Education), Credential Guard is
-                    # enabled by default if the machine follows all the hardware and software
-                    # requirements.
-                    # https://learn.microsoft.com/en-us/windows/security/identity-protection/credential-guard/credential-guard-manage
-                    $Compliance = $true
-                    $Description = "Credential Guard is not explictely configured, but running by default."
-                }
-                else {
-                    $Compliance = $false
-                    $Description = "Credential Guard is not configured."
-                }
-            }
-        }
-        else {
-            $Compliance = $false
-            $Description = "Check failed: Incompatible PS version."
-        }
+    $ComputerInfo = Get-ComputerInfo
+    $ServicesConfigured = $ComputerInfo.DeviceGuardSecurityServicesConfigured
+    $ServicesRunning = $ComputerInfo.DeviceGuardSecurityServicesRunning
+    $IsConfigured = $ServicesConfigured -match "CredentialGuard"
+    $IsRunning = $ServicesRunning -match "CredentialGuard"
+    
+    if ($IsConfigured) {
+        $Description = "Credential Guard is configured."
     }
     else {
-        $Compliance = $false
-        $Description = "Credential Guard is not supported on this version of Windows."
+        $Description = "Credential Guard is not configured."
     }
 
-    $Result = New-Object -TypeName PSObject
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value "Credential Guard"
-    $Result | Add-Member -MemberType "NoteProperty" -Name "DeviceGuardSecurityServicesConfigured" -Value $(if ($null -eq $ServicesConfigured) { "(null)" } else { $ServicesConfigured })
-    $Result | Add-Member -MemberType "NoteProperty" -Name "DeviceGuardSecurityServicesRunning" -Value $(if ($null -eq $ServicesRunning) { "(null)" } else { $ServicesRunning })
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $Compliance
-    $Result
+    if ($IsRunning) {
+        $Description = "$($Description) Credential Guard is running."
+    }
+    else {
+        $Description = "$($Description) Credential Guard is not running."
+        $Vulnerable = $true
+    }
+
+    if ($Vulnerable) {
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "DeviceGuardSecurityServicesConfigured" -Value $(if ($null -eq $ServicesConfigured) { "(null)" } else { $ServicesConfigured })
+        $Result | Add-Member -MemberType "NoteProperty" -Name "DeviceGuardSecurityServicesRunning" -Value $(if ($null -eq $ServicesRunning) { "(null)" } else { $ServicesRunning })
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+        $Result
+    }
 }
 
 function Invoke-BiosModeCheck {
