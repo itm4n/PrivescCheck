@@ -18,6 +18,7 @@
 - The LSA protection check now returns something only if the configuration is vulnerable.
 - The BIOS mode check now returns something only if the configuration is vulnerable.
 - The user privilege check now returns only exploitable privileges.
+- The "compliance" aspect was completely removed.
 
 ## 2023-08-14
 

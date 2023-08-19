@@ -92,9 +92,9 @@ function Invoke-PrivescCheck {
 "CREDS_VAULT_LIST",               "Invoke-VaultListCheck",                      "TA0006 - Credential Access",    "Vault credentials (list)",            "Info",     "List",     "True",     "True",         "False",        "Enumerate the web credentials that are saved in the current user's Vault."
 "CREDS_GPP",                      "Invoke-GPPPasswordCheck",                    "TA0006 - Credential Access",    "GPP passwords",                       "Medium",   "List",     "False",    "True",         "False",        "Locate old cached Group Policy Preference files that contain a 'cpassword' field and extract the clear-text credentials."
 "CREDS_PS_HIST",                  "Invoke-PowerShellHistoryCheck",              "TA0006 - Credential Access",    "PowerShell history",                  "Info",     "List",     "True",     "True",         "False",        "Locate the current user's PowerShell history file and check whether it contains some clear-text credentials. This check is simply based on keyword matching and might not be entirely reliable."
-"HARDEN_UAC",                     "Invoke-UacCheck",                            "TA0004 - Privilege Escalation", "UAC settings",                        "Low",      "List",     "False",    "True",         "False",        "Retrieve the User Access Control (UAC) configuration and check whether it is enabled."
-"HARDEN_LSA_PROTECTION",          "Invoke-LsaProtectionCheck",                  "TA0005 - Defense Evasion",      "LSA Protection",                      "Low",      "List",     "False",    "True",         "False",        "Checks the status of LSA protection (a.k.a. RunAsPPL)."
-"HARDEN_CREDENTIAL_GUARD",        "Invoke-CredentialGuardCheck",                "TA0005 - Defense Evasion",      "Credential Guard",                    "Low",      "List",     "False",    "True",         "False",        "Checks whether Credential Guard is supported and enabled."
+"HARDEN_UAC",                     "Invoke-UacCheck",                            "TA0008 - Lateral Movement",     "UAC settings",                        "Low",      "List",     "False",    "True",         "False",        "Retrieve the User Access Control (UAC) configuration and check whether it is enabled."
+"HARDEN_LSA_PROTECTION",          "Invoke-LsaProtectionCheck",                  "TA0006 - Credential Access",    "LSA Protection",                      "Low",      "List",     "False",    "True",         "False",        "Checks the status of LSA protection (a.k.a. RunAsPPL)."
+"HARDEN_CREDENTIAL_GUARD",        "Invoke-CredentialGuardCheck",                "TA0006 - Credential Access",    "Credential Guard",                    "Low",      "List",     "False",    "True",         "False",        "Checks whether Credential Guard is supported and enabled."
 "HARDEN_BIOS_MODE",               "Invoke-BiosModeCheck",                       "TA0003 - Persistence",          "UEFI & Secure Boot",                  "Low",      "Table",    "False",    "True",         "False",        "Checks whether UEFI and Secure are supported and enabled."
 "HARDEN_LAPS",                    "Invoke-LapsCheck",                           "TA0008 - Lateral Movement",     "LAPS",                                "Medium",   "List",     "False",    "True",         "False",        "Checks whether LAPS is enabled."
 "HARDEN_PS_TRANSCRIPT",           "Invoke-PowershellTranscriptionCheck",        "TA0005 - Defense Evasion",      "PowerShell transcription",            "Info",     "List",     "True",     "True",         "False",        "Check whether PowerShell Transcription is configured and enabled. If so, the path of the output log file will be returned."
@@ -244,27 +244,9 @@ function Invoke-Check {
     $IsInfoCheck = $Check.Severity -eq "Info"
 
     if ($IsInfoCheck) {
-        if ($null -eq $Result) {
-            # If the check did not yield any result, we cannot determine whether it is compliant or not. So,
-            # in this case, set the compliance to "N/A".
-            $Compliance = "N/A"
-        }
-        else {
-            # If the result list is not empty, iterate it and determine the compliance as follows. First,
-            # if we find an object that does not have a "Compliance" attribute, set the compliance to "N/A".
-            # However, if the returned objects have a "Compliance" attribute, then assume that the compliance
-            # is True by default, and set it to False as soon as we find a non-compliant result.
-            $Compliance = "True"
-            foreach ($Res in [object[]]$Result) {
-                if ($null -eq $Res.Compliance) { $Compliance = "N/A"; break }
-                if ($Res.Compliance -eq $false) { $Compliance = "False"; break }
-            }
-        }
-        $Check | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $Compliance
         $Check.Severity = "None"
     }
     else {
-        $Check | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $($null -eq $Result)
         $Check.Severity = $(if ($null -eq $Result) { "None" } else { $Check.Severity } )
     }
 
@@ -366,7 +348,7 @@ function Write-CsvReport {
         [object[]] $AllResults
     )
 
-    $AllResults | Sort-Object -Property "Category" | Select-Object -Property "Category","DisplayName","Description","Compliance","Severity","ResultRawString" | ConvertTo-Csv -NoTypeInformation
+    $AllResults | Sort-Object -Property "Category" | Select-Object -Property "Category","DisplayName","Description","Severity","ResultRawString" | ConvertTo-Csv -NoTypeInformation
 }
 
 function Write-XmlReport {
@@ -387,7 +369,7 @@ function Write-XmlReport {
     $AllResults | ForEach-Object {
         $_.ResultRawString = [System.Text.RegularExpressions.Regex]::Replace($_.ResultRawString, $AuthorizedXmlCharactersRegex, "")
         $_
-    } | Sort-Object -Property "Category" | Select-Object Id,Category,DisplayName,Description,Compliance,Severity,ResultRawString | ConvertTo-Xml -As String
+    } | Sort-Object -Property "Category" | Select-Object Id,Category,DisplayName,Description,Severity,ResultRawString | ConvertTo-Xml -As String
 }
 
 function Write-HtmlReport {
@@ -475,7 +457,7 @@ tbody td:nth-child(3) {
 }
 
 /* Render output results with 'pre' style */
-tbody td:nth-child(6) {
+tbody td:nth-child(5) {
     white-space: pre;
     margin: 1em 0px;
     padding: .2rem .4rem;
@@ -529,7 +511,7 @@ $($JavaScript)
 </html>
 "@
 
-    $TableHtml = $AllResults | Sort-Object -Property "Category" | ConvertTo-Html -Property "Category","DisplayName","Description","Compliance","Severity","ResultRawString" -Fragment
+    $TableHtml = $AllResults | Sort-Object -Property "Category" | ConvertTo-Html -Property "Category","DisplayName","Description","Severity","ResultRawString" -Fragment
     $Html = $Html.Replace("BODY_TO_REPLACE", $TableHtml)
     $Html
 }
