@@ -281,13 +281,13 @@ function Invoke-UdpEndpointsCheck {
 function Invoke-WlanProfilesCheck {
     <#
     .SYNOPSIS
-    List saved WLAN profiles and try to determine if they are compliance or not.
+    List saved WLAN profiles and try to determine if they are vulnerable.
 
     Author: @itm4n
     License: BSD 3-Clause
 
     .DESCRIPTION
-    This cmdlet invokes the 'Get-WlanProfileList' helper and then performs a series of tests on each returned item. For now, only 802.1x profiles are checked. Therefore, we assume that any other profile is 'compliant' by default. Example of a typical compliance issue: the authentication method is PEAP+MSCHAPv2, but the identity of the authentication server is not verified; an evil twin attack could therefore be used to capture or relay the credentials of the user/machine.
+    This cmdlet invokes the 'Get-WlanProfileList' helper and then performs a series of tests on each returned item. For now, only 802.1x profiles are checked. Therefore, we assume that any other profile is 'compliant' by default. Example of a typical vulnerability: the authentication method is PEAP+MSCHAPv2, but the identity of the authentication server is not verified; an evil twin attack could therefore be used to capture or relay the credentials of the user/machine.
     #>
 
     [CmdletBinding()] Param()

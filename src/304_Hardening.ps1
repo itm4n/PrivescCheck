@@ -680,18 +680,16 @@ function Invoke-CredentialGuardCheck {
     .EXAMPLE
     PS C:\> Invoke-CredentialGuardCheck
 
-    Name                                  : Credential Guard
     DeviceGuardSecurityServicesConfigured : (null)
     DeviceGuardSecurityServicesRunning    : (null)
-    Description                           : Credential Guard is not configured
-    Compliance                            : False
+    Description                           : Credential Guard is not configured. Credential Guard is not running.
 
     .NOTES
     Starting with Windows 11 22H2 (Enterprise / Education), Credential Guard is enabled by default if the machine follows all the hardware and software requirements.
     https://learn.microsoft.com/en-us/windows/security/identity-protection/credential-guard/credential-guard-manage
     #>
 
-    [CmdletBinding()] Param()
+    [CmdletBinding()] param()
 
     $Vulnerable = $false
 
