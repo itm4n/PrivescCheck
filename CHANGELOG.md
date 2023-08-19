@@ -12,6 +12,7 @@
 - The Credential Guard check now returns something only if the configuration is vulnerable.
 - The AlwaysInstallElevated check was refactored.
 - The Point and Print config check was refactored.
+- The WLAN profile check was refactored.
 
 ## 2023-08-14
 

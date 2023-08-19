@@ -294,12 +294,12 @@ function Invoke-WlanProfilesCheck {
 
     Get-WlanProfileList | ForEach-Object {
 
-        # Assume compliance by default because there are authentication schemes that we do not support
+        # Assume not vulnerable by default because there are authentication schemes that we do not support
         # (yet?). We will perform a series of checks on some parameters. As soon as a parameter does not
-        # pass a test, we set the 'Compliance' status to 'False'. If a test does not pass, the description
+        # pass a test, we set the 'Vulnerable' status to 'True'. If a test does not pass, the description
         # variable is populated with a text that provides a description of the issue.
         $Description = ""
-        $Compliance = $true
+        $Vulnerable = $false
 
         if ($_.Dot1X) {
 
@@ -307,7 +307,7 @@ function Invoke-WlanProfilesCheck {
             $PerformServerValidationDescription = $_.Eap.PerformServerValidationDescription
             if ($null -ne $PerformServerValidation) {
                 if ($PerformServerValidation -eq $false) {
-                    $Compliance = $false
+                    $Vulnerable = $true
                     $Description = "$($Description)$($PerformServerValidationDescription) "
                 }
             }
@@ -316,14 +316,14 @@ function Invoke-WlanProfilesCheck {
             $ServerValidationDisablePromptDescription = $_.Eap.ServerValidationDisablePromptDescription
             if ($null -ne $ServerValidationDisablePrompt) {
                 if ($ServerValidationDisablePrompt -eq $false) {
-                    $Compliance = $false
+                    $Vulnerable = $true
                     $Description = "$($Description)$($ServerValidationDisablePromptDescription) "
                 }
             }
 
             $TrustedRootCAs = $_.Eap.TrustedRootCAs
             if ($null -eq $TrustedRootCAs) {
-                $Compliance = $false
+                $Vulnerable = $true
                 $Description = "$($Description)No explicit trusted root CA is specified. "
             }
             else {
@@ -335,15 +335,16 @@ function Invoke-WlanProfilesCheck {
                     # If MS-CHAPv2 is used for authentication, user (or machine) credentials are used. It is
                     # recommended to use certificate-based authentication instead as user credentials could be cracked
                     # or relayed.
-                    $Compliance = $false
+                    $Vulnerable = $true
                     $Description = "$($Description)MS-CHAPv2 is used for authentication. "
                 }
             }
         }
 
-        $_ | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
-        $_ | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $Compliance
-        $_ | Select-Object -Property * -ExcludeProperty Eap,InnerEap
+        if ($Vulnerable) {
+            $_ | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+            $_ | Select-Object -Property * -ExcludeProperty Eap,InnerEap
+        }
     }
 }
 
