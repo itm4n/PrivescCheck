@@ -196,45 +196,49 @@ function Invoke-RegistryAlwaysInstallElevatedCheck {
 
     .DESCRIPTION
     AlwaysInstallElevated can be configured in both HKLM and HKCU. "If the AlwaysInstallElevated value is not set to "1" under both of the preceding registry keys, the installer uses elevated privileges to install managed applications and uses the current user's privilege level for unmanaged applications."
+
+    .EXAMPLE
+    PS C:\> Invoke-RegistryAlwaysInstallElevatedCheck
+
+    LocalMachineKey   : HKLM\SOFTWARE\Policies\Microsoft\Windows\Installer
+    LocalMachineValue : AlwaysInstallElevated
+    LocalMachineData  : 1
+    CurrentUserKey    : HKCU\SOFTWARE\Policies\Microsoft\Windows\Installer
+    CurrentUserValue  : AlwaysInstallElevated
+    CurrentUserData   : 1
+    Description       : AlwaysInstallElevated is enabled in both HKLM and HKCU.
     #>
 
-    [CmdletBinding()] Param()
+    [CmdletBinding()] param()
 
-    $Results = @()
+    $Result = New-Object -TypeName PSObject
 
+    # Check AlwaysInstallElevated in HKLM
     $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows\Installer"
     $RegValue = "AlwaysInstallElevated"
     $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
-    $Description = $(if ($RegData -ge 1) { "AlwaysInstallElevated is enabled" } else { "AlwaysInstallElevated is disabled (default)" })
-    Write-Verbose "HKLM > $($RegValue): $($Description)"
-    $Result = New-Object -TypeName PSObject
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $($null -eq $RegData -or $RegData -eq 0)
-    [object[]]$Results += $Result
+    
+    # If the setting is not enabled in HKLM, it is not exploitable.
+    if (($null -eq $RegData) -or ($RegData -eq 0)) { return }
 
+    $Result | Add-Member -MemberType "NoteProperty" -Name "LocalMachineKey" -Value $RegKey
+    $Result | Add-Member -MemberType "NoteProperty" -Name "LocalMachineValue" -Value $RegValue
+    $Result | Add-Member -MemberType "NoteProperty" -Name "LocalMachineData" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
+
+    # Check AlwaysInstallElevated in HKCU
     $RegKey = "HKCU\SOFTWARE\Policies\Microsoft\Windows\Installer"
     $RegValue = "AlwaysInstallElevated"
     $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
-    $Description = $(if ($RegData -ge 1) { "AlwaysInstallElevated is enabled" } else { "AlwaysInstallElevated is disabled (default)" })
-    Write-Verbose "HKCU > $($RegValue): $($Description)"
-    $Result = New-Object -TypeName PSObject
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Compliance" -Value $($null -eq $RegData -or $RegData -eq 0)
-    [object[]]$Results += $Result
 
-    foreach ($Result in $Results) {
-        if ($Result.Compliance -eq $true) {
-            return
-        }
-    }
+    # If the setting is not enabled in HKCU, it is not exploitable.
+    if (($null -eq $RegData) -or ($RegData -eq 0)) { return }
 
-    $Results | Select-Object -ExcludeProperty Compliance
+    $Result | Add-Member -MemberType "NoteProperty" -Name "CurrentUserKey" -Value $RegKey
+    $Result | Add-Member -MemberType "NoteProperty" -Name "CurrentUserValue" -Value $RegValue
+    $Result | Add-Member -MemberType "NoteProperty" -Name "CurrentUserData" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
+
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value "AlwaysInstallElevated is enabled in both HKLM and HKCU."
+    $Result
 }
 
 function Invoke-WsusConfigCheck {
