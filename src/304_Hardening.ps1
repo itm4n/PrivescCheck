@@ -429,7 +429,6 @@ function Invoke-LapsCheck {
     Value       : AdmPwdEnabled
     Data        : (null)
     Description : LAPS is not configured
-    Compliance  : False
     #>
 
     [CmdletBinding()] param()
@@ -536,8 +535,8 @@ function Invoke-BitLockerCheck {
     UseTPMPIN          : 0 - Do not allow startup PIN with TPM (default)
     UseTPMKey          : 0 - Do not allow startup key with TPM (default)
     UseTPMKeyPIN       : 0 - Do not allow startup key and PIN with TPM (default)
-    Description        : BitLocker is enabled. Additional authentication is not required on startup. Authentication mode is 'TPM only'.
-    Compliance         : False
+    Description        : BitLocker is enabled. Additional authentication is not required at startup. Authentication mode
+                        is 'TPM only'.
     #>
 
     [CmdletBinding()] Param()
