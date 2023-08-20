@@ -5,6 +5,7 @@
 ### Changed
 
 - All the check descriptions were update to follow a more generic phrasing.
+- Updated the style of the ASCII and HTML reports.
 
 ## 2023-08-19
 

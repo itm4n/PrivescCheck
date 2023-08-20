@@ -384,25 +384,13 @@ var cells = document.getElementsByTagName('td');
 
 for (var i=0; i<cells.length; i++) {
     var bg_color = null;
-    if (cells[i].innerHTML == "True") {
-        bg_color = "bg_green";
-    } else if (cells[i].innerHTML == "False") {
-        bg_color = "bg_red";
-    } else if (cells[i].innerHTML == "Low") {
-        bg_color = "bg_green";
+    if (cells[i].innerHTML == "Low") {
+        bg_color = "bg_blue";
     } else if (cells[i].innerHTML == "Medium") {
         bg_color = "bg_orange";
     } else if (cells[i].innerHTML == "High") {
         bg_color = "bg_red";
-    } else if (cells[i].innerHTML == "Info") {
-        bg_color = "bg_blue";
     } else if (cells[i].innerHTML == "None") {
-        bg_color = "bg_grey";
-    } else if (cells[i].innerHTML == "OK") {
-        bg_color = "bg_green";
-    } else if (cells[i].innerHTML == "KO") {
-        bg_color = "bg_red";
-    } else if (cells[i].innerHTML == "N/A") {
         bg_color = "bg_grey";
     }
 
@@ -422,38 +410,30 @@ for (var i=0; i<cells.length; i++) {
 
     $Css = @"
 body {
-    font:1.2em normal Arial,sans-serif;
-    color:#34495E;
-    }
-
-h1 {
-    text-align:center;
-    text-transform:uppercase;
-    letter-spacing:-2px;
-    font-size:2.5em;
-    margin:20px 0;
+    font: 1.2em normal Arial,sans-serif;
 }
 
 table {
-    border-collapse:collapse;
-    width:100%;
-    border:2px solid #6699ff;
+    border-collapse: collapse;
+    width: 100%;
+    border: 2px solid grey;
 }
 
 th {
-    color:white;
-    background:#6699ff;
-    text-align:center;
-    padding:5px 0;
+    color: white;
+    background: grey;
+    text-align: center;
+    padding: 5px 0;
 }
 
 td {
-    text-align:center;
-    padding:5px 5px 5px 5px;
+    text-align: center;
+    padding: 5px 5px 5px 5px;
+    max-width: 800px;
 }
 
 tbody td:nth-child(3) {
-    text-align:left;
+    text-align: left;
 }
 
 /* Render output results with 'pre' style */
@@ -463,24 +443,21 @@ tbody td:nth-child(5) {
     padding: .2rem .4rem;
     font-size: 87.5%;
     font-family: SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
-    text-align:left;
+    text-align: left;
 }
 
-tbody tr:nth-child(even) {
-    background:#ECF0F1;
-}
-
-tbody tr:hover {
-    background:#BDC3C7;
-    color:#FFFFFF;
+tbody tr:nth-child(odd) {
+    background: whitesmoke;
 }
 
 .scroll {
     max-height: 200px;
+    max-width: 800px;
     overflow: auto;
 }
 
 .label {
+    color: white;
     margin: 8px;
     padding: 6px;
     display: block;
@@ -488,15 +465,16 @@ tbody tr:hover {
     border-radius: 5px;
 }
 
-.bg_green {background-color: #4CAF50;} /* Green */
-.bg_blue {background-color: #2196F3;} /* Blue */
-.bg_orange {background-color: #ff9800;} /* Orange */
-.bg_red {background-color: #f44336;} /* Red */
-.bg_grey {background-color: #cccccc;} /* Gray */
+.bg_green { background-color: green; }
+.bg_blue { background-color: royalblue; }
+.bg_orange { background-color: orange; }
+.bg_red { background-color: red; }
+.bg_grey { background-color: grey; }
 "@
 
     $Html = @"
-<html>
+<html lang="en-US">
+<title>PrivescCheck Report</title>
 <head>
 <style>
 $($Css)
@@ -519,14 +497,13 @@ $($JavaScript)
 function Get-SeverityColor {
 
     param (
-        [ValidateSet("Info","Low","Medium","High")]
+        [ValidateSet("Low","Medium","High")]
         [string] $Severity
     )
 
     switch ($Severity) {
-        "Info"      { "DarkCyan" }
-        "Low"       { "DarkGreen" }
-        "Medium"    { "Yellow" }
+        "Low"       { "DarkCyan" }
+        "Medium"    { "DarkYellow" }
         "High"      { "Red" }
     }
 }
