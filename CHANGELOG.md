@@ -1,5 +1,11 @@
 # Changelog
 
+## 2023-08-20
+
+### Changed
+
+- All the check descriptions were update to follow a more generic phrasing.
+
 ## 2023-08-19
 
 ### Changed
