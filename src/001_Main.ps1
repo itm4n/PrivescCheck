@@ -98,7 +98,7 @@ function Invoke-PrivescCheck {
 "HARDEN_BIOS_MODE",               "Invoke-BiosModeCheck",                       "TA0003 - Persistence",          "UEFI & Secure Boot",                  "Low",      "Table",  "False",    "True",       "False",        "Check whether UEFI and Secure Boot are supported and enabled. Note that Secure Boot requires UEFI."
 "HARDEN_LAPS",                    "Invoke-LapsCheck",                           "TA0008 - Lateral Movement",     "LAPS",                                "Medium",   "List",   "False",    "True",       "False",        "Check whether LAPS is configured and enabled. Note that this applies to domain-joined machines only."
 "HARDEN_PS_TRANSCRIPT",           "Invoke-PowershellTranscriptionCheck",        "TA0005 - Defense Evasion",      "PowerShell transcription",            "Info",     "List",   "True",     "True",       "False",        "Check whether PowerShell Transcription is configured and enabled."
-"HARDEN_BITLOCKER",               "Invoke-BitLockerCheck",                      "TA0001 - Initial Access",       "BitLocker configuration",             "Medium",   "List",   "False",    "True",       "False",        "Check whether BitLocker is enabled on the system drive and requires a second factor of authentication (PIN or startup key). Note that this check might report a false positive if a third-party drive encryption software is installed."
+"HARDEN_BITLOCKER",               "Invoke-BitLockerCheck",                      "TA0001 - Initial Access",       "BitLocker configuration",             "Medium",   "List",   "False",    "True",       "False",        "Check whether BitLocker is enabled on the system drive and requires a second factor of authentication (PIN or startup key). Note that this check might yield a false positive if a third-party drive encryption software is installed."
 "CONFIG_PATH_FOLDERS",            "Invoke-DllHijackingCheck",                   "TA0004 - Privilege Escalation", "PATH folder permissions",             "High",     "List",   "False",    "False",      "False",        "Check whether the current user has any write permissions on the system-wide PATH folders. If so, the system could be vulnerable to privilege escalation through ghost DLL hijacking."
 "MISC_HIJACKABLE_DLL",            "Invoke-HijackableDllsCheck",                 "TA0004 - Privilege Escalation", "Known ghost DLLs",                    "Info",     "List",   "False",    "False",      "False",        "Get information about services that are known to be prone to ghost DLL hijacking. Note that their exploitation requires the current user to have write permissions on at least one system-wide PATH folder."
 "CONFIG_MSI",                     "Invoke-RegistryAlwaysInstallElevatedCheck",  "TA0004 - Privilege Escalation", "AlwaysInstallElevated",               "High",     "List",   "False",    "False",      "False",        "Check whether the 'AlwaysInstallElevated' policy is enabled system-wide and for the current user. If so, the current user may install a Windows Installer package with elevated (SYSTEM) privileges."
@@ -213,7 +213,7 @@ function Invoke-PrivescCheck {
                 "HTML"  { Write-HtmlReport -AllResults $ResultArrayList | Out-File $ReportFileName }
                 "CSV"   { Write-CsvReport  -AllResults $ResultArrayList | Out-File $ReportFileName }
                 "XML"   { Write-XmlReport  -AllResults $ResultArrayList | Out-File $ReportFileName }
-                default { Write-Warning "`r`nReport format not implemented: $($Format.ToUpper())`r`n" }
+                default { Write-Warning "`nReport format not implemented: $($Format.ToUpper())`n" }
             }
         }
     }
@@ -317,17 +317,26 @@ function Write-CheckResult {
 
     $FindingCount = $(if ($CheckResult.ResultRaw) { ([Object[]]$CheckResult.ResultRaw).Length } else { 0 })
 
-    "[*] Number of findings: $($FindingCount)`n$(if ($null -ne $FindingOutput) { $FindingOutput })"
+    $ResultOutput = "[*] Result: "
+    if (($CheckResult.Severity -eq "None") -and ($FindingCount -eq 0)) {
+        $ResultOutput += "Nothing found"
+    }
+    else {
+        $ResultOutput += "$(if ($CheckResult.Severity -eq "None") { "Informational " } else { "Vulnerable - $($CheckResult.Severity) " })"
+        $ResultOutput += "($($FindingCount) finding$(if ($FindingCount -gt 1) { "s" }))"
+    }
+
+    $ResultOutput += "`n"
 
     if ($FindingCount -gt 0) {
         switch ($CheckResult.Format) {
-            "Table"     { $CheckResult.ResultRaw | Format-Table -AutoSize }
-            "List"      { $CheckResult.ResultRaw | Format-List }
+            "Table"     { $ResultOutput += $CheckResult.ResultRaw | Format-Table -AutoSize | Out-String }
+            "List"      { $ResultOutput += $CheckResult.ResultRaw | Format-List | Out-String }
             default     { Write-Warning "Unknown format: $($CheckResult.Format)" }
         }
     }
 
-    "`r`n"
+    $ResultOutput
 }
 
 function Write-TxtReport {

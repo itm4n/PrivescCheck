@@ -169,7 +169,7 @@ function Invoke-Build {
     [CmdletBinding()] param()
 
     $ErrorCount = 0
-    $ScriptOutput = "#Requires -Version 2`r`n`r`n"
+    $ScriptOutput = "#Requires -Version 2`n`n"
     $OutputFile = "PrivescCheck.ps1"
     $WordlistUrl = "https://raw.githubusercontent.com/CBHue/PyFuscation/master/wordList.txt"
     $WordLen = 10
@@ -248,7 +248,7 @@ function Invoke-Build {
             $ScriptBlockBase64 = Convert-ToBase64CompressedScriptBlock -ScriptBlock $ScriptBlock
     
             # Store each compressed block in a string variable
-            $ScriptOutput += "`$$($ModuleName) = `"$($ScriptBlockBase64)`"`r`n"
+            $ScriptOutput += "`$$($ModuleName) = `"$($ScriptBlockBase64)`"`n"
         }
         catch [Exception] {
             $ErrorCount += 1
@@ -284,7 +284,7 @@ function Convert-FromGzipToText {
 }
 "@
     
-        $ScriptOutput += "`r`n$($LoaderBlock)"
+        $ScriptOutput += "`n$($LoaderBlock)"
     }
     
     # If no error, write the script to the file

@@ -1,5 +1,11 @@
 # Changelog
 
+## 2023-09-03
+
+### Changed
+
+- Improved result header.
+
 ## 2023-08-20
 
 ### Changed
