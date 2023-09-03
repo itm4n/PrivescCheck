@@ -6,6 +6,7 @@
 
 - Improved result header.
 - Improved BIOS mode + Secure Boot check.
+- The modifiable application check now displays a warning when a system folder is detected, rather than searching it recursively.
 
 ## 2023-08-20
 

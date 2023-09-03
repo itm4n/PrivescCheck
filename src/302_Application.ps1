@@ -46,20 +46,52 @@ function Invoke-ModifiableProgramsCheck {
 
     [CmdletBinding()] Param()
 
-    $Items = Get-InstalledPrograms -Filtered
+    BEGIN {
+        $SystemPaths = @()
 
-    foreach ($Item in $Items) {
+        function Test-IsSystemFolder {
+            param(
+                [string] $Path
+            )
+    
+            # Initialize system path list
+            if ($SystemPaths.Count -eq 0) {
+                [string[]] $SystemPaths += $env:windir
+                [string[]] $SystemPaths += Join-Path -Path "$($env:windir)" -ChildPath "System"
+                [string[]] $SystemPaths += Join-Path -Path "$($env:windir)" -ChildPath "System32"
+                [string[]] $SystemPaths += Join-Path -Path "$($env:windir)" -ChildPath "Syswow64"
+                [string[]] $SystemPaths += Join-Path -Path "$($env:windir)" -ChildPath "Sysnative"
+                [string[]] $SystemPaths += $env:ProgramFiles
+                [string[]] $SystemPaths += ${env:ProgramFiles(x86)}
+                [string[]] $SystemPaths += $env:ProgramData
+            }
 
-        $SearchPath = New-Object -TypeName System.Collections.ArrayList
-        [void]$SearchPath.Add([String]$(Join-Path -Path $Item.FullName -ChildPath "\*")) # Do this to avoid the use of -Depth which is PSH5+
-        [void]$SearchPath.Add([String]$(Join-Path -Path $Item.FullName -ChildPath "\*\*")) # Do this to avoid the use of -Depth which is PSH5+
+            $SystemPaths -contains $Path.TrimEnd('\\')
+        }
+    }
 
-        $ChildItems = Get-ChildItem -Path $SearchPath -ErrorAction SilentlyContinue -ErrorVariable GetChildItemError
+    PROCESS {
+        $Items = Get-InstalledPrograms -Filtered
 
-        if (-not $GetChildItemError) {
-
-            $ChildItems | ForEach-Object {
-
+        foreach ($Item in $Items) {
+    
+            # Ensure the path is not a known system folder, in which case it does not make
+            # sense to check it. This also prevents the script from spending a considerable
+            # amount of time and resources searching those paths recursively.
+            if (Test-IsSystemFolder -Path $Item.FullName) {
+                Write-Warning "System path detected, ignoring: $($Item.FullName)"
+                continue
+            }
+    
+            # Build the search path list. The following trick is used to search recursively
+            # without using the 'Depth' option, which is only available in PSv5+. This
+            # allows us to maintain compatibility with PSv2.
+            $SearchPath = New-Object -TypeName System.Collections.ArrayList
+            [void]$SearchPath.Add([String]$(Join-Path -Path $Item.FullName -ChildPath "\*"))
+            [void]$SearchPath.Add([String]$(Join-Path -Path $Item.FullName -ChildPath "\*\*"))
+    
+            Get-ChildItem -Path $SearchPath -ErrorAction SilentlyContinue | ForEach-Object {
+    
                 if ($_ -is [System.IO.DirectoryInfo]) {
                     $ModifiablePaths = $_ | Get-ModifiablePath -LiteralPaths
                 }
@@ -71,11 +103,9 @@ function Invoke-ModifiableProgramsCheck {
                     }
                 }
 
-                if ($ModifiablePaths) {
-                    foreach ($Path in $ModifiablePaths) {
-                        if ($Path.ModifiablePath -eq $_.FullName) {
-                            $Path
-                        }
+                foreach ($Path in $ModifiablePaths) {
+                    if ($Path.ModifiablePath -eq $_.FullName) {
+                        $Path
                     }
                 }
             }
