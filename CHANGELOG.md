@@ -5,6 +5,7 @@
 ### Changed
 
 - Improved result header.
+- Improved BIOS mode + Secure Boot check.
 
 ## 2023-08-20
 

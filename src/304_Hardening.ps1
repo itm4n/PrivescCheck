@@ -113,12 +113,7 @@ function Get-SecureBootStatus {
             $Description = "Secure Boot is not supported."
         }
         else {
-            if ($RegData -eq 1) {
-                $Description = "Secure Boot is enabled."
-            }
-            else {
-                $Description = "Secure Boot is disabled."
-            }
+            $Description = "Secure Boot is $(if ($RegData -ne 1) { "not "})enabled."
         }
     }
     Write-Verbose "$($RegValue): $($Description)"
@@ -747,31 +742,35 @@ function Invoke-BiosModeCheck {
     .EXAMPLE
     PS C:\> Invoke-BiosModeCheck
 
-    Name        Status Description
-    ----        ------ -----------
-    UEFI          True BIOS mode is UEFI
-    Secure Boot  False Secure Boot is disabled
+    Name        Vulnerable Description
+    ----        ---------- -----------
+    UEFI             False BIOS mode is UEFI.
+    Secure Boot       True Secure Boot is not enabled.
     #>
 
-    $SecureBoot = Get-SecureBootStatus
-
-    if ($SecureBoot.Data -ge 1) {
-        Write-Verbose "Secure Boot is enabled."
-        return
-    }
-
-    $Result = New-Object -TypeName PSObject
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value "Secure Boot"
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Status" -Value ($SecureBoot.Data -ge 1)
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $SecureBoot.Description
-    $Result
+    $Vulnerable = $false
 
     $Uefi = Get-UEFIStatus
-
-    if ($Uefi.Status) {
-        Write-Verbose "$($Uefi.Description)"
-        return
+    $SecureBoot = Get-SecureBootStatus
+    
+    # If BIOS mode is not set to UEFI or if Secure Boot is not enabled, consider
+    # the machine is vulnerable.
+    if (($Uefi.Status -eq $false) -or ($SecureBoot.Data -eq 0)) {
+        $Vulnerable = $true
     }
 
-    $Uefi
+    if ($Vulnerable) {
+
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $Uefi.Name
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Vulnerable" -Value ($Uefi.Status -eq $false)
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Uefi.Description
+        $Result
+
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value "Secure Boot"
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Vulnerable" -Value ($SecureBoot.Data -eq 0)
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $SecureBoot.Description
+        $Result
+    }
 }
