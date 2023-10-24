@@ -20,10 +20,9 @@ function Get-RpcRange {
     49664   49672
     #>
 
-    [CmdletBinding()]Param(
+    [CmdletBinding()] Param(
         [Parameter(Mandatory=$true)]
-        [Int[]]
-        $Ports
+        [Int[]] $Ports
     )
 
     function Get-Stats {
@@ -160,7 +159,7 @@ function Invoke-TcpEndpointsCheck {
     #>
 
     [CmdletBinding()] Param(
-        [Switch]$Filtered
+        [switch] $Filtered
     )
 
     $IgnoredPorts = @(135, 139, 445)
@@ -245,7 +244,7 @@ function Invoke-UdpEndpointsCheck {
     #>
 
     [CmdletBinding()] Param(
-        [Switch]$Filtered
+        [switch] $Filtered
     )
 
     # https://support.microsoft.com/en-us/help/832017/service-overview-and-network-port-requirements-for-windows
@@ -290,7 +289,11 @@ function Invoke-WlanProfilesCheck {
     This cmdlet invokes the 'Get-WlanProfileList' helper and then performs a series of tests on each returned item. For now, only 802.1x profiles are checked. Therefore, we assume that any other profile is 'compliant' by default. Example of a typical vulnerability: the authentication method is PEAP+MSCHAPv2, but the identity of the authentication server is not verified; an evil twin attack could therefore be used to capture or relay the credentials of the user/machine.
     #>
 
-    [CmdletBinding()] Param()
+    [CmdletBinding()] Param(
+        [SeverityLevel] $BaseSeverity
+    )
+
+    $ArrayOfResults = @()
 
     Get-WlanProfileList | ForEach-Object {
 
@@ -343,9 +346,14 @@ function Invoke-WlanProfilesCheck {
 
         if ($Vulnerable) {
             $_ | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
-            $_ | Select-Object -Property * -ExcludeProperty Eap,InnerEap
+            $ArrayOfResults += $_ | Select-Object -Property * -ExcludeProperty Eap,InnerEap
         }
     }
+
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { [SeverityLevel]::None })
+    $Result
 }
 
 function Invoke-AirstrikeAttackCheck {
@@ -369,46 +377,59 @@ function Invoke-AirstrikeAttackCheck {
     https://admx.help/?Category=Windows_10_2016&Policy=Microsoft.Policies.WindowsLogon::DontDisplayNetworkSelectionUI
     #>
 
-    [CmdletBinding()] param()
+    [CmdletBinding()] Param(
+        [SeverityLevel] $BaseSeverity
+    )
+
+    $Vulnerable = $false
+    $Config = New-Object -TypeName PSObject
 
     # Check whether the machine is a workstation, otherwise irrelevant.
     $MachineRole = Get-MachineRole
     if ($MachineRole.Name -ne "WinNT") {
-        Write-Verbose "Not a workstation, this check is irrelevant."
-        return
+        $Description = "Not a workstation, this check is irrelevant."
+    }
+    else {
+        # Check Windows version, if < 7, irrelevant.
+        $WindowsVersion = Get-WindowsVersion
+        if ((($WindowsVersion.Major -eq 6) -and ($WindowsVersion.Minor -lt 2)) -or ($WindowsVersion.Major -lt 6)) {
+            $Description = "This version of Windows is not supported."
+            
+        }
+        else {
+            # Read the value of the 'DontDisplayNetworkSelectionUI' policy.
+            $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows\System"
+            $RegValue = "DontDisplayNetworkSelectionUI"
+            $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -ErrorAction SilentlyContinue).$RegValue
+
+            $Config | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+            $Config | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
+            $Config | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
+
+            # If the policy is enabled, the machine is not vulnerable.
+            if ($RegData -ge 1) {
+                $Description = "The policy 'DontDisplayNetworkSelectionUI' is enabled, not vulnerable."
+            }
+            else {
+                $Description = "The network selection UI is displayed on the logon screen (default)."
+                $Vulnerable = $true
+            }
+        }
     }
 
-    # Check Windows version, if < 7, irrelevant.
-    $WindowsVersion = Get-WindowsVersion
-    if ((($WindowsVersion.Major -eq 6) -and ($WindowsVersion.Minor -lt 2)) -or ($WindowsVersion.Major -lt 6)) {
-        Write-Verbose "This version of Windows is not supported."
-        return
-    }
-
-    # Read the value of the 'DontDisplayNetworkSelectionUI' policy.
-    $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows\System"
-    $RegValue = "DontDisplayNetworkSelectionUI"
-    $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -ErrorAction SilentlyContinue).$RegValue
-
-    # If the policy is enabled, the machine is not vulnerable.
-    if ($RegData -ge 1) {
-        Write-Verbose "The policy 'DontDisplayNetworkSelectionUI' is enabled, not vulnerable."
-        return
-    }
+    $Config | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
 
     $Result = New-Object -TypeName PSObject
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value "The network selection UI is displayed on the logon screen (default)."
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Config
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { [SeverityLevel]::None })
     $Result
 }
 
 function Convert-SocketAddressToObject {
 
     [CmdletBinding()] Param(
-        [object] # SOCKET_ADDRESS struct
-        $SocketAddress
+        # SOCKET_ADDRESS struct
+        [object] $SocketAddress
     )
 
     if ($SocketAddress.SockAddr -eq [IntPtr]::Zero) {
@@ -500,8 +521,7 @@ function Get-NetworkAdaptersList {
     #>
 
     [CmdletBinding()] Param(
-        [switch]
-        $All = $false
+        [switch] $All = $false
     )
 
     $InterfaceTypes = @{
@@ -675,7 +695,7 @@ function Get-NetworkAdaptersList {
         $Result | Add-Member -MemberType "NoteProperty" -Name "DNSSuffixList" -Value ($DnsSuffixList -join ", ")
         $Result
 
-        [IntPtr]$AdaptersPtr = $Adapter.Next
+        [IntPtr] $AdaptersPtr = $Adapter.Next
 
     } while ($AdaptersPtr -ne [IntPtr]::Zero)
 
@@ -724,8 +744,10 @@ function Get-NetworkEndpoints {
     #>
 
     [CmdletBinding()] Param(
-        [Switch]$IPv6 = $false, # IPv4 by default
-        [Switch]$UDP = $false # TCP by default
+        # IPv4 by default
+        [Switch] $IPv6 = $false,
+        # TCP by default
+        [Switch] $UDP = $false
     )
 
     $AF_INET6 = 23
@@ -899,7 +921,7 @@ function Convert-WlanXmlProfile {
 
     [CmdletBinding()] Param(
         [ValidateNotNullOrEmpty()]
-        [string]$WlanProfile
+        [string] $WlanProfile
     )
 
     BEGIN {

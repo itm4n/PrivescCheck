@@ -22,7 +22,7 @@ function Get-UEFIStatus {
     https://github.com/ChrisWarwick/GetUEFI/blob/master/GetFirmwareBIOSorUEFI.psm1
     #>
 
-    [CmdletBinding()] param()
+    [CmdletBinding()] Param()
 
     $OsVersion = Get-WindowsVersion
 
@@ -103,11 +103,12 @@ function Get-SecureBootStatus {
     Description : Secure Boot is disabled
     #>
 
-    [CmdletBinding()] param()
+    [CmdletBinding()] Param()
 
     $RegKey = "HKLM\SYSTEM\CurrentControlSet\Control\SecureBoot\State"
     $RegValue = "UEFISecureBootEnabled"
     $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+
     if ($null -ne $RegData) {
         if ($null -eq $RegData) {
             $Description = "Secure Boot is not supported."
@@ -116,7 +117,9 @@ function Get-SecureBootStatus {
             $Description = "Secure Boot is $(if ($RegData -ne 1) { "not "})enabled."
         }
     }
+
     Write-Verbose "$($RegValue): $($Description)"
+
     $Result = New-Object -TypeName PSObject
     $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
     $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
@@ -175,7 +178,7 @@ function Get-BitLockerConfiguration {
     https://www.geoffchappell.com/studies/windows/win32/fveapi/policy/index.htm
     #>
 
-    [CmdletBinding()] param ()
+    [CmdletBinding()] Param ()
 
     BEGIN {
         # Default values for FVE parameters in HKLM\Software\Policies\Microsoft\FVE
@@ -357,9 +360,11 @@ function Invoke-UacCheck {
     https://labs.f-secure.com/blog/enumerating-remote-access-policies-through-gpo/
     #>
 
-    [CmdletBinding()] param()
+    [CmdletBinding()] Param(
+        [SeverityLevel] $BaseSeverity
+    )
 
-    $Results = @()
+    $ArrayOfResults = @()
     $Vulnerable = $false
 
     # Check whether UAC is enabled.
@@ -380,7 +385,7 @@ function Invoke-UacCheck {
     $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value "$(if ($null -eq $RegData) { "(null)" } else { $RegData })"
     $Result | Add-Member -MemberType "NoteProperty" -Name "Vulnerable" -Value $(($null -eq $RegData) -or ($RegData -eq 0))
     $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
-    [object[]] $Results += $Result
+    $ArrayOfResults += $Result
 
     # If UAC is enabled, check LocalAccountTokenFilterPolicy to determine if only the built-in
     # administrator can get a high integrity token remotely or if any local user that is a
@@ -403,7 +408,7 @@ function Invoke-UacCheck {
     $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value "$(if ($null -eq $RegData) { "(null)" } else { $RegData })"
     $Result | Add-Member -MemberType "NoteProperty" -Name "Vulnerable" -Value $($RegData -ge 1)
     $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
-    [object[]] $Results += $Result
+    $ArrayOfResults += $Result
 
     # If LocalAccountTokenFilterPolicy != 1, i.e. local admins other than RID 500 are not granted a
     # high integrity token. However, we need to check if other restrictions apply to the built-in
@@ -426,11 +431,12 @@ function Invoke-UacCheck {
     $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value "$(if ($null -eq $RegData) { "(null)" } else { $RegData })"
     $Result | Add-Member -MemberType "NoteProperty" -Name "Vulnerable" -Value $(($null -eq $RegData) -or ($RegData -eq 0))
     $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
-    [object[]] $Results += $Result
+    $ArrayOfResults += $Result
 
-    if ($Vulnerable) {
-        $Results
-    }
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { [SeverityLevel]::None })
+    $Result
 }
 
 function Invoke-LapsCheck {
@@ -453,38 +459,50 @@ function Invoke-LapsCheck {
     Description : LAPS is not configured
     #>
 
-    [CmdletBinding()] param()
+    [CmdletBinding()] Param(
+        [SeverityLevel] $BaseSeverity
+    )
 
-    # If the machine is not domain-joined, LAPS cannot be configured.
-    if (-not $(Test-IsDomainJoined)) {
-        Write-Verbose "The machine is not domain-joined, this check is irrelevant."
-        return
+    BEGIN {
+        $RegKey = "HKLM\SOFTWARE\Policies\Microsoft Services\AdmPwd"
+        $RegValue = "AdmPwdEnabled"
+        $IsDomainJoined = Test-IsDomainJoined
     }
 
-    $RegKey = "HKLM\SOFTWARE\Policies\Microsoft Services\AdmPwd"
-    $RegValue = "AdmPwdEnabled"
-    $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
-    $Vulnerable = $true
-    
-    if ($null -eq $RegData) {
-        $Description = "LAPS is not configured."
-    }
-    else {
-        if ($RegData -ge 1) {
-            $Description = "LAPS is enabled."
-            $Vulnerable = $false
+    PROCESS {
+        $Vulnerable = $false
+
+        # If the machine is not domain-joined, LAPS cannot be configured.
+        if (-not $IsDomainJoined) {
+            $Description = "The machine is not domain-joined, this check is irrelevant."
         }
         else {
-            $Description = "LAPS is not enabled."
+            $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+            
+            if ($null -eq $RegData) {
+                $Description = "LAPS is not configured."
+                $Vulnerable = $true
+            }
+            else {
+                if ($RegData -ge 1) {
+                    $Description = "LAPS is enabled."
+                }
+                else {
+                    $Description = "LAPS is not enabled."
+                    $Vulnerable = $true
+                }
+            }
         }
-    }
 
-    if ($Vulnerable) {
+        $Config = New-Object -TypeName PSObject
+        $Config | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+        $Config | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
+        $Config | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
+        $Config | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+
         $Result = New-Object -TypeName PSObject
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Config
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { [SeverityLevel]::None })
         $Result
     }
 }
@@ -561,57 +579,65 @@ function Invoke-BitLockerCheck {
                         is 'TPM only'.
     #>
 
-    [CmdletBinding()] Param()
+    [CmdletBinding()] Param(
+        [SeverityLevel] $BaseSeverity
+    )
 
     $MachineRole = Get-MachineRole
-    $Result = New-Object -TypeName PSObject
-    $Result | Add-Member -MemberType "NoteProperty" -Name "MachineRole" -Value $MachineRole.Role
+    $Config = New-Object -TypeName PSObject
+    $Config | Add-Member -MemberType "NoteProperty" -Name "MachineRole" -Value $MachineRole.Role
+
+    $Vulnerable = $false
 
     # The machine is not a workstation, no need to check BitLocker configuration.
     if ($MachineRole.Name -ne "WinNT") {
-        Write-Verbose "Not a workstation, BitLocker configuration is irrelevant."
-        return
+        $Description = "Not a workstation, BitLocker configuration is irrelevant."
     }
-
-    $Config = Get-BitLockerConfiguration
-    $Description = "$($Config.Status.Description)"
-
-    # BitLocker is not enabled, report and return.
-    if ($Config.Status.Value -ne 1) {
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
-        $Result
-        return
-    }
-
-    $Result | Add-Member -MemberType "NoteProperty" -Name "UseAdvancedStartup" -Value "$($Config.UseAdvancedStartup.Value) - $($Config.UseAdvancedStartup.Description)"
-    $Result | Add-Member -MemberType "NoteProperty" -Name "EnableBDEWithNoTPM" -Value "$($Config.EnableBDEWithNoTPM.Value) - $($Config.EnableBDEWithNoTPM.Description)"
-    $Result | Add-Member -MemberType "NoteProperty" -Name "UseTPM" -Value "$($Config.UseTPM.Value) - $($Config.UseTPM.Description)"
-    $Result | Add-Member -MemberType "NoteProperty" -Name "UseTPMPIN" -Value "$($Config.UseTPMPIN.Value) - $($Config.UseTPMPIN.Description)"
-    $Result | Add-Member -MemberType "NoteProperty" -Name "UseTPMKey" -Value "$($Config.UseTPMKey.Value) - $($Config.UseTPMKey.Description)"
-    $Result | Add-Member -MemberType "NoteProperty" -Name "UseTPMKeyPIN" -Value "$($Config.UseTPMKeyPIN.Value) - $($Config.UseTPMKeyPIN.Description)"
-
-    # Advanced startup is not enabled. This means that a second factor of authentication
-    # cannot be configured. We can report this and return.
-    if ($Config.UseAdvancedStartup.Value -ne 1) {
-        $Description = "$($Description) Additional authentication is not required at startup."
-        if ($Config.UseTPM.Value -eq 1) {
-            $Description = "$($Description) Authentication mode is 'TPM only'."
+    else {
+        $BitLockerConfig = Get-BitLockerConfiguration
+        $Description = "$($BitLockerConfig.Status.Description)"
+    
+        # BitLocker is not enabled.
+        if ($BitLockerConfig.Status.Value -ne 1) {
+            $Description = "BitLocker is not enabled."
+            $Vulnerable = $true
         }
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
-        $Result
-        return
+        else {
+            $Config | Add-Member -MemberType "NoteProperty" -Name "UseAdvancedStartup" -Value "$($BitLockerConfig.UseAdvancedStartup.Value) - $($BitLockerConfig.UseAdvancedStartup.Description)"
+            $Config | Add-Member -MemberType "NoteProperty" -Name "EnableBDEWithNoTPM" -Value "$($BitLockerConfig.EnableBDEWithNoTPM.Value) - $($BitLockerConfig.EnableBDEWithNoTPM.Description)"
+            $Config | Add-Member -MemberType "NoteProperty" -Name "UseTPM" -Value "$($BitLockerConfig.UseTPM.Value) - $($BitLockerConfig.UseTPM.Description)"
+            $Config | Add-Member -MemberType "NoteProperty" -Name "UseTPMPIN" -Value "$($BitLockerConfig.UseTPMPIN.Value) - $($BitLockerConfig.UseTPMPIN.Description)"
+            $Config | Add-Member -MemberType "NoteProperty" -Name "UseTPMKey" -Value "$($BitLockerConfig.UseTPMKey.Value) - $($BitLockerConfig.UseTPMKey.Description)"
+            $Config | Add-Member -MemberType "NoteProperty" -Name "UseTPMKeyPIN" -Value "$($BitLockerConfig.UseTPMKeyPIN.Value) - $($BitLockerConfig.UseTPMKeyPIN.Description)"
+        
+            # Advanced startup is not enabled. This means that a second factor of authentication
+            # cannot be configured. We can report this and return.
+            if ($BitLockerConfig.UseAdvancedStartup.Value -ne 1) {
+                $Description = "$($Description) Additional authentication is not required at startup."
+                if ($BitLockerConfig.UseTPM.Value -eq 1) {
+                    $Description = "$($Description) Authentication mode is 'TPM only'."
+                }
+                $Vulnerable = $true
+            }
+            else {
+                # A second factor of authentication is not enforced.
+                if (($BitLockerConfig.UseTPMPIN.Value -ne 1) -and ($BitLockerConfig.UseTPMKey.Value -ne 1) -or ($ConBitLockerConfigfig.UseTPMKeyPIN -ne 1)) {
+                    $Description = "$($Description) A second factor of authentication (PIN, startup key) is not explicitely required."
+                    if ($BitLockerConfig.EnableBDEWithNoTPM.Value -eq 1) {
+                        $Description = "$($Description) BitLocker without a compatible TPM is allowed."
+                    }
+                    $Vulnerable = $true
+                }
+            }
+        }
     }
 
-    # A second factor of authentication is not enforced. We can report this and return.
-    if (($Config.UseTPMPIN.Value -ne 1) -and ($Config.UseTPMKey.Value -ne 1) -or ($Config.UseTPMKeyPIN -ne 1)) {
-        $Description = "$($Description) A second factor of authentication (PIN, startup key) is not explicitely required."
-        if ($Config.EnableBDEWithNoTPM.Value -eq 1) {
-            $Description = "$($Description) BitLocker without a compatible TPM is allowed."
-        }
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
-        $Result
-        return
-    }
+    $Config | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Config
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { [SeverityLevel]::None })
+    $Result
 }
 
 function Invoke-LsaProtectionCheck {
@@ -634,31 +660,46 @@ function Invoke-LsaProtectionCheck {
     Description : LSA protection is not enabled.
     #>
 
-    [CmdletBinding()] Param()
+    [CmdletBinding()] Param(
+        [SeverityLevel] $BaseSeverity
+    )
 
-    $OsVersion = Get-WindowsVersion
-
-    if (-not ($OsVersion.Major -ge 10 -or (($OsVersion.Major -eq 6) -and ($OsVersion.Minor -ge 3)))) {
-        Write-Verbose "LSA protection is not supported on this version of Windows."
-        return
+    BEGIN {
+        $RegKey = "HKLM\SYSTEM\CurrentControlSet\Control\Lsa"
+        $RegValue = "RunAsPPL"
+        $OsVersion = Get-WindowsVersion
     }
+    
+    PROCESS {
+        $Vulnerable = $false
 
-    $RegKey = "HKLM\SYSTEM\CurrentControlSet\Control\Lsa"
-    $RegValue = "RunAsPPL"
-    $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+        if (-not ($OsVersion.Major -ge 10 -or (($OsVersion.Major -eq 6) -and ($OsVersion.Minor -ge 3)))) {
+            $Description = "LSA protection is not supported on this version of Windows."
+            $Vulnerable = $true
+        }
+        else {
+            $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
 
-    # If LSA protection is enabled, return immediately.
-    if ($RegData -ge 1) {
-        Write-Verbose "LSA protection is enabled."
-        return
+            if ($RegData -ge 1) {
+                $Description = "LSA protection is enabled."
+            }
+            else {
+                $Description = "LSA protection is not enabled."
+                $Vulnerable = $true
+            }
+        }
+    
+        $Config = New-Object -TypeName PSObject
+        $Config | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+        $Config | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
+        $Config | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
+        $Config | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+        
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Config
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { [SeverityLevel]::None })
+        $Result
     }
-
-    $Result = New-Object -TypeName PSObject
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value "LSA protection is not enabled."
-    $Result
 }
 
 function Invoke-CredentialGuardCheck {
@@ -684,7 +725,9 @@ function Invoke-CredentialGuardCheck {
     https://learn.microsoft.com/en-us/windows/security/identity-protection/credential-guard/credential-guard-manage
     #>
 
-    [CmdletBinding()] param()
+    [CmdletBinding()] Param(
+        [SeverityLevel] $BaseSeverity
+    )
 
     $Vulnerable = $false
 
@@ -719,13 +762,15 @@ function Invoke-CredentialGuardCheck {
         $Vulnerable = $true
     }
 
-    if ($Vulnerable) {
-        $Result = New-Object -TypeName PSObject
-        $Result | Add-Member -MemberType "NoteProperty" -Name "DeviceGuardSecurityServicesConfigured" -Value $(if ($null -eq $ServicesConfigured) { "(null)" } else { $ServicesConfigured })
-        $Result | Add-Member -MemberType "NoteProperty" -Name "DeviceGuardSecurityServicesRunning" -Value $(if ($null -eq $ServicesRunning) { "(null)" } else { $ServicesRunning })
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
-        $Result
-    }
+    $Config = New-Object -TypeName PSObject
+    $Config | Add-Member -MemberType "NoteProperty" -Name "DeviceGuardSecurityServicesConfigured" -Value $(if ($null -eq $ServicesConfigured) { "(null)" } else { $ServicesConfigured })
+    $Config | Add-Member -MemberType "NoteProperty" -Name "DeviceGuardSecurityServicesRunning" -Value $(if ($null -eq $ServicesRunning) { "(null)" } else { $ServicesRunning })
+    $Config | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Config
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { [SeverityLevel]::None })
+    $Result
 }
 
 function Invoke-BiosModeCheck {
@@ -748,6 +793,10 @@ function Invoke-BiosModeCheck {
     Secure Boot       True Secure Boot is not enabled.
     #>
 
+    [CmdletBinding()] Param(
+        [SeverityLevel] $BaseSeverity
+    )
+
     $Vulnerable = $false
 
     $Uefi = Get-UEFIStatus
@@ -759,18 +808,22 @@ function Invoke-BiosModeCheck {
         $Vulnerable = $true
     }
 
-    if ($Vulnerable) {
+    $ArrayOfResults = @()
 
-        $Result = New-Object -TypeName PSObject
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $Uefi.Name
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Vulnerable" -Value ($Uefi.Status -eq $false)
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Uefi.Description
-        $Result
+    $ConfigItem = New-Object -TypeName PSObject
+    $ConfigItem | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $Uefi.Name
+    $ConfigItem | Add-Member -MemberType "NoteProperty" -Name "Vulnerable" -Value ($Uefi.Status -eq $false)
+    $ConfigItem | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Uefi.Description
+    $ArrayOfResults += $ConfigItem
 
-        $Result = New-Object -TypeName PSObject
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value "Secure Boot"
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Vulnerable" -Value ($SecureBoot.Data -eq 0)
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $SecureBoot.Description
-        $Result
-    }
+    $ConfigItem = New-Object -TypeName PSObject
+    $ConfigItem | Add-Member -MemberType "NoteProperty" -Name "Name" -Value "Secure Boot"
+    $ConfigItem | Add-Member -MemberType "NoteProperty" -Name "Vulnerable" -Value ($SecureBoot.Data -eq 0)
+    $ConfigItem | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $SecureBoot.Description
+    $ArrayOfResults += $ConfigItem
+
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { [SeverityLevel]::None })
+    $Result
 }

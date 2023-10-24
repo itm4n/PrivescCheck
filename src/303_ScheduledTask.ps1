@@ -34,13 +34,13 @@ function Get-ScheduledTaskList {
     CurrentUserIsOwner : False
     #>
 
-    [CmdletBinding()] param()
+    [CmdletBinding()] Param()
 
     function Get-ScheduledTasks {
 
-        param (
-            [Object]$Service,
-            [String]$TaskPath
+        Param (
+            [object] $Service,
+            [string] $TaskPath
         )
 
         ($CurrentFolder = $Service.GetFolder($TaskPath)).GetTasks(0)
@@ -160,7 +160,11 @@ function Invoke-ScheduledTasksImagePermissionsCheck {
     Permissions        : {Delete, WriteAttributes, Synchronize, ReadControl...}
     #>
 
-    [CmdletBinding()] Param()
+    [CmdletBinding()] Param(
+        [SeverityLevel] $BaseSeverity
+    )
+
+    $ArrayOfResults = @()
 
     Get-ScheduledTaskList | Where-Object { -not $_.CurrentUserIsOwner } | ForEach-Object {
 
@@ -168,13 +172,18 @@ function Invoke-ScheduledTasksImagePermissionsCheck {
 
         $CurrentTask.Command | Get-ModifiablePath | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) } | ForEach-Object {
 
-            $ResultItem = $CurrentTask.PsObject.Copy()
-            $ResultItem | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $_.ModifiablePath
-            $ResultItem | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $_.IdentityReference
-            $ResultItem | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value $_.Permissions
-            $ResultItem
+            $Result = $CurrentTask.PsObject.Copy()
+            $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $_.ModifiablePath
+            $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $_.IdentityReference
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value $_.Permissions
+            $ArrayOfResults += $Result
         }
     }
+
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { [SeverityLevel]::None })
+    $Result
 }
 
 function Invoke-ScheduledTasksUnquotedPathCheck {
@@ -206,7 +215,11 @@ function Invoke-ScheduledTasksUnquotedPathCheck {
 
     #>
 
-    [CmdletBinding()] Param()
+    [CmdletBinding()] Param(
+        [SeverityLevel] $BaseSeverity
+    )
+
+    $ArrayOfResults = @()
 
     Get-ScheduledTaskList | Where-Object { $_.CurrentUserIsOwner -eq $false} | ForEach-Object {
 
@@ -214,11 +227,16 @@ function Invoke-ScheduledTasksUnquotedPathCheck {
 
         Get-ExploitableUnquotedPath -Path $CurrentTask.Command | ForEach-Object {
 
-            $ResultItem = $CurrentTask.PsObject.Copy()
-            $ResultItem | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $_.ModifiablePath
-            $ResultItem | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $_.IdentityReference
-            $ResultItem | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value $_.Permissions
-            $ResultItem
+            $Result = $CurrentTask.PsObject.Copy()
+            $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $_.ModifiablePath
+            $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $_.IdentityReference
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value $_.Permissions
+            $ArrayOfResults += $Result
         }
     }
+
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { [SeverityLevel]::None })
+    $Result
 }

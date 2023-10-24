@@ -131,11 +131,29 @@ function Invoke-UserPrivilegesCheck {
     SeImpersonatePrivilege  Enabled Impersonate a client after authentication        True
     #>
 
-    [CmdletBinding()] Param()
+    [CmdletBinding()] Param(
+        [SeverityLevel] $BaseSeverity
+    )
 
-    $HighPotentialPrivileges = "SeAssignPrimaryTokenPrivilege", "SeImpersonatePrivilege", "SeCreateTokenPrivilege", "SeDebugPrivilege", "SeLoadDriverPrivilege", "SeRestorePrivilege", "SeTakeOwnershipPrivilege", "SeTcbPrivilege", "SeBackupPrivilege", "SeManageVolumePrivilege", "SeRelabelPrivilege"
+    BEGIN {
+        $HighPotentialPrivileges = "SeAssignPrimaryTokenPrivilege", "SeImpersonatePrivilege", "SeCreateTokenPrivilege", "SeDebugPrivilege", "SeLoadDriverPrivilege", "SeRestorePrivilege", "SeTakeOwnershipPrivilege", "SeTcbPrivilege", "SeBackupPrivilege", "SeManageVolumePrivilege", "SeRelabelPrivilege"
+    }
 
-    Get-TokenInformationPrivileges | Where-Object { $HighPotentialPrivileges -contains $_.Name }
+    PROCESS {
+        $Vulnerable = $false
+        $Privileges = Get-TokenInformationPrivileges
+
+        foreach ($Privilege in $Privileges) {
+            $Exploitable = $($HighPotentialPrivileges -contains $Privilege.Name)
+            if ($Exploitable) { $Vulnerable = $true }
+            $Privilege | Add-Member -MemberType "NoteProperty" -Name "Exploitable" -Value $Exploitable
+        }
+
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Privileges
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { [SeverityLevel]::None })
+        $Result
+    }
 }
 
 function Invoke-UserEnvCheck {
@@ -152,15 +170,13 @@ function Invoke-UserEnvCheck {
 
     [CmdletBinding()] Param()
 
-    [String[]] $Keywords = "key", "passw", "secret", "pwd", "creds", "credential", "api"
-
     Get-ChildItem -Path env: | ForEach-Object {
 
         $EntryName = $_.Name
         $EntryValue = $_.Value
         $CheckVal = "$($_.Name) $($_.Value)"
 
-        foreach ($Keyword in $Keywords) {
+        foreach ($Keyword in $KeywordsOfInterest) {
 
             if ($CheckVal -Like "*$($Keyword)*") {
 

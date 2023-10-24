@@ -187,14 +187,12 @@ function Invoke-HotFixCheck {
     #>
 
     [CmdletBinding()] Param(
-        [switch]$Info
+        [switch] $Info,
+        [SeverityLevel] $BaseSeverity
     )
 
     # Get the list of installed patches
     $HotFixList = Get-HotFixList | Sort-Object -Property "InstalledOnDate" -Descending
-
-    # If the list is empty, return
-    if ($(([Object[]]$HotFixList).Length) -eq 0) { return }
 
     # If Info, return the list directly
     if ($Info) { $HotFixList | Select-Object HotFixID,Description,InstalledBy,InstalledOn; return }
@@ -205,39 +203,14 @@ function Invoke-HotFixCheck {
     $TimeSpan = New-TimeSpan -Start $LatestHotfix.InstalledOnDate -End $(Get-Date)
 
     if ($TimeSpan.TotalDays -gt 31) {
-        $LatestHotfix | Select-Object HotFixID,Description,InstalledBy,InstalledOn
+        $Results = $LatestHotfix | Select-Object HotFixID,Description,InstalledBy,InstalledOn
     }
     else {
         Write-Verbose "At least one hotfix was installed in the last 31 days."
     }
+
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Results
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Results) { $BaseSeverity } else { [SeverityLevel]::None })
+    $Result
 }
-
-# function Invoke-HotFixVulnCheck {
-#     <#
-#     .SYNOPSIS
-#     Checks whether any hotfix has been installed in the last 31 days.
-
-#     .DESCRIPTION
-#     This script first lists all the installed hotfixes. If no result is returned, this will be reported as a finding. If at least one result is returned, the script will check the first one (which corresponds to the latest hotfix). If it's more than 31 days old, it will be returned.
-#     #>
-
-#     [CmdletBinding()] Param()
-
-#     $Hotfixes = Get-HotFixList | Sort-Object -Property "InstalledOn" -Descending
-
-#     if ($(([Object[]]$Hotfixes).Length) -gt 0) {
-
-#         $LatestHotfix = $Hotfixes | Select-Object -First 1
-#         $TimeSpan = New-TimeSpan -Start $LatestHotfix.InstalledOn -End $(Get-Date)
-
-#         if ($TimeSpan.TotalDays -gt 31) {
-#             $LatestHotfix
-#         }
-#         else {
-#             Write-Verbose "At least one hotfix was installed in the last 31 days."
-#         }
-#     }
-#     else {
-#         Write-Verbose "The hotfix history is empty."
-#     }
-# }

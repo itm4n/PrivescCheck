@@ -34,8 +34,11 @@ function Invoke-WinlogonCheck {
     #>
 
     [CmdletBinding()] Param(
-        [Switch]$Remote = $false
+        [switch] $Remote = $false,
+        [SeverityLevel] $BaseSeverity
     )
+
+    $ArrayOfResults = @()
 
     if ($Remote) {
 
@@ -114,7 +117,7 @@ function Invoke-WinlogonCheck {
                 $Result | Add-Member -MemberType "NoteProperty" -Name "Usernames" -Value ($Results.DefaultUserName -join ", ")
                 $Result | Add-Member -MemberType "NoteProperty" -Name "Passwords" -Value ($Results.DefaultPassword -join ", ")
                 $Result | Add-Member -MemberType "NoteProperty" -Name "AutoAdminLogons" -Value ($Results.AutoAdminLogon -join ", ")
-                $Result
+                $ArrayOfResults += $Result
             }
 
             if ($Results.AltDefaultPassword.Count -ne 0) {
@@ -125,7 +128,7 @@ function Invoke-WinlogonCheck {
                 $Result | Add-Member -MemberType "NoteProperty" -Name "Usernames" -Value ($Results.AltDefaultUserName -join  ", ")
                 $Result | Add-Member -MemberType "NoteProperty" -Name "Passwords" -Value ($Results.AltDefaultPassword -join ", ")
                 $Result | Add-Member -MemberType "NoteProperty" -Name "AutoAdminLogon" -Value ($Results.AltAutoAdminLogon -join ", ")
-                $Result
+                $ArrayOfResults += $Result
             }
         }
     }
@@ -138,7 +141,7 @@ function Invoke-WinlogonCheck {
             $Result | Add-Member -MemberType "NoteProperty" -Name "Domain" -Value $RegItem.DefaultDomainName
             $Result | Add-Member -MemberType "NoteProperty" -Name "Username" -Value $RegItem.DefaultUserName
             $Result | Add-Member -MemberType "NoteProperty" -Name "Password" -Value $RegItem.DefaultPassword
-            $Result
+            $ArrayOfResults += $Result
         }
 
         if (-not [String]::IsNullOrEmpty($RegItem.AltDefaultPassword)) {
@@ -146,9 +149,14 @@ function Invoke-WinlogonCheck {
             $Result | Add-Member -MemberType "NoteProperty" -Name "Domain" -Value $RegItem.AltDefaultDomainName
             $Result | Add-Member -MemberType "NoteProperty" -Name "Username" -Value $RegItem.AltDefaultUserName
             $Result | Add-Member -MemberType "NoteProperty" -Name "Password" -Value $RegItem.AltDefaultPassword
-            $Result
+            $ArrayOfResults += $Result
         }
     }
+
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { [SeverityLevel]::None })
+    $Result
 }
 
 function Invoke-CredentialFilesCheck {
@@ -336,143 +344,154 @@ function Invoke-GPPPasswordCheck {
     #>
 
     [CmdletBinding()] Param(
-        [Switch]$Remote
+        [switch] $Remote,
+        [SeverityLevel] $BaseSeverity
     )
 
-    try { Add-Type -Assembly System.Security } catch { Write-Warning "Failed to load assembly: System.Security" }
-    try { Add-Type -Assembly System.Core } catch { Write-Warning "Failed to load assembly: System.Core" }
+    BEGIN {
+        try { Add-Type -Assembly System.Security } catch { Write-Warning "Failed to load assembly: System.Security" }
+        try { Add-Type -Assembly System.Core } catch { Write-Warning "Failed to load assembly: System.Core" }
 
-    function Get-DecryptedPassword {
-        [CmdletBinding()] Param(
-            [String]
-            $Cpass
-        )
-
-        if (-not [String]::IsNullOrEmpty($Cpass)) {
-
-            $Mod = $Cpass.Length % 4
-            if ($Mod -gt 0) {
-                $Cpass += "=" * (4 - $Mod)
-            }
-
-            $Base64Decoded = [Convert]::FromBase64String($Cpass)
-
-            try {
-
-                $AesObject = New-Object System.Security.Cryptography.AesCryptoServiceProvider
-                [Byte[]] $AesKey = @(0x4e,0x99,0x06,0xe8,0xfc,0xb6,0x6c,0xc9,0xfa,0xf4,0x93,0x10,0x62,0x0f,0xfe,0xe8,0xf4,0x96,0xe8,0x06,0xcc,0x05,0x79,0x90,0x20,0x9b,0x09,0xa4,0x33,0xb6,0x6c,0x1b)
-
-                $AesIV = New-Object Byte[]($AesObject.IV.Length)
-                $AesObject.IV = $AesIV
-                $AesObject.Key = $AesKey
-                $DecryptorObject = $AesObject.CreateDecryptor()
-                [Byte[]] $OutBlock = $DecryptorObject.TransformFinalBlock($Base64Decoded, 0, $Base64Decoded.length)
-
-                [System.Text.UnicodeEncoding]::Unicode.GetString($OutBlock)
-
-            }
-            catch [Exception] {
-                Write-Verbose $_.Exception.Message
+        function Get-DecryptedPassword {
+            [CmdletBinding()] Param(
+                [string] $Cpass
+            )
+    
+            if (-not [string]::IsNullOrEmpty($Cpass)) {
+    
+                $Mod = $Cpass.Length % 4
+                if ($Mod -gt 0) {
+                    $Cpass += "=" * (4 - $Mod)
+                }
+    
+                $Base64Decoded = [Convert]::FromBase64String($Cpass)
+    
+                try {
+    
+                    $AesObject = New-Object System.Security.Cryptography.AesCryptoServiceProvider
+                    [byte[]] $AesKey = @(0x4e,0x99,0x06,0xe8,0xfc,0xb6,0x6c,0xc9,0xfa,0xf4,0x93,0x10,0x62,0x0f,0xfe,0xe8,0xf4,0x96,0xe8,0x06,0xcc,0x05,0x79,0x90,0x20,0x9b,0x09,0xa4,0x33,0xb6,0x6c,0x1b)
+    
+                    $AesIV = New-Object Byte[]($AesObject.IV.Length)
+                    $AesObject.IV = $AesIV
+                    $AesObject.Key = $AesKey
+                    $DecryptorObject = $AesObject.CreateDecryptor()
+                    [byte[]] $OutBlock = $DecryptorObject.TransformFinalBlock($Base64Decoded, 0, $Base64Decoded.length)
+    
+                    [System.Text.UnicodeEncoding]::Unicode.GetString($OutBlock)
+    
+                }
+                catch [Exception] {
+                    Write-Verbose $_.Exception.Message
+                }
             }
         }
     }
 
-    if ($Remote) {
-        $GppPath = "\\$($Env:USERDNSDOMAIN)\SYSVOL"
-    }
-    else {
-        $GppPath = $Env:ALLUSERSPROFILE
-        if ($GppPath -notmatch "ProgramData") {
-            $GppPath = Join-Path -Path $GppPath -ChildPath "Application Data"
+    PROCESS {
+        $ArrayOfResults = @()
+
+        if ($Remote) {
+            $GppPath = "\\$($Env:USERDNSDOMAIN)\SYSVOL"
         }
         else {
-            $GppPath = Join-Path -Path $GppPath -ChildPath "Microsoft\Group Policy"
-        }
-    }
-
-    if (Test-Path -Path $GppPath -ErrorAction SilentlyContinue) {
-
-        $CachedGPPFiles = Get-ChildItem -Path $GppPath -Recurse -Include 'Groups.xml','Services.xml','Scheduledtasks.xml','DataSources.xml','Drives.xml','Printers.xml' -Force -ErrorAction SilentlyContinue
-
-        foreach ($File in $CachedGPPFiles) {
-
-            $FileFullPath = $File.FullName
-            Write-Verbose $FileFullPath
-
-            try {
-                [xml]$XmlFile = Get-Content -Path $FileFullPath -ErrorAction SilentlyContinue
+            $GppPath = $Env:ALLUSERSPROFILE
+            if ($GppPath -notmatch "ProgramData") {
+                $GppPath = Join-Path -Path $GppPath -ChildPath "Application Data"
             }
-            catch [Exception] {
-                Write-Verbose $_.Exception.Message
-            }
-
-            if ($null -eq $XmlFile) {
-                continue
-            }
-
-            $XmlFile.GetElementsByTagName("Properties") | ForEach-Object {
-
-                $Properties = $_
-                $Cpassword = ""
-
-                switch ($File.BaseName) {
-
-                    Groups {
-                        $Type = "User/Group"
-                        $UserName = $Properties.userName
-                        $Cpassword = $Properties.cpassword
-                        $Content = "Description: $($Properties.description)"
-                    }
-
-                    Scheduledtasks {
-                        $Type = "Scheduled Task"
-                        $UserName = $Properties.runAs
-                        $Cpassword = $Properties.cpassword
-                        $Content = "App: $($Properties.appName) $($Properties.args)"
-                    }
-
-                    DataSources {
-                        $Type = "Data Source"
-                        $UserName = $Properties.username
-                        $Cpassword = $Properties.cpassword
-                        $Content = "DSN: $($Properties.dsn)"
-                    }
-
-                    Drives {
-                        $Type = "Mapped Drive"
-                        $UserName = $Properties.userName
-                        $Cpassword = $Properties.cpassword
-                        $Content = "Path: $($Properties.path)"
-                    }
-
-                    Services {
-                        $Type = "Service"
-                        $UserName = $Properties.accountName
-                        $Cpassword = $Properties.cpassword
-                        $Content = "Name: $($Properties.serviceName)"
-                    }
-
-                    Printers {
-                        $Type = "Printer"
-                        $UserName = $Properties.username
-                        $Cpassword = $Properties.cpassword
-                        $Content = "Path: $($Properties.path)"
-                    }
-                }
-
-                if (-not [String]::IsNullOrEmpty($Cpassword)) {
-                    $Result = New-Object -TypeName PSObject
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "Type" -Value $Type
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "UserName" -Value $UserName
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "Password" -Value $(Get-DecryptedPassword -Cpass $Cpassword)
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "Content" -Value $Content
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "Changed" -Value $Properties.ParentNode.changed
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "FilePath" -Value $FileFullPath
-                    $Result
-                }
+            else {
+                $GppPath = Join-Path -Path $GppPath -ChildPath "Microsoft\Group Policy"
             }
         }
-    }
+    
+        if (Test-Path -Path $GppPath -ErrorAction SilentlyContinue) {
+    
+            $CachedGPPFiles = Get-ChildItem -Path $GppPath -Recurse -Include 'Groups.xml','Services.xml','Scheduledtasks.xml','DataSources.xml','Drives.xml','Printers.xml' -Force -ErrorAction SilentlyContinue
+    
+            foreach ($File in $CachedGPPFiles) {
+    
+                $FileFullPath = $File.FullName
+                Write-Verbose $FileFullPath
+    
+                try {
+                    [xml]$XmlFile = Get-Content -Path $FileFullPath -ErrorAction SilentlyContinue
+                }
+                catch [Exception] {
+                    Write-Verbose $_.Exception.Message
+                }
+    
+                if ($null -eq $XmlFile) {
+                    continue
+                }
+    
+                $XmlFile.GetElementsByTagName("Properties") | ForEach-Object {
+    
+                    $Properties = $_
+                    $Cpassword = ""
+    
+                    switch ($File.BaseName) {
+    
+                        Groups {
+                            $Type = "User/Group"
+                            $UserName = $Properties.userName
+                            $Cpassword = $Properties.cpassword
+                            $Content = "Description: $($Properties.description)"
+                        }
+    
+                        Scheduledtasks {
+                            $Type = "Scheduled Task"
+                            $UserName = $Properties.runAs
+                            $Cpassword = $Properties.cpassword
+                            $Content = "App: $($Properties.appName) $($Properties.args)"
+                        }
+    
+                        DataSources {
+                            $Type = "Data Source"
+                            $UserName = $Properties.username
+                            $Cpassword = $Properties.cpassword
+                            $Content = "DSN: $($Properties.dsn)"
+                        }
+    
+                        Drives {
+                            $Type = "Mapped Drive"
+                            $UserName = $Properties.userName
+                            $Cpassword = $Properties.cpassword
+                            $Content = "Path: $($Properties.path)"
+                        }
+    
+                        Services {
+                            $Type = "Service"
+                            $UserName = $Properties.accountName
+                            $Cpassword = $Properties.cpassword
+                            $Content = "Name: $($Properties.serviceName)"
+                        }
+    
+                        Printers {
+                            $Type = "Printer"
+                            $UserName = $Properties.username
+                            $Cpassword = $Properties.cpassword
+                            $Content = "Path: $($Properties.path)"
+                        }
+                    }
+    
+                    if (-not [String]::IsNullOrEmpty($Cpassword)) {
+                        $Result = New-Object -TypeName PSObject
+                        $Result | Add-Member -MemberType "NoteProperty" -Name "Type" -Value $Type
+                        $Result | Add-Member -MemberType "NoteProperty" -Name "UserName" -Value $UserName
+                        $Result | Add-Member -MemberType "NoteProperty" -Name "Password" -Value $(Get-DecryptedPassword -Cpass $Cpassword)
+                        $Result | Add-Member -MemberType "NoteProperty" -Name "Content" -Value $Content
+                        $Result | Add-Member -MemberType "NoteProperty" -Name "Changed" -Value $Properties.ParentNode.changed
+                        $Result | Add-Member -MemberType "NoteProperty" -Name "FilePath" -Value $FileFullPath
+                        $ArrayOfResults += $Result
+                    }
+                }
+            }
+        }
+
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { [SeverityLevel]::None })
+        $Result
+    }  
 }
 
 function Invoke-PowerShellHistoryCheck {
@@ -542,7 +561,9 @@ function Invoke-SensitiveHiveFileAccessCheck {
     Permissions       : ReadData, ReadExtendedAttributes, Execute, ReadAttributes, ReadControl, Synchronize
     #>
 
-    [CmdletBinding()] Param()
+    [CmdletBinding()] Param(
+        [SeverityLevel] $BaseSeverity
+    )
 
     $UserIdentity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
     $CurrentUserSids = $UserIdentity.Groups | Select-Object -ExpandProperty Value
@@ -561,7 +582,9 @@ function Invoke-SensitiveHiveFileAccessCheck {
     [void]$ArrayOfPaths.Add($(Join-Path -Path $env:SystemRoot -ChildPath "System32\config\SECURITY"))
     [void]$ArrayOfPaths.Add($(Join-Path -Path $env:SystemRoot -ChildPath "System32\config\RegBack\SECURITY"))
 
-    foreach ($Path in [String[]]$ArrayOfPaths) {
+    $ArrayOfResults = @()
+
+    foreach ($Path in [string[]] $ArrayOfPaths) {
 
         try {
             $Acl = Get-Acl -Path $Path -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Access
@@ -573,7 +596,7 @@ function Invoke-SensitiveHiveFileAccessCheck {
                     $FileAccessRightsEnum::ReadData
                 )
 
-                $Permissions = [Enum]::GetValues($FileAccessRightsEnum) | Where-Object {
+                $Permissions = [enum]::GetValues($FileAccessRightsEnum) | Where-Object {
                     ($Ace.FileSystemRights.value__ -band ($FileAccessRightsEnum::$_)) -eq ($FileAccessRightsEnum::$_)
                 }
 
@@ -603,7 +626,7 @@ function Invoke-SensitiveHiveFileAccessCheck {
                         $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $Path
                         $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $Ace.IdentityReference
                         $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value ($Permissions -join ", ")
-                        $Result
+                        $ArrayOfResults += $Result
                     }
                 }
             }
@@ -612,6 +635,11 @@ function Invoke-SensitiveHiveFileAccessCheck {
             $null = $_
         }
     }
+
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { [SeverityLevel]::None })
+    $Result
 }
 
 function Invoke-SensitiveHiveShadowCopyCheck {
@@ -644,7 +672,9 @@ function Invoke-SensitiveHiveShadowCopyCheck {
     AccessRights      : ReadData, ReadExtendedAttributes, Execute, ReadAttributes, ReadControl, Synchronize
     #>
 
-    [CmdletBinding()] Param()
+    [CmdletBinding()] Param(
+        [SeverityLevel] $BaseSeverity
+    )
 
     BEGIN {
         $UserIdentity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
@@ -653,6 +683,8 @@ function Invoke-SensitiveHiveShadowCopyCheck {
     }
 
     PROCESS {
+        $ArrayOfResults = @()
+
         foreach($ShadowCopy in $(Get-ShadowCopies)) {
 
             $ConfigPath = $(Join-Path -Path $ShadowCopy.Path -ChildPath "Windows\System32\config")
@@ -687,12 +719,17 @@ function Invoke-SensitiveHiveShadowCopyCheck {
                             $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $Path
                             $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value (Convert-SidToName -Sid $IdentityReference)
                             $Result | Add-Member -MemberType "NoteProperty" -Name "AccessRights" -Value ($Permissions -join ", ")
-                            $Result
+                            $ArrayOfResults += $Result
                         }
                     }
                 }
             }
         }
+
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { [SeverityLevel]::None })
+        $Result
     }
 }
 
@@ -717,17 +754,22 @@ function Invoke-UnattendFilesCheck {
     File     : C:\WINDOWS\Panther\Unattend.xml
     #>
 
-    [CmdletBinding()] Param()
+    [CmdletBinding()] Param(
+        [SeverityLevel] $BaseSeverity
+    )
 
-    $ArrayOfPaths = New-Object System.Collections.ArrayList
-    [void]$ArrayOfPaths.Add($(Join-Path -Path $env:windir -ChildPath "Panther\Unattended.xml"))
-    [void]$ArrayOfPaths.Add($(Join-Path -Path $env:windir -ChildPath "Panther\Unattend.xml"))
-    [void]$ArrayOfPaths.Add($(Join-Path -Path $env:windir -ChildPath "Panther\Unattend\Unattended.xml"))
-    [void]$ArrayOfPaths.Add($(Join-Path -Path $env:windir -ChildPath "Panther\Unattend\Unattend.xml"))
-    [void]$ArrayOfPaths.Add($(Join-Path -Path $env:windir -ChildPath "System32\Sysprep\Unattend.xml"))
-    [void]$ArrayOfPaths.Add($(Join-Path -Path $env:windir -ChildPath "System32\Sysprep\Panther\Unattend.xml"))
+    $ArrayOfPaths = [string[]] @(
+        (Join-Path -Path $env:windir -ChildPath "Panther\Unattended.xml"),
+        (Join-Path -Path $env:windir -ChildPath "Panther\Unattend.xml"),
+        (Join-Path -Path $env:windir -ChildPath "Panther\Unattend\Unattended.xml"),
+        (Join-Path -Path $env:windir -ChildPath "Panther\Unattend\Unattend.xml"),
+        (Join-Path -Path $env:windir -ChildPath "System32\Sysprep\Unattend.xml"),
+        (Join-Path -Path $env:windir -ChildPath "System32\Sysprep\Panther\Unattend.xml")
+    )
 
-    foreach ($Path in [String[]]$ArrayOfPaths) {
+    $ArrayOfResults = @()
+
+    foreach ($Path in $ArrayOfPaths) {
 
         if (Test-Path -Path $Path -ErrorAction SilentlyContinue) {
 
@@ -736,8 +778,13 @@ function Invoke-UnattendFilesCheck {
             $Result = Get-UnattendSensitiveData -Path $Path
             if ($Result) {
                 $Result | Add-Member -MemberType "NoteProperty" -Name "File" -Value $Path
-                $Result
+                $ArrayOfResults += $Result
             }
         }
     }
+
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { [SeverityLevel]::None })
+    $Result
 }

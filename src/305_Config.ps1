@@ -7,7 +7,7 @@ function Get-SccmCacheFolder {
     License: BSD 3-Clause
     #>
 
-    [CmdletBinding()] param()
+    [CmdletBinding()] Param()
 
     $CcmCachePath = Join-Path -Path $env:windir -ChildPath "CCMCache"
     Get-Item -Path $CcmCachePath -ErrorAction SilentlyContinue | Select-Object -Property FullName,Attributes,Exists
@@ -42,7 +42,7 @@ function Get-PointAndPrintConfiguration {
     https://admx.help/?Category=Windows_10_2016&Policy=Microsoft.Policies.Printing::PackagePointAndPrintOnly
     #>
 
-    [CmdletBinding()] param ()
+    [CmdletBinding()] Param()
 
     BEGIN {
         $NoWarningNoElevationOnInstallDescriptions = @(
@@ -209,35 +209,50 @@ function Invoke-RegistryAlwaysInstallElevatedCheck {
     Description       : AlwaysInstallElevated is enabled in both HKLM and HKCU.
     #>
 
-    [CmdletBinding()] param()
+    [CmdletBinding()] Param(
+        [SeverityLevel] $BaseSeverity
+    )
 
-    $Result = New-Object -TypeName PSObject
+    $Vulnerable = $false
+    $Config = New-Object -TypeName PSObject
 
     # Check AlwaysInstallElevated in HKLM
     $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows\Installer"
     $RegValue = "AlwaysInstallElevated"
     $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+
+    $Config | Add-Member -MemberType "NoteProperty" -Name "LocalMachineKey" -Value $RegKey
+    $Config | Add-Member -MemberType "NoteProperty" -Name "LocalMachineValue" -Value $RegValue
+    $Config | Add-Member -MemberType "NoteProperty" -Name "LocalMachineData" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
     
     # If the setting is not enabled in HKLM, it is not exploitable.
-    if (($null -eq $RegData) -or ($RegData -eq 0)) { return }
+    if (($null -eq $RegData) -or ($RegData -eq 0)) {
+        $Description = "AlwaysInstallElevated is not enabled in HKLM."
+    }
+    else {
+        # Check AlwaysInstallElevated in HKCU
+        $RegKey = "HKCU\SOFTWARE\Policies\Microsoft\Windows\Installer"
+        $RegValue = "AlwaysInstallElevated"
+        $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
 
-    $Result | Add-Member -MemberType "NoteProperty" -Name "LocalMachineKey" -Value $RegKey
-    $Result | Add-Member -MemberType "NoteProperty" -Name "LocalMachineValue" -Value $RegValue
-    $Result | Add-Member -MemberType "NoteProperty" -Name "LocalMachineData" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
+        $Config | Add-Member -MemberType "NoteProperty" -Name "CurrentUserKey" -Value $RegKey
+        $Config | Add-Member -MemberType "NoteProperty" -Name "CurrentUserValue" -Value $RegValue
+        $Config | Add-Member -MemberType "NoteProperty" -Name "CurrentUserData" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
 
-    # Check AlwaysInstallElevated in HKCU
-    $RegKey = "HKCU\SOFTWARE\Policies\Microsoft\Windows\Installer"
-    $RegValue = "AlwaysInstallElevated"
-    $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+        if (($null -eq $RegData) -or ($RegData -eq 0)) {
+            $Description = "AlwaysInstallElevated is enabled in HKLM but not in HKCU."
+        }
+        else {
+            $Description = "AlwaysInstallElevated is enabled in both HKLM and HKCU."
+            $Vulnerable = $true
+        }
+    }
 
-    # If the setting is not enabled in HKCU, it is not exploitable.
-    if (($null -eq $RegData) -or ($RegData -eq 0)) { return }
-
-    $Result | Add-Member -MemberType "NoteProperty" -Name "CurrentUserKey" -Value $RegKey
-    $Result | Add-Member -MemberType "NoteProperty" -Name "CurrentUserValue" -Value $RegValue
-    $Result | Add-Member -MemberType "NoteProperty" -Name "CurrentUserData" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
-
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value "AlwaysInstallElevated is enabled in both HKLM and HKCU."
+    $Config | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+    
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Config
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { [SeverityLevel]::None })
     $Result
 }
 
@@ -272,41 +287,68 @@ function Invoke-WsusConfigCheck {
     https://github.com/GoSecure/wsuspicious
     #>
 
+    [CmdletBinding()] Param(
+        [SeverityLevel] $BaseSeverity
+    )
+
+    $Vulnerable = $true
+    $ArrayOfResults = @()
+
     $RegKey = "HKLM\Software\Policies\Microsoft\Windows\WindowsUpdate"
     $RegValue = "WUServer"
     $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
-    if ($null -eq $RegData) { return }
 
-    $WusUrl = $RegData
+    $Item = New-Object -TypeName PSObject
+    $Item | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+    $Item | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
+    $Item | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ([string]::IsNullOrEmpty($RegData)) { "(null)" } else { $RegData })
+    $Item | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $(if ([string]::IsNullOrEmpty($RegData)) { "No WSUS server is configured." } else { "A WSUS server is configured." })
+    $ArrayOfResults += $Item
+
+    if ([string]::IsNullOrEmpty($RegData)) { $Vulnerable = $false }
+    if ($RegData -like "https://*") { $Vulnerable = $false }
 
     $RegKey = "HKLM\Software\Policies\Microsoft\Windows\WindowsUpdate\AU"
     $RegValue = "UseWUServer"
     $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
-    if ($null -eq $RegData) { return }
 
-    $WusEnabled = $RegData
+    $Item = New-Object -TypeName PSObject
+    $Item | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+    $Item | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
+    $Item | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
+    $Item | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $(if ($RegData -ge 1) { "WSUS server enabled." } else { "WSUS server not enabled." })
+    $ArrayOfResults += $Item
+
+    if (($null -eq $RegData) -or ($RegData -lt 1)) { $Vulnerable = $false }
 
     $RegKey = "HKLM\Software\Policies\Microsoft\Windows\WindowsUpdate"
     $RegValue = "SetProxyBehaviorForUpdateDetection"
     $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
 
-    $WsusProxybehavior = $RegData
+    $Item = New-Object -TypeName PSObject
+    $Item | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+    $Item | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
+    $Item | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
+    $Item | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $(if ($RegData -ge 1) { "Fallback to user proxy is enabled." } else { "Proxy fallback not configured." })
+    $ArrayOfResults += $Item
 
     $RegKey = "HKLM\Software\Policies\Microsoft\Windows\WindowsUpdate"
     $RegValue = "DisableWindowsUpdateAccess"
     $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
 
-    $DisableWindowsUpdateAccess = $RegData
+    $Item = New-Object -TypeName PSObject
+    $Item | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+    $Item | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
+    $Item | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $regData) { "(null)" } else { $RegData })
+    $Item | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $(if ($RegData -ge 1) { "Windows update is disabled." } else { "Windows Update not disabled." })
+    $ArrayOfResults += $Item
 
-    if (($WusUrl -like "http://*") -and ($WusEnabled -eq 1)) {
+    if ($RegData -ge 1) { $Vulnerable = $false }
 
-        $Result = New-Object -TypeName PSObject
-        $Result | Add-Member -MemberType "NoteProperty" -Name "WUServer" -Value $WusUrl
-        $Result | Add-Member -MemberType "NoteProperty" -Name "UseWUServer" -Value $WusEnabled
-        $Result | Add-Member -MemberType "NoteProperty" -Name "SetProxyBehaviorForUpdateDetection" -Value $(if ($null -eq $WsusProxybehavior) { "(null)" } else { $WsusProxybehavior })
-        $Result | Add-Member -MemberType "NoteProperty" -Name "DisableWindowsUpdateAccess" -Value $(if ($null -eq $DisableWindowsUpdateAccess) { "(null)" } else { $DisableWindowsUpdateAccess })
-        $Result
-    }
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { [SeverityLevel]::None })
+    $Result
 }
 
 function Invoke-HardenedUNCPathCheck {
@@ -346,6 +388,8 @@ function Invoke-HardenedUNCPathCheck {
     Description : Hardened UNC path is not configured.
 
     .NOTES
+    Hardened UNC paths ensure that the communication between a client and a Domain Controller cannot be tampered with, so this setting only applies to domain-joined machines. If the current machine is not domain-joined, return immediately.
+
     References:
       * https://support.microsoft.com/en-us/topic/ms15-011-vulnerability-in-group-policy-could-allow-remote-code-execution-february-10-2015-91b4bda2-945d-455b-ebbb-01d1ec191328
       * https://github.com/SecureAuthCorp/impacket/blob/master/examples/karmaSMB.py
@@ -353,101 +397,108 @@ function Invoke-HardenedUNCPathCheck {
       * https://beyondsecurity.com/scan-pentest-network-vulnerabilities-in-group-policy-allows-code-execution-ms15-011.html
     #>
 
-    [CmdletBinding()] Param()
+    [CmdletBinding()] Param(
+        [SeverityLevel] $BaseSeverity
+    )
 
-    # Hardened UNC paths ensure that the communication between a client and a Domain Controller
-    # cannot be tampered with, so this setting only applies to domain-joined machines. If the
-    # current machine is not domain-joined, return immediately.
+    $Vulnerable = $false
+    $ArrayOfResults = @()
 
     if (-not (Test-IsDomainJoined)) {
-        return
-    }
-
-    $OsVersionMajor = (Get-WindowsVersion).Major
-
-    $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows\NetworkProvider\HardenedPaths"
-
-    if ($OsVersionMajor -ge 10) {
-
-        # If Windows >= 10, paths are "hardened" by default. Therefore, the "HardenedPaths" registry
-        # key should not contain any value. If it contain values, ensure that protections were not
-        # explicitely disabled.
-
-        Get-Item -Path "Registry::$RegKey" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty property | ForEach-Object {
-
-            $RegValue = $_
-            $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
-            Write-Verbose "Value: $($RegValue) - Data: $($RegData)"
-
-            $Vulnerable = $false
-            $Description = ""
-
-            if ($RegData -like "*RequireMutualAuthentication=0*") {
-                $Vulnerable = $true
-                $Description = "$($Description)Mutual authentication is disabled. "
-            }
-
-            if ($RegData -like "*RequireIntegrity=0*") {
-                $Vulnerable = $true
-                $Description = "$($Description)Integrity mode is disabled. "
-            }
-
-            if ($RegData -like "*RequirePrivacy=0*") {
-                $Vulnerable = $true
-                $Description = "$($Description)Privacy mode is disabled. "
-            }
-
-            if ($Vulnerable) {
-                $Result = New-Object -TypeName PSObject
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $RegData
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
-                $Result
-            }
-        }
+        $Description = "The machine is not domain-joined, this check is irrelevant."
+        $Results = New-Object -TypeName PSObject
+        $Results | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
     }
     else {
+        $OsVersionMajor = (Get-WindowsVersion).Major
 
-        # If Windows < 10, paths are not hardened by default. Therefore, the "HardenedPaths" registry
-        # should contain at least two entries, as per Microsoft recommendations. One for SYSVOL and one
-        # for NETLOGON: '\\*\SYSVOL' and '\\*\NETLOGON'. However, a list of server would be valid as
-        # as well. Here, we will only ensure that both '\\*\SYSVOL' and '\\*\NETLOGON' are properly
-        # configured though.
-
-        $RegValues = @("\\*\SYSVOL", "\\*\NETLOGON")
-        foreach ($RegValue in $RegValues) {
-
-            $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
-            $Vulnerable = $false
-            $Description = ""
-
-            if ($null -eq $RegData) {
-                $Vulnerable = $true
-                $Description = "Hardened UNC path is not configured."
-            }
-            else {
-                if (-not ($RegData -like "*RequireMutualAuthentication=1*")) {
+        $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows\NetworkProvider\HardenedPaths"
+    
+        if ($OsVersionMajor -ge 10) {
+    
+            # If Windows >= 10, paths are "hardened" by default. Therefore, the "HardenedPaths" registry
+            # key should not contain any value. If it contain values, ensure that protections were not
+            # explicitely disabled.
+    
+            Get-Item -Path "Registry::$RegKey" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty property | ForEach-Object {
+    
+                $RegValue = $_
+                $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+                Write-Verbose "Value: $($RegValue) - Data: $($RegData)"
+    
+                $Description = ""
+    
+                if ($RegData -like "*RequireMutualAuthentication=0*") {
                     $Vulnerable = $true
-                    $Description = "$($Description)Mutual authentication is not enabled. "
+                    $Description = "$($Description)Mutual authentication is disabled. "
                 }
-
-                if ((-not ($RegData -like "*RequireIntegrity=1*")) -and (-not ($RegData -like "*RequirePrivacy=1*"))) {
+    
+                if ($RegData -like "*RequireIntegrity=0*") {
                     $Vulnerable = $true
-                    $Description = "$($Description)Integrity/privacy mode is not enabled. "
+                    $Description = "$($Description)Integrity mode is disabled. "
+                }
+    
+                if ($RegData -like "*RequirePrivacy=0*") {
+                    $Vulnerable = $true
+                    $Description = "$($Description)Privacy mode is disabled. "
+                }
+    
+                if ($Vulnerable) {
+                    $Result = New-Object -TypeName PSObject
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $RegData
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+                    $ArrayOfResults += $Result
                 }
             }
-
-            if ($Vulnerable) {
-                $Result = New-Object -TypeName PSObject
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $RegData
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
-                $Result
+        }
+        else {
+    
+            # If Windows < 10, paths are not hardened by default. Therefore, the "HardenedPaths" registry
+            # should contain at least two entries, as per Microsoft recommendations. One for SYSVOL and one
+            # for NETLOGON: '\\*\SYSVOL' and '\\*\NETLOGON'. However, a list of server would be valid as
+            # as well. Here, we will only ensure that both '\\*\SYSVOL' and '\\*\NETLOGON' are properly
+            # configured though.
+    
+            $RegValues = @("\\*\SYSVOL", "\\*\NETLOGON")
+            foreach ($RegValue in $RegValues) {
+    
+                $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+                $Description = ""
+    
+                if ($null -eq $RegData) {
+                    $Vulnerable = $true
+                    $Description = "Hardened UNC path is not configured."
+                }
+                else {
+                    if (-not ($RegData -like "*RequireMutualAuthentication=1*")) {
+                        $Vulnerable = $true
+                        $Description = "$($Description)Mutual authentication is not enabled. "
+                    }
+    
+                    if ((-not ($RegData -like "*RequireIntegrity=1*")) -and (-not ($RegData -like "*RequirePrivacy=1*"))) {
+                        $Vulnerable = $true
+                        $Description = "$($Description)Integrity/privacy mode is not enabled. "
+                    }
+                }
+    
+                if ($Vulnerable) {
+                    $Result = New-Object -TypeName PSObject
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $RegData
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+                    $ArrayOfResults += $Result
+                }
             }
         }
     }
+
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { [SeverityLevel]::None })
+    $Result
 }
 
 function Invoke-SccmCacheFolderCheck {
@@ -465,9 +516,12 @@ function Invoke-SccmCacheFolderCheck {
     Report if the folder exists without checking if it is accessible.
     #>
 
-    [CmdletBinding()] param (
-        [switch]$Info = $false
+    [CmdletBinding()] Param (
+        [switch] $Info = $false,
+        [SeverityLevel] $BaseSeverity
     )
+
+    $ArrayOfResults = @()
 
     Get-SccmCacheFolder | ForEach-Object {
 
@@ -475,8 +529,15 @@ function Invoke-SccmCacheFolderCheck {
 
         Get-ChildItem -Path $_.FullName -ErrorAction SilentlyContinue -ErrorVariable ErrorGetChildItem | Out-Null
         if (-not $ErrorGetChildItem) {
-            $_
+            $ArrayOfResults += $_
         }
+    }
+
+    if (-not $Info) {
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { [SeverityLevel]::None })
+        $Result
     }
 }
 
@@ -492,12 +553,15 @@ function Invoke-DllHijackingCheck {
     First, it reads the system environment PATH from the registry. Then, for each entry, it checks whether the current user has write permissions.
     #>
 
-    [CmdletBinding()] Param()
+    [CmdletBinding()] Param(
+        [SeverityLevel] $BaseSeverity
+    )
 
     $RegKey = "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment"
     $RegValue = "Path"
     $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue).$RegValue
     $Paths = $RegData.Split(';') | ForEach-Object { $_.Trim() } | Where-Object { -not [String]::IsNullOrEmpty($_) }
+    $ArrayOfResults = @()
 
     foreach ($Path in $Paths) {
         $Path | Get-ModifiablePath -LiteralPaths | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) } | Foreach-Object {
@@ -506,9 +570,14 @@ function Invoke-DllHijackingCheck {
             $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $_.ModifiablePath
             $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $_.IdentityReference
             $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value $_.Permissions
-            $Result
+            $ArrayOfResults += $Result
         }
     }
+
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { [SeverityLevel]::None })
+    $Result
 }
 
 function Invoke-PointAndPrintConfigCheck {
@@ -556,64 +625,77 @@ function Invoke-PointAndPrintConfigCheck {
     Vulnerable  : False
     #>
 
-    [CmdletBinding()] param()
+    [CmdletBinding()] Param(
+        [SeverityLevel] $BaseSeverity
+    )
+
+    $ConfigVulnerable = $false
 
     # If the Print Spooler is not installed or is disabled, return immediately
     $Service = Get-ServiceList -FilterLevel 2 | Where-Object { $_.Name -eq "Spooler" }
     if (-not $Service -or ($Service.StartMode -eq "Disabled")) {
         Write-Verbose "The Print Spooler service is not installed or is disabled."
-        return
+        
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value "The Print Spooler service is disabled."
+
+        $ArrayOfResults = @($Result)
     }
-
-    $Config = Get-PointAndPrintConfiguration
-    $ConfigVulnerable = $false
-
-    if ($Config.RestrictDriverInstallationToAdministrators.Value -eq 0) {
-
-        # Printer driver installation is not restricted to administrators, the system
-        # could be vulnerable.
-
-        # From the KB article KB5005652:
-        # "Setting the value to 0 allows non-administrators to install signed and      
-        # unsigned drivers to a print server but does not override the Point and Print 
-        # Group Policy settings.
-        # Consequently, the Point and Print Restrictions Group Policy settings can 
-        # override this registry key setting to prevent non-administrators from
-        # installing signed and unsigned print drivers from a print server. Some
-        # administrators might set the value to 0 to allow non-admins to install and 
-        # update drivers after adding additional restrictions, including adding a policy
-        # setting that constrains where drivers can be installed from."
-
-        if (($Config.NoWarningNoElevationOnInstall.Value -eq 1) -or ($Config.UpdatePromptSettings.Value -ge 1)) {
-            
-            # Elevation prompts on install or update are disabled, so the system is vulnerable
-            # to CVE-2021-34527.
-
-            $ConfigVulnerable = $true
-        }
-        else {
-
-            # Elevation prompts are enabled both on install and update, but we still need
-            # to make sure that users can only connect to specific print servers.
-
-            if (($Config.TrustedServers.Value -eq 0) -or ($Config.PackagePointAndPrintServerList.Value -eq 0)) {
-
-                # At least one server list is not explictly defined, so the system could be
-                # vulnerable.
-
+    else {
+        $Config = Get-PointAndPrintConfiguration
+    
+        if ($Config.RestrictDriverInstallationToAdministrators.Value -eq 0) {
+    
+            # Printer driver installation is not restricted to administrators, the system
+            # could be vulnerable.
+    
+            # From the KB article KB5005652:
+            # "Setting the value to 0 allows non-administrators to install signed and      
+            # unsigned drivers to a print server but does not override the Point and Print 
+            # Group Policy settings.
+            # Consequently, the Point and Print Restrictions Group Policy settings can 
+            # override this registry key setting to prevent non-administrators from
+            # installing signed and unsigned print drivers from a print server. Some
+            # administrators might set the value to 0 to allow non-admins to install and 
+            # update drivers after adding additional restrictions, including adding a policy
+            # setting that constrains where drivers can be installed from."
+    
+            if (($Config.NoWarningNoElevationOnInstall.Value -eq 1) -or ($Config.UpdatePromptSettings.Value -ge 1)) {
+                
+                # Elevation prompts on install or update are disabled, so the system is vulnerable
+                # to CVE-2021-34527.
+    
                 $ConfigVulnerable = $true
             }
+            else {
+    
+                # Elevation prompts are enabled both on install and update, but we still need
+                # to make sure that users can only connect to specific print servers.
+    
+                if (($Config.TrustedServers.Value -eq 0) -or ($Config.PackagePointAndPrintServerList.Value -eq 0)) {
+    
+                    # At least one server list is not explictly defined, so the system could be
+                    # vulnerable.
+    
+                    $ConfigVulnerable = $true
+                }
+            }
         }
+    
+        $ArrayOfResults = @(
+            $Config.RestrictDriverInstallationToAdministrators,
+            $Config.NoWarningNoElevationOnInstall,
+            $Config.UpdatePromptSettings,
+            $Config.TrustedServers,
+            $Config.PackagePointAndPrintServerList,
+            $Config.ServerList
+        )
     }
 
-    if ($ConfigVulnerable) {
-        $Config.RestrictDriverInstallationToAdministrators
-        $Config.NoWarningNoElevationOnInstall
-        $Config.UpdatePromptSettings
-        $Config.TrustedServers
-        $Config.PackagePointAndPrintServerList
-        $Config.ServerList
-    }
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ConfigVulnerable) { $BaseSeverity } else { [SeverityLevel]::None })
+    $Result
 }
 
 function Invoke-DriverCoInstallersCheck {
@@ -636,22 +718,25 @@ function Invoke-DriverCoInstallersCheck {
     Description : CoInstallers are not disabled (default).
     #>
 
-    [CmdletBinding()] param()
+    [CmdletBinding()] Param(
+        [SeverityLevel] $BaseSeverity
+    )
 
     $RegKey = "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Device Installer"
     $RegValue = "DisableCoInstallers"
     $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
 
-    # Driver Co-Installers are disabled
-    if ($RegData -ge 1) {
-        Write-Verbose "Driver Co-installers are disabled."
-        return
-    }
+    $Vulnerable = $false
+    $Description = $(if ($RegData -ge 1) { "Driver Co-installers are disabled." } else { "Driver Co-installers are enabled (default)."; $Vulnerable = $true })
 
+    $Config = New-Object -TypeName PSObject
+    $Config | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+    $Config | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
+    $Config | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
+    $Config | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+    
     $Result = New-Object -TypeName PSObject
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value "Driver Co-installers are not disabled (default)."
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Config
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { [SeverityLevel]::None })
     $Result
 }

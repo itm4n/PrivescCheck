@@ -44,7 +44,9 @@ function Invoke-ModifiableProgramsCheck {
     C:\Program Files\VulnApp\foobar.dll DESKTOP-FEOHNOM\user {WriteOwner, Delete, WriteAttributes, Synchronize...}
     #>
 
-    [CmdletBinding()] Param()
+    [CmdletBinding()] Param(
+        [SeverityLevel] $BaseSeverity
+    )
 
     BEGIN {
         $SystemPaths = @()
@@ -72,6 +74,7 @@ function Invoke-ModifiableProgramsCheck {
 
     PROCESS {
         $Items = Get-InstalledPrograms -Filtered
+        $ArrayOfResults = @()
 
         foreach ($Item in $Items) {
     
@@ -105,11 +108,16 @@ function Invoke-ModifiableProgramsCheck {
 
                 foreach ($Path in $ModifiablePaths) {
                     if ($Path.ModifiablePath -eq $_.FullName) {
-                        $Path
+                        $ArrayOfResults += $Path
                     }
                 }
             }
         }
+
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { [SeverityLevel]::None })
+        $Result
     }
 }
 
@@ -193,12 +201,13 @@ function Invoke-ApplicationsOnStartupCheck {
     #>
 
     [CmdletBinding()] Param(
-        [switch]$Info = $false
+        [switch] $Info = $false,
+        [SeverityLevel] $BaseSeverity
     )
 
-    # Is it relevant to check HKCU entries???
-    #[String[]]$RegistryPaths = "HKLM\Software\Microsoft\Windows\CurrentVersion\Run", "HKLM\Software\Microsoft\Windows\CurrentVersion\RunOnce", "HKCU\Software\Microsoft\Windows\CurrentVersion\Run", "HKCU\Software\Microsoft\Windows\CurrentVersion\RunOnce"
-    [String[]]$RegistryPaths = "HKLM\Software\Microsoft\Windows\CurrentVersion\Run", "HKLM\Software\Microsoft\Windows\CurrentVersion\RunOnce"
+    $ArrayOfResults = @()
+
+    [string[]]$RegistryPaths = "HKLM\Software\Microsoft\Windows\CurrentVersion\Run", "HKLM\Software\Microsoft\Windows\CurrentVersion\RunOnce"
 
     $RegistryPaths | ForEach-Object {
 
@@ -230,7 +239,7 @@ function Invoke-ApplicationsOnStartupCheck {
                 $Result | Add-Member -MemberType "NoteProperty" -Name "IsModifiable" -Value $IsModifiable
 
                 if ($Info) { $Result; continue } # If Info, report directly and inspect the next value
-                if ($IsModifiable) { $Result } # If vulnerable, report
+                if ($IsModifiable) { $ArrayOfResults += $Result } # If vulnerable, report
             }
         }
     }
@@ -238,8 +247,7 @@ function Invoke-ApplicationsOnStartupCheck {
     $Root = (Get-Item -Path $env:windir).PSDrive.Root
 
     # We want to check only startup applications that affect all users
-    # [String[]]$FileSystemPaths = "\Users\All Users\Start Menu\Programs\Startup", "\Users\$env:USERNAME\Start Menu\Programs\Startup"
-    [String[]]$FileSystemPaths = "\Users\All Users\Start Menu\Programs\Startup"
+    [string[]]$FileSystemPaths = "\Users\All Users\Start Menu\Programs\Startup"
 
     $FileSystemPaths | ForEach-Object {
 
@@ -274,13 +282,20 @@ function Invoke-ApplicationsOnStartupCheck {
                     $Result | Add-Member -MemberType "NoteProperty" -Name "IsModifiable" -Value $IsModifiable
 
                     if ($Info) { $Result; continue } # If Info, report directly and inspect the next value
-                    if ($IsModifiable) { $Result } # If vulnerable, report
+                    if ($IsModifiable) { $ArrayOfResults += $Result } # If vulnerable, report
                 }
                 catch {
                     Write-Warning "$($MyInvocation.MyCommand) [ Failed to create Shortcut object from path: $($EntryPath)"
                 }
             }
         }
+    }
+
+    if (-not $Info) {
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { [SeverityLevel]::None })
+        $Result
     }
 }
 
@@ -328,18 +343,17 @@ function Invoke-RunningProcessCheck {
     #>
 
     [CmdletBinding()] Param(
-        [Switch]$Self = $false
+        [switch] $Self = $false
     )
 
     $CurrentUser = $CurrentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
 
-    $IgnoredProcessNames = @("Idle", "services", "Memory Compression", "TrustedInstaller", "PresentationFontCache", "Registry", "ServiceShell", "System",
-    "csrss", # Client/Server Runtime Subsystem
-    "dwm", # Desktop Window Manager
-    "msdtc", # Microsoft Distributed Transaction Coordinator
-    "smss", # Session Manager Subsystem
-    "svchost" # Service Host
-    )
+    # csrss -> Client/Server Runtime Subsystem
+    # dwm -> Desktop Window Manager
+    # msdtc -> Microsoft Distributed Transaction Coordinator
+    # smss -> Session Manager Subsystem
+    # svchost -> Service Host
+    $IgnoredProcessNames = @("Idle", "services", "Memory Compression", "TrustedInstaller", "PresentationFontCache", "Registry", "ServiceShell", "System", "csrss", "dwm", "msdtc", "smss", "svchost")
 
     $AllProcess = Get-Process
 

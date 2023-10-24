@@ -823,7 +823,7 @@ function Get-ModifiablePath {
 
             foreach ($CandidatePath in $($CandidatePaths | Sort-Object -Unique)) {
 
-                $CandidateItem = Get-Item -Path $CandidatePath -ErrorAction SilentlyContinue
+                $CandidateItem = Get-Item -Path $CandidatePath -Force -ErrorAction SilentlyContinue
                 if (-not $CandidateItem) { continue }
 
                 if ($CandidateItem -is [System.IO.DirectoryInfo]) {
@@ -898,6 +898,8 @@ function Get-ExploitableUnquotedPath {
         for ($i=0; $i -lt $SplitPathArray.Count; $i++) {
             $ConcatPathArray += $SplitPathArray[0..$i] -join ' '
         }
+
+        $CheckedPaths = @()
         
         foreach ($ConcatPath in $ConcatPathArray) {
     
@@ -911,11 +913,16 @@ function Get-ExploitableUnquotedPath {
             # Split-Path failed without throwing an exception, so ignore and continue.
             if ( $null -eq $BinFolder) { continue }
 
+            # If the current path was already checked, ignore it and continue.
+            if ($CheckedPaths -contains $BinFolder) { continue }
+
             # If the parent folder does not exist, ignore and continue.
             if ( -not (Test-Path -Path $BinFolder -ErrorAction SilentlyContinue) ) { continue }
 
             # The parent folder exists, check if it is modifiable.
             $ModifiablePaths = $BinFolder | Get-ModifiablePath | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
+
+            $CheckedPaths += $BinFolder
 
             foreach ($ModifiablePath in $ModifiablePaths) {
     
