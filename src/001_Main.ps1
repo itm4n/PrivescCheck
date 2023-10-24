@@ -326,7 +326,7 @@ function Write-CheckResult {
     )
 
     $IsVulnerabilityCheck = $BaseSeverity -ne [SeverityLevel]::None
-    $Severity = $(if ($CheckResult.Severity) { $Check.Severity} else { [SeverityLevel]::None })
+    $Severity = $(if ($CheckResult.Severity) { $CheckResult.Severity} else { [SeverityLevel]::None })
     $ResultOutput = "[*] Status:"
 
     if ($Severity -eq [SeverityLevel]::None) {
