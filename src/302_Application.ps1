@@ -45,7 +45,7 @@ function Invoke-ModifiableProgramsCheck {
     #>
 
     [CmdletBinding()] Param(
-        [SeverityLevel] $BaseSeverity
+        [UInt32] $BaseSeverity
     )
 
     BEGIN {
@@ -116,7 +116,7 @@ function Invoke-ModifiableProgramsCheck {
 
         $Result = New-Object -TypeName PSObject
         $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { [SeverityLevel]::None })
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { $SeverityLevelEnum::None })
         $Result
     }
 }
@@ -202,7 +202,7 @@ function Invoke-ApplicationsOnStartupCheck {
 
     [CmdletBinding()] Param(
         [switch] $Info = $false,
-        [SeverityLevel] $BaseSeverity
+        [UInt32] $BaseSeverity
     )
 
     $ArrayOfResults = @()
@@ -294,7 +294,7 @@ function Invoke-ApplicationsOnStartupCheck {
     if (-not $Info) {
         $Result = New-Object -TypeName PSObject
         $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { [SeverityLevel]::None })
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { $SeverityLevelEnum::None })
         $Result
     }
 }

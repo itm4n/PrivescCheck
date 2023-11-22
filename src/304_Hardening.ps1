@@ -361,7 +361,7 @@ function Invoke-UacCheck {
     #>
 
     [CmdletBinding()] Param(
-        [SeverityLevel] $BaseSeverity
+        [UInt32] $BaseSeverity
     )
 
     $ArrayOfResults = @()
@@ -435,7 +435,7 @@ function Invoke-UacCheck {
 
     $Result = New-Object -TypeName PSObject
     $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { [SeverityLevel]::None })
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $SeverityLevelEnum::None })
     $Result
 }
 
@@ -460,7 +460,7 @@ function Invoke-LapsCheck {
     #>
 
     [CmdletBinding()] Param(
-        [SeverityLevel] $BaseSeverity
+        [UInt32] $BaseSeverity
     )
 
     BEGIN {
@@ -502,7 +502,7 @@ function Invoke-LapsCheck {
 
         $Result = New-Object -TypeName PSObject
         $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Config
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { [SeverityLevel]::None })
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $SeverityLevelEnum::None })
         $Result
     }
 }
@@ -580,7 +580,7 @@ function Invoke-BitLockerCheck {
     #>
 
     [CmdletBinding()] Param(
-        [SeverityLevel] $BaseSeverity
+        [UInt32] $BaseSeverity
     )
 
     $MachineRole = Get-MachineRole
@@ -636,7 +636,7 @@ function Invoke-BitLockerCheck {
 
     $Result = New-Object -TypeName PSObject
     $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Config
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { [SeverityLevel]::None })
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $SeverityLevelEnum::None })
     $Result
 }
 
@@ -661,7 +661,7 @@ function Invoke-LsaProtectionCheck {
     #>
 
     [CmdletBinding()] Param(
-        [SeverityLevel] $BaseSeverity
+        [UInt32] $BaseSeverity
     )
 
     BEGIN {
@@ -697,7 +697,7 @@ function Invoke-LsaProtectionCheck {
         
         $Result = New-Object -TypeName PSObject
         $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Config
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { [SeverityLevel]::None })
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $SeverityLevelEnum::None })
         $Result
     }
 }
@@ -726,7 +726,7 @@ function Invoke-CredentialGuardCheck {
     #>
 
     [CmdletBinding()] Param(
-        [SeverityLevel] $BaseSeverity
+        [UInt32] $BaseSeverity
     )
 
     $Vulnerable = $false
@@ -737,29 +737,30 @@ function Invoke-CredentialGuardCheck {
 
     # This check requires the cmdlet Get-ComputerInfo, which is only available in PSv5.1+
     if (($PSVersionTable.PSVersion.Major -lt 5) -or (($PSVersionTable.PSVersion.Major -eq 5) -and ($PSVersionTable.PSVersion.Minor -lt 1))) {
-        Write-Warning "Incompatible PowerShell version detected: PSv$($PSVersionTable.PSVersion.Major).$($PSVersionTable.PSVersion.Minor)"
-        return
+        # Write-Warning "Incompatible PowerShell version detected: PSv$($PSVersionTable.PSVersion.Major).$($PSVersionTable.PSVersion.Minor)"
+        $Description = "Incompatible PowerShell version detected: PSv$($PSVersionTable.PSVersion.Major).$($PSVersionTable.PSVersion.Minor)"
     }
-
-    $ComputerInfo = Get-ComputerInfo
-    $ServicesConfigured = $ComputerInfo.DeviceGuardSecurityServicesConfigured
-    $ServicesRunning = $ComputerInfo.DeviceGuardSecurityServicesRunning
-    $IsConfigured = $ServicesConfigured -match "CredentialGuard"
-    $IsRunning = $ServicesRunning -match "CredentialGuard"
+    else {
+        $ComputerInfo = Get-ComputerInfo
+        $ServicesConfigured = $ComputerInfo.DeviceGuardSecurityServicesConfigured
+        $ServicesRunning = $ComputerInfo.DeviceGuardSecurityServicesRunning
+        $IsConfigured = $ServicesConfigured -match "CredentialGuard"
+        $IsRunning = $ServicesRunning -match "CredentialGuard"
+        
+        if ($IsConfigured) {
+            $Description = "Credential Guard is configured."
+        }
+        else {
+            $Description = "Credential Guard is not configured."
+        }
     
-    if ($IsConfigured) {
-        $Description = "Credential Guard is configured."
-    }
-    else {
-        $Description = "Credential Guard is not configured."
-    }
-
-    if ($IsRunning) {
-        $Description = "$($Description) Credential Guard is running."
-    }
-    else {
-        $Description = "$($Description) Credential Guard is not running."
-        $Vulnerable = $true
+        if ($IsRunning) {
+            $Description = "$($Description) Credential Guard is running."
+        }
+        else {
+            $Description = "$($Description) Credential Guard is not running."
+            $Vulnerable = $true
+        }
     }
 
     $Config = New-Object -TypeName PSObject
@@ -769,7 +770,7 @@ function Invoke-CredentialGuardCheck {
 
     $Result = New-Object -TypeName PSObject
     $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Config
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { [SeverityLevel]::None })
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $SeverityLevelEnum::None })
     $Result
 }
 
@@ -794,7 +795,7 @@ function Invoke-BiosModeCheck {
     #>
 
     [CmdletBinding()] Param(
-        [SeverityLevel] $BaseSeverity
+        [UInt32] $BaseSeverity
     )
 
     $Vulnerable = $false
@@ -824,6 +825,6 @@ function Invoke-BiosModeCheck {
 
     $Result = New-Object -TypeName PSObject
     $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { [SeverityLevel]::None })
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $SeverityLevelEnum::None })
     $Result
 }

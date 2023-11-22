@@ -1,10 +1,3 @@
-enum SeverityLevel {
-    None = 0
-    Low = 1
-    Medium = 2
-    High = 3
-}
-
 function Invoke-PrivescCheck {
     <#
     .SYNOPSIS
@@ -172,8 +165,9 @@ function Invoke-PrivescCheck {
         }
 
         # Run the check and store its output in a temp variable.
-        $BaseSeverity =  [SeverityLevel] $Check.Severity
+        $BaseSeverity = $Check.Severity -as $SeverityLevelEnum
         $CheckResult = Invoke-Check -Check $Check
+        $CheckResult.Severity = $CheckResult.Severity -as $SeverityLevelEnum
 
         if (-not $Silent) {
             # If the 'Silent' option was not specified, print a banner that shows some information about the
@@ -239,11 +233,11 @@ function Invoke-Check {
         [object] $Check
     )
 
-    $Check.Severity = [SeverityLevel] $Check.Severity
-    $IsVulnerabilityCheck = $Check.Severity -ne [SeverityLevel]::None
+    $Check.Severity = $Check.Severity -as $SeverityLevelEnum
+    $IsVulnerabilityCheck = $Check.Severity -ne $SeverityLevelEnum::None
 
     if ($IsVulnerabilityCheck) {
-        $Result = Invoke-Expression -Command "$($Check.Command) -BaseSeverity $([SeverityLevel] $Check.Severity)"
+        $Result = Invoke-Expression -Command "$($Check.Command) -BaseSeverity $([UInt32] $Check.Severity)"
         $Check | Add-Member -MemberType "NoteProperty" -Name "ResultRaw" -Value $Result.Result
         if ($Check.Severity) { $Check.Severity = $Result.Severity }
     }
@@ -322,14 +316,14 @@ function Write-CheckResult {
     [OutputType([string])]
     [CmdletBinding()] param(
         [object] $CheckResult,
-        [SeverityLevel] $BaseSeverity
+        [UInt32] $BaseSeverity
     )
 
-    $IsVulnerabilityCheck = $BaseSeverity -ne [SeverityLevel]::None
-    $Severity = $(if ($CheckResult.Severity) { $CheckResult.Severity} else { [SeverityLevel]::None })
+    $IsVulnerabilityCheck = $BaseSeverity -ne $SeverityLevelEnum::None
+    $Severity = $(if ($CheckResult.Severity) { $CheckResult.Severity} else { $SeverityLevelEnum::None }) -as $SeverityLevelEnum
     $ResultOutput = "[*] Status:"
 
-    if ($Severity -eq [SeverityLevel]::None) {
+    if ($Severity -eq $SeverityLevelEnum::None) {
         $ResultOutput += " Informational"
         if ($IsVulnerabilityCheck) {
             $ResultOutput += " (not vulnerable)"
@@ -363,7 +357,7 @@ function Write-TxtReport {
 
     $AllResults | ForEach-Object {
         Write-CheckBanner -Check $_ -Ascii
-        Write-CheckResult -CheckResult $_ -BaseSeverity $([SeverityLevel] $_.Severity)
+        Write-CheckResult -CheckResult $_ -BaseSeverity $($_.Severity)
     }
 }
 
@@ -522,13 +516,13 @@ $($JavaScript)
 function Get-SeverityColor {
 
     param (
-        [SeverityLevel] $Severity
+        [UInt32] $Severity
     )
 
-    switch ($Severity) {
-        $([SeverityLevel]::Low)    { "DarkCyan" }
-        $([SeverityLevel]::Medium) { "DarkYellow" }
-        $([SeverityLevel]::High)   { "Red" }
+    switch ($Severity -as $SeverityLevelEnum) {
+        $SeverityLevelEnum::Low    { "DarkCyan" }
+        $SeverityLevelEnum::Medium { "DarkYellow" }
+        $SeverityLevelEnum::High   { "Red" }
         default { Write-Warning "Get-SeverityColor > Unhandled severity level: $($Severity)" }
     }
 }
@@ -555,7 +549,7 @@ function Write-ShortReport {
 
     # Show only vulnerabilities, i.e. any finding that has a final severity of at 
     # least "low".
-    $AllVulnerabilities = $ResultArrayList | Where-Object { $_.Severity -ne [SeverityLevel]::None }
+    $AllVulnerabilities = $ResultArrayList | Where-Object { $_.Severity -ne $SeverityLevelEnum::None }
     $Categories = $AllVulnerabilities | Select-Object -ExpandProperty "Category" | Sort-Object -Unique
 
     if ($null -eq $AllVulnerabilities) {
@@ -565,18 +559,17 @@ function Write-ShortReport {
 
     foreach ($Category in $Categories) {
 
-        $SeveritySort = "High", "Medium", "Low"
-        $Vulnerabilities = $AllVulnerabilities | Where-Object { $_.Category -eq $Category } | Sort-Object { $SeveritySort.IndexOf($_.Severity) }
+        $Vulnerabilities = $AllVulnerabilities | Where-Object { $_.Category -eq $Category }
 
         Write-Host -ForegroundColor White " $($Category)"
 
         foreach ($Vulnerability in $Vulnerabilities) {
 
-            $SeverityColor = Get-SeverityColor -Severity $Vulnerability.Severity
+            $SeverityColor = Get-SeverityColor -Severity $($Vulnerability.Severity -as $SeverityLevelEnum)
 
             Write-Host -NoNewline -ForegroundColor White " -"
             Write-Host -NoNewLine " $($Vulnerability.DisplayName) $($RightwardsArrow)"
-            Write-Host -ForegroundColor $SeverityColor " $($Vulnerability.Severity)"
+            Write-Host -ForegroundColor $SeverityColor " $($Vulnerability.Severity -as $SeverityLevelEnum)"
         }
     }
 

@@ -161,7 +161,7 @@ function Invoke-ScheduledTasksImagePermissionsCheck {
     #>
 
     [CmdletBinding()] Param(
-        [SeverityLevel] $BaseSeverity
+        [UInt32] $BaseSeverity
     )
 
     $ArrayOfResults = @()
@@ -182,7 +182,7 @@ function Invoke-ScheduledTasksImagePermissionsCheck {
 
     $Result = New-Object -TypeName PSObject
     $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { [SeverityLevel]::None })
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { $SeverityLevelEnum::None })
     $Result
 }
 
@@ -216,7 +216,7 @@ function Invoke-ScheduledTasksUnquotedPathCheck {
     #>
 
     [CmdletBinding()] Param(
-        [SeverityLevel] $BaseSeverity
+        [UInt32] $BaseSeverity
     )
 
     $ArrayOfResults = @()
@@ -237,6 +237,6 @@ function Invoke-ScheduledTasksUnquotedPathCheck {
 
     $Result = New-Object -TypeName PSObject
     $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { [SeverityLevel]::None })
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { $SeverityLevelEnum::None })
     $Result
 }

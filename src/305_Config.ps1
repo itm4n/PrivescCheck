@@ -210,7 +210,7 @@ function Invoke-RegistryAlwaysInstallElevatedCheck {
     #>
 
     [CmdletBinding()] Param(
-        [SeverityLevel] $BaseSeverity
+        [UInt32] $BaseSeverity
     )
 
     $Vulnerable = $false
@@ -252,7 +252,7 @@ function Invoke-RegistryAlwaysInstallElevatedCheck {
     
     $Result = New-Object -TypeName PSObject
     $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Config
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { [SeverityLevel]::None })
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $SeverityLevelEnum::None })
     $Result
 }
 
@@ -288,7 +288,7 @@ function Invoke-WsusConfigCheck {
     #>
 
     [CmdletBinding()] Param(
-        [SeverityLevel] $BaseSeverity
+        [UInt32] $BaseSeverity
     )
 
     $Vulnerable = $true
@@ -347,7 +347,7 @@ function Invoke-WsusConfigCheck {
 
     $Result = New-Object -TypeName PSObject
     $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { [SeverityLevel]::None })
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $SeverityLevelEnum::None })
     $Result
 }
 
@@ -398,7 +398,7 @@ function Invoke-HardenedUNCPathCheck {
     #>
 
     [CmdletBinding()] Param(
-        [SeverityLevel] $BaseSeverity
+        [UInt32] $BaseSeverity
     )
 
     $Vulnerable = $false
@@ -497,7 +497,7 @@ function Invoke-HardenedUNCPathCheck {
 
     $Result = New-Object -TypeName PSObject
     $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { [SeverityLevel]::None })
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $SeverityLevelEnum::None })
     $Result
 }
 
@@ -518,7 +518,7 @@ function Invoke-SccmCacheFolderCheck {
 
     [CmdletBinding()] Param (
         [switch] $Info = $false,
-        [SeverityLevel] $BaseSeverity
+        [UInt32] $BaseSeverity
     )
 
     $ArrayOfResults = @()
@@ -536,7 +536,7 @@ function Invoke-SccmCacheFolderCheck {
     if (-not $Info) {
         $Result = New-Object -TypeName PSObject
         $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { [SeverityLevel]::None })
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { $SeverityLevelEnum::None })
         $Result
     }
 }
@@ -554,7 +554,7 @@ function Invoke-DllHijackingCheck {
     #>
 
     [CmdletBinding()] Param(
-        [SeverityLevel] $BaseSeverity
+        [UInt32] $BaseSeverity
     )
 
     $RegKey = "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment"
@@ -576,7 +576,7 @@ function Invoke-DllHijackingCheck {
 
     $Result = New-Object -TypeName PSObject
     $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { [SeverityLevel]::None })
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { $SeverityLevelEnum::None })
     $Result
 }
 
@@ -626,7 +626,7 @@ function Invoke-PointAndPrintConfigCheck {
     #>
 
     [CmdletBinding()] Param(
-        [SeverityLevel] $BaseSeverity
+        [UInt32] $BaseSeverity
     )
 
     $ConfigVulnerable = $false
@@ -694,7 +694,7 @@ function Invoke-PointAndPrintConfigCheck {
 
     $Result = New-Object -TypeName PSObject
     $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ConfigVulnerable) { $BaseSeverity } else { [SeverityLevel]::None })
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ConfigVulnerable) { $BaseSeverity } else { $SeverityLevelEnum::None })
     $Result
 }
 
@@ -719,7 +719,7 @@ function Invoke-DriverCoInstallersCheck {
     #>
 
     [CmdletBinding()] Param(
-        [SeverityLevel] $BaseSeverity
+        [UInt32] $BaseSeverity
     )
 
     $RegKey = "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Device Installer"
@@ -737,6 +737,6 @@ function Invoke-DriverCoInstallersCheck {
     
     $Result = New-Object -TypeName PSObject
     $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Config
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { [SeverityLevel]::None })
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $SeverityLevelEnum::None })
     $Result
 }

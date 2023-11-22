@@ -290,7 +290,7 @@ function Invoke-WlanProfilesCheck {
     #>
 
     [CmdletBinding()] Param(
-        [SeverityLevel] $BaseSeverity
+        [UInt32] $BaseSeverity
     )
 
     $ArrayOfResults = @()
@@ -352,7 +352,7 @@ function Invoke-WlanProfilesCheck {
 
     $Result = New-Object -TypeName PSObject
     $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { [SeverityLevel]::None })
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { $SeverityLevelEnum::None })
     $Result
 }
 
@@ -378,7 +378,7 @@ function Invoke-AirstrikeAttackCheck {
     #>
 
     [CmdletBinding()] Param(
-        [SeverityLevel] $BaseSeverity
+        [UInt32] $BaseSeverity
     )
 
     $Vulnerable = $false
@@ -421,7 +421,7 @@ function Invoke-AirstrikeAttackCheck {
 
     $Result = New-Object -TypeName PSObject
     $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Config
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { [SeverityLevel]::None })
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $SeverityLevelEnum::None })
     $Result
 }
 

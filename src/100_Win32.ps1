@@ -587,6 +587,13 @@ function Add-Win32Type {
 
 $Module = New-DynamicModule -ModuleName "WinApiModule"
 
+$SeverityLevelEnum = New-Enum $Module WinApiModule.SeverityLevel UInt32 @{
+    None                        = '0x00000000'
+    Low                         = '0x00000001'
+    Medium                      = '0x00000002'
+    High                        = '0x00000003'
+}
+
 $FileAccessRightsEnum = New-Enum $Module WinApiModule.FileAccessRightsEnum UInt32 @{
     # GenericRead                       = '0x80000000'
     # GenericWrite                      = '0x40000000'

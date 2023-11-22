@@ -188,7 +188,7 @@ function Invoke-HotFixCheck {
 
     [CmdletBinding()] Param(
         [switch] $Info,
-        [SeverityLevel] $BaseSeverity
+        [UInt32] $BaseSeverity
     )
 
     # Get the list of installed patches
@@ -211,6 +211,6 @@ function Invoke-HotFixCheck {
 
     $Result = New-Object -TypeName PSObject
     $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Results
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Results) { $BaseSeverity } else { [SeverityLevel]::None })
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Results) { $BaseSeverity } else { $SeverityLevelEnum::None })
     $Result
 }

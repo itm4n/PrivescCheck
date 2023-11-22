@@ -1,5 +1,11 @@
 # Changelog
 
+## 2023-11-22
+
+### Fixed
+
+- Restored PSv2 compatibility regarding severity level enumeration.
+
 ## 2023-09-03
 
 ### Changed
