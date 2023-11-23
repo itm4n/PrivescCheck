@@ -2,7 +2,7 @@
 
 This script aims to __enumerate common Windows configuration issues__ that can be leveraged for local privilege escalation. It also __gathers various information__ that might be useful for __exploitation__ and/or __post-exploitation__.
 
-You can find more information about PrivescCheck [here](INFORMATION.md).
+You can find more information about PrivescCheck [here](./info/INFORMATION.md).
 
 ## Use from a command prompt
 

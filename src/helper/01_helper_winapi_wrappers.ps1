@@ -852,3 +852,237 @@ function Get-SystemInformationExtendedHandles {
 
     [System.Runtime.InteropServices.Marshal]::FreeHGlobal($SystemHandlesPtr)
 }
+
+function Convert-PSidToStringSid {
+
+    [OutputType([String])]
+    [CmdletBinding()] Param(
+        [Parameter(Mandatory=$true)]
+        [IntPtr]$PSid
+    )
+
+    $StringSidPtr = [IntPtr]::Zero
+    $Success = $Advapi32::ConvertSidToStringSidW($PSid, [ref] $StringSidPtr)
+
+    if (-not $Success) {
+        $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+        Write-Verbose "ConvertSidToStringSidW - $([ComponentModel.Win32Exception] $LastError)"
+        return
+    }
+
+    $StringSid = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($StringSidPtr)
+    $Kernel32::LocalFree($StringSidPtr) | Out-Null
+
+    $StringSid
+}
+
+function Convert-PSidToNameAndType {
+
+    [CmdletBinding()] Param(
+        [Parameter(Mandatory=$true)]
+        [IntPtr]$PSid
+    )
+
+    $SidType = 0
+
+    $NameSize = 256
+    $Name = New-Object -TypeName System.Text.StringBuilder
+    $Name.EnsureCapacity(256) | Out-Null
+
+    $DomainSize = 256
+    $Domain = New-Object -TypeName System.Text.StringBuilder
+    $Domain.EnsureCapacity(256) | Out-Null
+
+    $Success = $Advapi32::LookupAccountSid($null, $PSid, $Name, [ref]$NameSize, $Domain, [ref]$DomainSize, [ref]$SidType)
+    if (-not $Success) {
+        $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+        Write-Verbose "LookupAccountSid - $([ComponentModel.Win32Exception] $LastError)"
+        return
+    }
+
+    if ([String]::IsNullOrEmpty($Domain)) {
+        $DisplayName = "$($Name)"
+    }
+    else {
+        $DisplayName = "$($Domain)\$($Name)"
+    }
+
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "DisplayName" -Value $DisplayName
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $Name
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Domain" -Value $Domain
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Type" -Value $SidType
+    $Result
+}
+
+function Convert-PSidToRid {
+
+    [CmdletBinding()] Param(
+        [Parameter(Mandatory=$true)]
+        [IntPtr]$PSid
+    )
+
+    $SubAuthorityCountPtr = $Advapi32::GetSidSubAuthorityCount($PSid)
+    $SubAuthorityCount = [Runtime.InteropServices.Marshal]::ReadByte($SubAuthorityCountPtr)
+    $SubAuthorityPtr = $Advapi32::GetSidSubAuthority($PSid, $SubAuthorityCount - 1)
+    $SubAuthority = [UInt32] [Runtime.InteropServices.Marshal]::ReadInt32($SubAuthorityPtr)
+    $SubAuthority
+}
+
+function Convert-DosDeviceToDevicePath {
+    <#
+    .SYNOPSIS
+    Helper - Convert a DOS device name (e.g. C:) to its device path
+
+    Author: @itm4n
+    License: BSD 3-Clause
+    
+    .DESCRIPTION
+    This function leverages the QueryDosDevice API to get the path of a DOS device (e.g. C: -> \Device\HarddiskVolume4)
+    
+    .PARAMETER DosDevice
+    A DOS device name such as C:
+    #>
+
+    [OutputType([String])]
+    [CmdletBinding()] Param(
+        [Parameter(Mandatory=$true)]
+        [String]$DosDevice
+    )
+
+    $TargetPathLen = 260
+    $TargetPathPtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($TargetPathLen * 2)
+    $TargetPathLen = $Kernel32::QueryDosDevice($DosDevice, $TargetPathPtr, $TargetPathLen)
+
+    if ($TargetPathLen -eq 0) {
+        [System.Runtime.InteropServices.Marshal]::FreeHGlobal($TargetPathPtr)
+        $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+        Write-Verbose "QueryDosDevice('$($DosDevice)') - $([ComponentModel.Win32Exception] $LastError)"
+        return
+    }
+
+    [System.Runtime.InteropServices.Marshal]::PtrToStringUni($TargetPathPtr)
+    [System.Runtime.InteropServices.Marshal]::FreeHGlobal($TargetPathPtr)
+}
+
+function Get-FileDacl {
+    <#
+    .SYNOPSIS
+    Get security information about a file.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This function leverages the Windows API to get some security information about a file, such as the owner and the DACL.
+
+    .PARAMETER Path
+    The path of a file such as "C:\Windows\win.ini", "\\.pipe\spoolss"
+
+    .EXAMPLE
+    PS C:\> Get-FileDacl -Path C:\Windows\win.ini
+
+    Path     : C:\Windows\win.ini
+    Owner    : NT AUTHORITY\SYSTEM
+    OwnerSid : S-1-5-18
+    Group    : NT AUTHORITY\SYSTEM
+    GroupSid : S-1-5-18
+    Access   : {System.Security.AccessControl.CommonAce, System.Security.AccessControl.CommonAce, System.Security.AccessCon
+            trol.CommonAce, System.Security.AccessControl.CommonAce...}
+    SDDL     : O:SYG:SYD:AI(A;ID;FA;;;SY)(A;ID;FA;;;BA)(A;ID;0x1200a9;;;BU)(A;ID;0x1200a9;;;AC)(A;ID;0x1200a9;;;S-1-15-2-2)
+
+    .EXAMPLE
+    PS C:\> Get-FileDacl -Path \\.\pipe\spoolss
+
+    Path     : \\.\pipe\spoolss
+    Owner    : NT AUTHORITY\SYSTEM
+    OwnerSid : S-1-5-18
+    Group    : NT AUTHORITY\SYSTEM
+    GroupSid : S-1-5-18
+    Access   : {System.Security.AccessControl.CommonAce, System.Security.AccessControl.CommonAce, System.Security.AccessControl.CommonAce, System.Security.AccessControl.CommonAce...}
+    SDDL     : O:SYG:SYD:(A;;0x100003;;;BU)(A;;0x1201bb;;;WD)(A;;0x1201bb;;;AN)(A;;FA;;;CO)(A;;FA;;;SY)(A;;FA;;;BA)
+    #>
+
+    [CmdletBinding()] Param(
+        [String]$Path
+    )
+
+    $DesiredAccess = $FileAccessRightsEnum::ReadControl
+    $ShareMode = 0x00000001 # FILE_SHARE_READ
+    $CreationDisposition = 3 # OPEN_EXISTING
+    $FlagsAndAttributes = 0x80 # FILE_ATTRIBUTE_NORMAL
+    $FileHandle = $Kernel32::CreateFile($Path, $DesiredAccess, $ShareMode, [IntPtr]::Zero, $CreationDisposition, $FlagsAndAttributes, [IntPtr]::Zero)
+
+    if ($FileHandle -eq [IntPtr]-1) {
+        $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+        Write-Verbose "CreateFile KO - $([ComponentModel.Win32Exception] $LastError)"
+        return
+    }
+
+    $ObjectType = 6 # SE_KERNEL_OBJECT
+    $SecurityInfo = 7 # DACL_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION | OWNER_SECURITY_INFORMATION
+    $SidOwnerPtr = [IntPtr]::Zero
+    $SidGroupPtr = [IntPtr]::Zero
+    $DaclPtr = [IntPtr]::Zero
+    $SaclPtr = [IntPtr]::Zero
+    $SecurityDescriptorPtr = [IntPtr]::Zero
+    $Result = $Advapi32::GetSecurityInfo($FileHandle, $ObjectType, $SecurityInfo, [ref]$SidOwnerPtr, [ref]$SidGroupPtr, [ref]$DaclPtr, [ref]$SaclPtr, [ref]$SecurityDescriptorPtr)
+
+    if ($Result -ne 0) {
+        $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+        Write-Verbose "GetSecurityInfo KO ($Result) - $([ComponentModel.Win32Exception] $LastError)"
+        $Kernel32::CloseHandle($FileHandle) | Out-Null
+        return
+    }
+
+    $OwnerSidString = Convert-PSidToStringSid -PSid $SidOwnerPtr
+    $OwnerSidInfo = Convert-PSidToNameAndType -PSid $SidOwnerPtr
+    $GroupSidString = Convert-PSidToStringSid -PSid $SidGroupPtr
+    $GroupSidInfo = Convert-PSidToNameAndType -PSid $SidGroupPtr
+
+    $SecurityDescriptorString = ""
+    $SecurityDescriptorStringLen = 0
+    $Success = $Advapi32::ConvertSecurityDescriptorToStringSecurityDescriptor($SecurityDescriptorPtr, 1, $SecurityInfo, [ref]$SecurityDescriptorString, [ref]$SecurityDescriptorStringLen)
+
+    if (-not $Success) {
+        $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+        Write-Verbose "ConvertSecurityDescriptorToStringSecurityDescriptor KO ($Result) - $([ComponentModel.Win32Exception] $LastError)"
+        $Kernel32::LocalFree($SecurityDescriptorPtr) | Out-Null
+        $Kernel32::CloseHandle($FileHandle) | Out-Null
+        return
+    }
+
+    $SecurityDescriptorNewPtr = [IntPtr]::Zero
+    $SecurityDescriptorNewSize = 0
+    $Success = $Advapi32::ConvertStringSecurityDescriptorToSecurityDescriptor($SecurityDescriptorString, 1, [ref]$SecurityDescriptorNewPtr, [ref]$SecurityDescriptorNewSize)
+
+    if (-not $Success) {
+        $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+        Write-Verbose "ConvertStringSecurityDescriptorToSecurityDescriptor KO ($Result) - $([ComponentModel.Win32Exception] $LastError)"
+        $Kernel32::LocalFree($SecurityDescriptorPtr) | Out-Null
+        $Kernel32::CloseHandle($FileHandle) | Out-Null
+        return
+    }
+
+    $SecurityDescriptorNewBytes = New-Object Byte[]($SecurityDescriptorNewSize)
+    for ($i = 0; $i -lt $SecurityDescriptorNewSize; $i++) {
+        $Offset = [IntPtr] ($SecurityDescriptorNewPtr.ToInt64() + $i)
+        $SecurityDescriptorNewBytes[$i] = [Runtime.InteropServices.Marshal]::ReadByte($Offset)
+    }
+
+    $RawSecurityDescriptor = New-Object Security.AccessControl.RawSecurityDescriptor -ArgumentList $SecurityDescriptorNewBytes, 0
+
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $Path
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Owner" -Value $OwnerSidInfo.DisplayName
+    $Result | Add-Member -MemberType "NoteProperty" -Name "OwnerSid" -Value $OwnerSidString
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Group" -Value $GroupSidInfo.DisplayName
+    $Result | Add-Member -MemberType "NoteProperty" -Name "GroupSid" -Value $GroupSidString
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Access" -Value $RawSecurityDescriptor.DiscretionaryAcl
+    $Result | Add-Member -MemberType "NoteProperty" -Name "SDDL" -Value $SecurityDescriptorString
+    $Result
+
+    $Kernel32::LocalFree($SecurityDescriptorNewPtr) | Out-Null
+    $Kernel32::LocalFree($SecurityDescriptorPtr) | Out-Null
+    $Kernel32::CloseHandle($FileHandle) | Out-Null
+}
