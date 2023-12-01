@@ -6,6 +6,10 @@
 
 - Check for SCCM Network Access Account credentials.
 
+### Changed
+
+- Updated build script to create a copy of 'PrivescCheck.ps1' at the root of the project.
+
 ## 2023-11-22
 
 ### Fixed

@@ -140,6 +140,14 @@ function Invoke-Build {
                 Write-Message -Type Success "Build successful, writing result to file '$($ScriptPath)'..."
                 $ScriptContent += "`n$(Get-ScriptLoader -Modules $Modules)"
                 $ScriptContent | Out-File -FilePath $ScriptPath -Encoding ascii
+
+                if ($BuildProfileName -eq "PrivescCheck") {
+                    # If the output script is PrivescCheck.ps1, copy the result at the root of the
+                    # project as well.
+                    $ScriptPath = Join-Path -Path $RootPath -ChildPath "$($ScriptFilename)"
+                    Write-Message -Type Info "Copying result to file '$($ScriptPath)'..."
+                    $ScriptContent | Out-File -FilePath $ScriptPath -Encoding ascii
+                }
             }
         }
     }
