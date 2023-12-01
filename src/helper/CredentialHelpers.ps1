@@ -535,3 +535,96 @@ function Get-ShadowCopies {
 
     [System.Runtime.InteropServices.Marshal]::FreeHGlobal($Buffer) | Out-Null
 }
+
+function Find-WmiCcmNaaCredentials {
+    <#
+    .SYNOPSIS
+    Search for NAA credentials in the WMI database.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+    
+    .DESCRIPTION
+    This cmdlet attempts to find SCCM Network Access Account credential blobs in the raw WMI data file 'OBJECTS.DATA'.
+    
+    .PARAMETER Path
+    The path of the WMI data file to parse. If null, the default system path is used.
+    
+    .EXAMPLE
+    PS C:\> Find-WmiCcmNaaCredentials | Format-List
+
+    NetworkAccessUsername : <PolicySecret Version="1"><![CDATA[0601000001000000D08...]]></PolicySecret>
+    NetworkAccessPassword : <PolicySecret Version="1"><![CDATA[0601000001000000D08...]]></PolicySecret>
+    
+    .NOTES
+    https://posts.specterops.io/the-phantom-credentials-of-sccm-why-the-naa-wont-die-332ac7aa1ab9
+    #>
+
+    [CmdletBinding()]
+    param (
+        [string] $Path
+    )
+    
+    begin {
+        $SanityCheck = $true
+
+        if ([string]::IsNullOrEmpty($Path)) {
+            $Path = Join-Path -Path $env:windir -ChildPath "System32\wbem\Repository\OBJECTS.DATA"
+        }
+
+        if (-not (Test-Path -Path $Path)) {
+            Write-Warning "File not found: $($Path)"
+            $SanityCheck = $false
+        }
+
+        $BasePattern = "CCM_NetworkAccessAccount"
+        $PolicyPatternBegin = "<PolicySecret"
+        $PolicyPatternEnd = "</PolicySecret>"
+    }
+    
+    process {
+        
+        if (-not $SanityCheck) { return }
+
+        $Candidates = Select-String -Path $Path -Pattern "$($BasePattern)`0`0$($PolicyPatternBegin)"
+        if ($null -eq $Candidates) { return }
+
+        foreach ($Candidate in $Candidates) {
+
+            # Find the offset of the XML start tag, and create a substring starting from
+            # this offset, to the end of the line.
+            $Line = $Candidate.Line
+            $Offset = $Line.IndexOf($BasePattern) + $BasePattern.Length + 2
+            $Line = $Line.SubString($Offset, $Line.Length - $Offset)
+            
+            # Find all occurrences of the XML start tag. For each one, find the XML end tag
+            # and extract a substring containing the PolicySecret entry.
+            $Offset = 0
+            $PolicySecrets = @()
+            while (($Offset = $Line.IndexOf($PolicyPatternBegin, $Offset)) -ge 0) {
+
+                $EndIndex = $Line.IndexOf($PolicyPatternEnd, $Offset)
+                if ($EndIndex -lt 0) {
+                    Write-Warning "Failed to find pattern '$($PolicyPatternEnd)'."
+                    break
+                }
+
+                $Length = $EndIndex + $PolicyPatternEnd.Length - $Offset
+                $Substring = $Line.SubString($Offset, $Length)
+                [string[]] $PolicySecrets += $Substring
+
+                $Offset += $PolicyPatternBegin.Length
+            }
+
+            if ($PolicySecrets.Count -ne 2) {
+                Write-Warning "PolicySecret count should be 2, but was $($PolicySecrets.Count)."
+                break
+            }
+
+            $Result = New-Object -TypeName PSObject
+            $Result | Add-Member -MemberType "NoteProperty" -Name "NetworkAccessUsername" -Value $PolicySecrets[1]
+            $Result | Add-Member -MemberType "NoteProperty" -Name "NetworkAccessPassword" -Value $PolicySecrets[0]
+            $Result
+        }
+    }
+}

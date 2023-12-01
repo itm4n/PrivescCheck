@@ -1,5 +1,11 @@
 # Changelog
 
+## 2023-12-03
+
+### Added
+
+- Check for SCCM Network Access Account credentials.
+
 ## 2023-11-22
 
 ### Fixed

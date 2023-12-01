@@ -788,3 +788,30 @@ function Invoke-UnattendFilesCheck {
     $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { $SeverityLevelEnum::None })
     $Result
 }
+
+function Invoke-CcmNaaCredentialsCheck {
+    <#
+    .SYNOPSIS
+    Check whether SCCM Network Access Account credentials are stored in the WMI database, within the CIM repository.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+    
+    .DESCRIPTION
+    The cmdlet simply invokes the Find-WmiCcmNaaCredentials command to get a list of locally stored SCCM NAA credentials.
+    #>
+
+    [CmdletBinding()]
+    param (
+        [UInt32] $BaseSeverity
+    )
+    
+    process {
+        $Entries = Find-WmiCcmNaaCredentials | Sort-Object -Unique
+
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Entries
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Entries) { $BaseSeverity } else { $SeverityLevelEnum::None })
+        $Result
+    }
+}
