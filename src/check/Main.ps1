@@ -420,11 +420,8 @@ for (var i=0; i<cells.length; i++) {
 
     // If a cell is too large, we need to make it scrollable. But 'td' elements are not
     // scrollable so, we need make it a 'div' first and apply the 'scroll' (c.f. CSS) style to make
-    // it scrollabale.
-    if (cells[i].offsetHeight > 200) {
-        cells[i].innerHTML = "<div class=\"scroll\">" + cells[i].innerHTML + "</div>";
-        console.log("Cells height is greater than 200");
-    }
+    // it scrollable.
+    cells[i].innerHTML = "<div class=\"scroll\">" + cells[i].innerHTML + "</div>";
 }
 "@
 
