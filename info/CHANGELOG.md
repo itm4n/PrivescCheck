@@ -2,6 +2,13 @@
 
 ## 2023-12-03
 
+### Fixed
+
+- In the HTML report, all cells containing raw output results are now scrollable.
+- Fixed result discrepancies caused by NTFS filesystem redirection when running from a 32-bit PowerShell.
+
+## 2023-12-03
+
 ### Added
 
 - Check for SCCM Network Access Account credentials.
