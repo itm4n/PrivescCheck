@@ -47,19 +47,9 @@ function Invoke-PrivescCheck {
         [string[]] $Format
     )
 
-    # Check wether the current process has admin privileges.
-    # The following check was taken from Pow*rUp.ps1
-    $IsAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")
-    if ($IsAdmin) {
-        if (-not $Force) {
-            Write-Warning "You are running this script as an administrator! Some checks will be automatically disabled."
-            Write-Warning "You can specify the '-Force' option to disable this warning message."
-            Start-Sleep -Seconds 10
-        }
-    }
-
-    # The following CSV data contains all the checks
-    $AllChecksCsv = @"
+    begin {
+        # The following CSV data contains all the checks
+        $AllChecksCsv = @"
 "Id",                             "Command",                                    "Category",                      "DisplayName",                         "Severity", "Format", "Extended", "RunIfAdmin", "Experimental", "Description"
 "USER_USER",                      "Invoke-UserCheck",                           "TA0043 - Reconnaissance",       "User identity",                       "None",     "List",   "False",    "True",       "False",        "Get information about the current user (name, domain name) and its access token (SID, integrity level, authentication ID)."
 "USER_GROUPS",                    "Invoke-UserGroupsCheck",                     "TA0043 - Reconnaissance",       "User groups",                         "None",     "Table",  "False",    "True",       "False",        "Get information about the groups the current user belongs to (name, type, SID)."
@@ -131,100 +121,115 @@ function Invoke-PrivescCheck {
 "MISC_LEAKED_HANDLES",            "Invoke-ExploitableLeakedHandlesCheck",       "TA0004 - Privilege Escalation", "Exploitable leaked handles",          "None",     "List",   "True",     "False",      "True",         "Check whether the current user has access to a process that contains a leaked handle to a privileged object such as a process, thread or file."
 "@
 
-    # Reset all global ArrayLists on startup
-    $global:CachedServiceList.Clear()
-    $global:CachedHotFixList.Clear()
-    $global:CachedScheduledTaskList.Clear()
-    $global:ResultArrayList.Clear()
+        # Check wether the current process has admin privileges.
+        # The following check was taken from Pow*rUp.ps1
+        $IsAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")
+        if ($IsAdmin) {
+            if (-not $Force) {
+                Write-Warning "You are running this script as an administrator! Some checks will be automatically disabled. You can specify the '-Force' option to disable this warning message."
+                Start-Sleep -Seconds 10
+            }
+        }
 
-    $AllChecks = New-Object System.Collections.ArrayList
+        # Reset all global ArrayLists on startup
+        $global:CachedServiceList.Clear()
+        $global:CachedHotFixList.Clear()
+        $global:CachedScheduledTaskList.Clear()
+        $global:ResultArrayList.Clear()
 
-    # Load default checks
-    $AllChecksCsv | ConvertFrom-Csv | ForEach-Object {
-        [void] $AllChecks.Add($_)
+        $AllChecks = New-Object System.Collections.ArrayList
     }
 
-    $CheckCounter = 0
-    foreach ($Check in $AllChecks) {
-
-        $CheckCounter += 1
-        $RunIfAdminCheck = [System.Convert]::ToBoolean($Check.RunIfAdmin)
-        $ExtendedCheck = [System.Convert]::ToBoolean($Check.Extended)
-        $ExperimentalCheck = [System.Convert]::ToBoolean($Check.Experimental)
-
-        # If the current user is an admin but the check's RunIfAdmin flag was not set to true, ignore it.
-        if ($IsAdmin -and (-not $RunIfAdminCheck)) { continue }
-
-        # If it's an extended check but the Extended switch was not set to true, ignore it.
-        if ($ExtendedCheck -and (-not $Extended)) { continue }
-
-        # If it's an experimental check but the Experimental switch was not set to true, ignore it.
-        if ($ExperimentalCheck -and (-not $Experimental)) { continue }
-
-        if (-not $Silent) {
-            Write-CheckBanner -Check $Check
+    process {
+        # Load default checks
+        $AllChecksCsv | ConvertFrom-Csv | ForEach-Object {
+            [void] $AllChecks.Add($_)
         }
 
-        # Run the check and store its output in a temp variable.
-        $BaseSeverity = $Check.Severity -as $SeverityLevelEnum
-        $CheckResult = Invoke-Check -Check $Check
-        $CheckResult.Severity = $CheckResult.Severity -as $SeverityLevelEnum
+        $CheckCounter = 0
+        foreach ($Check in $AllChecks) {
 
-        if (-not $Silent) {
-            # If the 'Silent' option was not specified, print a banner that shows some information about the
-            # current check. Then, run the check and print the output either as a table or a list, depending on
-            # the 'Format' value in the CSV data.
-            Write-CheckResult -CheckResult $CheckResult -BaseSeverity $BaseSeverity
-        }
-        else {
-            # If the 'Silent' option was specified, don't print the output of the check but write a progress bar
-            # and show the name of the check which is being run. Note: if we are not running in a console window
-            # Write-Progress will fail, so use Write-Output to print the completion percentage instead.
-            $Completion = [UInt32](($CheckCounter * 100) / ($AllChecks.Count))
+            $CheckCounter += 1
+            $RunIfAdminCheck = [System.Convert]::ToBoolean($Check.RunIfAdmin)
+            $ExtendedCheck = [System.Convert]::ToBoolean($Check.Extended)
+            $ExperimentalCheck = [System.Convert]::ToBoolean($Check.Experimental)
 
-            if (Test-IsRunningInConsole) {
-                Write-Progress -Activity "$($Check.Category.ToUpper()) > $($Check.DisplayName)" -Status "Progress: $($Completion)%" -PercentComplete $Completion
+            # If the current user is an admin but the check's RunIfAdmin flag was not set to true, ignore it.
+            if ($IsAdmin -and (-not $RunIfAdminCheck)) { continue }
+
+            # If it's an extended check but the Extended switch was not set to true, ignore it.
+            if ($ExtendedCheck -and (-not $Extended)) { continue }
+
+            # If it's an experimental check but the Experimental switch was not set to true, ignore it.
+            if ($ExperimentalCheck -and (-not $Experimental)) { continue }
+
+            if (-not $Silent) {
+                Write-CheckBanner -Check $Check
+            }
+
+            # Run the check and store its output in a temp variable.
+            $BaseSeverity = $Check.Severity -as $SeverityLevelEnum
+            $CheckResult = Invoke-Check -Check $Check
+            $CheckResult.Severity = $CheckResult.Severity -as $SeverityLevelEnum
+
+            if (-not $Silent) {
+                # If the 'Silent' option was not specified, print a banner that shows some information about the
+                # current check. Then, run the check and print the output either as a table or a list, depending on
+                # the 'Format' value in the CSV data.
+                Write-CheckResult -CheckResult $CheckResult -BaseSeverity $BaseSeverity
             }
             else {
-                Write-Output "[$($Completion)%] $($Check.Category.ToUpper()) > $($Check.DisplayName)"
+                # If the 'Silent' option was specified, don't print the output of the check but write a progress bar
+                # and show the name of the check which is being run. Note: if we are not running in a console window
+                # Write-Progress will fail, so use Write-Output to print the completion percentage instead.
+                $Completion = [UInt32](($CheckCounter * 100) / ($AllChecks.Count))
+
+                if (Test-IsRunningInConsole) {
+                    Write-Progress -Activity "$($Check.Category.ToUpper()) > $($Check.DisplayName)" -Status "Progress: $($Completion)%" -PercentComplete $Completion
+                }
+                else {
+                    Write-Output "[$($Completion)%] $($Check.Category.ToUpper()) > $($Check.DisplayName)"
+                }
+            }
+        }
+
+        # Print a report on the terminal as an 'ASCII-art' table with colors using 'Write-Host'. Therefore,
+        # this will be only visible if run from a 'real' terminal.
+        # Show-PrivescCheckAsciiReport
+        Write-ShortReport
+
+        # If the 'Report' option was specified, write a report to a file using the value of this parameter
+        # as the basename (or path + basename). The extension is then determined based on the chosen
+        # format(s).
+        if ($Report) {
+
+            if (-not $Format) {
+                # If a format or a format list was not specified, default to the TXT format.
+                [string[]] $Format = "TXT"
+            }
+
+            $Format | ForEach-Object {
+                # For each format, build the name of the output report file as BASENAME + . + EXT. Then generate the
+                # report corresponding to the current format and write it to a file using the previously formatted
+                # filename.
+                $ReportFileName = "$($Report.Trim()).$($_.ToLower())"
+                switch ($_) {
+                    "TXT"   { Write-TxtReport  -AllResults $ResultArrayList | Out-File $ReportFileName }
+                    "HTML"  { Write-HtmlReport -AllResults $ResultArrayList | Out-File $ReportFileName }
+                    "CSV"   { Write-CsvReport  -AllResults $ResultArrayList | Out-File $ReportFileName }
+                    "XML"   { Write-XmlReport  -AllResults $ResultArrayList | Out-File $ReportFileName }
+                    default { Write-Warning "`nReport format not implemented: $($Format.ToUpper())`n" }
+                }
             }
         }
     }
 
-    # Print a report on the terminal as an 'ASCII-art' table with colors using 'Write-Host'. Therefore,
-    # this will be only visible if run from a 'real' terminal.
-    # Show-PrivescCheckAsciiReport
-    Write-ShortReport
-
-    # If the 'Report' option was specified, write a report to a file using the value of this parameter
-    # as the basename (or path + basename). The extension is then determined based on the chosen
-    # format(s).
-    if ($Report) {
-
-        if (-not $Format) {
-            # If a format or a format list was not specified, default to the TXT format.
-            [string[]] $Format = "TXT"
+    end {
+        # If the 'Extended' mode was not specified, print a warning message, unless the 'Force' parameter
+        # was specified.
+        if ((-not $Extended) -and (-not $Force) -and (-not $Silent)) {
+            Write-Warning "To get more info, run this script with the option '-Extended'."
         }
-
-        $Format | ForEach-Object {
-            # For each format, build the name of the output report file as BASENAME + . + EXT. Then generate the
-            # report corresponding to the current format and write it to a file using the previously formatted
-            # filename.
-            $ReportFileName = "$($Report.Trim()).$($_.ToLower())"
-            switch ($_) {
-                "TXT"   { Write-TxtReport  -AllResults $ResultArrayList | Out-File $ReportFileName }
-                "HTML"  { Write-HtmlReport -AllResults $ResultArrayList | Out-File $ReportFileName }
-                "CSV"   { Write-CsvReport  -AllResults $ResultArrayList | Out-File $ReportFileName }
-                "XML"   { Write-XmlReport  -AllResults $ResultArrayList | Out-File $ReportFileName }
-                default { Write-Warning "`nReport format not implemented: $($Format.ToUpper())`n" }
-            }
-        }
-    }
-
-    # If the 'Extended' mode was not specified, print a warning message, unless the 'Force' parameter
-    # was specified.
-    if ((-not $Extended) -and (-not $Force) -and (-not $Silent)) {
-        Write-Warning "To get more info, run this script with the option '-Extended'."
     }
 }
 

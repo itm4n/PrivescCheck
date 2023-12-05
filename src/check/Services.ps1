@@ -127,60 +127,68 @@ function Invoke-ServicesUnquotedPathCheck {
         [UInt32] $BaseSeverity
     )
 
-    # Get all services which have a non-empty ImagePath (exclude drivers as well)
-    $Services = Get-ServiceList -FilterLevel 2
-    Write-Verbose "Enumerating $($Services.Count) services..."
+    begin {
+        # Get all services which have a non-empty ImagePath (exclude drivers as well)
+        $Services = Get-ServiceList -FilterLevel 2
+        $ArrayOfResults = @()
+        $FsRedirectionValue = Disable-Wow64FileSystemRedirection
+    }
 
-    $ArrayOfResults = @()
+    process {
+        Write-Verbose "Enumerating $($Services.Count) services..."
+        foreach ($Service in $Services) {
 
-    foreach ($Service in $Services) {
-
-        $ImagePath = $Service.ImagePath.trim()
-
-        if ($Info) {
-
-            if (-not ([String]::IsNullOrEmpty($(Get-UnquotedPath -Path $ImagePath -Spaces)))) {
-                $Service | Select-Object Name,DisplayName,User,ImagePath,StartMode
+            $ImagePath = $Service.ImagePath.trim()
+    
+            if ($Info) {
+    
+                if (-not ([String]::IsNullOrEmpty($(Get-UnquotedPath -Path $ImagePath -Spaces)))) {
+                    $Service | Select-Object Name,DisplayName,User,ImagePath,StartMode
+                }
+    
+                # If Info, return the result without checking if the path is vulnerable
+                continue
             }
-
-            # If Info, return the result without checking if the path is vulnerable
-            continue
+    
+            Get-ExploitableUnquotedPath -Path $ImagePath | ForEach-Object {
+    
+                $Status = "Unknown"
+                $UserCanStart = $false
+                $UserCanStop = $false
+    
+                $ServiceObject = Get-Service -Name $Service.Name -ErrorAction SilentlyContinue
+                if ($ServiceObject) {
+                    $Status = $ServiceObject | Select-Object -ExpandProperty "Status"
+                    $ServiceCanStart = Test-ServiceDaclPermission -Name $Service.Name -Permissions 'Start'
+                    if ($ServiceCanStart) { $UserCanStart = $true } else { $UserCanStart = $false }
+                    $ServiceCanStop = Test-ServiceDaclPermission -Name $Service.Name -Permissions 'Stop'
+                    if ($ServiceCanStop) { $UserCanStop = $true } else { $UserCanStop = $false }
+                }
+    
+                $Result = New-Object -TypeName PSObject
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $Service.Name
+                $Result | Add-Member -MemberType "NoteProperty" -Name "ImagePath" -Value $Service.ImagePath
+                $Result | Add-Member -MemberType "NoteProperty" -Name "User" -Value $Service.User
+                $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $_.ModifiablePath
+                $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $_.IdentityReference
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value ($_.Permissions -join ", ")
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $Status
+                $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStart" -Value $UserCanStart
+                $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStop" -Value $UserCanStop
+                $ArrayOfResults += $Result
+            }
         }
-
-        Get-ExploitableUnquotedPath -Path $ImagePath | ForEach-Object {
-
-            $Status = "Unknown"
-            $UserCanStart = $false
-            $UserCanStop = $false
-
-            $ServiceObject = Get-Service -Name $Service.Name -ErrorAction SilentlyContinue
-            if ($ServiceObject) {
-                $Status = $ServiceObject | Select-Object -ExpandProperty "Status"
-                $ServiceCanStart = Test-ServiceDaclPermission -Name $Service.Name -Permissions 'Start'
-                if ($ServiceCanStart) { $UserCanStart = $true } else { $UserCanStart = $false }
-                $ServiceCanStop = Test-ServiceDaclPermission -Name $Service.Name -Permissions 'Stop'
-                if ($ServiceCanStop) { $UserCanStop = $true } else { $UserCanStop = $false }
-            }
-
+    
+        if (-not $Info) {
             $Result = New-Object -TypeName PSObject
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $Service.Name
-            $Result | Add-Member -MemberType "NoteProperty" -Name "ImagePath" -Value $Service.ImagePath
-            $Result | Add-Member -MemberType "NoteProperty" -Name "User" -Value $Service.User
-            $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $_.ModifiablePath
-            $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $_.IdentityReference
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value ($_.Permissions -join ", ")
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $Status
-            $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStart" -Value $UserCanStart
-            $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStop" -Value $UserCanStop
-            $ArrayOfResults += $Result
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { $SeverityLevelEnum::None })
+            $Result
         }
     }
 
-    if (-not $Info) {
-        $Result = New-Object -TypeName PSObject
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { $SeverityLevelEnum::None })
-        $Result
+    end {
+        Restore-Wow64FileSystemRedirection -OldValue $FsRedirectionValue
     }
 }
 
@@ -213,45 +221,53 @@ function Invoke-ServicesImagePermissionsCheck {
         [UInt32] $BaseSeverity
     )
 
-    $Services = Get-ServiceList -FilterLevel 2
-    Write-Verbose "Enumerating $($Services.Count) services..."
-
-    $ArrayOfResults = @()
-    
-    foreach ($Service in $Services) {
-
-        $Service.ImagePath | Get-ModifiablePath | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) } | Foreach-Object {
-
-            $Status = "Unknown"
-            $UserCanStart = $false
-            $UserCanStop = $false
-            $ServiceObject = Get-Service -Name $Service.Name -ErrorAction SilentlyContinue
-            if ($ServiceObject) {
-                $Status = $ServiceObject | Select-Object -ExpandProperty "Status"
-                $ServiceCanStart = Test-ServiceDaclPermission -Name $Service.Name -Permissions 'Start'
-                if ($ServiceCanStart) { $UserCanStart = $true } else { $UserCanStart = $false }
-                $ServiceCanStop = Test-ServiceDaclPermission -Name $Service.Name -Permissions 'Stop'
-                if ($ServiceCanStop) { $UserCanStop = $true } else { $UserCanStop = $false }
-            }
-
-            $Result = New-Object -TypeName PSObject
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $Service.Name
-            $Result | Add-Member -MemberType "NoteProperty" -Name "ImagePath" -Value $Service.ImagePath
-            $Result | Add-Member -MemberType "NoteProperty" -Name "User" -Value $Service.User
-            $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $_.ModifiablePath
-            $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $_.IdentityReference
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value ($_.Permissions -join ", ")
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $Status
-            $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStart" -Value $UserCanStart
-            $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStop" -Value $UserCanStop
-            $ArrayOfResults += $Result
-        }
+    begin {
+        $Services = Get-ServiceList -FilterLevel 2
+        $ArrayOfResults = @()
+        $FsRedirectionValue = Disable-Wow64FileSystemRedirection
     }
 
-    $Result = New-Object -TypeName PSObject
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { $SeverityLevelEnum::None })
-    $Result
+    process {
+        Write-Verbose "Enumerating $($Services.Count) services..."
+        foreach ($Service in $Services) {
+
+            $Service.ImagePath | Get-ModifiablePath | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) } | Foreach-Object {
+    
+                $Status = "Unknown"
+                $UserCanStart = $false
+                $UserCanStop = $false
+                $ServiceObject = Get-Service -Name $Service.Name -ErrorAction SilentlyContinue
+                if ($ServiceObject) {
+                    $Status = $ServiceObject | Select-Object -ExpandProperty "Status"
+                    $ServiceCanStart = Test-ServiceDaclPermission -Name $Service.Name -Permissions 'Start'
+                    if ($ServiceCanStart) { $UserCanStart = $true } else { $UserCanStart = $false }
+                    $ServiceCanStop = Test-ServiceDaclPermission -Name $Service.Name -Permissions 'Stop'
+                    if ($ServiceCanStop) { $UserCanStop = $true } else { $UserCanStop = $false }
+                }
+    
+                $Result = New-Object -TypeName PSObject
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $Service.Name
+                $Result | Add-Member -MemberType "NoteProperty" -Name "ImagePath" -Value $Service.ImagePath
+                $Result | Add-Member -MemberType "NoteProperty" -Name "User" -Value $Service.User
+                $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $_.ModifiablePath
+                $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $_.IdentityReference
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value ($_.Permissions -join ", ")
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $Status
+                $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStart" -Value $UserCanStart
+                $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStop" -Value $UserCanStop
+                $ArrayOfResults += $Result
+            }
+        }
+    
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { $SeverityLevelEnum::None })
+        $Result
+    }
+
+    end {
+        Restore-Wow64FileSystemRedirection -OldValue $FsRedirectionValue
+    }
 }
 
 function Invoke-ServicesPermissionsCheck {
@@ -435,32 +451,42 @@ function Invoke-ThirdPartyDriversCheck {
 
     [CmdletBinding()] Param()
 
-    Get-DriverList | ForEach-Object {
+    begin {
+        $FsRedirectionValue = Disable-Wow64FileSystemRedirection
+    }
 
-        $ImageFile = Get-Item -Path $_.ImagePathResolved -ErrorAction SilentlyContinue
+    process {
+        Get-DriverList | ForEach-Object {
 
-        if ($null -ne $ImageFile) {
-
-            if (-not (Test-IsMicrosoftFile -File $ImageFile)) {
-
-                $ServiceObject = Get-Service -Name $_.Name -ErrorAction SilentlyContinue
-                if ($null -eq $ServiceObject) { Write-Warning "Failed to query service $($_.Name)"; continue }
-        
-                $VersionInfo = $ImageFile | Select-Object -ExpandProperty VersionInfo
-
-                $Result = $_ | Select-Object Name,ImagePath,StartMode,Type
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $(if ($ServiceObject) { $ServiceObject.Status} else { "Unknown" })
-                $Result | Add-Member -MemberType "NoteProperty" -Name "ProductName" -Value $(if ($VersionInfo.ProductName) { $VersionInfo.ProductName.trim() } else { "Unknown" })
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Company" -Value $(if ($VersionInfo.CompanyName) { $VersionInfo.CompanyName.trim() } else { "Unknown" })
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $(if ($VersionInfo.FileDescription) { $VersionInfo.FileDescription.trim() } else { "Unknown" })
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Version" -Value $(if ($VersionInfo.FileVersion) { $VersionInfo.FileVersion.trim() } else { "Unknown" })
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Copyright" -Value $(if ($VersionInfo.LegalCopyright) { $VersionInfo.LegalCopyright.trim() } else { "Unknown" })
-                $Result
+            $ImageFile = Get-Item -Path $_.ImagePathResolved -ErrorAction SilentlyContinue
+    
+            if ($null -ne $ImageFile) {
+    
+                if (-not (Test-IsMicrosoftFile -File $ImageFile)) {
+    
+                    $ServiceObject = Get-Service -Name $_.Name -ErrorAction SilentlyContinue
+                    if ($null -eq $ServiceObject) { Write-Warning "Failed to query service $($_.Name)"; continue }
+            
+                    $VersionInfo = $ImageFile | Select-Object -ExpandProperty VersionInfo
+    
+                    $Result = $_ | Select-Object Name,ImagePath,StartMode,Type
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $(if ($ServiceObject) { $ServiceObject.Status} else { "Unknown" })
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "ProductName" -Value $(if ($VersionInfo.ProductName) { $VersionInfo.ProductName.trim() } else { "Unknown" })
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "Company" -Value $(if ($VersionInfo.CompanyName) { $VersionInfo.CompanyName.trim() } else { "Unknown" })
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $(if ($VersionInfo.FileDescription) { $VersionInfo.FileDescription.trim() } else { "Unknown" })
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "Version" -Value $(if ($VersionInfo.FileVersion) { $VersionInfo.FileVersion.trim() } else { "Unknown" })
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "Copyright" -Value $(if ($VersionInfo.LegalCopyright) { $VersionInfo.LegalCopyright.trim() } else { "Unknown" })
+                    $Result
+                }
+            }
+            else {
+                Write-Warning "Failed to open file: $($_.ImagePathResolved)"
             }
         }
-        else {
-            Write-Warning "Failed to open file: $($_.ImagePathResolved)"
-        }
+    }
+
+    end {
+        Restore-Wow64FileSystemRedirection -OldValue $FsRedirectionValue
     }
 }
 

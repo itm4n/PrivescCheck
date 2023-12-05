@@ -218,46 +218,56 @@ function Get-ServiceList {
         $FilterLevel
     )
 
-    if ($CachedServiceList.Count -eq 0) {
-
-        # If the cached service list hasn't been initialized yet, enumerate all services and populate the
-        # cache.
-
-        $ServicesRegPath = "HKLM\SYSTEM\CurrentControlSet\Services"
-        $RegAllServices = Get-ChildItem -Path "Registry::$($ServicesRegPath)" -ErrorAction SilentlyContinue
-
-        $RegAllServices | ForEach-Object { [void]$CachedServiceList.Add((Get-ServiceFromRegistry -Name $_.PSChildName)) }
+    begin {
+        $FsRedirectionValue = Disable-Wow64FileSystemRedirection
     }
 
-    foreach ($ServiceItem in $CachedServiceList) {
+    process {
+        if ($CachedServiceList.Count -eq 0) {
 
-        # FilterLevel = 0 - Add the service to the list and go to the next one
-        if ($FilterLevel -eq 0) { $ServiceItem; continue }
-
-        if ($ServiceItem.ImagePath -and (-not [String]::IsNullOrEmpty($ServiceItem.ImagePath.trim()))) {
-
-            # FilterLevel = 1 - Add the service to the list of its ImagePath is not empty
-            if ($FilterLevel -le 1) { $ServiceItem; continue }
-
-            # Ignore services with no explicit type
-            if ($null -eq $ServiceItem.Type) {
-                Write-Warning "Service $($ServiceItem.Name) has no type"
-                continue
-            }
-
-            $TypeMask = $ServiceTypeEnum::Win32OwnProcess -bor $ServiceTypeEnum::Win32ShareProcess -bor $ServiceTypeEnum::InteractiveProcess
-            if (($ServiceItem.Type -band $TypeMask) -gt 0) {
-
-                # FilterLevel = 2 - Add the service to the list if it's not a driver
-                if ($FilterLevel -le 2) { $ServiceItem; continue }
-
-                if (-not (Test-IsKnownService -Service $ServiceItem)) {
-
-                    # FilterLevel = 3 - Add the service if it's not a built-in Windows service
-                    if ($FilterLevel -le 3) { $ServiceItem; continue }
+            # If the cached service list hasn't been initialized yet, enumerate all services and populate the
+            # cache.
+    
+            $ServicesRegPath = "HKLM\SYSTEM\CurrentControlSet\Services"
+            $RegAllServices = Get-ChildItem -Path "Registry::$($ServicesRegPath)" -ErrorAction SilentlyContinue
+    
+            $RegAllServices | ForEach-Object { [void]$CachedServiceList.Add((Get-ServiceFromRegistry -Name $_.PSChildName)) }
+        }
+    
+        foreach ($ServiceItem in $CachedServiceList) {
+    
+            # FilterLevel = 0 - Add the service to the list and go to the next one
+            if ($FilterLevel -eq 0) { $ServiceItem; continue }
+    
+            if ($ServiceItem.ImagePath -and (-not [String]::IsNullOrEmpty($ServiceItem.ImagePath.trim()))) {
+    
+                # FilterLevel = 1 - Add the service to the list of its ImagePath is not empty
+                if ($FilterLevel -le 1) { $ServiceItem; continue }
+    
+                # Ignore services with no explicit type
+                if ($null -eq $ServiceItem.Type) {
+                    Write-Warning "Service $($ServiceItem.Name) has no type"
+                    continue
+                }
+    
+                $TypeMask = $ServiceTypeEnum::Win32OwnProcess -bor $ServiceTypeEnum::Win32ShareProcess -bor $ServiceTypeEnum::InteractiveProcess
+                if (($ServiceItem.Type -band $TypeMask) -gt 0) {
+    
+                    # FilterLevel = 2 - Add the service to the list if it's not a driver
+                    if ($FilterLevel -le 2) { $ServiceItem; continue }
+    
+                    if (-not (Test-IsKnownService -Service $ServiceItem)) {
+    
+                        # FilterLevel = 3 - Add the service if it's not a built-in Windows service
+                        if ($FilterLevel -le 3) { $ServiceItem; continue }
+                    }
                 }
             }
         }
+    }
+
+    end {
+        Restore-Wow64FileSystemRedirection -OldValue $FsRedirectionValue
     }
 }
 
@@ -570,7 +580,9 @@ function Resolve-DriverImagePath {
 
 function Get-DriverList {
 
-    [CmdletBinding()] param()
+    [CmdletBinding()] param(
+        
+    )
 
     if ($CachedDriverList.Count -eq 0) {
 
@@ -619,8 +631,9 @@ function Find-VulnerableDriver {
     )
 
     BEGIN {
-        Write-Verbose "Initiliazing list of vulnerable driver hashes..."
+        Write-Verbose "Initializing list of vulnerable driver hashes..."
         $VulnerableDriverHashes = Get-VulnerableDriverHashes
+        $FsRedirectionValue = Disable-Wow64FileSystemRedirection
     }
 
     PROCESS {
@@ -675,5 +688,9 @@ function Find-VulnerableDriver {
                 break
             }
         }
+    }
+
+    end {
+        Restore-Wow64FileSystemRedirection -OldValue $FsRedirectionValue
     }
 }

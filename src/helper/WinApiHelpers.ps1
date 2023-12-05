@@ -1086,3 +1086,78 @@ function Get-FileDacl {
     $Kernel32::LocalFree($SecurityDescriptorPtr) | Out-Null
     $Kernel32::CloseHandle($FileHandle) | Out-Null
 }
+
+function Disable-Wow64FileSystemRedirection {
+    <#
+    .SYNOPSIS
+    Disable filesystem redirection in Wow64 processes.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+    
+    .DESCRIPTION
+    This cmdlet invokes the Wow64DisableWow64FsRedirection API to temporarily disable file system redirection when running from a Wow64 PowerShell process.
+    
+    .NOTES
+    https://learn.microsoft.com/en-us/windows/win32/api/wow64apiset/nf-wow64apiset-wow64disablewow64fsredirection
+    #>
+
+    [CmdletBinding()]
+    param ()
+    
+    begin {
+        $OldValue = [IntPtr]::Zero
+    }
+    
+    process {
+        if ([IntPtr]::Size -eq 4) {
+            if ($Kernel32::Wow64DisableWow64FsRedirection([ref] $OldValue)) {
+                Write-Verbose "Wow64 file system redirection was disabled."
+            }
+            else {
+                $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+                Write-Warning "Wow64DisableWow64FsRedirection KO ($Result) - $([ComponentModel.Win32Exception] $LastError)"
+            }
+        }
+    }
+    
+    end {
+        $OldValue
+    }
+}
+
+function Restore-Wow64FileSystemRedirection {
+    <#
+    .SYNOPSIS
+    Restore filesystem redirection in Wow64 processes.
+    
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet invokes the Wow64RevertWow64FsRedirection API to re-enable file system redirection when running from a Wow64 PowerShell process.
+    
+    .PARAMETER OldValue
+    The value returned by Disable-Wow64FileSystemRedirection.
+    
+    .NOTES
+    https://learn.microsoft.com/en-us/windows/win32/api/wow64apiset/nf-wow64apiset-wow64revertwow64fsredirection
+    #>
+
+    [CmdletBinding()]
+    param (
+        [IntPtr] $OldValue
+    )
+        
+    process {
+        if ([IntPtr]::Size -eq 4) {
+            if ($Kernel32::Wow64RevertWow64FsRedirection($OldValue)) {
+                Write-Verbose "Wow64 file system redirection was restored."
+            }
+            else {
+                $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+                Write-Warning "Wow64RevertWow64FsRedirection KO ($Result) - $([ComponentModel.Win32Exception] $LastError)"
+            }
+        }
+    }
+}

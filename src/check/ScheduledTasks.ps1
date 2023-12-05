@@ -164,26 +164,35 @@ function Invoke-ScheduledTasksImagePermissionsCheck {
         [UInt32] $BaseSeverity
     )
 
-    $ArrayOfResults = @()
-
-    Get-ScheduledTaskList | Where-Object { -not $_.CurrentUserIsOwner } | ForEach-Object {
-
-        $CurrentTask = $_
-
-        $CurrentTask.Command | Get-ModifiablePath | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) } | ForEach-Object {
-
-            $Result = $CurrentTask.PsObject.Copy()
-            $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $_.ModifiablePath
-            $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $_.IdentityReference
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value $_.Permissions
-            $ArrayOfResults += $Result
-        }
+    begin {
+        $ArrayOfResults = @()
+        $FsRedirectionValue = Disable-Wow64FileSystemRedirection
     }
 
-    $Result = New-Object -TypeName PSObject
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { $SeverityLevelEnum::None })
-    $Result
+    process {
+        Get-ScheduledTaskList | Where-Object { -not $_.CurrentUserIsOwner } | ForEach-Object {
+
+            $CurrentTask = $_
+    
+            $CurrentTask.Command | Get-ModifiablePath | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) } | ForEach-Object {
+    
+                $Result = $CurrentTask.PsObject.Copy()
+                $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $_.ModifiablePath
+                $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $_.IdentityReference
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value $_.Permissions
+                $ArrayOfResults += $Result
+            }
+        }
+    
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { $SeverityLevelEnum::None })
+        $Result
+    }
+
+    end {
+        Restore-Wow64FileSystemRedirection -OldValue $FsRedirectionValue
+    }
 }
 
 function Invoke-ScheduledTasksUnquotedPathCheck {
@@ -219,24 +228,33 @@ function Invoke-ScheduledTasksUnquotedPathCheck {
         [UInt32] $BaseSeverity
     )
 
-    $ArrayOfResults = @()
-
-    Get-ScheduledTaskList | Where-Object { $_.CurrentUserIsOwner -eq $false} | ForEach-Object {
-
-        $CurrentTask = $_
-
-        Get-ExploitableUnquotedPath -Path $CurrentTask.Command | ForEach-Object {
-
-            $Result = $CurrentTask.PsObject.Copy()
-            $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $_.ModifiablePath
-            $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $_.IdentityReference
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value $_.Permissions
-            $ArrayOfResults += $Result
-        }
+    begin {
+        $ArrayOfResults = @()
+        $FsRedirectionValue = Disable-Wow64FileSystemRedirection
     }
 
-    $Result = New-Object -TypeName PSObject
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { $SeverityLevelEnum::None })
-    $Result
+    process {
+        Get-ScheduledTaskList | Where-Object { $_.CurrentUserIsOwner -eq $false} | ForEach-Object {
+    
+            $CurrentTask = $_
+    
+            Get-ExploitableUnquotedPath -Path $CurrentTask.Command | ForEach-Object {
+    
+                $Result = $CurrentTask.PsObject.Copy()
+                $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $_.ModifiablePath
+                $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $_.IdentityReference
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value $_.Permissions
+                $ArrayOfResults += $Result
+            }
+        }
+    
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { $SeverityLevelEnum::None })
+        $Result
+    }
+
+    end {
+        Restore-Wow64FileSystemRedirection -OldValue $FsRedirectionValue
+    }
 }

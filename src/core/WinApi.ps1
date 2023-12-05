@@ -39,6 +39,8 @@ $FunctionDefinitions = @(
     # (New-Function kernel32 Process32Next ([Bool]) @([IntPtr], [IntPtr]) -SetLastError -EntryPoint Process32Next),
     # (New-Function kernel32 Thread32First ([Bool]) @([IntPtr], [IntPtr]) -SetLastError -EntryPoint Thread32First),
     # (New-Function kernel32 Thread32Next ([Bool]) @([IntPtr], [IntPtr]) -SetLastError -EntryPoint Thread32Next),
+    (New-Function kernel32 Wow64DisableWow64FsRedirection ([Bool]) @([IntPtr].MakeByRefType()) ([Runtime.InteropServices.CallingConvention]::Winapi) -SetLastError -EntryPoint Wow64DisableWow64FsRedirection),
+    (New-Function kernel32 Wow64RevertWow64FsRedirection ([Bool]) @([IntPtr]) -SetLastError -EntryPoint Wow64RevertWow64FsRedirection),
 
     (New-Function ntdll RtlNtStatusToDosError ([UInt32]) @([UInt32]) -EntryPoint RtlNtStatusToDosError),
     (New-Function ntdll RtlInitUnicodeString ([IntPtr]) @($UNICODE_STRING.MakeByRefType(), [String]) -EntryPoint RtlInitUnicodeString),

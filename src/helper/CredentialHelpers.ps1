@@ -580,6 +580,8 @@ function Find-WmiCcmNaaCredentials {
         $BasePattern = "CCM_NetworkAccessAccount"
         $PolicyPatternBegin = "<PolicySecret"
         $PolicyPatternEnd = "</PolicySecret>"
+
+        $FsRedirectionValue = Disable-Wow64FileSystemRedirection
     }
     
     process {
@@ -626,5 +628,9 @@ function Find-WmiCcmNaaCredentials {
             $Result | Add-Member -MemberType "NoteProperty" -Name "NetworkAccessPassword" -Value $PolicySecrets[0]
             $Result
         }
+    }
+
+    end {
+        Restore-Wow64FileSystemRedirection -OldValue $FsRedirectionValue
     }
 }

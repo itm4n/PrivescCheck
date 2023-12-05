@@ -565,81 +565,91 @@ function Invoke-SensitiveHiveFileAccessCheck {
         [UInt32] $BaseSeverity
     )
 
-    $UserIdentity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
-    $CurrentUserSids = $UserIdentity.Groups | Select-Object -ExpandProperty Value
-    $CurrentUserSids += $UserIdentity.User.Value
+    begin {
+        $FsRedirectionValue = Disable-Wow64FileSystemRedirection
+    }
 
-    $TranslatedIdentityReferences = @{}
-
-    $ArrayOfPaths = New-Object System.Collections.ArrayList
-    [void]$ArrayOfPaths.Add($(Join-Path -Path $env:SystemRoot -ChildPath "repair\SAM"))
-    [void]$ArrayOfPaths.Add($(Join-Path -Path $env:SystemRoot -ChildPath "System32\config\RegBack\SAM"))
-    [void]$ArrayOfPaths.Add($(Join-Path -Path $env:SystemRoot -ChildPath "System32\config\SAM"))
-    [void]$ArrayOfPaths.Add($(Join-Path -Path $env:SystemRoot -ChildPath "repair\SYSTEM"))
-    [void]$ArrayOfPaths.Add($(Join-Path -Path $env:SystemRoot -ChildPath "System32\config\SYSTEM"))
-    [void]$ArrayOfPaths.Add($(Join-Path -Path $env:SystemRoot -ChildPath "System32\config\RegBack\SYSTEM"))
-    [void]$ArrayOfPaths.Add($(Join-Path -Path $env:SystemRoot -ChildPath "repair\SECURITY"))
-    [void]$ArrayOfPaths.Add($(Join-Path -Path $env:SystemRoot -ChildPath "System32\config\SECURITY"))
-    [void]$ArrayOfPaths.Add($(Join-Path -Path $env:SystemRoot -ChildPath "System32\config\RegBack\SECURITY"))
-
-    $ArrayOfResults = @()
-
-    foreach ($Path in [string[]] $ArrayOfPaths) {
-
-        try {
-            $Acl = Get-Acl -Path $Path -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Access
-            if ($null -eq $Acl) { Write-Verbose "ACL is null"; continue }
-
-            foreach ($Ace in $Acl) {
-
-                $PermissionReference = @(
-                    $FileAccessRightsEnum::ReadData
-                )
-
-                $Permissions = [enum]::GetValues($FileAccessRightsEnum) | Where-Object {
-                    ($Ace.FileSystemRights.value__ -band ($FileAccessRightsEnum::$_)) -eq ($FileAccessRightsEnum::$_)
-                }
-
-                if (Compare-Object -ReferenceObject $Permissions -DifferenceObject $PermissionReference -IncludeEqual -ExcludeDifferent) {
-
-                    if ($Ace.IdentityReference -notmatch '^S-1-5.*' -and $Ace.IdentityReference -notmatch '^S-1-15-.*') {
-                        if (-not ($TranslatedIdentityReferences[$Ace.IdentityReference])) {
-
-                            try {
-                                # translate the IdentityReference if it's a username and not a SID
-                                $IdentityUser = New-Object System.Security.Principal.NTAccount($Ace.IdentityReference)
-                                $TranslatedIdentityReferences[$Ace.IdentityReference] = $IdentityUser.Translate([System.Security.Principal.SecurityIdentifier]) | Select-Object -ExpandProperty Value
+    process {
+        $UserIdentity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
+        $CurrentUserSids = $UserIdentity.Groups | Select-Object -ExpandProperty Value
+        $CurrentUserSids += $UserIdentity.User.Value
+    
+        $TranslatedIdentityReferences = @{}
+    
+        $ArrayOfPaths = New-Object System.Collections.ArrayList
+        [void]$ArrayOfPaths.Add($(Join-Path -Path $env:SystemRoot -ChildPath "repair\SAM"))
+        [void]$ArrayOfPaths.Add($(Join-Path -Path $env:SystemRoot -ChildPath "System32\config\RegBack\SAM"))
+        [void]$ArrayOfPaths.Add($(Join-Path -Path $env:SystemRoot -ChildPath "System32\config\SAM"))
+        [void]$ArrayOfPaths.Add($(Join-Path -Path $env:SystemRoot -ChildPath "repair\SYSTEM"))
+        [void]$ArrayOfPaths.Add($(Join-Path -Path $env:SystemRoot -ChildPath "System32\config\SYSTEM"))
+        [void]$ArrayOfPaths.Add($(Join-Path -Path $env:SystemRoot -ChildPath "System32\config\RegBack\SYSTEM"))
+        [void]$ArrayOfPaths.Add($(Join-Path -Path $env:SystemRoot -ChildPath "repair\SECURITY"))
+        [void]$ArrayOfPaths.Add($(Join-Path -Path $env:SystemRoot -ChildPath "System32\config\SECURITY"))
+        [void]$ArrayOfPaths.Add($(Join-Path -Path $env:SystemRoot -ChildPath "System32\config\RegBack\SECURITY"))
+    
+        $ArrayOfResults = @()
+    
+        foreach ($Path in [string[]] $ArrayOfPaths) {
+    
+            try {
+                $Acl = Get-Acl -Path $Path -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Access
+                if ($null -eq $Acl) { Write-Verbose "ACL is null"; continue }
+    
+                foreach ($Ace in $Acl) {
+    
+                    $PermissionReference = @(
+                        $FileAccessRightsEnum::ReadData
+                    )
+    
+                    $Permissions = [enum]::GetValues($FileAccessRightsEnum) | Where-Object {
+                        ($Ace.FileSystemRights.value__ -band ($FileAccessRightsEnum::$_)) -eq ($FileAccessRightsEnum::$_)
+                    }
+    
+                    if (Compare-Object -ReferenceObject $Permissions -DifferenceObject $PermissionReference -IncludeEqual -ExcludeDifferent) {
+    
+                        if ($Ace.IdentityReference -notmatch '^S-1-5.*' -and $Ace.IdentityReference -notmatch '^S-1-15-.*') {
+                            if (-not ($TranslatedIdentityReferences[$Ace.IdentityReference])) {
+    
+                                try {
+                                    # translate the IdentityReference if it's a username and not a SID
+                                    $IdentityUser = New-Object System.Security.Principal.NTAccount($Ace.IdentityReference)
+                                    $TranslatedIdentityReferences[$Ace.IdentityReference] = $IdentityUser.Translate([System.Security.Principal.SecurityIdentifier]) | Select-Object -ExpandProperty Value
+                                }
+                                catch {
+                                    # If we cannot resolve the SID, go to the next ACE.
+                                    continue
+                                }
                             }
-                            catch {
-                                # If we cannot resolve the SID, go to the next ACE.
-                                continue
-                            }
+                            $IdentitySID = $TranslatedIdentityReferences[$Ace.IdentityReference]
                         }
-                        $IdentitySID = $TranslatedIdentityReferences[$Ace.IdentityReference]
-                    }
-                    else {
-                        $IdentitySID = $Ace.IdentityReference
-                    }
-
-                    if ($CurrentUserSids -contains $IdentitySID) {
-                        $Result = New-Object -TypeName PSObject
-                        $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $Path
-                        $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $Ace.IdentityReference
-                        $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value ($Permissions -join ", ")
-                        $ArrayOfResults += $Result
+                        else {
+                            $IdentitySID = $Ace.IdentityReference
+                        }
+    
+                        if ($CurrentUserSids -contains $IdentitySID) {
+                            $Result = New-Object -TypeName PSObject
+                            $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $Path
+                            $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $Ace.IdentityReference
+                            $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value ($Permissions -join ", ")
+                            $ArrayOfResults += $Result
+                        }
                     }
                 }
             }
+            catch {
+                $null = $_
+            }
         }
-        catch {
-            $null = $_
-        }
+    
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { $SeverityLevelEnum::None })
+        $Result
     }
 
-    $Result = New-Object -TypeName PSObject
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { $SeverityLevelEnum::None })
-    $Result
+    end {
+        Restore-Wow64FileSystemRedirection -OldValue $FsRedirectionValue
+    }
 }
 
 function Invoke-SensitiveHiveShadowCopyCheck {
@@ -676,13 +686,15 @@ function Invoke-SensitiveHiveShadowCopyCheck {
         [UInt32] $BaseSeverity
     )
 
-    BEGIN {
+    begin {
         $UserIdentity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
         $CurrentUserSids = $UserIdentity.Groups | Select-Object -ExpandProperty Value
         $CurrentUserSids += $UserIdentity.User.Value
+
+        $FsRedirectionValue = Disable-Wow64FileSystemRedirection
     }
 
-    PROCESS {
+    process {
         $ArrayOfResults = @()
 
         foreach($ShadowCopy in $(Get-ShadowCopies)) {
@@ -731,6 +743,10 @@ function Invoke-SensitiveHiveShadowCopyCheck {
         $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { $SeverityLevelEnum::None })
         $Result
     }
+
+    end {
+        Restore-Wow64FileSystemRedirection -OldValue $FsRedirectionValue
+    }
 }
 
 function Invoke-UnattendFilesCheck {
@@ -758,35 +774,45 @@ function Invoke-UnattendFilesCheck {
         [UInt32] $BaseSeverity
     )
 
-    $ArrayOfPaths = [string[]] @(
-        (Join-Path -Path $env:windir -ChildPath "Panther\Unattended.xml"),
-        (Join-Path -Path $env:windir -ChildPath "Panther\Unattend.xml"),
-        (Join-Path -Path $env:windir -ChildPath "Panther\Unattend\Unattended.xml"),
-        (Join-Path -Path $env:windir -ChildPath "Panther\Unattend\Unattend.xml"),
-        (Join-Path -Path $env:windir -ChildPath "System32\Sysprep\Unattend.xml"),
-        (Join-Path -Path $env:windir -ChildPath "System32\Sysprep\Panther\Unattend.xml")
-    )
-
-    $ArrayOfResults = @()
-
-    foreach ($Path in $ArrayOfPaths) {
-
-        if (Test-Path -Path $Path -ErrorAction SilentlyContinue) {
-
-            Write-Verbose "Found file: $Path"
-
-            $Result = Get-UnattendSensitiveData -Path $Path
-            if ($Result) {
-                $Result | Add-Member -MemberType "NoteProperty" -Name "File" -Value $Path
-                $ArrayOfResults += $Result
-            }
-        }
+    begin {
+        $FsRedirectionValue = Disable-Wow64FileSystemRedirection
     }
 
-    $Result = New-Object -TypeName PSObject
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { $SeverityLevelEnum::None })
-    $Result
+    process {
+        $ArrayOfPaths = [string[]] @(
+            (Join-Path -Path $env:windir -ChildPath "Panther\Unattended.xml"),
+            (Join-Path -Path $env:windir -ChildPath "Panther\Unattend.xml"),
+            (Join-Path -Path $env:windir -ChildPath "Panther\Unattend\Unattended.xml"),
+            (Join-Path -Path $env:windir -ChildPath "Panther\Unattend\Unattend.xml"),
+            (Join-Path -Path $env:windir -ChildPath "System32\Sysprep\Unattend.xml"),
+            (Join-Path -Path $env:windir -ChildPath "System32\Sysprep\Panther\Unattend.xml")
+        )
+    
+        $ArrayOfResults = @()
+    
+        foreach ($Path in $ArrayOfPaths) {
+    
+            if (Test-Path -Path $Path -ErrorAction SilentlyContinue) {
+    
+                Write-Verbose "Found file: $Path"
+    
+                $Result = Get-UnattendSensitiveData -Path $Path
+                if ($Result) {
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "File" -Value $Path
+                    $ArrayOfResults += $Result
+                }
+            }
+        }
+    
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { $SeverityLevelEnum::None })
+        $Result
+    }
+
+    end {
+        Restore-Wow64FileSystemRedirection -OldValue $FsRedirectionValue
+    }
 }
 
 function Invoke-CcmNaaCredentialsCheck {
