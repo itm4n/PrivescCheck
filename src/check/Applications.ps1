@@ -110,6 +110,7 @@ function Invoke-ModifiableProgramsCheck {
 
                 foreach ($Path in $ModifiablePaths) {
                     if ($Path.ModifiablePath -eq $_.FullName) {
+                        $Path.Permissions = ($Path.Permissions -join ', ')
                         $ArrayOfResults += $Path
                     }
                 }

@@ -7,6 +7,10 @@
 - The Point and Print check now also reports the "InForest" setting, that can be used as an alternative to "ServerList".
 - Another attempt at figuring out the vulnerable (Package) Point and Print configurations...
 
+### Changed
+
+- Improved readability of application permissions check by expanding the array of file system rights.
+
 ## 2023-12-05
 
 ### Fixed
