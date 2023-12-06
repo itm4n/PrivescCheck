@@ -1,6 +1,13 @@
 # Changelog
 
-## 2023-12-03
+## 2023-12-06
+
+### Fixed
+
+- The Point and Print check now also reports the "InForest" setting, that can be used as an alternative to "ServerList".
+- Another attempt at figuring out the vulnerable (Package) Point and Print configurations...
+
+## 2023-12-05
 
 ### Fixed
 
