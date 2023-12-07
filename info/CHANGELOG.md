@@ -1,5 +1,11 @@
 # Changelog
 
+## 2023-12-07
+
+### Changed
+
+- Complete refactor of the Credential Guard check to remove the dependency on the Get-ComputerInfo cmdlet, which is only available in PS > v5.1. Instead, the WMI database is directly queried, in addition to the registry settings.
+
 ## 2023-12-06
 
 ### Fixed
