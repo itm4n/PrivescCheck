@@ -1,3 +1,4 @@
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $SeverityLevelEnum = New-Enum $Module WinApiModule.SeverityLevel UInt32 @{
     None                                = '0x00000000'
     Low                                 = '0x00000001'
@@ -5,6 +6,7 @@ $SeverityLevelEnum = New-Enum $Module WinApiModule.SeverityLevel UInt32 @{
     High                                = '0x00000003'
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $FileAccessRightsEnum = New-Enum $Module WinApiModule.FileAccessRightsEnum UInt32 @{
     # GenericRead                       = '0x80000000'
     # GenericWrite                      = '0x40000000'
@@ -28,6 +30,7 @@ $FileAccessRightsEnum = New-Enum $Module WinApiModule.FileAccessRightsEnum UInt3
     ReadData                            = '0x00000001'
 } -Bitfield
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $ServiceAccessRightsEnum = New-Enum $Module WinApiModule.ServiceAccessRights UInt32 @{
     QueryConfig                         = '0x00000001'
     ChangeConfig                        = '0x00000002'
@@ -51,6 +54,7 @@ $ServiceAccessRightsEnum = New-Enum $Module WinApiModule.ServiceAccessRights UIn
     AllAccess                           = '0x000F01FF'
 } -Bitfield
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $ServiceControlManagerAccessRightsEnum = New-Enum $Module WinApiModule.ServiceControlManagerAccessRights UInt32 @{
     Connect                             = '0x00000001'
     CreateService                       = '0x00000002'
@@ -64,6 +68,7 @@ $ServiceControlManagerAccessRightsEnum = New-Enum $Module WinApiModule.ServiceCo
     GenericExecute                      = '0x00020009' # STANDARD_RIGHTS_EXECUTE | SC_MANAGER_CONNECT | SC_MANAGER_LOCK
 } -Bitfield
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $ProcessAccessRightsEnum = New-Enum $Module WinApiModule.ProcessAccessRights UInt32 @{
     TERMINATE                           = '0x00000001'
     CREATE_THREAD                       = '0x00000002'
@@ -83,6 +88,7 @@ $ProcessAccessRightsEnum = New-Enum $Module WinApiModule.ProcessAccessRights UIn
     SYNCHRONIZE                         = '0x00100000'
 } -Bitfield
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $TokenAccessRightsEnum = New-Enum $Module WinApiModule.TokenAccessRights UInt32 @{
     AssignPrimary                       = '0x00000001'
     Duplicate                           = '0x00000002'
@@ -102,6 +108,7 @@ $TokenAccessRightsEnum = New-Enum $Module WinApiModule.TokenAccessRights UInt32 
     AllAccess                           = '0x000f01ff'
 } -Bitfield
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $ServiceTypeEnum = New-Enum $Module WinApiModule.ServiceType UInt32 @{
     KernelDriver                        = '0x00000001'
     FileSystemDriver                    = '0x00000002'
@@ -120,6 +127,7 @@ $ServiceTypeEnum = New-Enum $Module WinApiModule.ServiceType UInt32 @{
     All                                 = '0x000003ff'
 } -Bitfield
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $ServiceStartTypeEnum = New-Enum $Module WinApiModule.ServiceStartType UInt32 @{
     Boot                                = '0x00000000'
     System                              = '0x00000001'
@@ -128,6 +136,7 @@ $ServiceStartTypeEnum = New-Enum $Module WinApiModule.ServiceStartType UInt32 @{
     Disabled                            = '0x00000004'
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $SID_NAME_USE = New-Enum $Module WinApiModule.SID_NAME_USE UInt32 @{
     User                                = '0x00000001'
     Group                               = '0x00000002'
@@ -142,6 +151,7 @@ $SID_NAME_USE = New-Enum $Module WinApiModule.SID_NAME_USE UInt32 @{
     LogonSession                        = '0x0000000B'
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $TOKEN_INFORMATION_CLASS = New-Enum $Module WinApiModule.TOKEN_INFORMATION_CLASS UInt32 @{
     TokenUser                           = '0x00000001'
     TokenGroups                         = '0x00000002'
@@ -194,11 +204,13 @@ $TOKEN_INFORMATION_CLASS = New-Enum $Module WinApiModule.TOKEN_INFORMATION_CLASS
     MaxTokenInfoClass                   = '0x00000032'
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $TOKEN_TYPE = New-Enum $Module WinApiModule.TOKEN_TYPE UInt32 @{
     TokenPrimary                        = '0x00000001'
     TokenImpersonation                  = '0x00000002'
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $SECURITY_IMPERSONATION_LEVEL = New-Enum $Module WinApiModule.SECURITY_IMPERSONATION_LEVEL UInt32 @{
     SecurityAnonymous                   = '0x00000001'
     SecurityIdentification              = '0x00000002'
@@ -206,6 +218,7 @@ $SECURITY_IMPERSONATION_LEVEL = New-Enum $Module WinApiModule.SECURITY_IMPERSONA
     SecurityDelegation                  = '0x00000004'
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $TCP_TABLE_CLASS = New-Enum $Module WinApiModule.TCP_TABLE_CLASS UInt32 @{
     TCP_TABLE_BASIC_LISTENER            = '0x00000000'
     TCP_TABLE_BASIC_CONNECTIONS         = '0x00000001'
@@ -218,12 +231,14 @@ $TCP_TABLE_CLASS = New-Enum $Module WinApiModule.TCP_TABLE_CLASS UInt32 @{
     TCP_TABLE_OWNER_MODULE_ALL          = '0x00000008'
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $UDP_TABLE_CLASS = New-Enum $Module WinApiModule.UDP_TABLE_CLASS UInt32 @{
     UDP_TABLE_BASIC                     = '0x00000000'
     UDP_TABLE_OWNER_PID                 = '0x00000001'
     UDP_TABLE_OWNER_MODULE              = '0x00000002'
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $WLAN_INTERFACE_STATE = New-Enum $Module WinApiModule.WLAN_INTERFACE_STATE UInt32 @{
     NotReady                            = '0x00000000'
     Connected                           = '0x00000001'
@@ -235,6 +250,7 @@ $WLAN_INTERFACE_STATE = New-Enum $Module WinApiModule.WLAN_INTERFACE_STATE UInt3
     Authenticating                      = '0x00000007'
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $ADS_USER_FLAGS = New-Enum $Module WinApiModule.ADS_USER_FLAGS UInt32 @{
     Script                              = '0x00000001'
     AccountDisable                      = '0x00000002'
@@ -259,6 +275,7 @@ $ADS_USER_FLAGS = New-Enum $Module WinApiModule.ADS_USER_FLAGS UInt32 @{
     TrustedToAuthenticateForDelegation  = '0x01000000'
 } -Bitfield
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $GROUP_TYPE_FLAGS = New-Enum $Module WinApiModule.GROUP_TYPE_FLAGS UInt32 @{
     BuiltinLocalGroup                   = '0x00000001'
     AccountGroup                        = '0x00000002'
@@ -269,6 +286,7 @@ $GROUP_TYPE_FLAGS = New-Enum $Module WinApiModule.GROUP_TYPE_FLAGS UInt32 @{
     SecurityEnabled                     = '0x80000000'
 } -Bitfield
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $CRED_TYPE = New-Enum $Module WinApiModule.CRED_TYPE UInt32 @{
     Generic                             = '0x00000001'
     DomainPassword                      = '0x00000002'
@@ -280,6 +298,7 @@ $CRED_TYPE = New-Enum $Module WinApiModule.CRED_TYPE UInt32 @{
     MaximumEx                           = '0x000003ef'
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $CRED_PERSIST = New-Enum $Module WinApiModule.CRED_PERSIST UInt32 @{
     Session                             = '0x00000001'
     LocalMachine                        = '0x00000002'
@@ -287,6 +306,7 @@ $CRED_PERSIST = New-Enum $Module WinApiModule.CRED_PERSIST UInt32 @{
 }
 
 # Custom enum, does not actually exist
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $IP_ADAPTER_FLAGS = New-Enum $Module WinApiModule.IP_ADAPTER_FLAGS UInt32 @{
     DdnsEnabled                         = '0x00000001'
     RegisterAdapterSuffix               = '0x00000002'
@@ -300,6 +320,7 @@ $IP_ADAPTER_FLAGS = New-Enum $Module WinApiModule.IP_ADAPTER_FLAGS UInt32 @{
     Ipv6ManagedAddressConfigurationSupported = '0x00000200'
 } -Bitfield
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $WTS_CONNECTSTATE_CLASS = New-Enum $Module WinApiModule.WTS_CONNECTSTATE_CLASS UInt32 @{
     Active                              = '0x00000000'
     Connected                           = '0x00000001'
@@ -313,6 +334,7 @@ $WTS_CONNECTSTATE_CLASS = New-Enum $Module WinApiModule.WTS_CONNECTSTATE_CLASS U
     Init                                = '0x00000009'
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $APD_FILE_COPY_FLAGS = New-Enum $Module WinApiModule.APD_FILE_COPY_FLAGS UInt32 @{
     APD_STRICT_UPGRADE                  = '0x00000001'
     APD_STRICT_DOWNGRADE                = '0x00000002'

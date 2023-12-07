@@ -1,41 +1,50 @@
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $LARGE_INTEGER = New-Structure $Module WinApiModule.LARGE_INTEGER @{
     LowPart                     = New-StructureField 0 UInt32
     HighPart                    = New-StructureField 1 Int32
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $LUID = New-Structure $Module WinApiModule.LUID @{
     LowPart                     = New-StructureField 0 UInt32
     HighPart                    = New-StructureField 1 Int32
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $SID_AND_ATTRIBUTES = New-Structure $Module WinApiModule.SID_AND_ATTRIBUTES @{
     Sid                         = New-StructureField 0 IntPtr
     Attributes                  = New-StructureField 1 UInt32
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $LUID_AND_ATTRIBUTES = New-Structure $Module WinApiModule.LUID_AND_ATTRIBUTES @{
     Luid                        = New-StructureField 0 $LUID
     Attributes                  = New-StructureField 1 UInt32
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $TOKEN_USER = New-Structure $Module WinApiModule.TOKEN_USER @{
     User                        = New-StructureField 0 $SID_AND_ATTRIBUTES
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $TOKEN_GROUPS = New-Structure $Module WinApiModule.TOKEN_GROUPS @{
     GroupCount                  = New-StructureField 0 UInt32
     Groups                      = New-StructureField 1 $SID_AND_ATTRIBUTES.MakeArrayType() -MarshalAs @('ByValArray', 1)
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $TOKEN_PRIVILEGES = New-Structure $Module WinApiModule.TOKEN_PRIVILEGES @{
     PrivilegeCount              = New-StructureField 0 UInt32
     Privileges                  = New-StructureField 1 $LUID_AND_ATTRIBUTES.MakeArrayType() -MarshalAs @('ByValArray', 1)
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $TOKEN_MANDATORY_LABEL = New-Structure $Module WinApiModule.TOKEN_MANDATORY_LABEL @{
     Label                       = New-StructureField 0 $SID_AND_ATTRIBUTES
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $TOKEN_STATISTICS = New-Structure $Module WinApiModule.TOKEN_STATISTICS @{
     TokenId                     = New-StructureField 0 $LUID
     AuthenticationId            = New-StructureField 1 $LUID
@@ -49,15 +58,18 @@ $TOKEN_STATISTICS = New-Structure $Module WinApiModule.TOKEN_STATISTICS @{
     ModifiedId                  = New-StructureField 9 $LUID
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $TOKEN_ORIGIN = New-Structure $Module WinApiModule.TOKEN_ORIGIN @{
     OriginatingLogonSession     = New-StructureField 0 $LUID
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $TOKEN_SOURCE = New-Structure $Module WinApiModule.TOKEN_SOURCE @{
     SourceName                  = New-StructureField 0 Byte[] -MarshalAs @('ByValArray', 8)
     SourceIdentifier            = New-StructureField 1 $LUID
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX = New-Structure $Module WinApiModule.SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX @{
     Object                      = New-StructureField 0 IntPtr
     UniqueProcessId             = New-StructureField 1 IntPtr
@@ -69,12 +81,14 @@ $SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX = New-Structure $Module WinApiModule.SYSTEM_H
     Reserved                    = New-StructureField 7 UInt32
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $SYSTEM_HANDLE_INFORMATION_EX = New-Structure $Module WinApiModule.SYSTEM_HANDLE_INFORMATION_EX @{
     NumberOfHandles             = New-StructureField 0 IntPtr
     Reserved                    = New-StructureField 1 IntPtr
     Handles                     = New-StructureField 2 $SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX.MakeArrayType() -MarshalAs @('ByValArray', 1)
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $PPROCESS_BASIC_INFORMATION = New-Structure $Module WinApiModule.PPROCESS_BASIC_INFORMATION @{
     ExitStatus                  = New-StructureField 0 Int32
     PebBaseAddress              = New-StructureField 1 IntPtr
@@ -107,15 +121,18 @@ $PPROCESS_BASIC_INFORMATION = New-Structure $Module WinApiModule.PPROCESS_BASIC_
 #     Flags                       = New-StructureField 6 UInt32
 # }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $IN6_ADDR = New-Structure $Module WinApiModule.IN6_ADDR @{
     Addr                        = New-StructureField 0 Byte[] -MarshalAs @('ByValArray', 16)
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $SOCKADDR = New-Structure $Module WinApiModule.SOCKADDR @{
     Family                      = New-StructureField 0 UInt16
     Data                        = New-StructureField 1 Byte[] -MarshalAs @('ByValArray', 14)
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $SOCKADDR_IN6 = New-Structure $Module WinApiModule.SOCKADDR_IN6 @{
     Family                      = New-StructureField 0 Int16
     Port                        = New-StructureField 1 UInt16
@@ -124,11 +141,13 @@ $SOCKADDR_IN6 = New-Structure $Module WinApiModule.SOCKADDR_IN6 @{
     ScopeId                     = New-StructureField 4 UInt32
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $SOCKET_ADDRESS = New-Structure $Module WinApiModule.SOCKET_ADDRESS @{
     Sockaddr                    = New-StructureField 0 IntPtr # LPSOCKADDR -> SOCKADDR or SOCKADDR_IN6
     SockaddrLength              = New-StructureField 1 Int32
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $IP_ADAPTER_UNICAST_ADDRESS_LH = New-Structure $Module WinApiModule.IP_ADAPTER_UNICAST_ADDRESS_LH @{
     Length                      = New-StructureField 0 UInt32
     Flags                       = New-StructureField 1 UInt32
@@ -143,6 +162,7 @@ $IP_ADAPTER_UNICAST_ADDRESS_LH = New-Structure $Module WinApiModule.IP_ADAPTER_U
     OnLinkPrefixLength          = New-StructureField 10 Byte
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $IP_ADAPTER_ANYCAST_ADDRESS_XP = New-Structure $Module WinApiModule.IP_ADAPTER_ANYCAST_ADDRESS_XP @{
     Length                      = New-StructureField 0 UInt32
     Flags                       = New-StructureField 1 UInt32
@@ -150,6 +170,7 @@ $IP_ADAPTER_ANYCAST_ADDRESS_XP = New-Structure $Module WinApiModule.IP_ADAPTER_A
     Address                     = New-StructureField 3 $SOCKET_ADDRESS
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $IP_ADAPTER_MULTICAST_ADDRESS_XP = New-Structure $Module WinApiModule.IP_ADAPTER_MULTICAST_ADDRESS_XP @{
     Length                      = New-StructureField 0 UInt32
     Flags                       = New-StructureField 1 UInt32
@@ -157,6 +178,7 @@ $IP_ADAPTER_MULTICAST_ADDRESS_XP = New-Structure $Module WinApiModule.IP_ADAPTER
     Address                     = New-StructureField 3 $SOCKET_ADDRESS
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $IP_ADAPTER_DNS_SERVER_ADDRESS_XP = New-Structure $Module WinApiModule.IP_ADAPTER_DNS_SERVER_ADDRESS_XP @{
     Length                      = New-StructureField 0 UInt32
     Flags                       = New-StructureField 1 UInt32
@@ -164,6 +186,7 @@ $IP_ADAPTER_DNS_SERVER_ADDRESS_XP = New-Structure $Module WinApiModule.IP_ADAPTE
     Address                     = New-StructureField 3 $SOCKET_ADDRESS
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $IP_ADAPTER_PREFIX_XP = New-Structure $Module WinApiModule.IP_ADAPTER_PREFIX_XP @{
     Length                      = New-StructureField 0 UInt32
     Flags                       = New-StructureField 1 UInt32
@@ -172,6 +195,7 @@ $IP_ADAPTER_PREFIX_XP = New-Structure $Module WinApiModule.IP_ADAPTER_PREFIX_XP 
     PrefixLength                = New-StructureField 4 UInt32
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $IP_ADAPTER_WINS_SERVER_ADDRESS_LH = New-Structure $Module WinApiModule.IP_ADAPTER_WINS_SERVER_ADDRESS_LH @{
     Length                      = New-StructureField 0 UInt32
     Reserved                    = New-StructureField 1 UInt32
@@ -179,6 +203,7 @@ $IP_ADAPTER_WINS_SERVER_ADDRESS_LH = New-Structure $Module WinApiModule.IP_ADAPT
     Address                     = New-StructureField 3 $SOCKET_ADDRESS
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $IP_ADAPTER_GATEWAY_ADDRESS_LH = New-Structure $Module WinApiModule.IP_ADAPTER_GATEWAY_ADDRESS_LH @{
     Length                      = New-StructureField 0 UInt32
     Reserved                    = New-StructureField 1 UInt32
@@ -186,11 +211,13 @@ $IP_ADAPTER_GATEWAY_ADDRESS_LH = New-Structure $Module WinApiModule.IP_ADAPTER_G
     Address                     = New-StructureField 3 $SOCKET_ADDRESS
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $IP_ADAPTER_DNS_SUFFIX = New-Structure $Module WinApiModule.IP_ADAPTER_DNS_SUFFIX @{
     Next                        = New-StructureField 0 IntPtr # struct _IP_ADAPTER_DNS_SUFFIX *Next
     String                      = New-StructureField 1 String -MarshalAs @('ByValTStr', 256)
 } -Charset Unicode
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $IP_ADAPTER_ADDRESSES = New-Structure $Module WinApiModule.IP_ADAPTER_ADDRESSES @{
     Length                      = New-StructureField 0 UInt32
     IfIndex                     = New-StructureField 1 UInt32
@@ -231,6 +258,7 @@ $IP_ADAPTER_ADDRESSES = New-Structure $Module WinApiModule.IP_ADAPTER_ADDRESSES 
     FirstDnsSuffix              = New-StructureField 36 IntPtr # PIP_ADAPTER_DNS_SUFFIX
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $MIB_TCPROW_OWNER_PID = New-Structure $Module WinApiModule.MIB_TCPROW_OWNER_PID @{
     State                       = New-StructureField 0 UInt32
     LocalAddr                   = New-StructureField 1 UInt32
@@ -240,12 +268,14 @@ $MIB_TCPROW_OWNER_PID = New-Structure $Module WinApiModule.MIB_TCPROW_OWNER_PID 
     OwningPid                   = New-StructureField 5 UInt32
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $MIB_UDPROW_OWNER_PID = New-Structure $Module WinApiModule.MIB_UDPROW_OWNER_PID @{
     LocalAddr                   = New-StructureField 0 UInt32
     LocalPort                   = New-StructureField 1 Byte[] -MarshalAs @('ByValArray', 4)
     OwningPid                   = New-StructureField 2 UInt32
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $MIB_TCP6ROW_OWNER_PID = New-Structure $Module WinApiModule.MIB_TCP6ROW_OWNER_PID @{
     LocalAddr                   = New-StructureField 0 Byte[] -MarshalAs @('ByValArray', 16)
     LocalScopeId                = New-StructureField 1 UInt32
@@ -257,6 +287,7 @@ $MIB_TCP6ROW_OWNER_PID = New-Structure $Module WinApiModule.MIB_TCP6ROW_OWNER_PI
     OwningPid                   = New-StructureField 7 UInt32
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $MIB_UDP6ROW_OWNER_PID = New-Structure $Module WinApiModule.MIB_UDP6ROW_OWNER_PID @{
     LocalAddr                   = New-StructureField 0 Byte[] -MarshalAs @('ByValArray', 16)
     LocalScopeId                = New-StructureField 1 UInt32
@@ -264,31 +295,37 @@ $MIB_UDP6ROW_OWNER_PID = New-Structure $Module WinApiModule.MIB_UDP6ROW_OWNER_PI
     OwningPid                   = New-StructureField 3 UInt32
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $MIB_TCPTABLE_OWNER_PID = New-Structure $Module WinApiModule.MIB_TCPTABLE_OWNER_PID @{
     NumEntries                  = New-StructureField 0 UInt32
     Table                       = New-StructureField 1 $MIB_TCPROW_OWNER_PID.MakeArrayType() -MarshalAs @('ByValArray', 1)
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $MIB_UDPTABLE_OWNER_PID = New-Structure $Module WinApiModule.MIB_UDPTABLE_OWNER_PID @{
     NumEntries                  = New-StructureField 0 UInt32
     Table                       = New-StructureField 1 $MIB_UDPROW_OWNER_PID.MakeArrayType() -MarshalAs @('ByValArray', 1)
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $MIB_TCP6TABLE_OWNER_PID = New-Structure $Module WinApiModule.MIB_TCP6TABLE_OWNER_PID @{
     NumEntries                  = New-StructureField 0 UInt32
     Table                       = New-StructureField 1 $MIB_TCP6ROW_OWNER_PID.MakeArrayType() -MarshalAs @('ByValArray', 1)
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $MIB_UDP6TABLE_OWNER_PID = New-Structure $Module WinApiModule.MIB_UDP6TABLE_OWNER_PID @{
     NumEntries                  = New-StructureField 0 UInt32
     Table                       = New-StructureField 1 $MIB_UDP6ROW_OWNER_PID.MakeArrayType() -MarshalAs @('ByValArray', 1)
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $FILETIME = New-Structure $Module WinApiModule.FILETIME @{
     LowDateTime                 = New-StructureField 0 UInt32
     HighDateTime                = New-StructureField 1 UInt32
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $CREDENTIAL = New-Structure $Module WinApiModule.CREDENTIAL @{
     Flags                       = New-StructureField 0 UInt32
     Type                        = New-StructureField 1 UInt32
@@ -304,12 +341,14 @@ $CREDENTIAL = New-Structure $Module WinApiModule.CREDENTIAL @{
     UserName                    = New-StructureField 11 String
 } -Charset Unicode
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $UNICODE_STRING = New-Structure $Module WinApiModule.UNICODE_STRING @{
     Length                      = New-StructureField 0 UInt16
     MaximumLength               = New-StructureField 1 UInt16
     Buffer                      = New-StructureField 2 IntPtr
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $GENERIC_MAPPING = New-Structure $Module WinApiModule.GENERIC_MAPPING @{
     GenericRead                 = New-StructureField 0 UInt32
     GenericWrite                = New-StructureField 1 UInt32
@@ -317,10 +356,12 @@ $GENERIC_MAPPING = New-Structure $Module WinApiModule.GENERIC_MAPPING @{
     GenericAll                  = New-StructureField 3 UInt32
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $OBJECT_NAME_INFORMATION = New-Structure $Module WinApiModule.OBJECT_NAME_INFORMATION @{
     Name                        = New-StructureField 0 $UNICODE_STRING
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $OBJECT_TYPE_INFORMATION = New-Structure $Module WinApiModule.OBJECT_TYPE_INFORMATION @{
     TypeName                    = New-StructureField 0 $UNICODE_STRING
     TotalNumberOfObjects        = New-StructureField 1 UInt32
@@ -347,6 +388,7 @@ $OBJECT_TYPE_INFORMATION = New-Structure $Module WinApiModule.OBJECT_TYPE_INFORM
     DefaultNonPagedPoolCharge   = New-StructureField 22 UInt32
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $VAULT_ITEM_7 = New-Structure $Module WinApiModule.VAULT_ITEM_7 @{
     SchemaId                    = New-StructureField 0 Guid
     FriendlyName                = New-StructureField 1 String
@@ -359,6 +401,7 @@ $VAULT_ITEM_7 = New-Structure $Module WinApiModule.VAULT_ITEM_7 @{
     Properties                  = New-StructureField 8 IntPtr
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $VAULT_ITEM_8 = New-Structure $Module WinApiModule.VAULT_ITEM_8 @{
     SchemaId                    = New-StructureField 0 Guid
     FriendlyName                = New-StructureField 1 String
@@ -372,6 +415,7 @@ $VAULT_ITEM_8 = New-Structure $Module WinApiModule.VAULT_ITEM_8 @{
     Properties                  = New-StructureField 9 IntPtr
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $VAULT_ITEM_DATA_HEADER = New-Structure $Module WinApiModule.VAULT_ITEM_DATA_HEADER @{
     SchemaElementId             = New-StructureField 0 UInt32
     Unknown1                    = New-StructureField 1 UInt32
@@ -379,23 +423,27 @@ $VAULT_ITEM_DATA_HEADER = New-Structure $Module WinApiModule.VAULT_ITEM_DATA_HEA
     Unknown2                    = New-StructureField 3 UInt32
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $WLAN_INTERFACE_INFO = New-Structure $Module WinApiModule.WLAN_INTERFACE_INFO @{
     InterfaceGuid               = New-StructureField 0 Guid
     InterfaceDescription        = New-StructureField 1 String -MarshalAs @('ByValTStr', 256)
     State                       = New-StructureField 2 UInt32
 } -Charset Unicode
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $WLAN_PROFILE_INFO = New-Structure $Module WinApiModule.WLAN_PROFILE_INFO @{
     ProfileName                 = New-StructureField 0 String -MarshalAs @('ByValTStr', 256)
     Flags                       = New-StructureField 1 UInt32
 } -Charset Unicode
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $SECURITY_ATTRIBUTES = New-Structure $Module WinApiModule.SECURITY_ATTRIBUTES @{
     Length                      = New-StructureField 0 UInt32
     SecurityDescriptor          = New-StructureField 1 IntPtr
     InheritHandle               = New-StructureField 2 Bool
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $OBJECT_ATTRIBUTES = New-Structure $Module WinApiModule.OBJECT_ATTRIBUTES @{
     Length                      = New-StructureField 0 UInt32
     RootDirectory               = New-StructureField 1 IntPtr
@@ -405,11 +453,13 @@ $OBJECT_ATTRIBUTES = New-Structure $Module WinApiModule.OBJECT_ATTRIBUTES @{
     SecurityQualityOfService    = New-StructureField 5 IntPtr
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $OBJECT_DIRECTORY_INFORMATION = New-Structure $Module WinApiModule.OBJECT_DIRECTORY_INFORMATION @{
     Name                        = New-StructureField 0 $UNICODE_STRING
     TypeName                    = New-StructureField 1 $UNICODE_STRING
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $WIN32_FILE_ATTRIBUTE_DATA = New-Structure $Module WinApiModule.WIN32_FILE_ATTRIBUTE_DATA @{
     dwFileAttributes            = New-StructureField 0 UInt32
     ftCreationTime              = New-StructureField 1 $FILETIME
@@ -419,6 +469,7 @@ $WIN32_FILE_ATTRIBUTE_DATA = New-Structure $Module WinApiModule.WIN32_FILE_ATTRI
     nFileSizeLow                = New-StructureField 5 UInt32
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $WTS_SESSION_INFO_1W = New-Structure $Module WinApiModule.WTS_SESSION_INFO_1W @{
     ExecEnvId                   = New-StructureField 0 UInt32
     State                       = New-StructureField 1 $WTS_CONNECTSTATE_CLASS
@@ -430,10 +481,12 @@ $WTS_SESSION_INFO_1W = New-Structure $Module WinApiModule.WTS_SESSION_INFO_1W @{
     FarmName                    = New-StructureField 7 String -MarshalAs @('LPWStr')
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $DRIVER_INFO_1 = New-Structure $Module WinApiModule.DRIVER_INFO_1 @{
     Name                        = New-StructureField 0 String -MarshalAs @('LPTStr')
 } -Charset Auto
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $DRIVER_INFO_2 = New-Structure $Module WinApiModule.DRIVER_INFO_2 @{
     Version                     = New-StructureField 0 UInt32
     Name                        = New-StructureField 1 String -MarshalAs @('LPTStr')
@@ -443,6 +496,7 @@ $DRIVER_INFO_2 = New-Structure $Module WinApiModule.DRIVER_INFO_2 @{
     ConfigFile                  = New-StructureField 5 String -MarshalAs @('LPTStr')
 } -Charset Auto
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $DRIVER_INFO_3 = New-Structure $Module WinApiModule.DRIVER_INFO_3 @{
     Version                     = New-StructureField 0 UInt32
     Name                        = New-StructureField 1 String -MarshalAs @('LPTStr')
@@ -456,6 +510,7 @@ $DRIVER_INFO_3 = New-Structure $Module WinApiModule.DRIVER_INFO_3 @{
     DefaultDataType             = New-StructureField 9 String -MarshalAs @('LPTStr')
 } -Charset Auto
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $DRIVER_INFO_4 = New-Structure $Module WinApiModule.DRIVER_INFO_4 @{
     Version                     = New-StructureField 0 UInt32
     Name                        = New-StructureField 1 String -MarshalAs @('LPTStr')
@@ -470,6 +525,7 @@ $DRIVER_INFO_4 = New-Structure $Module WinApiModule.DRIVER_INFO_4 @{
     PreviousNames               = New-StructureField 10 String -MarshalAs @('LPTStr')
 } -Charset Auto
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUserDeclaredVarsMoreThanAssignments', '')]
 $DRIVER_INFO_5 = New-Structure $Module WinApiModule.DRIVER_INFO_5 @{
     Version                     = New-StructureField 0 UInt32
     Name                        = New-StructureField 1 String -MarshalAs @('LPTStr')
