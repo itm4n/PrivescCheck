@@ -362,7 +362,11 @@ function Get-AppLockerPolicyFromRegistry {
             foreach ($ChildItem in $(Get-ChildItem -Path "Registry::$($RegKey)" -ErrorAction SilentlyContinue)) {
 
                 $SubKeyName = $ChildItem.PSChildName
-                $RuleXml = [System.Xml.XmlDocument] (Get-ItemPropertyValue -Path "Registry::$($RegKey)\$($SubKeyName)" -Name "Value")
+
+                $RegValue = "Value"
+                $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)\$($SubKeyName)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+                $RuleXml = [System.Xml.XmlDocument] $RegData
+
                 $RuleXml.WriteTo($XmlWriter)
             }
 

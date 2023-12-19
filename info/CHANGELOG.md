@@ -6,6 +6,10 @@
 
 - Check for AppLocker rules that can be exploited to execute arbitrary code.
 
+### Fixed
+
+- Removed code analyzer decorators because they are not compatible with PSv2.
+
 ## 2023-12-07
 
 ### Changed
