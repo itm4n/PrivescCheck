@@ -48,30 +48,6 @@ function Invoke-ModifiableProgramsCheck {
         [UInt32] $BaseSeverity
     )
 
-    BEGIN {
-        $SystemPaths = @()
-
-        function Test-IsSystemFolder {
-            param(
-                [string] $Path
-            )
-    
-            # Initialize system path list
-            if ($SystemPaths.Count -eq 0) {
-                [string[]] $SystemPaths += $env:windir
-                [string[]] $SystemPaths += Join-Path -Path "$($env:windir)" -ChildPath "System"
-                [string[]] $SystemPaths += Join-Path -Path "$($env:windir)" -ChildPath "System32"
-                [string[]] $SystemPaths += Join-Path -Path "$($env:windir)" -ChildPath "Syswow64"
-                [string[]] $SystemPaths += Join-Path -Path "$($env:windir)" -ChildPath "Sysnative"
-                [string[]] $SystemPaths += $env:ProgramFiles
-                [string[]] $SystemPaths += ${env:ProgramFiles(x86)}
-                [string[]] $SystemPaths += $env:ProgramData
-            }
-
-            $SystemPaths -contains $Path.TrimEnd('\\')
-        }
-    }
-
     PROCESS {
         $Items = Get-InstalledPrograms -Filtered
         $ArrayOfResults = @()

@@ -1,5 +1,11 @@
 # Changelog
 
+## 2023-12-19
+
+### Added
+
+- Check for AppLocker rules that can be exploited to execute arbitrary code.
+
 ## 2023-12-07
 
 ### Changed

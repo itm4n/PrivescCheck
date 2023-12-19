@@ -16,6 +16,7 @@ function Invoke-Build {
             "src\helper\Helpers.ps1",
             "src\helper\WinApiHelpers.ps1",
             "src\helper\ServiceHelpers.ps1",
+            "src\helper\HardeningHelpers.ps1",
             "src\helper\CredentialHelpers.ps1",
             "src\check\Globals.ps1",
             "src\check\Main.ps1",
