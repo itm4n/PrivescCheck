@@ -583,7 +583,7 @@ function Get-AppLockerPolicyInternal {
                                             else {
                                                 if (Get-ModifiablePath -LiteralPaths $CandidatePath) {
                                                     $Level = 3
-                                                    $Description = "This rule allows files to be executed from a location the current user has write access."
+                                                    $Description = "This rule allows files to be executed from a location where the current user has write access."
                                                 }
                                             }
                                         }
