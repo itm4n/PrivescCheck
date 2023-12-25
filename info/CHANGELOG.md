@@ -1,5 +1,11 @@
 # Changelog
 
+## 2023-12-25
+
+### Added
+
+- Check for cached MSI files that run potentially unsafe Custom Actions.
+
 ## 2023-12-19
 
 ### Added

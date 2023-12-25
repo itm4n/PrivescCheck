@@ -1094,3 +1094,142 @@ function Invoke-ExploitableLeakedHandlesCheck {
         $null = $Kernel32::CloseHandle($ProcessHandle)
     }
 }
+
+function Invoke-MsiCustomActionsCheck {
+    <#
+    .SYNOPSIS
+    Search for MSI files that run Custom Actions as SYSTEM.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+    
+    .DESCRIPTION
+    This cmdlet retrieves a list of cached MSI files and analyzes them to find potentially unsafe Custom Actions.
+
+    .EXAMPLE
+    PS C:\> Invoke-MsiCustomActionsCheck
+
+    [snip]
+
+    Path              : C:\Windows\Installer\33972a.msi
+    IdentifyingNumber : 436CFA4A-51A6-4F88-985E-2876C580481E
+    Name              : exacqVision Client (x64)
+    Vendor            : Exacq Technologies
+    Version           : 19.06.6.160676
+    AllUsers          : 1
+    CustomActions     :
+
+                        Action               : bz.EarlyInstallFinish2
+                        Type                 : 3073
+                        Source               : bz.CustomActionDll
+                        Target               : _InstallFinish2@4
+                        ExeType              : Dll
+                        SourceType           : BinaryData
+                        ReturnProcessing     : ProcessReturnCode,Synchronous
+                        SchedulingFlags      : InScript
+                        SecurityContextFlags : NoImpersonate
+                        BinaryExtractCommand : Invoke-MsiExtractBinaryData -Path 'C:\Windows\Installer\33972a.msi' -Name 'bz.CustomActionDll' -OutputPath 'bz.CustomActionDll.dll'
+
+    [snip]
+    #>
+
+    [CmdletBinding()]
+    param ()
+    
+    begin {
+        $MsiItems = [object[]] (Get-MsiFileItem)
+        $CandidateCount = 0
+
+        $QuietExecFunctions = @("CAQuietExec", "CAQuietExec64", "WixQuietExec", "WixQuietExec64")
+    }
+    
+    process {
+        foreach ($MsiItem in $MsiItems) {            
+
+            Write-Verbose "Analyzing file: $($MsiItem.Path)"
+
+            # If the MSI doesn't force the installation for all users (i.e., system-wide),
+            # ignore it.
+            if ($MsiItem.AllUsers -ne 1) { continue }
+
+            # If the MSI doesn't have any Custom Action, ignore it.
+            if ($null -eq $MsiItem.CustomActions) { continue }
+
+            $CustomActions = @()
+
+            foreach ($CustomAction in $MsiItem.CustomActions) {
+
+                # If the Custom Action is configured to run only on patch uninstall, ignore it.
+                if ($CustomAction.RunOnPatchUninstallOnly) { continue }
+
+                # If the Custom Action is not run as SYSTEM (i.e., impersonation is enabled), ignore it.
+                if (-not $CustomAction.RunAsSystem) { continue }
+
+                # If the Custom Action is a function from a DLL, and the entry point is
+                # CAQuietExec, CAQuietExec64, WixQuietExec, or WixQuietExec64, ignore it.
+                if (($CustomAction.ExeType -eq "Dll") -and ($QuietExecFunctions -contains $CustomAction.Target)) { continue }
+                
+                if ($CustomAction.SourceType -eq "BinaryData") {
+                    $OutputFilename = "$($CustomAction.Source)"
+                    if (-not (($OutputFilename -like "*.dll") -or ($OutputFilename -like "*.exe"))) {
+                        switch ($CustomAction.ExeType) {
+                            "Exe" { $OutputFilename += ".exe"; break }
+                            "Dll" { $OutputFilename += ".dll"; break }
+                            default { $OutputFilename += ".bin" }
+                        }
+                    }
+                    $ExtractCommand = "Invoke-MsiExtractBinaryData -Path '$($MsiItem.Path)' -Name '$($CustomAction.Source)' -OutputPath '$($OutputFilename)'"
+                    $CustomAction | Add-Member -MemberType "NoteProperty" -Name "BinaryExtractCommand" -Value $ExtractCommand
+                }
+
+                $CustomActions += $CustomAction | Select-Object -Property * -ExcludeProperty "RunAsSystem","RunOnPatchUninstallOnly"
+            }
+
+            if ($CustomActions.Count -ne 0) {
+                $MsiItem.CustomActions = $CustomActions | Format-List | Out-String
+                $MsiItem
+                $CandidateCount += 1
+            }
+        }
+    }
+    
+    end {
+        Write-Verbose "Candidate count: $($CandidateCount) / $($MsiItems.Count)"
+    }
+}
+
+function Invoke-MsiExtractBinaryData {
+    
+    [CmdletBinding()]
+    param (
+        [Parameter(Position=0, Mandatory=$true)]
+        [string] $Path,
+        [Parameter(Position=1, Mandatory=$true)]
+        [string] $Name,
+        [Parameter(Position=2, Mandatory=$true)]
+        [string] $OutputPath
+    )
+    
+    begin {
+        $Installer = New-Object -ComObject WindowsInstaller.Installer
+    }
+    
+    process {
+        try {
+            if ([string]::IsNullOrEmpty($OutputPath)) { $OutputPath = "$($Name)" }
+            Write-Verbose "Output path: $($OutputPath)"
+
+            $Database = Invoke-MsiOpenDatabase -Installer $Installer -Path $Path -Mode 0
+            $BinaryData = Get-MsiBinaryDataProperty -Database $Database -Name $Name
+
+            Set-Content -Path $OutputPath -Value $BinaryData
+        }
+        catch {
+            Write-Warning "Invoke-MsiExtractBinaryData exception: $($_)"
+        }
+    }
+    
+    end {
+        $null = [System.Runtime.InteropServices.Marshal]::ReleaseComObject($Installer)
+    }
+}
