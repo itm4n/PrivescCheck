@@ -1,85 +1,57 @@
 # PrivescCheck
 
-This script aims to __enumerate common Windows configuration issues__ that can be leveraged for local privilege escalation. It also __gathers various information__ that might be useful for __exploitation__ and/or __post-exploitation__.
+This script aims to identify __Local Privilege Escalation__ (LPE) vulnerabilities that are usually due to Windows configuration issues, or bad practices. It can also gather useful information for some exploitation and post-exploitation tasks.
 
-You can find more information about PrivescCheck [here](./info/INFORMATION.md).
+## Getting started
 
-## Use from a command prompt
+After downloading the [script](https://raw.githubusercontent.com/itm4n/PrivescCheck/master/PrivescCheck.ps1) and copying it onto the target Windows machine, run it using one of the commands below.
 
-__Usage #1:__ Basic usage
+> [!NOTE]
+> You __don't__ need to clone the entire repository. The file `PrivescCheck.ps1` is a standalone PowerShell script that contains all the code required by `PrivescCheck` to run on a target host.
+
+> [!IMPORTANT]
+> In the commands below, the first `.` (dot) is used for "dot sourcing" the script, so that the functions and cmdlets can be used in the __current scope__ (see PowerShell [dot sourcing feature](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_scripts#script-scope-and-dot-sourcing)).
+
+### Basic checks only
+
+```powershell
+. .\PrivescCheck.ps1; Invoke-PrivescCheck
+```
+
+### Extended checks + All reports
+
+```powershell
+. .\PrivescCheck.ps1; Invoke-PrivescCheck -Extended -Report PrivescCheck_$($env:COMPUTERNAME) -Format TXT,CSV,HTML,XML
+```
+
+### One-liner command
 
 ```bat
-powershell -ep bypass -c ". .\PrivescCheck.ps1; Invoke-PrivescCheck"
+powershell -ep bypass -c ". .\PrivescCheck.ps1; Invoke-PrivescCheck -Extended -Report PrivescCheck_$($env:COMPUTERNAME) -Format TXT,CSV,HTML,XML"
 ```
 
-__Usage #2:__ Extended mode
+## Tips and tricks
 
-```bat
-powershell -ep bypass -c ". .\PrivescCheck.ps1; Invoke-PrivescCheck -Extended"
-```
+### PowerShell execution policy
 
-__Usage #3:__ Extended mode + Write a report file (default format is raw text)
+By default, the PowerShell [execution policy](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_execution_policies) is set to `Restricted`. However, a more restrictive policy, typically `RemoteSigned`, might be enforced through a GPO.
 
-```bat
-powershell -ep bypass -c ". .\PrivescCheck.ps1; Invoke-PrivescCheck -Extended -Report PrivescCheck_%COMPUTERNAME%"
-```
-
-__Usage #4:__ Extended mode + Write report files in other formats
-
-```bat
-powershell -ep bypass -c ". .\PrivescCheck.ps1; Invoke-PrivescCheck -Extended -Report PrivescCheck_%COMPUTERNAME% -Format TXT,CSV,HTML,XML"
-```
-
-## Use from a PowerShell prompt
-
-### 1. Load the script as a module
-
-__Case #1:__ Execution policy is already set to `Bypass`, so simply load the script.
+In this case, open a PowerShell prompt, and import the script as follows.
 
 ```powershell
-. .\PrivescCheck.ps1
+Get-Content .\PrivescCheck.ps1 | Out-String | Invoke-Expression
 ```
 
-__Case #2:__ Default execution policy is set, so set it to `Bypass` for the current PowerShell process and load the script.
+If a policy is not enforced, you can simply modify the execution policy in the current `powershell.exe` process.
 
 ```powershell
-Set-ExecutionPolicy Bypass -Scope process -Force
-. .\PrivescCheck.ps1
+Set-ExecutionPolicy Bypass -Scope Process -Force
+Import-Module .\PrivescCheck.ps1
 ```
 
-__Case #3:__ Execution policy is locked down, so get the file's content and pipe it to `Invoke-Expression`.
+### PowerShell version 2
 
-```powershell
-Get-Content .\PrivescCheck.ps1 | Out-String | IEX
-```
-
-### 2. Run the script
-
-Then, use the `Invoke-PrivescCheck` cmdlet.
-
-__Usage #1:__ Basic usage
-
-```powershell
-Invoke-PrivescCheck
-```
-
-__Usage #2:__ Extended mode
-
-```powershell
-Invoke-PrivescCheck -Extended
-```
-
-__Usage #3:__ Extended mode + Write a report file (default format is raw text)
-
-```powershell
-Invoke-PrivescCheck -Extended -Report "PrivescCheck_$($env:COMPUTERNAME)"
-```
-
-__Usage #4:__ Extended mode + Write report files in other formats
-
-```powershell
-Invoke-PrivescCheck -Extended -Report "PrivescCheck_$($env:COMPUTERNAME)" -Format TXT,CSV,HTML,XML
-```
+A common way to bypass [Constrained Language Mode](https://devblogs.microsoft.com/powershell/powershell-constrained-language-mode/) consists in starting PowerShell in __version 2__ as it does not implement this protection. Therefore, a significant part of the development effort goes into maintaining this compatibility.
 
 ## Known issues
 
