@@ -24,7 +24,7 @@ After downloading the [script](https://raw.githubusercontent.com/itm4n/PrivescCh
 . .\PrivescCheck.ps1; Invoke-PrivescCheck -Extended -Report PrivescCheck_$($env:COMPUTERNAME) -Format TXT,CSV,HTML,XML
 ```
 
-### One-liner command
+### All-in-one command
 
 ```bat
 powershell -ep bypass -c ". .\PrivescCheck.ps1; Invoke-PrivescCheck -Extended -Report PrivescCheck_$($env:COMPUTERNAME) -Format TXT,CSV,HTML,XML"
@@ -34,24 +34,25 @@ powershell -ep bypass -c ". .\PrivescCheck.ps1; Invoke-PrivescCheck -Extended -R
 
 ### PowerShell execution policy
 
-By default, the PowerShell [execution policy](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_execution_policies) is set to `Restricted`. However, a more restrictive policy, typically `RemoteSigned`, might be enforced through a GPO.
+By default, the PowerShell [execution policy](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_execution_policies) is set to `Restricted` on clients, and `RemoteSigned` on servers, when a new `powershell.exe` process is started. These policies block the execution of (unsigned) scripts, but they can be overriden within the current scope as follows.
 
-In this case, open a PowerShell prompt, and import the script as follows.
+```powershell
+Set-ExecutionPolicy Bypass -Scope Process -Force
+. .\PrivescCheck.ps1
+```
+
+However, this trick does not work when the execution policy is enforced through a GPO. In this case, after starting a new PowerShell session, you can load the script as follows.
 
 ```powershell
 Get-Content .\PrivescCheck.ps1 | Out-String | Invoke-Expression
 ```
 
-If a policy is not enforced, you can simply modify the execution policy in the current `powershell.exe` process.
-
-```powershell
-Set-ExecutionPolicy Bypass -Scope Process -Force
-Import-Module .\PrivescCheck.ps1
-```
-
 ### PowerShell version 2
 
-A common way to bypass [Constrained Language Mode](https://devblogs.microsoft.com/powershell/powershell-constrained-language-mode/) consists in starting PowerShell in __version 2__ as it does not implement this protection. Therefore, a significant part of the development effort goes into maintaining this compatibility.
+A common way to bypass [Constrained Language Mode](https://devblogs.microsoft.com/powershell/powershell-constrained-language-mode/) consists in starting PowerShell __version 2__ as it does not implement this protection. Therefore, a significant part of the development effort goes into maintaining this compatibility.
+
+> [!NOTE]
+> Although PowerShell version 2 is still enabled by default on recent versions of Windows, it cannot run without the .Net framework version 2.0, which requires a manual install.
 
 ## Known issues
 
