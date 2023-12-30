@@ -171,6 +171,7 @@ function Invoke-PrivescCheck {
 
             # Run the check and store its output in a temp variable.
             $BaseSeverity = $Check.Severity -as $SeverityLevelEnum
+            $Check | Add-Member -MemberType "NoteProperty" -Name "BaseSeverity" -Value $BaseSeverity
             $CheckResult = Invoke-Check -Check $Check
             $CheckResult.Severity = $CheckResult.Severity -as $SeverityLevelEnum
 
@@ -178,7 +179,7 @@ function Invoke-PrivescCheck {
                 # If the 'Silent' option was not specified, print a banner that shows some information about the
                 # current check. Then, run the check and print the output either as a table or a list, depending on
                 # the 'Format' value in the CSV data.
-                Write-CheckResult -CheckResult $CheckResult -BaseSeverity $BaseSeverity
+                Write-CheckResult -CheckResult $CheckResult
             }
             else {
                 # If the 'Silent' option was specified, don't print the output of the check but write a progress bar
@@ -245,7 +246,7 @@ function Invoke-Check {
     $IsVulnerabilityCheck = $Check.Severity -ne $SeverityLevelEnum::None
 
     if ($IsVulnerabilityCheck) {
-        $Result = Invoke-Expression -Command "$($Check.Command) -BaseSeverity $([UInt32] $Check.Severity)"
+        $Result = Invoke-Expression -Command "$($Check.Command) -BaseSeverity $([UInt32] $Check.BaseSeverity)"
         $Check | Add-Member -MemberType "NoteProperty" -Name "ResultRaw" -Value $Result.Result
         if ($Check.Severity) { $Check.Severity = $Result.Severity }
     }
@@ -323,11 +324,10 @@ function Write-CheckResult {
 
     [OutputType([string])]
     [CmdletBinding()] param(
-        [object] $CheckResult,
-        [UInt32] $BaseSeverity
+        [object] $CheckResult
     )
 
-    $IsVulnerabilityCheck = $BaseSeverity -ne $SeverityLevelEnum::None
+    $IsVulnerabilityCheck = $CheckResult.BaseSeverity -ne $SeverityLevelEnum::None
     $Severity = $(if ($CheckResult.Severity) { $CheckResult.Severity} else { $SeverityLevelEnum::None }) -as $SeverityLevelEnum
     $ResultOutput = "[*] Status:"
 
@@ -365,7 +365,7 @@ function Write-TxtReport {
 
     $AllResults | ForEach-Object {
         Write-CheckBanner -Check $_ -Ascii
-        Write-CheckResult -CheckResult $_ -BaseSeverity $($_.Severity)
+        Write-CheckResult -CheckResult $_
     }
 }
 
