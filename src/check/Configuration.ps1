@@ -23,28 +23,11 @@ function Get-PointAndPrintConfiguration {
     
     .DESCRIPTION
     This cmdlet retrieves information about the Point and Print configuration, and checks whether each setting is considered as compliant depending on its value.
-    
-    .EXAMPLE
-    PS C:\> Get-PointAndPrintConfiguration
-
-    NoWarningNoElevationOnInstall              : @{Policy=Point and Print Restrictions > NoWarningNoElevationOnInstall; Value=0; Description=Show warning and elevation prompt (default).; Vulnerable=False}
-    UpdatePromptSettings                       : @{Policy=Point and Print Restrictions > UpdatePromptSettings; Value=0; Description=Show warning and elevation prompt (default).; Vulnerable=False}
-    TrustedServers                             : @{Policy=Point and Print Restrictions > TrustedServers; Value=0; Description=Users can point and print to any server (default).; Vulnerable=True}
-    ServerList                                 : @{Policy=Point and Print Restrictions > ServerList; Value=; Description=List of authorized Point and Print servers; Vulnerable=True}
-    RestrictDriverInstallationToAdministrators : @{Policy=Limits print driver installation to Administrators; Value=1; Description=Installing printer drivers when using Point and Print requires administrator privileges (default).; Vulnerable=False}
-    PackagePointAndPrintServerList             : @{Policy=Package Point and print - Approved servers > PackagePointAndPrintServerList; Value=0; Description=Package point and print will not be restricted to specific print servers (default).; Vulnerable=True}
-
-    .LINK
-    https://support.microsoft.com/en-us/topic/kb5005652-manage-new-point-and-print-default-driver-installation-behavior-cve-2021-34481-873642bf-2634-49c5-a23b-6d8e9a302872
-    https://admx.help/?Category=Windows_10_2016&Policy=Microsoft.Policies.Printing::PointAndPrint_Restrictions
-    https://admx.help/?Category=Windows_10_2016&Policy=Microsoft.Policies.Printing::RestrictDriverInstallationToAdministrators
-    https://admx.help/?Category=Windows_10_2016&Policy=Microsoft.Policies.Printing::PackagePointAndPrintServerList_Win7
-    https://admx.help/?Category=Windows_10_2016&Policy=Microsoft.Policies.Printing::PackagePointAndPrintOnly
     #>
 
-    [CmdletBinding()] Param()
+    [CmdletBinding()] param()
 
-    BEGIN {
+    begin {
         $NoWarningNoElevationOnInstallDescriptions = @(
             "Show warning and elevation prompt (default).",
             "Do not show warning or elevation prompt."
@@ -82,12 +65,11 @@ function Get-PointAndPrintConfiguration {
         )
     }
 
-    PROCESS {
+    process {
         $Result = New-Object -TypeName PSObject
 
         # Policy: Computer Configuration > Administrative Templates > Printers > Point and Print Restrictions
-        # ADMX: https://admx.help/?Category=Windows_10_2016&Policy=Microsoft.Policies.Printing::PointAndPrint_Restrictions
-        # Value: NoWarningNoElevationOnInstall
+        # https://admx.help/?Category=Windows_10_2016&Policy=Microsoft.Policies.Printing::PointAndPrint_Restrictions
         # - 0 = Show warning and elevation prompt (default)
         # - 1 = Do not show warning or elevation prompt
         $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PointAndPrint"
@@ -105,8 +87,7 @@ function Get-PointAndPrintConfiguration {
         $Result | Add-Member -MemberType "NoteProperty" -Name "NoWarningNoElevationOnInstall" -Value $Item
 
         # Policy: Computer Configuration > Administrative Templates > Printers > Point and Print Restrictions
-        # ADMX: https://admx.help/?Category=Windows_10_2016&Policy=Microsoft.Policies.Printing::PointAndPrint_Restrictions
-        # Value: UpdatePromptSettings
+        # https://admx.help/?Category=Windows_10_2016&Policy=Microsoft.Policies.Printing::PointAndPrint_Restrictions
         # - 0 = Show warning and elevation prompt (default)
         # - 1 = Show warning only
         # - 2 = Do not show warning or elevation prompt
@@ -125,8 +106,7 @@ function Get-PointAndPrintConfiguration {
         $Result | Add-Member -MemberType "NoteProperty" -Name "UpdatePromptSettings" -Value $Item
 
         # Policy: Computer Configuration > Administrative Templates > Printers > Point and Print Restrictions
-        # ADMX: https://admx.help/?Category=Windows_10_2016&Policy=Microsoft.Policies.Printing::PointAndPrint_Restrictions
-        # Value: TrustedServers
+        # https://admx.help/?Category=Windows_10_2016&Policy=Microsoft.Policies.Printing::PointAndPrint_Restrictions
         # - 0 = Users can point and print to any server (default)
         # - 1 = Users can only point and print to a predefined list of servers
         $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PointAndPrint"
@@ -144,8 +124,7 @@ function Get-PointAndPrintConfiguration {
         $Result | Add-Member -MemberType "NoteProperty" -Name "TrustedServers" -Value $Item
 
         # Policy: Computer Configuration > Administrative Templates > Printers > Point and Print Restrictions
-        # ADMX: https://admx.help/?Category=Windows_10_2016&Policy=Microsoft.Policies.Printing::PointAndPrint_Restrictions
-        # Value: InForest
+        # https://admx.help/?Category=Windows_10_2016&Policy=Microsoft.Policies.Printing::PointAndPrint_Restrictions
         # - 0 = Users can point and print to any machine (default)
         # - 1 = Users can only point and print to machines in their forest
         $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PointAndPrint"
@@ -163,8 +142,7 @@ function Get-PointAndPrintConfiguration {
         $Result | Add-Member -MemberType "NoteProperty" -Name "InForest" -Value $Item
 
         # Policy: Computer Configuration > Administrative Templates > Printers > Point and Print Restrictions
-        # ADMX: https://admx.help/?Category=Windows_10_2016&Policy=Microsoft.Policies.Printing::PointAndPrint_Restrictions
-        # Value: ServerList
+        # https://admx.help/?Category=Windows_10_2016&Policy=Microsoft.Policies.Printing::PointAndPrint_Restrictions
         # - "" = Empty or undefined (default)
         # - "foo;bar" = List of servers
         $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PointAndPrint"
@@ -180,8 +158,7 @@ function Get-PointAndPrintConfiguration {
         $Result | Add-Member -MemberType "NoteProperty" -Name "ServerList" -Value $Item
 
         # Policy: Limits print driver installation to Administrators
-        # ADMX: https://admx.help/?Category=Windows_10_2016&Policy=Microsoft.Policies.Printing::RestrictDriverInstallationToAdministrators
-        # Value: RestrictDriverInstallationToAdministrators
+        # https://admx.help/?Category=Windows_10_2016&Policy=Microsoft.Policies.Printing::RestrictDriverInstallationToAdministrators
         # - 0 - Installing printer drivers does not require administrator privileges.
         # - 1 = Installing printer drivers when using Point and Print requires administrator privileges (default).
         $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PointAndPrint"
@@ -199,8 +176,7 @@ function Get-PointAndPrintConfiguration {
         $Result | Add-Member -MemberType "NoteProperty" -Name "RestrictDriverInstallationToAdministrators" -Value $Item
 
         # Policy: Only use Package Point and Print
-        # ADMX: https://admx.help/?Category=Windows_10_2016&Policy=Microsoft.Policies.Printing::PackagePointAndPrintOnly
-        # Value: PackagePointAndPrintOnly
+        # https://admx.help/?Category=Windows_10_2016&Policy=Microsoft.Policies.Printing::PackagePointAndPrintOnly
         # - 0 = "Users will not be restricted to package-aware point and print only (default)."
         # - 1 = "Users will only be able to point and print to printers that use package-aware drivers."
         $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PackagePointAndPrint"
@@ -218,8 +194,7 @@ function Get-PointAndPrintConfiguration {
         $Result | Add-Member -MemberType "NoteProperty" -Name "PackagePointAndPrintOnly" -Value $Item
 
         # Policy: Package Point and print - Approved servers
-        # ADMX: https://admx.help/?Category=Windows_10_2016&Policy=Microsoft.Policies.Printing::PackagePointAndPrintServerList
-        # Value: PackagePointAndPrintServerList
+        # https://admx.help/?Category=Windows_10_2016&Policy=Microsoft.Policies.Printing::PackagePointAndPrintServerList
         # - 0 = Package point and print will not be restricted to specific print servers (default).
         # - 1 = Users will only be able to package point and print to print servers approved by the network administrator.
         $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PackagePointAndPrint"
@@ -237,8 +212,7 @@ function Get-PointAndPrintConfiguration {
         $Result | Add-Member -MemberType "NoteProperty" -Name "PackagePointAndPrintServerListEnabled" -Value $Item
 
         # Policy: Package Point and print - Approved servers
-        # ADMX: https://admx.help/?Category=Windows_10_2016&Policy=Microsoft.Policies.Printing::PackagePointAndPrintServerList
-        # Value: one value (FQDN) per server
+        # https://admx.help/?Category=Windows_10_2016&Policy=Microsoft.Policies.Printing::PackagePointAndPrintServerList
         $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PackagePointAndPrint\ListOfServers"
         $RegData = Get-Item -Path ($RegKey -replace "HKLM\\","HKLM:\") -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Property
         
@@ -673,48 +647,67 @@ function Invoke-PointAndPrintConfigCheck {
     PS C:\> Invoke-PointAndPrintConfigCheck
 
     Policy      : Limits print driver installation to Administrators
-    Value       : 0
-    Description : Installing printer drivers does not require administrator privileges.
-    Vulnerable  : True
+    Default     : 1
+    Expected    : 1
+    Value       : (null)
+    Description : Installing printer drivers when using Point and Print requires administrator privileges (default).
 
     Policy      : Point and Print Restrictions > NoWarningNoElevationOnInstall
-    Value       : 1
-    Description : Do not show warning or elevation prompt.
-    Vulnerable  : True
+    Default     : 0
+    Expected    : 0
+    Value       : (null)
+    Description : Show warning and elevation prompt (default).
 
     Policy      : Point and Print Restrictions > UpdatePromptSettings
-    Value       : 2
-    Description : Do not show warning or elevation prompt.
-    Vulnerable  : True
+    Default     : 0
+    Expected    : 0
+    Value       : (null)
+    Description : Show warning and elevation prompt (default).
+
+    Policy      : Point and Print Restrictions > InForest
+    Default     : 0
+    Expected    : 0
+    Value       : (null)
+    Description : Users can point and print to any machine (default).
 
     Policy      : Point and Print Restrictions > TrustedServers
-    Value       : 1
-    Description : Users can only point and print to a predefined list of servers.
-    Vulnerable  : False
-
-    Policy      : Package Point and print - Approved servers > PackagePointAndPrintServerList
-    Value       : 1
-    Description : Users will only be able to package point and print to print servers approved by the network administrator.
-    Vulnerable  : False
+    Default     : 0
+    Expected    : 1
+    Value       : (null)
+    Description : Users can point and print to any server (default).
 
     Policy      : Point and Print Restrictions > ServerList
-    Value       : printer.domain.local
-    Description : List of authorized Point and Print servers
-    Vulnerable  : False
+    Default     : (null)
+    Expected    : <SERVER_LIST>
+    Value       : (null)
+    Description : A list of approved Point and Print servers is not defined.
+
+    Policy      : Package Point and print - Only use Package Point and Print
+    Default     : 0
+    Expected    : 1
+    Value       : (null)
+    Description : Users will not be restricted to package-aware point and print only (default).
+
+    Policy      : Package Point and print - Approved servers > PackagePointAndPrintServerList
+    Default     : 0
+    Expected    : 1
+    Value       : (null)
+    Description : Package point and print will not be restricted to specific print servers (default).
+
+    Policy      : Package Point and print - Approved servers > PackagePointAndPrintServerList
+    Default     : (null)
+    Expected    : <SERVER_LIST>
+    Value       : (null)
+    Description : A list of approved Package Point and Print servers is not defined.
     #>
 
-    [CmdletBinding()] Param(
+    [CmdletBinding()] param (
         [UInt32] $BaseSeverity
     )
 
     begin {
         $ConfigVulnerable = $false
         $Severity = $BaseSeverity
-
-        function Test-ConfigVulnerable {
-            param ( [object] $ConfigItem )
-            $(if ($null -eq $ConfigItem.Value) { $ConfigItem.Default } else {$ConfigItem.Value }) -ne $ConfigItem.Expected
-        }
     }
 
     process {
@@ -787,8 +780,8 @@ function Invoke-PointAndPrintConfigCheck {
                 $Config.RestrictDriverInstallationToAdministrators,
                 $Config.NoWarningNoElevationOnInstall,
                 $Config.UpdatePromptSettings,
-                $Config.TrustedServers,
                 $Config.InForest,
+                $Config.TrustedServers,
                 $Config.ServerList,
                 $Config.PackagePointAndPrintOnly,
                 $Config.PackagePointAndPrintServerListEnabled,
