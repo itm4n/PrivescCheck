@@ -674,7 +674,7 @@ function Get-MsiFileItem {
     
     begin {
         $InstallerPath = Join-Path -Path $env:windir -ChildPath "Installer"
-        $Arch = [uint32] (Get-WmiObject -Class Win32_OperatingSystem -Verbose:$false).OSArchitecture.Split('-')[0]
+        $Arch = $(if ([Environment]::Is64BitOperatingSystem) { 64 } else { 32 })
     }
     
     process {
