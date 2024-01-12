@@ -745,29 +745,17 @@ function Invoke-PointAndPrintConfigCheck {
                 # necessary.
                 if ($Config.PackagePointAndPrintOnly.Value -ne 1) {
 
-                    # If the setting "NoWarningNoElevationOnInstall" is set to 1 (not the default), the
-                    # configuration could be vulnerable.
-                    if ($Config.NoWarningNoElevationOnInstall.Value -eq 1) {
+                    # If the settings "NoWarningNoElevationOnInstall" and "UpdatePromptSettings" have
+                    # non-zero values, the device is vulnerable to CVE-2021-34527 (PrintNightmare), even
+                    # if the setting "TrustedServers" is set or "InForest" is enabled.
+                    if (($Config.NoWarningNoElevationOnInstall.Value -gt 0) -or ($Config.UpdatePromptSettings.Value -gt 0)) {
 
-                        # If a list of approved "Point and Print" servers is not defined (default), the configuration
-                        # is vulnerable.
-                        if (($null -eq $Config.TrustedServers.Value) -or ($Config.TrustedServers.Value -eq 0)) {
-
-                            # If Point and Print is restricted to "in-forest" servers, the exploitation is less likely,
-                            # but not impossible. An already compromised machine could be leveraged.
-                            if ($Config.InForest.Value -eq 1) {
-                                $ConfigVulnerable = $true
-                                $Severity = [Math]::Max([UInt32] $Severity, [UInt32] $SeverityLevelEnum::Low) -as $SeverityLevelEnum
-                            }
-                            else {
-                                $ConfigVulnerable = $true
-                                $Severity = [Math]::Max([UInt32] $Severity, [UInt32] $SeverityLevelEnum::High) -as $SeverityLevelEnum
-                            }
-                        }
+                        $ConfigVulnerable = $true
+                        $Severity = [Math]::Max([UInt32] $Severity, [UInt32] $SeverityLevelEnum::High) -as $SeverityLevelEnum
                     }
                 }
 
-                # If list of approved "Package Point and Print" servers is not defined (default),
+                # If a list of approved "Package Point and Print" servers is not defined (default),
                 # the configuration is vulnerable. The exploitation requires the use of a fake
                 # printer server with a vulnerable signed printer driver though.
                 if ($Config.PackagePointAndPrintServerListEnabled.Value -ne 1) {
