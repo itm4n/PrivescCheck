@@ -481,3 +481,27 @@ $DRIVER_INFO_5 = New-Structure $Module WinApiModule.DRIVER_INFO_5 @{
     ConfigVersion               = New-StructureField 7 UInt32
     DriverVersion               = New-StructureField 8 UInt32
 } -Charset Auto
+
+$PRINTER_INFO_2 = New-Structure $Module WinApiModule.PRINTER_INFO_2 @{
+    ServerName                  = New-StructureField 0 String -MarshalAs @('LPTStr')
+    PrinterName                 = New-StructureField 1 String -MarshalAs @('LPTStr')
+    ShareName                   = New-StructureField 2 String -MarshalAs @('LPTStr')
+    PortName                    = New-StructureField 3 String -MarshalAs @('LPTStr')
+    DriverName                  = New-StructureField 4 String -MarshalAs @('LPTStr')
+    Comment                     = New-StructureField 5 String -MarshalAs @('LPTStr')
+    Location                    = New-StructureField 6 String -MarshalAs @('LPTStr')
+    DevMode                     = New-StructureField 7 IntPtr # Should be a pointer to a DEVMODE structure
+    SepFile                     = New-StructureField 8 String -MarshalAs @('LPTStr')
+    PrintProcessor              = New-StructureField 9 String -MarshalAs @('LPTStr')
+    DataType                    = New-StructureField 10 String -MarshalAs @('LPTStr')
+    Parameters                  = New-StructureField 11 String -MarshalAs @('LPTStr')
+    SecurityDescriptor          = New-StructureField 12 IntPtr # Should be a pointer to a SECURITY_DESCRIPTOR structure
+    Attributes                  = New-StructureField 13 UInt32
+    Priority                    = New-StructureField 14 UInt32
+    DefaultPriority             = New-StructureField 15 UInt32
+    StartTime                   = New-StructureField 16 UInt32
+    UntilTime                   = New-StructureField 17 UInt32
+    Status                      = New-StructureField 18 UInt32
+    Jobs                        = New-StructureField 19 UInt32
+    AveragePPM                  = New-StructureField 20 UInt32
+} -Charset Auto
