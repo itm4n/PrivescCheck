@@ -1,5 +1,11 @@
 # Changelog
 
+## 2024-02-20
+
+### Updated
+
+- In the LAPS check, the configuration of both LAPS legacy and LAPSv2 is now enumerated.
+
 ## 2023-12-25
 
 ### Added

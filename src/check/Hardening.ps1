@@ -138,61 +138,173 @@ function Invoke-LapsCheck {
     License: BSD 3-Clause
 
     .DESCRIPTION
-    The status of LAPS can be check using the following registry key: HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft Services\AdmPwd
+    This cmdlet checks whether LAPS legacy or LAPSv2 is configured and enforced. If so, LAPS settings are returned along with a description.
 
-    .EXAMPLE
-    PS C:\> Invoke-LapsCheck
-
-    Key         : HKLM\SOFTWARE\Policies\Microsoft Services\AdmPwd
-    Value       : AdmPwdEnabled
-    Data        : (null)
-    Description : LAPS is not configured
+    .LINK
+    https://learn.microsoft.com/en-us/windows-server/identity/laps/laps-management-policy-settings
     #>
 
     [CmdletBinding()] Param(
         [UInt32] $BaseSeverity
     )
 
-    BEGIN {
-        $RegKey = "HKLM\SOFTWARE\Policies\Microsoft Services\AdmPwd"
-        $RegValue = "AdmPwdEnabled"
-        $IsDomainJoined = Test-IsDomainJoined
+    begin {
+        function New-LapsSettingObject {
+            param ($Name, $Policy, $Default, $Description)
+            $Item = New-Object -TypeName PSObject
+            $Item | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $Name
+            $Item | Add-Member -MemberType "NoteProperty" -Name "Policy" -Value "LAPS > $($Policy)"
+            $Item | Add-Member -MemberType "NoteProperty" -Name "Default" -Value $Default
+            $Item | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+            $Item
+        }
+
+        $LapsEnforced = $false
+        $Config = @()
+
+        $RootKeys = @(
+            "HKLM\Software\Microsoft\Policies\LAPS",
+            "HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\LAPS",
+            "HKLM\Software\Microsoft\Windows\CurrentVersion\LAPS\Config"
+        )
+
+        $BackupDirectoryDescriptions = @(
+            "The local administrator password is not backed up (default).",
+            "The local administrator password is backed up to Azure Active Directory.",
+            "The local administrator password is backed up to Active Directory."
+        )
+
+        $PasswordComplexityDescriptions = @(
+            "NOT_USED",
+            "Password complexity: large letters.",
+            "Password complexity: large letters + small letters.",
+            "Password complexity: large letters + small letters + numbers.",
+            "Password complexity: large letters + small letters + numbers + specials."
+        )
+
+        $ADPasswordEncryptionEnabledDescriptions = @(
+            "The managed password is not encrypted before being sent to Active Directory.",
+            "The managed password is encrypted before being sent to Active Directory (default)."
+        )
+
+        $PostAuthenticationActionsDescriptions = @(
+            # 0000 = Disabled
+            "Disabled - take no actions",
+            # 0001 = Reset password
+            "Reset the password",
+            # 0010 = Logoff
+            "NOT_USED",
+            # 0011 = Reset password + logoff
+            "Reset the password and logoff the managed account.",
+            # 0100 = Reboot the device
+            "NOT_USED",
+            # 0101 = Reset the password + reboot the device
+            "Reset the password and reboot the device"
+        )
+
+        $ADBackupDSRMPasswordDescriptions = @(
+            "The DSRM administrator account password is not managed and backed up to Active Directory (default)."
+            "The DSRM administrator account password is managed and backed up to Active Directory."
+        )
+
+        $PasswordExpirationProtectionEnabledDescriptions = @(
+            "Password expiration time may be longer than required by `"Password Settings`" policy.",
+            "Password expiration time may not be longer than required by `"Password Settings`" policy (default)."
+        )
+
+        $AdmPwdEnabledDescriptions = @(
+            "The local administrator password is not managed (default).",
+            "The local administrator password is managed."
+        )
+
+        $LapsSettings = @(
+            (New-LapsSettingObject -Name "BackupDirectory" -Policy "Configure password backup directory" -Default 0 -Description $BackupDirectoryDescriptions),
+            (New-LapsSettingObject -Name "AdministratorAccountName" -Policy "Name of administrator account to manage" -Default "Well known Administrator account" -Description "This policy setting specifies a custom Administrator account name to manage the password for."),
+            (New-LapsSettingObject -Name "PasswordAgeDays" -Policy "Password Settings" -Default 30 -Description "Password age in days (min: 1; max: 365; default:30)."),
+            (New-LapsSettingObject -Name "PasswordLength" -Policy "Password Settings" -Default 14 -Description "Password length (min: 8; max: 64; default: 14)."),
+            (New-LapsSettingObject -Name "PasswordComplexity" -Policy "Password Settings" -Default 4 -Description $PasswordComplexityDescriptions),
+            (New-LapsSettingObject -Name "PostAuthenticationResetDelay" -Policy "Post-authentication actions" 24 -Description "Amount of time (in hours) to wait after an authentication before executing the specified post-authentication actions."),
+            (New-LapsSettingObject -Name "PostAuthenticationActions" -Policy "Post-authentication actions" -Default 3 -Description $PostAuthenticationActionsDescriptions),
+            (New-LapsSettingObject -Name "ADPasswordEncryptionEnabled" -Policy "Enable password encryption" -Default 1 -Description $ADPasswordEncryptionEnabledDescriptions),
+            (New-LapsSettingObject -Name "ADPasswordEncryptionPrincipal" -Policy "Configure authorized password decryptors" -Default "Domain Admins" -Description "Group who is authorized to decrypt encrypted passwords (default: Domain Admins)."),
+            (New-LapsSettingObject -Name "ADEncryptedPasswordHistorySize" -Policy "Configure size of encrypted password history" -Default 0 -Description "Number of encrypted passwords stored in Active Directory (min: 0; max: 12; default: 0)."),
+            (New-LapsSettingObject -Name "ADBackupDSRMPassword" -Policy "Enable password backup for DSRM accounts" -Default 0 -Description $ADBackupDSRMPasswordDescriptions),
+            (New-LapsSettingObject -Name "PasswordExpirationProtectionEnabled" -Policy "Do not allow password expiration time longer than required by policy" -Default 1 -Description $PasswordExpirationProtectionEnabledDescriptions)
+        )
     }
 
-    PROCESS {
-        $Vulnerable = $false
+    process {
 
-        # If the machine is not domain-joined, LAPS cannot be configured.
-        if (-not $IsDomainJoined) {
-            $Description = "The machine is not domain-joined, this check is irrelevant."
-        }
-        else {
-            $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
-            
-            if ($null -eq $RegData) {
-                $Description = "LAPS is not configured."
-                $Vulnerable = $true
-            }
-            else {
-                if ($RegData -ge 1) {
-                    $Description = "LAPS is enabled."
+        $LapsItem = New-LapsSettingObject -Name "BackupDirectory" -Policy "Configure password backup directory" -Default 0 -Description $BackupDirectoryDescriptions
+        $LapsItem | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RootKeys[0]
+        $LapsItem | Add-Member -MemberType "NoteProperty" -Name "Value" -Value "(null)"
+        $LapsItem.Description = $LapsItem.Description[0]
+
+        foreach ($RootKey in $RootKeys) {
+
+            $Settings = Get-ItemProperty -Path "Registry::$($RootKey)" -ErrorAction SilentlyContinue
+            $ConfigFound = $false
+
+            foreach ($LapsSetting in $LapsSettings) {
+                $SettingValue = $Settings.$($LapsSetting.Name)
+
+                if (($LapsSetting.Name -eq "BackupDirectory") -and ($null -eq $SettingValue)) { $ConfigFound = $true }
+                if ($ConfigFound) { continue }
+
+                $LapsSetting | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RootKey
+                $LapsSetting | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $(if ($null -ne $SettingValue) { $SettingValue } else { "(null)" })
+                if ($LapsSetting.Description -is [object[]]) {
+                    if ($null -eq $SettingValue) { $SettingValue = $LapsSetting.Default }
+                    $SettingDescription = $LapsSetting.Description[$SettingValue]
                 }
                 else {
-                    $Description = "LAPS is not enabled."
-                    $Vulnerable = $true
+                    $SettingDescription = $LapsSetting.Description
+                }
+                $LapsSetting.Description = $SettingDescription
+                $Config += $LapsSetting | Select-Object "Policy","Key","Default","Value","Description"
+                
+                if ($LapsSetting.Name -eq "BackupDirectory") {
+                    $LapsItem = $LapsSetting
+                    if ($SettingValue -gt 0) { $LapsEnforced = $true}
                 }
             }
+
+            # If a configuration was found in a root key, we must stop the loop.
+            if ($Config.Count -ne 0) { break }
         }
 
-        $Config = New-Object -TypeName PSObject
-        $Config | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
-        $Config | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
-        $Config | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
-        $Config | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+        # If LAPS configuration was not found, or if it is not enabled, fall back to
+        # checking LAPS legacy.
+        if (-not $LapsEnforced) {
+            $RegKey = "HKLM\Software\Policies\Microsoft Services\AdmPwd"
+            $RegValue = "AdmPwdEnabled"
+            $RegDataDefault = 0
+
+            $Settings = Get-ItemProperty -Path "Registry::$($RegKey)" -ErrorAction SilentlyContinue
+            $RegData = $Settings.$RegValue
+            
+            $LapsLegacyItem = New-Object -TypeName PSObject
+            $LapsLegacyItem | Add-Member -MemberType "NoteProperty" -Name "Policy" -Value "Enable local admin password management (LAPS legacy)"
+            $LapsLegacyItem | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+            $LapsLegacyItem | Add-Member -MemberType "NoteProperty" -Name "Default" -Value $RegDataDefault
+            $LapsLegacyItem | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
+
+            if ($RegData -eq 1) { $LapsEnforced = $true }
+            if ($null -eq $RegData) { $RegData = $RegDataDefault }
+
+            $LapsLegacyItem | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $AdmPwdEnabledDescriptions[$RegData]
+            $Config += $LapsLegacyItem
+        }
+
+        # If LAPS configuration was still not found (legacy or newer), we may return
+        # an object representing the default LAPS configuration.
+        if (-not $LapsEnforced) {
+            $Config += $LapsItem | Select-Object "Policy","Key","Default","Value","Description"
+        }
 
         $Result = New-Object -TypeName PSObject
         $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Config
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $SeverityLevelEnum::None })
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if (-not $LapsEnforced) { $BaseSeverity } else { $SeverityLevelEnum::None })
         $Result
     }
 }
