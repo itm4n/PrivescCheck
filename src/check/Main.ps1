@@ -375,7 +375,7 @@ function Write-CsvReport {
         [object[]] $AllResults
     )
 
-    $AllResults | Sort-Object -Property "Category" | Select-Object -Property "Category","DisplayName","Description","Severity","ResultRawString" | ConvertTo-Csv -NoTypeInformation
+    $AllResults | Sort-Object -Property "Category" | Select-Object Id,Category,DisplayName,Description,Severity,ResultRawString | ConvertTo-Csv -NoTypeInformation
 }
 
 function Write-XmlReport {
