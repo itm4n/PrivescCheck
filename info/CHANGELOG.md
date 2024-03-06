@@ -5,6 +5,7 @@
 ### Fixed
 
 - Windows update history is no longer obtained through the registry. This method was not reliable enough.
+- Errors were not properly handled during third-party kernel enumeration.
 
 ## 2024-03-05
 

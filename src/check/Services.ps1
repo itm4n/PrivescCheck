@@ -456,32 +456,28 @@ function Invoke-ThirdPartyDriversCheck {
     }
 
     process {
-        Get-DriverList | ForEach-Object {
 
-            $ImageFile = Get-Item -Path $_.ImagePathResolved -ErrorAction SilentlyContinue
-    
-            if ($null -ne $ImageFile) {
-    
-                if (-not (Test-IsMicrosoftFile -File $ImageFile)) {
-    
-                    $ServiceObject = Get-Service -Name $_.Name -ErrorAction SilentlyContinue
-                    if ($null -eq $ServiceObject) { Write-Warning "Failed to query service $($_.Name)"; continue }
+        foreach ($Driver in (Get-DriverList)) {
+
+            $ImageFile = Get-Item -Path $Driver.ImagePathResolved -ErrorAction SilentlyContinue
             
-                    $VersionInfo = $ImageFile | Select-Object -ExpandProperty VersionInfo
-    
-                    $Result = $_ | Select-Object Name,ImagePath,StartMode,Type
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $(if ($ServiceObject) { $ServiceObject.Status} else { "Unknown" })
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "ProductName" -Value $(if ($VersionInfo.ProductName) { $VersionInfo.ProductName.trim() } else { "Unknown" })
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "Company" -Value $(if ($VersionInfo.CompanyName) { $VersionInfo.CompanyName.trim() } else { "Unknown" })
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $(if ($VersionInfo.FileDescription) { $VersionInfo.FileDescription.trim() } else { "Unknown" })
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "Version" -Value $(if ($VersionInfo.FileVersion) { $VersionInfo.FileVersion.trim() } else { "Unknown" })
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "Copyright" -Value $(if ($VersionInfo.LegalCopyright) { $VersionInfo.LegalCopyright.trim() } else { "Unknown" })
-                    $Result
-                }
-            }
-            else {
-                Write-Warning "Failed to open file: $($_.ImagePathResolved)"
-            }
+            if ($null -eq $ImageFile) { Write-Warning "Failed to open file: $($Driver.ImagePathResolved)"; continue }
+            if (Test-IsMicrosoftFile -File $ImageFile) { continue }
+
+            $ServiceObject = Get-Service -Name $Driver.Name -ErrorAction SilentlyContinue
+
+            if ($null -eq $ServiceObject) { Write-Warning "Failed to query service '$($Driver.Name)'"; continue }
+
+            $VersionInfo = $ImageFile | Select-Object -ExpandProperty VersionInfo
+
+            $Result = $Driver | Select-Object Name,ImagePath,StartMode,Type
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $(if ($ServiceObject) { $ServiceObject.Status} else { "Unknown" })
+            $Result | Add-Member -MemberType "NoteProperty" -Name "ProductName" -Value $(if ($VersionInfo.ProductName) { $VersionInfo.ProductName.trim() } else { "Unknown" })
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Company" -Value $(if ($VersionInfo.CompanyName) { $VersionInfo.CompanyName.trim() } else { "Unknown" })
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $(if ($VersionInfo.FileDescription) { $VersionInfo.FileDescription.trim() } else { "Unknown" })
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Version" -Value $(if ($VersionInfo.FileVersion) { $VersionInfo.FileVersion.trim() } else { "Unknown" })
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Copyright" -Value $(if ($VersionInfo.LegalCopyright) { $VersionInfo.LegalCopyright.trim() } else { "Unknown" })
+            $Result
         }
     }
 
