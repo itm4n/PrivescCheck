@@ -1,5 +1,11 @@
 # Changelog
 
+## 2024-03-06
+
+### Fixed
+
+- Windows update history is no longer obtained through the registry. This method was not reliable enough.
+
 ## 2024-03-05
 
 ### Changed
