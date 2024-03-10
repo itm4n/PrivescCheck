@@ -6,6 +6,7 @@ $global:CachedCurrentUserSids = $null
 $global:CachedCurrentUserDenySids = $null
 $global:ResultArrayList = New-Object -TypeName System.Collections.ArrayList
 $global:KeywordsOfInterest = @( "key", "passw", "secret", "pwd", "creds", "credential", "api" )
+$global:CommonApplicationExtensions = @( "bat", "exe", "dll", "ps1", "reg", "vbe", "vbs" )
 $global:VulnerableDrivers = @"
 VULNERABLE_DRIVERS
 "@

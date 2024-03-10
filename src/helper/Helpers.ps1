@@ -142,6 +142,19 @@ function Test-IsMicrosoftFile {
     return $false
 }
 
+function Test-CommonApplicationFile {
+    
+    [CmdletBinding()]
+    param (
+        [ValidateNotNullOrEmpty()]
+        [string] $Path
+    )
+    
+    process {
+        $global:CommonApplicationExtensions -contains ([System.IO.Path]::GetExtension($Path)).Replace('.', '')
+    }
+}
+
 function Test-IsSystemFolder {
 
     [CmdletBinding()]

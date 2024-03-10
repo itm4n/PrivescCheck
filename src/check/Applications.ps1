@@ -77,9 +77,7 @@ function Invoke-ModifiableProgramsCheck {
                     $ModifiablePaths = $_ | Get-ModifiablePath -LiteralPaths
                 }
                 else {
-                    # Check only .exe and .dll ???
-                    # TODO: maybe consider other extensions
-                    if ($_.FullName -Like "*.exe" -or $_.FullName -Like "*.dll") {
+                    if (Test-CommonApplicationFile -Path $_.FullName) {
                         $ModifiablePaths = $_ | Get-ModifiablePath -LiteralPaths
                     }
                 }
