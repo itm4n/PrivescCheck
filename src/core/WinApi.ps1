@@ -50,6 +50,8 @@ $FunctionDefinitions = @(
     (New-Function ntdll NtQuerySystemInformation ([Int32]) @([UInt32], [IntPtr], [UInt32], [UInt32].MakeByRefType()) -EntryPoint NtQuerySystemInformation),
     # (New-Function ntdll NtQueryInformationProcess ([Int32]) @([IntPtr], [UInt32], [IntPtr], [UInt32], [UInt32].MakeByRefType()) -EntryPoint NtQueryInformationProcess),
 
+    (New-Function shlwapi AssocQueryStringW ([Int32]) @($ASSOCF, $ASSOCSTR, [String], [IntPtr], [System.Text.StringBuilder], [UInt32].MakeByRefType()) -Charset Unicode -EntryPoint AssocQueryStringW),
+
     (New-Function vaultcli VaultEnumerateVaults ([UInt32]) @([UInt32], [UInt32].MakeByRefType(), [IntPtr].MakeByRefType()) -EntryPoint VaultEnumerateVaults),
     (New-Function vaultcli VaultOpenVault ([UInt32]) @([IntPtr], [UInt32], [IntPtr].MakeByRefType()) -Entrypoint VaultOpenVault),
     (New-Function vaultcli VaultEnumerateItems ([UInt32]) @([IntPtr], [UInt32], [UInt32].MakeByRefType(), [IntPtr].MakeByRefType()) -EntryPoint VaultEnumerateItems),
@@ -82,6 +84,7 @@ $Advapi32 = $Types['advapi32']
 $Iphlpapi = $Types['iphlpapi']
 $Kernel32 = $Types['kernel32']
 $Ntdll    = $Types['ntdll']
+$Shlwapi  = $Types['shlwapi']
 $Vaultcli = $Types['vaultcli']
 $Winspool = $Types['winspool.drv']
 $Wlanapi  = $Types['wlanapi']

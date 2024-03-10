@@ -1161,3 +1161,77 @@ function Restore-Wow64FileSystemRedirection {
         }
     }
 }
+
+function Get-FileExtensionAssociation {
+    <#
+    .SYNOPSIS
+    Get the executable or command associated to a file extension.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+    
+    .DESCRIPTION
+    This cmdlet calls the API 'AssocQueryString' to query the executable or command associated to a file extension.
+    
+    .PARAMETER Extension
+    A file extension to query (e.g. ".bat"). The dot (".") is mandatory; if not specified, the API 'AssocQueryString' will fail.
+    
+    .PARAMETER Type
+    The type of association to query: executable or command line. This parameter is optional and defaults to "Executable" if not specified.
+    
+    .EXAMPLE
+    PS C:\> Get-FileExtensionAssociation -Extension .wsh -Type Command
+    "C:\Windows\System32\WScript.exe" "%1" %*
+    
+    .EXAMPLE
+    PS C:\> Get-FileExtensionAssociation -Extension .wsh
+    C:\Windows\System32\WScript.exe
+    #>
+    
+    [CmdletBinding()]
+    param (
+        [ValidateNotNullOrEmpty()]
+        [string] $Extension,
+        [ValidateSet("Command", "Executable")]
+        [string] $Type = "Executable"
+    )
+    
+    begin {
+        switch ($Type) {
+            "Command" { $AssocType = $ASSOCSTR::ASSOCSTR_COMMAND; break }
+            "Executable" { $AssocType = $ASSOCSTR::ASSOCSTR_EXECUTABLE; break }
+            default { $AssocType = $ASSOCSTR::ASSOCSTR_EXECUTABLE }
+        }
+    }
+    
+    process {
+
+        # The fourth parameter of "AssocQueryString" is an optional string that we don't
+        # use. Passing "$null" wouldn't work because it would be casted as an empty string.
+        # To actually pass a null value, we must use NullString::Value, but this is not
+        # available in PSv2. As an alternative, the type of the unused parameter is set to
+        # IntPtr, so we can actually pass null (see API declaration).
+
+        [UInt32] $Length = 0
+        $Result = $Shlwapi::AssocQueryStringW($ASSOCF::ASSOCF_NONE, $AssocType, $Extension, [IntPtr]::Zero, $null, [ref] $Length)
+        if ($Result -ne 1) {
+            if ($Result -eq 0x80070483) {
+                Write-Warning "No file extension association found for '$($Extension)'."
+            }
+            else {
+                Write-Warning "AssocQueryStringW KO ($Result)"
+            }
+            return
+        }
+
+        $ExtAssociation = New-Object -TypeName System.Text.StringBuilder
+        $ExtAssociation.EnsureCapacity($Length + 1) | Out-Null
+        $Result = $Shlwapi::AssocQueryStringW($ASSOCF::ASSOCF_NONE, $AssocType, $Extension, [IntPtr]::Zero, $ExtAssociation, [ref] $Length)
+        if ($Result -ne 0) {
+            Write-Warning "AssocQueryStringW KO ($Result)"
+            return
+        }
+
+        $ExtAssociation.ToString()
+    }
+}
