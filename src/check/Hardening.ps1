@@ -743,3 +743,60 @@ function Invoke-AppLockerPolicyCheck {
         $Result
     }
 }
+
+function Invoke-FileExtensionAssociationsCheck {
+    <#
+    .SYNOPSIS
+    Check whether dangerous default file extensions such as '.bat' or '.wsh' are associated to a text editor such as 'notepad.exe'.
+    
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet aims at listing default file associations that could be abused by an attacker to gain initial access to a user's computer by tricking them into double clicking a file.
+    
+    .EXAMPLE
+    PS C:\> Invoke-FileExtensionAssociationsCheck
+
+    Extension           Command
+    ---------           -------
+    .bat                "%1" %*
+    .chm                "C:\Windows\hh.exe" %1
+    .cmd                "%1" %*
+    .com                "%1" %*
+    #>
+
+    [CmdletBinding()]
+    param (
+        [UInt32] $BaseSeverity
+    )
+    
+    begin {
+        $TextEditors = @("Notepad.exe", "Wordpad.exe", "Notepad++.exe")
+        $DefaultAssociations = $global:DangerousDefaultFileExtensionAssociations | ConvertFrom-Csv -Header "Extension","Executable"
+        $VulnerableAssociations = @()
+    }
+    
+    process {
+        foreach ($DefaultAssociation in $DefaultAssociations) {
+
+            $CurrentExecutable = Get-FileExtensionAssociation -Extension $DefaultAssociation.Extension -Type "Executable"
+            if ($null -eq $CurrentExecutable -or $CurrentExecutable -like "*OpenWith.exe*") { continue }
+
+            $CurrentCommand = Get-FileExtensionAssociation -Extension $DefaultAssociation.Extension -Type "Command"
+
+            if (($CurrentExecutable -eq $DefaultAssociation.Executable) -or ($TextEditors -NotContains [System.IO.Path]::GetFileName($CurrentExecutable))) {
+                $VulnerableAssociation = New-Object -TypeName PSObject
+                $VulnerableAssociation | Add-Member -MemberType "NoteProperty" -Name "Extension" -Value $DefaultAssociation.Extension
+                # $VulnerableAssociation | Add-Member -MemberType "NoteProperty" -Name "Executable" -Value $CurrentExecutable
+                $VulnerableAssociation | Add-Member -MemberType "NoteProperty" -Name "Command" -Value $CurrentCommand
+                $VulnerableAssociations += $VulnerableAssociation
+            }
+        }
+
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $VulnerableAssociations
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($VulnerableAssociations.Count) { $BaseSeverity } else { $SeverityLevelEnum::None })
+        $Result
+    }
+}
