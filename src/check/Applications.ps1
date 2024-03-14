@@ -23,6 +23,56 @@ function Invoke-InstalledProgramsCheck {
     Get-InstalledPrograms -Filtered | Select-Object -Property Name,FullName
 }
 
+function Invoke-ProgramsInDriveRootCheck {
+    <#
+    .SYNOPSIS
+    Identifies modifiable folders in the roots of fixed drives. Append ACE's are inherited by default from the drive that can allow DLL hijacking when executable files are stored in such insecure locations.
+
+    Author: buherator
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    For each fixed drive enumerates first level directories that are modifiable by the current user.
+
+    .EXAMPLE
+    PS C:\> Invoke-ProgramsInDriveRootCheck | ft
+
+    ModifiablePath                      IdentityReference    Permissions
+    --------------                      -----------------    -----------
+    C:\Install                          BUILTIN\Users        AddSubdirectory
+    C:\Install                          BUILTIN\Users        AddFile
+    #>
+
+    [CmdletBinding()] Param(
+        [UInt32] $BaseSeverity
+    )
+
+    PROCESS {
+        $ArrayOfResults = @()
+
+        $FixedDrives = [System.IO.DriveInfo]::getdrives() | Where-Object {$_.DriveType -eq 'Fixed'} # From: https://superuser.com/a/787643
+        $IgnoredRootFolders = @("Windows", "Users", "Program Files", "Program Files (x86)", "PerfLogs")
+        
+        foreach($Drive in $FixedDrives){
+            Get-ChildItem -Path $Drive -Depth 0 -ErrorAction SilentlyContinue | ForEach-Object { 
+                if ($_ -is [System.IO.DirectoryInfo] -and (-not ($IgnoredRootFolders -contains $_.Name))) {
+                    $FullPath = Join-Path -Path $Drive -ChildPath $_
+                    $ModifiablePaths = $FullPath | Get-ModifiablePath -LiteralPaths
+                    foreach($Path in $ModifiablePaths){
+                        $Path.Permissions = ($Path.Permissions -join ', ')
+                        $ArrayOfResults += $Path
+                    }
+                }    
+            }
+        }
+        
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { $SeverityLevelEnum::None })
+        $Result
+    }
+}
+
 function Invoke-ModifiableProgramsCheck {
     <#
     .SYNOPSIS
