@@ -800,3 +800,53 @@ function Invoke-FileExtensionAssociationsCheck {
         $Result
     }
 }
+
+function Invoke-HiddenFilenameExtensionsCheck {
+    <#
+    .SYNOPSIS
+    Check whether extensions of known file types are shown in the Explorer.
+    
+    Author: @itm4n
+    License: BSD 3-Clause
+    
+    .DESCRIPTION
+    This cmdlet checks whether the Explorer is configured to hide the file name extension of known file types.
+    
+    .EXAMPLE
+    An example
+    #>
+
+    [CmdletBinding()]
+    param (
+        [UInt32] $BaseSeverity
+    )
+    
+    begin {
+        $RegKey = "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
+        $RegValue = "HideFileExt"
+    }
+    
+    process {
+        $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+        if (($null -eq $RegData) -or ($RegData -ge 1)) {
+            $IsVulnerable = $true
+            $Description = "File name extensions of known file types are hidden in the Explorer."
+        }
+        else {
+            $IsVulnerable = $false
+            $Description = "File name extensions of known file types are shown in the Explorer."
+        }
+
+        $Config = New-Object -TypeName PSObject
+        $Config | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+        $Config | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
+        $Config | Add-Member -MemberType "NoteProperty" -Name "Expected" -Value 0
+        $Config | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
+        $Config | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+        
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Config
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($IsVulnerable) { $BaseSeverity } else { $SeverityLevelEnum::None })
+        $Result
+    }
+}
