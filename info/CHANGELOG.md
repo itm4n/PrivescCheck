@@ -1,5 +1,11 @@
 # Changelog
 
+## 2024-05-23
+
+### Fixed
+
+- False negative in WSUS check when Windows Update features are turned off.
+
 ## 2024-03-11
 
 ### Added

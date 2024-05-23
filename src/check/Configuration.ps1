@@ -344,7 +344,7 @@ function Invoke-WsusConfigCheck {
     $Item | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
     $Item | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
     $Item | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ([string]::IsNullOrEmpty($RegData)) { "(null)" } else { $RegData })
-    $Item | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $(if ([string]::IsNullOrEmpty($RegData)) { "No WSUS server is configured." } else { "A WSUS server is configured." })
+    $Item | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $(if ([string]::IsNullOrEmpty($RegData)) { "No WSUS server is configured (default)." } else { "A WSUS server is configured." })
     $ArrayOfResults += $Item
 
     if ([string]::IsNullOrEmpty($RegData)) { $Vulnerable = $false }
@@ -358,7 +358,7 @@ function Invoke-WsusConfigCheck {
     $Item | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
     $Item | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
     $Item | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
-    $Item | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $(if ($RegData -ge 1) { "WSUS server enabled." } else { "WSUS server not enabled." })
+    $Item | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $(if ($RegData -ge 1) { "WSUS server enabled." } else { "WSUS server not enabled (default)." })
     $ArrayOfResults += $Item
 
     if (($null -eq $RegData) -or ($RegData -lt 1)) { $Vulnerable = $false }
@@ -371,7 +371,7 @@ function Invoke-WsusConfigCheck {
     $Item | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
     $Item | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
     $Item | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
-    $Item | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $(if ($RegData -ge 1) { "Fallback to user proxy is enabled." } else { "Proxy fallback not configured." })
+    $Item | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $(if ($RegData -ge 1) { "Fallback to user proxy is enabled." } else { "Proxy fallback not configured (default)." })
     $ArrayOfResults += $Item
 
     $RegKey = "HKLM\Software\Policies\Microsoft\Windows\WindowsUpdate"
@@ -382,10 +382,8 @@ function Invoke-WsusConfigCheck {
     $Item | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
     $Item | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
     $Item | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $regData) { "(null)" } else { $RegData })
-    $Item | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $(if ($RegData -ge 1) { "Windows update is disabled." } else { "Windows Update not disabled." })
+    $Item | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $(if ($RegData -ge 1) { "Windows Update features are disabled." } else { "Windows Update features are enabled (default)." })
     $ArrayOfResults += $Item
-
-    if ($RegData -ge 1) { $Vulnerable = $false }
 
     $Result = New-Object -TypeName PSObject
     $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
