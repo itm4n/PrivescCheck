@@ -1,5 +1,11 @@
 # Changelog
 
+## 2024-05-24
+
+### Added
+
+- Check to report whether an AppLocker policy is enforced.
+
 ## 2024-05-23
 
 ### Fixed

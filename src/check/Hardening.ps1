@@ -691,6 +691,60 @@ function Invoke-BiosModeCheck {
     $Result
 }
 
+function Invoke-AppLockerCheck {
+    <#
+    .SYNOPSIS
+    Short description
+    
+    .DESCRIPTION
+    Long description
+    
+    .PARAMETER BaseSeverity
+    Parameter description
+    
+    .EXAMPLE
+    An example
+    
+    .NOTES
+    General notes
+    #>
+
+    [CmdletBinding()]
+    param (
+        [UInt32] $BaseSeverity
+    )
+    
+    begin {
+        $Result = New-Object -TypeName PSObject
+    }
+    
+    process {
+        $AppLockerPolicy = [object[]] (Get-AppLockerPolicyInternal -FilterLevel 0)
+
+        if ($null -eq $AppLockerPolicy) {
+            $RuleCount = 0
+            $Description = "AppLocker does not seem to be configured."
+            $Vulnerable = $True
+        }
+        else {
+            $RuleCount = $AppLockerPolicy.Count
+            $Description = "AppLocker seems to be configured with $($RuleCount) 'allow' rules."
+            $Vulnerable = $False
+        }
+
+        $AppLockerConfigured = New-Object -TypeName PSObject
+        $AppLockerConfigured | Add-Member -MemberType "NoteProperty" -Name "RuleCount" -Value $RuleCount
+        $AppLockerConfigured | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AppLockerConfigured
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $SeverityLevelEnum::None })
+    }
+    
+    end {
+        $Result
+    }
+}
+
 function Invoke-AppLockerPolicyCheck {
     <#
     .SYNOPSIS
