@@ -802,13 +802,7 @@ function Invoke-SccmCacheFoldersCheck {
     #>
 
     [CmdletBinding()]
-    param (
-        # [UInt32] $BaseSeverity
-    )
-    
-    # begin {
-    #     $AllResults = @()
-    # }
+    param ()
     
     process {
         $SccmCacheFolders = [object[]] (Get-SccmCacheFoldersFromRegistry)
@@ -833,15 +827,6 @@ function Invoke-SccmCacheFoldersCheck {
             $SccmCacheFolderItem | Add-Member -MemberType "NoteProperty" -Name "TextFileCount" -Value $TextFiles.Count
             $SccmCacheFolderItem | Add-Member -MemberType "NoteProperty" -Name "TextFiles" -Value ($TextFileRelativePaths -join "; ")
             $SccmCacheFolderItem
-
-            # $AllResults += $SccmCacheFolderItem
         }
     }
-    
-    # end {
-    #     $Result = New-Object -TypeName PSObject
-    #     $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
-    #     $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AllResults) { $BaseSeverity } else { $SeverityLevelEnum::None })
-    #     $Result
-    # }
 }
