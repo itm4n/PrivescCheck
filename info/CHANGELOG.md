@@ -6,6 +6,7 @@
 
 - Check for SCCM cache folders.
 - Check for hard coded credentials in the SCCM cache folders.
+- Check for proxy auto config URL (proxy.pac)
 
 ### Removed
 

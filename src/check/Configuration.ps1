@@ -830,3 +830,28 @@ function Invoke-SccmCacheFoldersCheck {
         }
     }
 }
+
+function Invoke-ProxyAutoConfigUrlCheck {
+
+    [CmdletBinding()]
+    param (
+        [UInt32] $BaseSeverity
+    )
+    
+    begin {
+        $Result = New-Object -TypeName PSObject
+        $AllResults = @()
+    }
+    
+    process {
+        $AllResults = Get-ProxyAutoConfigURl | Where-Object { $_.ProxyEnable -ne 0 }
+        $Vulnerable = $null -ne ($AllResults | Where-Object { $_.AutoConfigURL -like "http://*" })
+
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $SeverityLevelEnum::None })
+    }
+    
+    end {
+        $Result
+    }
+}
