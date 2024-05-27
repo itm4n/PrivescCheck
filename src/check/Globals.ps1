@@ -6,7 +6,7 @@ $global:CachedCurrentUserSids = $null
 $global:CachedCurrentUserDenySids = $null
 $global:ResultArrayList = New-Object -TypeName System.Collections.ArrayList
 $global:KeywordsOfInterest = @( "key", "passw", "secret", "pwd", "creds", "credential", "api" )
-$global:CommonApplicationExtensions = @( "bat", "exe", "dll", "ps1", "reg", "vbe", "vbs" )
+$global:CommonApplicationExtensions = @( "bat", "cmd", "exe", "dll", "msi", "ps1", "reg", "vbe", "vbs" )
 $global:DangerousDefaultFileExtensionAssociations = @"
 ".application","C:\Windows\System32\dfshim.dll"
 ".appref-ms","C:\Windows\System32\dfshim.dll"

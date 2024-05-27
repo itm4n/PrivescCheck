@@ -1,5 +1,16 @@
 # Changelog
 
+## 2024-05-27
+
+### Added
+
+- Check for SCCM cache folders.
+- Check for hard coded credentials in the SCCM cache folders.
+
+### Removed
+
+- The previous version of the SCCM cache folder check was pretty much useless, so it was removed.
+
 ## 2024-05-24
 
 ### Added

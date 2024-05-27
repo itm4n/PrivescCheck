@@ -541,46 +541,6 @@ function Invoke-HardenedUNCPathCheck {
     $Result
 }
 
-function Invoke-SccmCacheFolderCheck {
-    <#
-    .SYNOPSIS
-    Gets some information about the SCCM cache folder if it exists.
-
-    Author: @itm4n
-    License: BSD 3-Clause
-
-    .DESCRIPTION
-    If the SCCM cache folder exists ('C:\Windows\CCMCache'), this check will return some information about the item, such as the ACL. This allows for further manual analysis.
-
-    .PARAMETER Info
-    Report if the folder exists without checking if it is accessible.
-    #>
-
-    [CmdletBinding()] Param (
-        [switch] $Info = $false,
-        [UInt32] $BaseSeverity
-    )
-
-    $ArrayOfResults = @()
-
-    Get-SccmCacheFolder | ForEach-Object {
-
-        if ($Info) { $_; continue } # If Info, report the item directly
-
-        Get-ChildItem -Path $_.FullName -ErrorAction SilentlyContinue -ErrorVariable ErrorGetChildItem | Out-Null
-        if (-not $ErrorGetChildItem) {
-            $ArrayOfResults += $_
-        }
-    }
-
-    if (-not $Info) {
-        $Result = New-Object -TypeName PSObject
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { $SeverityLevelEnum::None })
-        $Result
-    }
-}
-
 function Invoke-DllHijackingCheck {
     <#
     .SYNOPSIS
@@ -827,4 +787,61 @@ function Invoke-DriverCoInstallersCheck {
     $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Config
     $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $SeverityLevelEnum::None })
     $Result
+}
+
+function Invoke-SccmCacheFoldersCheck {
+    <#
+    .SYNOPSIS
+    Get information about SCCM cache folders (incl. number and list of binary, script, and text files).
+
+    Author: @itm4n, @SAERXCIT
+    License: BSD 3-Clause
+    
+    .DESCRIPTION
+    This cmdlet retrieves a list of SCCM cache folders. For each folder, it also enumerates interesting files (such as binaries, scripts, or various text files).
+    #>
+
+    [CmdletBinding()]
+    param (
+        # [UInt32] $BaseSeverity
+    )
+    
+    # begin {
+    #     $AllResults = @()
+    # }
+    
+    process {
+        $SccmCacheFolders = [object[]] (Get-SccmCacheFoldersFromRegistry)
+
+        foreach ($SccmCacheFolder in $SccmCacheFolders) {
+
+            $SccmCacheFiles = [object[]] (Get-SccmCacheFiles -Path $SccmCacheFolder.Path)
+
+            $BinaryFiles = [object[]] ($SccmCacheFiles | Where-Object { $_.Type -eq "Binary" })
+            $ScriptFiles = [object[]] ($SccmCacheFiles | Where-Object { $_.Type -eq "Script" })
+            $TextFiles = [object[]] ($SccmCacheFiles | Where-Object { $_.Type -eq "Text" })
+
+            $BinaryFileRelativePaths = $BinaryFiles | Select-Object -ExpandProperty "RelativePath"
+            $ScriptFileRelativePaths = $ScriptFiles | Select-Object -ExpandProperty "RelativePath"
+            $TextFileRelativePaths = $TextFiles | Select-Object -ExpandProperty "RelativePath"
+
+            $SccmCacheFolderItem = $SccmCacheFolder.PSObject.Copy()
+            $SccmCacheFolderItem | Add-Member -MemberType "NoteProperty" -Name "BinaryFileCount" -Value $BinaryFiles.Count
+            $SccmCacheFolderItem | Add-Member -MemberType "NoteProperty" -Name "BinaryFiles" -Value ($BinaryFileRelativePaths -join "; ")
+            $SccmCacheFolderItem | Add-Member -MemberType "NoteProperty" -Name "ScriptFileCount" -Value $ScriptFiles.Count
+            $SccmCacheFolderItem | Add-Member -MemberType "NoteProperty" -Name "ScriptFiles" -Value ($ScriptFileRelativePaths -join "; ")
+            $SccmCacheFolderItem | Add-Member -MemberType "NoteProperty" -Name "TextFileCount" -Value $TextFiles.Count
+            $SccmCacheFolderItem | Add-Member -MemberType "NoteProperty" -Name "TextFiles" -Value ($TextFileRelativePaths -join "; ")
+            $SccmCacheFolderItem
+
+            # $AllResults += $SccmCacheFolderItem
+        }
+    }
+    
+    # end {
+    #     $Result = New-Object -TypeName PSObject
+    #     $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
+    #     $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AllResults) { $BaseSeverity } else { $SeverityLevelEnum::None })
+    #     $Result
+    # }
 }

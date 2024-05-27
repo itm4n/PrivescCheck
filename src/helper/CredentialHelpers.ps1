@@ -634,3 +634,97 @@ function Find-WmiCcmNaaCredentials {
         Restore-Wow64FileSystemRedirection -OldValue $FsRedirectionValue
     }
 }
+
+function Find-SccmCacheFileCredentials {
+    <#
+    .SYNOPSIS
+    Helper - Find potentially hard coded credentials in SCCM cache files.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+    
+    .DESCRIPTION
+    This function first retrieves a list of potentially interesting files from the SCCM cache folders, and tries to find potentially hard coded credentials or secrets. For binary files, it simply determines whether there is a potential match, without returning anything to avoid messing up with the terminal output. For text files (incl. scripts), it returns all matching results.
+    #>
+
+    [CmdletBinding()]
+    param ()
+    
+    begin {
+        $Keywords = @( "password", "SecureString", "secret", "pwd", "token", "username" )
+        $CredentialSearchPattern = "($($Keywords -join '|'))"
+
+        function Get-MatchedKeyword {
+            param (
+                [string] $InputMatched
+            )
+            $KeywordMatched = $null
+            foreach ($Keyword in $Keywords) {
+                $KeywordMatch = $InputMatched | Select-String -Pattern $Keyword
+                if ($null -ne $KeywordMatch) {
+                    $KeywordMatched = $Keyword
+                    break
+                }
+            }
+            return $KeywordMatched
+        }
+    }
+    
+    process {
+
+        $SccmCacheFolders = [object[]] (Get-SccmCacheFoldersFromRegistry)
+
+        foreach ($SccmCacheFolder in $SccmCacheFolders) {
+
+            $SccmCacheFiles = [object[]] (Get-SccmCacheFiles -Path $SccmCacheFolder.Path)
+
+            foreach ($SccmCacheFile in $SccmCacheFiles) {
+
+                $FileItem = Get-Item -Path $SccmCacheFile.Path -ErrorAction SilentlyContinue
+                if ($null -eq $FileItem) { continue }
+    
+                if ($SccmCacheFile.Type -eq "Binary") {
+                    
+                    # For binary files, just check whether the target file matches at least
+                    # once, without returning anything.
+    
+                    # Ignore files that are larger than 100 MB to avoid spending too much
+                    # time on the search.
+    
+                    if ($FileItem.Length -gt 100000000) {
+                        Write-Warning "File '$($SccmCacheFile.Path) is too big, ignoring."
+                        continue
+                    }
+    
+                    $TempMatch = Get-Content -Path $SccmCacheFile.Path | Select-String -Pattern $CredentialSearchPattern
+                    if ($null -ne $TempMatch) {
+        
+                        $Result = $SccmCacheFile.PSObject.Copy()
+                        $Result | Add-Member -MemberType "NoteProperty" -Name "Match" -Value "(binary file matches)"
+                        $Result | Add-Member -MemberType "NoteProperty" -Name "Keyword" -Value (Get-MatchedKeyword -InputMatched $TempMatch.Line)
+                        $Result
+                    }
+                }
+                elseif (($SccmCacheFile.Type -eq "Script") -or ($SccmCacheFile.Type -eq "Text")) {
+    
+                    # For script files and misc text files, return all matches of the pattern.
+    
+                    $TempMatch = Get-Content -Path $SccmCacheFile.Path | Select-String -Pattern $CredentialSearchPattern -AllMatches
+                    if ($null -ne $TempMatch) {
+                        Write-Verbose "File '$($SccmCacheFile.Path)' matches pattern."
+                        foreach ($Match in $TempMatch) {
+
+                            $Result = $SccmCacheFile.PSObject.Copy()
+                            $Result | Add-Member -MemberType "NoteProperty" -Name "Match" -Value "Line $($Match.LineNumber): $($Match.Line.Trim())"
+                            $Result | Add-Member -MemberType "NoteProperty" -Name "Keyword" -Value (Get-MatchedKeyword -InputMatched $TempMatch.Line)
+                            $Result
+                        }
+                    }
+                }
+                else {
+                    throw "Unhandled file type: $($SccmCacheFile.Type)"
+                }
+            }
+        }
+    }
+}

@@ -815,7 +815,7 @@ function Invoke-UnattendFilesCheck {
     }
 }
 
-function Invoke-CcmNaaCredentialsCheck {
+function Invoke-SccmNaaCredentialsCheck {
     <#
     .SYNOPSIS
     Check whether SCCM Network Access Account credentials are stored in the WMI database, within the CIM repository.
@@ -838,6 +838,39 @@ function Invoke-CcmNaaCredentialsCheck {
         $Result = New-Object -TypeName PSObject
         $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Entries
         $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Entries) { $BaseSeverity } else { $SeverityLevelEnum::None })
+        $Result
+    }
+}
+
+function Invoke-SccmCacheFolderCredentialsCheck {
+    <#
+    .SYNOPSIS
+    Check for potentially hard coded credentials in files within the SCCM cache folders.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+    
+    .DESCRIPTION
+    This cmdlet simply invokes the Find-SccmCacheFileCredentials command to get a list of files that potentially contain hard coded credentials.
+    #>
+
+    [CmdletBinding()]
+    param (
+        [UInt32] $BaseSeverity
+    )
+    
+    begin {
+        $Result = New-Object -TypeName PSObject
+    }
+    
+    process {
+        $AllResults = Find-SccmCacheFileCredentials
+
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AllResults) { $BaseSeverity } else { $SeverityLevelEnum::None })
+    }
+    
+    end {
         $Result
     }
 }
