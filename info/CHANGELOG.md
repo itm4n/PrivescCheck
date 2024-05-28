@@ -1,5 +1,11 @@
 # Changelog
 
+## 2024-05-28
+
+### Added
+
+- Check for PowerShell execution policy enforced with GPO.
+
 ## 2024-05-27
 
 ### Added

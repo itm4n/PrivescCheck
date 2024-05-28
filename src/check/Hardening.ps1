@@ -904,3 +904,50 @@ function Invoke-HiddenFilenameExtensionsCheck {
         $Result
     }
 }
+
+function Invoke-PowerShellExecutionPolicyCheck {
+    <#
+    .SYNOPSIS
+    Check whether a PowerShell execution policy is enforced
+
+    Author: @itm4n
+    License: BSD 3-Clause
+    
+    .DESCRIPTION
+    This cmdlet checks whether a PowerShell execution policy is enforced, and, if so, ensures that the setting is set to 'AllSigned' or 'RemoteSigned'.
+    #>
+
+    [CmdletBinding()]
+    param (
+        [UInt32] $BaseSeverity
+    )
+    
+    begin {
+        $Severity = $SeverityLevelEnum::None
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $null
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $Severity
+    }
+    
+    process {
+        $PolicyResult = Get-EnforcedPowerShellExecutionPolicy
+
+        if ($null -eq $PolicyResult) {
+            $Severity = $BaseSeverity
+            $PolicyResult = New-Object -TypeName PSObject
+            $PolicyResult | Add-Member -MemberType "NoteProperty" -Name "Description" -Value "No PowerShell execution policy is enforced."
+        }
+        else {
+            if ($PolicyResult.ExecutionPolicy -eq "Unrestricted") {
+                $Severity = $BaseSeverity
+            }
+        }
+
+        $Result.Result = $PolicyResult
+        $Result.Severity = $Severity
+    }
+
+    end {
+        $Result
+    }
+}

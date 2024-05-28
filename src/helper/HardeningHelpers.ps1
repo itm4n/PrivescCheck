@@ -621,3 +621,80 @@ function Get-AppLockerPolicyInternal {
         }
     }
 }
+
+function Get-EnforcedPowerShellExecutionPolicy {
+    <#
+    .SYNOPSIS
+    Helper - Get the enforced PowerShell execution policy (when configured with a GPO)
+
+    Author: @itm4n
+    License: BSD 3-Clause
+    
+    .DESCRIPTION
+    This cmdlet retrieves the configuration of the PowerShell execution, when it is enforced with a GPO. If first checks the computer configuration, and returns it if found. Otherwise, it checks the the user configuration. If no execution policy is defined, this cmdlet returns null. 
+    
+    .EXAMPLE
+    PS C:\> Get-EnforcedPowerShellExecutionPolicy
+
+    Policy          : Turn on Script Execution
+    Key             : HKLM\SOFTWARE\Policies\Microsoft\Windows\PowerShell
+    EnableScripts   : 1
+    ExecutionPolicy : RemoteSigned
+    Description     : Local scripts can be executed. Scripts that originate from the Internet can be executed only if they are signed by a trusted publisher.
+    #>
+
+    [CmdletBinding()]
+    param ()
+    
+    begin {
+        $RegKeys = @(
+            "HKLM\SOFTWARE\Policies\Microsoft\Windows\PowerShell",
+            "HKCU\SOFTWARE\Policies\Microsoft\Windows\PowerShell"
+        )
+    }
+
+    process {
+        
+        foreach ($RegKey in $RegKeys) {
+
+            $RegValue = "EnableScripts"
+            $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+            if ($null -eq $RegData) {
+                Write-Verbose "PowerShell execution policy not enforced in '$($RegKey)'."
+                continue
+            }
+
+            $EnableScripts = [UInt32] $RegData
+
+            $RegValue = "ExecutionPolicy"
+            $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+
+            $ExecutionPolicy = $RegData
+
+            if ($EnableScripts -eq 0) {
+                $Description = "Script execution is disabled. The execution policy defaults to a per-machine preference setting."
+            }
+            else {
+                switch ($ExecutionPolicy) {
+                    "AllSigned" { $Description = "A PowerShell execution policy is enforced. It allows scripts to execute only if they are signed by a trusted publisher." }
+                    "RemoteSigned" { $Description = "A PowerShell execution policy is enforced. It allows any local scripts to run. Scripts that originate from the Internet must be signed by a trusted publisher*;" }
+                    "Unrestricted" { $Description = "A PowerShell execution policy is enforced. It allows all scripts to run." }
+                    default { Write-Warning "Unexpected execution policy: $($ExecutionPolicy)" }
+                }
+            }
+
+            $Result = New-Object -TypeName PSObject
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Policy" -Value "Turn on Script Execution"
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+            $Result | Add-Member -MemberType "NoteProperty" -Name "EnableScripts" -Value $EnableScripts
+            $Result | Add-Member -MemberType "NoteProperty" -Name "ExecutionPolicy" -Value $ExecutionPolicy
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $(if ($Description) { $Description } else { "(null)" })
+            $Result
+            
+            # # A policy was found, so we can stop here. If it's defined in HKLM, it means
+            # # that it's set in the computer configuration, which has precedence over the
+            # # user configuration. Otherwise it's defined in the user configuration.
+            break
+        }
+    }
+}
