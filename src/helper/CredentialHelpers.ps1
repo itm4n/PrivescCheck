@@ -680,6 +680,8 @@ function Find-SccmCacheFileCredentials {
 
             foreach ($SccmCacheFile in $SccmCacheFiles) {
 
+                if ([string]::IsNullOrEmpty($SccmCacheFile.Path)) { continue }
+
                 $FileItem = Get-Item -Path $SccmCacheFile.Path -ErrorAction SilentlyContinue
                 if ($null -eq $FileItem) { continue }
     
