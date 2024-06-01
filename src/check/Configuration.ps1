@@ -80,9 +80,11 @@ function Get-PointAndPrintConfiguration {
 
         $Item = New-Object -TypeName PSObject
         $Item | Add-Member -MemberType "NoteProperty" -Name "Policy" -Value "Point and Print Restrictions > NoWarningNoElevationOnInstall"
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
         $Item | Add-Member -MemberType "NoteProperty" -Name "Default" -Value $RegDataDefault
         $Item | Add-Member -MemberType "NoteProperty" -Name "Expected" -Value 0
-        $Item | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegData
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $RegData
         $Item | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $NoWarningNoElevationOnInstallDescriptions[$DescriptionIndex]
         $Result | Add-Member -MemberType "NoteProperty" -Name "NoWarningNoElevationOnInstall" -Value $Item
 
@@ -99,9 +101,11 @@ function Get-PointAndPrintConfiguration {
 
         $Item = New-Object -TypeName PSObject
         $Item | Add-Member -MemberType "NoteProperty" -Name "Policy" -Value "Point and Print Restrictions > UpdatePromptSettings"
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
         $Item | Add-Member -MemberType "NoteProperty" -Name "Default" -Value $RegDataDefault
         $Item | Add-Member -MemberType "NoteProperty" -Name "Expected" -Value 0
-        $Item | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegData
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $RegData
         $Item | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $UpdatePromptSettingsDescriptions[$DescriptionIndex]
         $Result | Add-Member -MemberType "NoteProperty" -Name "UpdatePromptSettings" -Value $Item
 
@@ -117,9 +121,11 @@ function Get-PointAndPrintConfiguration {
 
         $Item = New-Object -TypeName PSObject
         $Item | Add-Member -MemberType "NoteProperty" -Name "Policy" -Value "Point and Print Restrictions > TrustedServers"
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
         $Item | Add-Member -MemberType "NoteProperty" -Name "Default" -Value $RegDataDefault
         $Item | Add-Member -MemberType "NoteProperty" -Name "Expected" -Value 1
-        $Item | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegData
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $RegData
         $Item | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $TrustedServersDescriptions[$DescriptionIndex]
         $Result | Add-Member -MemberType "NoteProperty" -Name "TrustedServers" -Value $Item
 
@@ -135,9 +141,11 @@ function Get-PointAndPrintConfiguration {
 
         $Item = New-Object -TypeName PSObject
         $Item | Add-Member -MemberType "NoteProperty" -Name "Policy" -Value "Point and Print Restrictions > InForest"
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
         $Item | Add-Member -MemberType "NoteProperty" -Name "Default" -Value $RegDataDefault
         $Item | Add-Member -MemberType "NoteProperty" -Name "Expected" -Value 0
-        $Item | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegData
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $RegData
         $Item | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $InForestDescriptions[$DescriptionIndex]
         $Result | Add-Member -MemberType "NoteProperty" -Name "InForest" -Value $Item
 
@@ -151,9 +159,11 @@ function Get-PointAndPrintConfiguration {
 
         $Item = New-Object -TypeName PSObject
         $Item | Add-Member -MemberType "NoteProperty" -Name "Policy" -Value "Point and Print Restrictions > ServerList"
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
         $Item | Add-Member -MemberType "NoteProperty" -Name "Default" -Value "(null)"
         $Item | Add-Member -MemberType "NoteProperty" -Name "Expected" -Value "<SERVER_LIST>"
-        $Item | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegData
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $RegData
         $Item | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $(if ([string]::IsNullOrEmpty($RegData)) { "A list of approved Point and Print servers is not defined." } else { "A list of approved Point and Print servers is defined." })
         $Result | Add-Member -MemberType "NoteProperty" -Name "ServerList" -Value $Item
 
@@ -169,9 +179,11 @@ function Get-PointAndPrintConfiguration {
 
         $Item = New-Object -TypeName PSObject
         $Item | Add-Member -MemberType "NoteProperty" -Name "Policy" -Value "Limits print driver installation to Administrators"
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
         $Item | Add-Member -MemberType "NoteProperty" -Name "Default" -Value $RegDataDefault
         $Item | Add-Member -MemberType "NoteProperty" -Name "Expected" -Value 1
-        $Item | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegData
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $RegData
         $Item | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $RestrictDriverInstallationToAdministratorsDescriptions[$DescriptionIndex]
         $Result | Add-Member -MemberType "NoteProperty" -Name "RestrictDriverInstallationToAdministrators" -Value $Item
 
@@ -187,9 +199,11 @@ function Get-PointAndPrintConfiguration {
 
         $Item = New-Object -TypeName PSObject
         $Item | Add-Member -MemberType "NoteProperty" -Name "Policy" -Value "Package Point and print - Only use Package Point and Print"
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
         $Item | Add-Member -MemberType "NoteProperty" -Name "Default" -Value $RegDataDefault
         $Item | Add-Member -MemberType "NoteProperty" -Name "Expected" -Value 1
-        $Item | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegData
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $RegData
         $Item | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $PackagePointAndPrintOnlyDescriptions[$DescriptionIndex]
         $Result | Add-Member -MemberType "NoteProperty" -Name "PackagePointAndPrintOnly" -Value $Item
 
@@ -205,9 +219,11 @@ function Get-PointAndPrintConfiguration {
 
         $Item = New-Object -TypeName PSObject
         $Item | Add-Member -MemberType "NoteProperty" -Name "Policy" -Value "Package Point and print - Approved servers > PackagePointAndPrintServerList"
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
         $Item | Add-Member -MemberType "NoteProperty" -Name "Default" -Value $RegDataDefault
         $Item | Add-Member -MemberType "NoteProperty" -Name "Expected" -Value 1
-        $Item | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegData
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $RegData
         $Item | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $PackagePointAndPrintServerListDescriptions[$DescriptionIndex]
         $Result | Add-Member -MemberType "NoteProperty" -Name "PackagePointAndPrintServerListEnabled" -Value $Item
 
@@ -218,9 +234,11 @@ function Get-PointAndPrintConfiguration {
         
         $Item = New-Object -TypeName PSObject
         $Item | Add-Member -MemberType "NoteProperty" -Name "Policy" -Value "Package Point and print - Approved servers > PackagePointAndPrintServerList"
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Value" -Value "N/A"
         $Item | Add-Member -MemberType "NoteProperty" -Name "Default" -Value "(null)"
         $Item | Add-Member -MemberType "NoteProperty" -Name "Expected" -Value "<SERVER_LIST>"
-        $Item | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $(if (-not [string]::IsNullOrEmpty($RegData)) { $RegData -join ';' })
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if (-not [string]::IsNullOrEmpty($RegData)) { $RegData -join ';' })
         $Item | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $(if ([string]::IsNullOrEmpty($RegData)) { "A list of approved Package Point and Print servers is not defined." } else { "A list of approved Package Point and Print servers is defined." })
         $Result | Add-Member -MemberType "NoteProperty" -Name "PackagePointAndPrintServerList" -Value $Item
 
@@ -682,7 +700,7 @@ function Invoke-PointAndPrintConfigCheck {
         else {
             $Config = Get-PointAndPrintConfiguration
         
-            if ($Config.RestrictDriverInstallationToAdministrators.Value -eq 0) {
+            if ($Config.RestrictDriverInstallationToAdministrators.Data -eq 0) {
         
                 # Printer driver installation is not restricted to administrators, the system
                 # could therefore be vulnerable.
@@ -701,12 +719,12 @@ function Invoke-PointAndPrintConfigCheck {
                 # If the policy "Package Point and Print Only" is enabled (not the default), the
                 # "Point and Print" configuration is irrelevant, so check this first, and skip if
                 # necessary.
-                if ($Config.PackagePointAndPrintOnly.Value -ne 1) {
+                if ($Config.PackagePointAndPrintOnly.Data -ne 1) {
 
                     # If the settings "NoWarningNoElevationOnInstall" and "UpdatePromptSettings" have
                     # non-zero values, the device is vulnerable to CVE-2021-34527 (PrintNightmare), even
                     # if the setting "TrustedServers" is set or "InForest" is enabled.
-                    if (($Config.NoWarningNoElevationOnInstall.Value -gt 0) -or ($Config.UpdatePromptSettings.Value -gt 0)) {
+                    if (($Config.NoWarningNoElevationOnInstall.Data -gt 0) -or ($Config.UpdatePromptSettings.Data -gt 0)) {
 
                         $ConfigVulnerable = $true
                         $Severity = [Math]::Max([UInt32] $Severity, [UInt32] $SeverityLevelEnum::High) -as $SeverityLevelEnum
@@ -716,7 +734,7 @@ function Invoke-PointAndPrintConfigCheck {
                 # If a list of approved "Package Point and Print" servers is not defined (default),
                 # the configuration is vulnerable. The exploitation requires the use of a fake
                 # printer server with a vulnerable signed printer driver though.
-                if ($Config.PackagePointAndPrintServerListEnabled.Value -ne 1) {
+                if ($Config.PackagePointAndPrintServerListEnabled.Data -ne 1) {
                     $ConfigVulnerable = $true
                     $Severity = [Math]::Max([UInt32] $Severity, [UInt32] $SeverityLevelEnum::Medium) -as $SeverityLevelEnum
                 }
@@ -735,7 +753,7 @@ function Invoke-PointAndPrintConfigCheck {
             )
 
             foreach ($Result in $ArrayOfResults) {
-                if ($null -eq $Result.Value) { $Result.Value = "(null)"}
+                if ($null -eq $Result.Data) { $Result.Data = "(null)"}
             }
         }
 

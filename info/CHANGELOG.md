@@ -5,6 +5,7 @@
 ### Added
 
 - Check have an addition attribute named "Risky", that allows them to be disabled when there is a high risk of triggering EDR.
+- Registry key paths and values are now returned in the output of the Point and Print check.
 
 ### Changed
 
