@@ -1,5 +1,15 @@
 # Changelog
 
+## 2024-06-01
+
+### Added
+
+- Check have an addition attribute named "Risky", that allows them to be disabled when there is a high risk of triggering EDR.
+
+### Changed
+
+- Checks now have a "Type" (Base, Extended, Audit, Experimental), rather than multiple boolean flags.
+
 ## 2024-05-28
 
 ### Added
