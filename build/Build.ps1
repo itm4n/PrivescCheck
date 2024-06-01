@@ -51,7 +51,7 @@ function Invoke-Build {
         }
 
         if ($SanityCheck) {
-            $ScriptHeader = "#Requires -Version 2`n`n"
+            $ScriptHeader = "#Requires -Version 2`r`n`r`n"
             $RootPath = Split-Path -Path (Split-Path -Path $PSCommandPath -Parent) -Parent
             $Wordlist = Get-Wordlist -WordLength 10
             $LolDrivers = Get-LolDrivers
@@ -131,7 +131,7 @@ function Invoke-Build {
 
                     $ScriptCompressed = ConvertTo-Gzip -InputText $ScriptBlock
                     $ScriptCompressedEncoded = [System.Convert]::ToBase64String($ScriptCompressed)
-                    $ScriptContent += "`$$($ModuleName) = `"$($ScriptCompressedEncoded)`"`n"
+                    $ScriptContent += "`$$($ModuleName) = `"$($ScriptCompressedEncoded)`"`r`n"
                 }
                 catch {
                     $ErrorCount += 1
@@ -141,7 +141,7 @@ function Invoke-Build {
 
             if ($ErrorCount -eq 0) {
                 Write-Message -Type Success "Build successful, writing result to file '$($ScriptPath)'..."
-                $ScriptContent += "`n$(Get-ScriptLoader -Modules $Modules)"
+                $ScriptContent += "`r`n$(Get-ScriptLoader -Modules $Modules)"
                 $ScriptContent | Out-File -FilePath $ScriptPath -Encoding ascii
 
                 if ($BuildProfileName -eq "PrivescCheck") {
