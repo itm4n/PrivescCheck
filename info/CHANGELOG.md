@@ -9,6 +9,7 @@
 ### Changed
 
 - Checks now have a "Type" (Base, Extended, Audit, Experimental), rather than multiple boolean flags.
+- Rework the README, and provide additional information regarding check types.
 
 ## 2024-05-28
 

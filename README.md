@@ -7,28 +7,54 @@ This script aims to identify __Local Privilege Escalation__ (LPE) vulnerabilitie
 After downloading the [script](https://raw.githubusercontent.com/itm4n/PrivescCheck/master/PrivescCheck.ps1) and copying it onto the target Windows machine, run it using one of the commands below.
 
 > [!NOTE]
-> You __don't__ need to clone the entire repository. The file `PrivescCheck.ps1` is a standalone PowerShell script that contains all the code required by `PrivescCheck` to run on a target host.
+> You __don't__ need to clone the entire repository. The file `PrivescCheck.ps1` is a standalone PowerShell script that contains all the code required by `PrivescCheck` to run.
 
 > [!IMPORTANT]
 > In the commands below, the first `.` (dot) is used for "dot sourcing" the script, so that the functions and cmdlets can be used in the __current scope__ (see PowerShell [dot sourcing feature](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_scripts#script-scope-and-dot-sourcing)).
 
 ### Basic checks only
 
-```powershell
-. .\PrivescCheck.ps1; Invoke-PrivescCheck
-```
-
-### Extended checks + All reports
-
-```powershell
-. .\PrivescCheck.ps1; Invoke-PrivescCheck -Extended -Report PrivescCheck_$($env:COMPUTERNAME) -Format TXT,CSV,HTML,XML
-```
-
-### All-in-one command
+Quickly identify important issues, such as local privilege escalation vulnerabilities.
 
 ```bat
-powershell -ep bypass -c ". .\PrivescCheck.ps1; Invoke-PrivescCheck -Extended -Report PrivescCheck_$($env:COMPUTERNAME) -Format TXT,CSV,HTML,XML"
+powershell -ep bypass -c ". .\PrivescCheck.ps1; Invoke-PrivescCheck"
 ```
+
+### Extended checks + human-readable reports
+
+Identify important issues, but also gather additional information, and save the results to report files that are easy to read.
+
+```bat
+powershell -ep bypass -c ". .\PrivescCheck.ps1; Invoke-PrivescCheck -Extended -Report PrivescCheck_$($env:COMPUTERNAME) -Format TXT,HTML"
+```
+
+### All checks + all reports
+
+Perform extended and audit checks, and save the results to human-readable reports, but also machine-readable files, which can later be parsed for automated report generation.
+
+```bat
+powershell -ep bypass -c ". .\PrivescCheck.ps1; Invoke-PrivescCheck -Extended -Audit -Report PrivescCheck_$($env:COMPUTERNAME) -Format TXT,HTML,CSV,XML"
+```
+
+## Check types
+
+All the checks implemented in PrivescCheck have a __Type__. This value, and the flags specified on the command line, will determine if they are run, or not.
+
+### Base
+
+Checks of type `Base` will always be executed, unless the script is run as an administrator. They are mainly intended for identifying privilege escalation vulnerabilities, or other important issues.
+
+### Extended
+
+Checks of type `Extended` can only be executed if the option `-Extended` is specified on the command line. They are mainly intended for providing additional information that could be useful for exploit development, or post-exploitation.
+
+### Audit
+
+Checks of type `Audit` can only be executed if the option `-Audit` is specified on the command line. They are mainly intended for providing information that is relevant in the context of a configuration audit.
+
+### Experimental
+
+Checks of type `Experimental` can only be executed if the option `-Experimental` is specified on the command line. These are unstable checks that need further work. Use them with caution.
 
 ## Tips and tricks
 
