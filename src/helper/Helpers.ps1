@@ -884,8 +884,8 @@ function Get-InstalledPrograms {
     d----        29/11/2019     10:51            Wireshark
     #>
 
-    [CmdletBinding()] Param(
-        [Switch]$Filtered = $false
+    [CmdletBinding()] param(
+        [switch] $Filtered = $false
     )
 
     $IgnoredPrograms = @("Common Files", "Internet Explorer", "ModifiableWindowsApps", "PackageManagement", "Windows Defender", "Windows Defender Advanced Threat Protection", "Windows Mail", "Windows Media Player", "Windows Multimedia Platform", "Windows NT", "Windows Photo Viewer", "Windows Portable Devices", "Windows Security", "WindowsPowerShell", "Microsoft.NET", "Windows Portable Devices", "dotnet", "MSBuild", "Intel", "Reference Assemblies")
@@ -927,9 +927,10 @@ function Get-InstalledPrograms {
         }
     }
 
-    $InstalledPrograms | Sort-Object -Property FullName -Unique | ForEach-Object {
-        if ((-not $Filtered) -or ($Filtered -and (-not ($IgnoredPrograms -contains $_.Name)))) {
-            $_ | Select-Object -Property Name,FullName
-        }
+    foreach ($InstalledProgram in $($InstalledPrograms | Sort-Object -Property "FullName" -Unique)) {
+        if ([string]::IsNullOrEmpty($InstalledProgram.FullName)) { continue }
+        if (Test-IsSystemFolder -Path $InstalledProgram.FullName) { continue }
+        if ($Filtered -and ($IgnoredPrograms -contains $InstalledProgram.Name)) { continue }
+        $InstalledProgram | Select-Object -Property Name,FullName
     }
 }

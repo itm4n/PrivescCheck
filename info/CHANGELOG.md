@@ -11,6 +11,10 @@
 - Checks now have a "Type" (Base, Extended, Audit, Experimental), rather than multiple boolean flags.
 - Rework the README, and provide additional information regarding check types.
 
+### Fixed
+
+- Prevent system folders from being returned when obtaining a list of installed applications.
+
 ## 2024-05-28
 
 ### Added
