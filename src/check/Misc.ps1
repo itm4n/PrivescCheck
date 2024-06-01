@@ -1111,24 +1111,29 @@ function Invoke-MsiCustomActionsCheck {
 
     [snip]
 
-    Path              : C:\Windows\Installer\33972a.msi
-    IdentifyingNumber : 436CFA4A-51A6-4F88-985E-2876C580481E
-    Name              : exacqVision Client (x64)
-    Vendor            : Exacq Technologies
-    Version           : 19.06.6.160676
+    Path              : C:\Windows\Installer\38896.msi
+    IdentifyingNumber : 180E1C56-3A53-44D2-B300-ADC28A080515
+    Name              : Online Plug-in
+    Vendor            : Citrix Systems, Inc.
+    Version           : 23.11.0.197
     AllUsers          : 1
-    CustomActions     :
+    CandidateCount    : 15
+    Candidates        : CA_FixCachedIcaWebWrapper; BackupAFDWindowSize; BackupAFDWindowSize_RB; BackupTCPIPWindowSize; BackupTCPIPWindowSize_RB; CallCtxCreatePFNRegKeyIfUpg; CtxModRegForceLAA; FixIniFile; HideCancelButton; 
+                        GiveUsersLicensingAccess; LogInstallTime; RestoreAFDWindowSize; RestorePassThroughKey; RestoreTCPIPWindowSize; SetTimestamps
+    AnalyzeCommand    : Get-MsiFileItem -FilePath "C:\Windows\Installer\38896.msi" | Select-Object -ExpandProperty CustomActions | Where-Object { $_.Candidate }
+    RepairCommand     : Start-Process -FilePath "msiexec.exe" -ArgumentList "/fa C:\Windows\Installer\38896.msi"
 
-                        Action               : bz.EarlyInstallFinish2
-                        Type                 : 3073
-                        Source               : bz.CustomActionDll
-                        Target               : _InstallFinish2@4
-                        ExeType              : Dll
-                        SourceType           : BinaryData
-                        ReturnProcessing     : ProcessReturnCode,Synchronous
-                        SchedulingFlags      : InScript
-                        SecurityContextFlags : NoImpersonate
-                        BinaryExtractCommand : Invoke-MsiExtractBinaryData -Path 'C:\Windows\Installer\33972a.msi' -Name 'bz.CustomActionDll' -OutputPath 'bz.CustomActionDll.dll'
+    Path              : C:\Windows\Installer\3889e.msi
+    IdentifyingNumber : 65B2E2B3-0DF5-4920-9C60-F6E5138D443B
+    Name              : Citrix Workspace(USB)
+    Vendor            : Citrix Systems, Inc.
+    Version           : 23.11.0.197
+    AllUsers          : 1
+    CandidateCount    : 15
+    Candidates        : CA_LoadFilter; CA_UnLoadFilter; RB_LoadFilter; RB_UnLoadFilter; CA_Install_Ctxusbm; CA_Uninstall_Ctxusbm; RB_Install_Ctxusbm; RB_Uninstall_Ctxusbm; CA_DeleteDevices; CA_DriverInstall; CA_DriverUninstall; 
+                        RB_DriverInstall; RB_DriverUninstall; CA_CleanupDriverStore; CA_DeleteOldDriver
+    AnalyzeCommand    : Get-MsiFileItem -FilePath "C:\Windows\Installer\3889e.msi" | Select-Object -ExpandProperty CustomActions | Where-Object { $_.Candidate }
+    RepairCommand     : Start-Process -FilePath "msiexec.exe" -ArgumentList "/fa C:\Windows\Installer\3889e.msi"
 
     [snip]
     #>
@@ -1139,8 +1144,6 @@ function Invoke-MsiCustomActionsCheck {
     begin {
         $MsiItems = [object[]] (Get-MsiFileItem)
         $CandidateCount = 0
-
-        $QuietExecFunctions = @("CAQuietExec", "CAQuietExec64", "WixQuietExec", "WixQuietExec64")
     }
     
     process {
@@ -1155,41 +1158,21 @@ function Invoke-MsiCustomActionsCheck {
             # If the MSI doesn't have any Custom Action, ignore it.
             if ($null -eq $MsiItem.CustomActions) { continue }
 
-            $CustomActions = @()
+            $CandidateCustomActions = [object[]] ($MsiItem.CustomActions | Where-Object { $_.Candidate -eq $true })
 
-            foreach ($CustomAction in $MsiItem.CustomActions) {
+            # No interersting Custom Action found, ignore it.
+            if ($CandidateCustomActions.Count -eq 0) { continue }
 
-                # If the Custom Action is configured to run only on patch uninstall, ignore it.
-                if ($CustomAction.RunOnPatchUninstallOnly) { continue }
+            $CandidateCount += 1
 
-                # If the Custom Action is not run as SYSTEM (i.e., impersonation is enabled), ignore it.
-                if (-not $CustomAction.RunAsSystem) { continue }
+            $AnalyzeCommand = "Get-MsiFileItem -FilePath `"$($MsiItem.Path)`" | Select-Object -ExpandProperty CustomActions | Where-Object { `$_.Candidate }"
+            $RepairCommand = "Start-Process -FilePath `"msiexec.exe`" -ArgumentList `"/fa $($MsiItem.Path)`""
 
-                # If the Custom Action is a function from a DLL, and the entry point is
-                # CAQuietExec, CAQuietExec64, WixQuietExec, or WixQuietExec64, ignore it.
-                if (($CustomAction.ExeType -eq "Dll") -and ($QuietExecFunctions -contains $CustomAction.Target)) { continue }
-                
-                if ($CustomAction.SourceType -eq "BinaryData") {
-                    $OutputFilename = "$($CustomAction.Source)"
-                    if (-not (($OutputFilename -like "*.dll") -or ($OutputFilename -like "*.exe"))) {
-                        switch ($CustomAction.ExeType) {
-                            "Exe" { $OutputFilename += ".exe"; break }
-                            "Dll" { $OutputFilename += ".dll"; break }
-                            default { $OutputFilename += ".bin" }
-                        }
-                    }
-                    $ExtractCommand = "Invoke-MsiExtractBinaryData -Path '$($MsiItem.Path)' -Name '$($CustomAction.Source)' -OutputPath '$($OutputFilename)'"
-                    $CustomAction | Add-Member -MemberType "NoteProperty" -Name "BinaryExtractCommand" -Value $ExtractCommand
-                }
-
-                $CustomActions += $CustomAction | Select-Object -Property * -ExcludeProperty "RunAsSystem","RunOnPatchUninstallOnly"
-            }
-
-            if ($CustomActions.Count -ne 0) {
-                $MsiItem.CustomActions = $CustomActions | Format-List | Out-String
-                $MsiItem
-                $CandidateCount += 1
-            }
+            $MsiItem | Add-Member -MemberType "NoteProperty" -Name "CandidateCount" -Value $CandidateCustomActions.Count
+            $MsiItem | Add-Member -MemberType "NoteProperty" -Name "Candidates" -Value "$(($CandidateCustomActions | Select-Object -ExpandProperty "Action") -join "; ")"
+            $MsiItem | Add-Member -MemberType "NoteProperty" -Name "AnalyzeCommand" -Value $AnalyzeCommand
+            $MsiItem | Add-Member -MemberType "NoteProperty" -Name "RepairCommand" -Value $RepairCommand
+            $MsiItem | Select-Object -Property * -ExcludeProperty "CustomActions"
         }
     }
     

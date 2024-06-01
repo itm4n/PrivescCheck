@@ -11,6 +11,7 @@
 
 - Checks now have a "Type" (Base, Extended, Audit, Experimental), rather than multiple boolean flags.
 - Rework the README, and provide additional information regarding check types.
+- Rework the output of the MSI Custom Actions check to make it more readable.
 
 ### Fixed
 

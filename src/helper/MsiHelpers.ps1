@@ -144,6 +144,7 @@ function Get-CustomAction {
     #>
 
     param (
+        [string] $FilePath,
         [object] $Database,
         [uint32] $Arch,
         [uint32] $AllUsers
@@ -151,6 +152,7 @@ function Get-CustomAction {
 
     begin {
         $SystemFolders = Get-MsiSystemFolderProperties -Arch $Arch -AllUsers $AllUsers
+        $QuietExecFunctions = @("CAQuietExec", "CAQuietExec64", "WixQuietExec", "WixQuietExec64")
     }
 
     process {
@@ -178,6 +180,44 @@ function Get-CustomAction {
     
                 $TargetExpanded = Get-MsiExpandedString -String $Target -Database $Database -SystemFolders $SystemFolders
                 if ($TargetExpanded -eq $Target) { $TargetExpanded = $null }
+
+                # 0x0800 -> no impersonation, run in system context
+                $RunAsSystem = $([bool] ($Type -band 0x0800))
+                # 0x8000 -> custom action to be run only during a patch uninstall
+                $RunOnPatchUninstallOnly = $([bool] ($Type -band 0x8000))
+
+                if ($SourceType -eq "BinaryData") {
+                    $OutputFilename = "$($Source)"
+                    if (-not (($Source -like "*.dll") -or ($Source -like "*.exe"))) {
+                        switch ($ExeType) {
+                            "Exe" { $OutputFilename += ".exe"; break }
+                            "Dll" { $OutputFilename += ".dll"; break }
+                            default { $OutputFilename += ".bin" }
+                        }
+                    }
+                    $BinaryExtractCommand = "Invoke-MsiExtractBinaryData -Path `"$($FilePath)`" -Name `"$($Source)`" -OutputPath `"$($OutputFilename)`""
+                }
+                else {
+                    $BinaryExtractCommand = "(null)"
+                }
+
+                $Candidate = $false
+                if (
+                    # CA must not be configured to run only on patch uninstall
+                    (-not $RunOnPatchUninstallOnly) -and
+                    # CA must run as SYSTEM
+                    ($RunAsSystem) -and
+                    # If CA is a DLL, it must not be a "quiet exec" function
+                    (
+                        ($ExeType -ne "Dll") -or
+                        (
+                            ($ExeType -eq "Dll") -and
+                            (-not ($QuietExecFunctions -contains $Target))
+                        )
+                    )
+                ) {
+                    $Candidate = $true
+                }
     
                 $CustomAction = New-Object -TypeName PSObject
                 $CustomAction | Add-Member -MemberType "NoteProperty" -Name "Action" -Value $Action
@@ -190,12 +230,12 @@ function Get-CustomAction {
                 $CustomAction | Add-Member -MemberType "NoteProperty" -Name "ReturnProcessing" -Value $ReturnProcessing
                 $CustomAction | Add-Member -MemberType "NoteProperty" -Name "SchedulingFlags" -Value $SchedulingFlags
                 $CustomAction | Add-Member -MemberType "NoteProperty" -Name "SecurityContextFlags" -Value $SecurityContextFlags
-                # 0x0800 -> no impersonation, run in system context
-                $CustomAction | Add-Member -MemberType "NoteProperty" -Name "RunAsSystem" -Value $([bool] ($Type -band 0x0800))
-                # 0x8000 -> custom action to be run only during a patch uninstall
-                $CustomAction | Add-Member -MemberType "NoteProperty" -Name "RunOnPatchUninstallOnly" -Value $([bool] ($Type -band 0x8000))
+                $CustomAction | Add-Member -MemberType "NoteProperty" -Name "RunAsSystem" -Value $RunAsSystem
+                $CustomAction | Add-Member -MemberType "NoteProperty" -Name "RunOnPatchUninstallOnly" -Value $RunOnPatchUninstallOnly
+                $CustomAction | Add-Member -MemberType "NoteProperty" -Name "BinaryExtractCommand" -Value $BinaryExtractCommand
+                $CustomAction | Add-Member -MemberType "NoteProperty" -Name "Candidate" -Value $Candidate
                 $CustomAction
-    
+
                 $Record = Invoke-MsiViewFetch -View $View
             }
     
@@ -670,7 +710,9 @@ function Get-MsiFileItem {
     #>
 
     [CmdletBinding()]
-    param ()
+    param (
+        [string] $FilePath
+    )
     
     begin {
         $InstallerPath = Join-Path -Path $env:windir -ChildPath "Installer"
@@ -678,7 +720,12 @@ function Get-MsiFileItem {
     }
     
     process {
-        $MsiFiles = Get-ChildItem -Path "$($InstallerPath)\*.msi" -ErrorAction SilentlyContinue
+        if ([string]::IsNullOrEmpty($FilePath)) {
+            $MsiFiles = Get-ChildItem -Path "$($InstallerPath)\*.msi" -ErrorAction SilentlyContinue
+        }
+        else {
+            $MsiFiles = Get-Item -Path $FilePath
+        }
 
         foreach ($MsiFile in $MsiFiles) {
 
@@ -709,7 +756,7 @@ function Get-MsiFileItem {
             $MsiFileItem | Add-Member -MemberType "NoteProperty" -Name "Vendor" -Value $(if ($Vendor) { $Vendor.Trim() })
             $MsiFileItem | Add-Member -MemberType "NoteProperty" -Name "Version" -Value $(if ($Version) { $Version.Trim() })
             $MsiFileItem | Add-Member -MemberType "NoteProperty" -Name "AllUsers" -Value $AllUsers
-            $MsiFileItem | Add-Member -MemberType "NoteProperty" -Name "CustomActions" -Value $(Get-CustomAction -Database $Database -Arch $Arch -AllUsers $AllUsers)
+            $MsiFileItem | Add-Member -MemberType "NoteProperty" -Name "CustomActions" -Value $(Get-CustomAction -FilePath $MsiFile.FullName -Database $Database -Arch $Arch -AllUsers $AllUsers)
             $MsiFileItem
 
             $null = [System.Runtime.InteropServices.Marshal]::ReleaseComObject($Installer)
