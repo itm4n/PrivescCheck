@@ -809,6 +809,8 @@ function Invoke-SccmCacheFoldersCheck {
 
         foreach ($SccmCacheFolder in $SccmCacheFolders) {
 
+            if ([string]::IsNullOrEmpty($SccmCacheFolder.Path)) { continue }
+
             $SccmCacheFiles = [object[]] (Get-SccmCacheFiles -Path $SccmCacheFolder.Path)
 
             $BinaryFiles = [object[]] ($SccmCacheFiles | Where-Object { $_.Type -eq "Binary" })
