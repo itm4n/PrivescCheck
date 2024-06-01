@@ -930,16 +930,23 @@ function Invoke-PowerShellExecutionPolicyCheck {
     }
     
     process {
-        $PolicyResult = Get-EnforcedPowerShellExecutionPolicy
 
-        if ($null -eq $PolicyResult) {
-            $Severity = $BaseSeverity
+        if (-not (Test-IsDomainJoined)) {
             $PolicyResult = New-Object -TypeName PSObject
-            $PolicyResult | Add-Member -MemberType "NoteProperty" -Name "Description" -Value "No PowerShell execution policy is enforced."
+            $PolicyResult | Add-Member -MemberType "NoteProperty" -Name "Description" -Value "The machine is not domain-joined, this check is irrelevant."
         }
         else {
-            if ($PolicyResult.ExecutionPolicy -eq "Unrestricted") {
+            $PolicyResult = Get-EnforcedPowerShellExecutionPolicy
+
+            if ($null -eq $PolicyResult) {
                 $Severity = $BaseSeverity
+                $PolicyResult = New-Object -TypeName PSObject
+                $PolicyResult | Add-Member -MemberType "NoteProperty" -Name "Description" -Value "No PowerShell execution policy is enforced."
+            }
+            else {
+                if ($PolicyResult.ExecutionPolicy -eq "Unrestricted") {
+                    $Severity = $BaseSeverity
+                }
             }
         }
 
