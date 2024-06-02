@@ -5,6 +5,7 @@
 ### Removed
 
 - Last startup time using tick count.
+- Redundant startup application info check
 
 ## 2024-06-01
 

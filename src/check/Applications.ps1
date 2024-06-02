@@ -162,9 +162,6 @@ function Invoke-ApplicationsOnStartupCheck {
     .DESCRIPTION
     Applications can be run on startup or whenever a user logs on. They can be either configured in the registry or by adding an shortcut file (.LNK) in a Start Menu folder.
 
-    .PARAMETER Info
-    Report all start-up applications, whether or not the application path is vulnerable.
-
     .EXAMPLE
     PS C:\> Invoke-ApplicationsOnStartupCheck
 
@@ -180,7 +177,6 @@ function Invoke-ApplicationsOnStartupCheck {
     #>
 
     [CmdletBinding()] Param(
-        [switch] $Info = $false,
         [UInt32] $BaseSeverity
     )
 
@@ -221,9 +217,7 @@ function Invoke-ApplicationsOnStartupCheck {
                     $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value "$($RegKeyPath)\$($RegKeyValueName)"
                     $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $RegKeyValueData
                     $Result | Add-Member -MemberType "NoteProperty" -Name "IsModifiable" -Value $IsModifiable
-
-                    if ($Info) { $Result; continue } # If Info, report directly and inspect the next value
-                    if ($IsModifiable) { $ArrayOfResults += $Result } # If vulnerable, report
+                    $ArrayOfResults += $Result
                 }
             }
         }
@@ -264,23 +258,21 @@ function Invoke-ApplicationsOnStartupCheck {
                         $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $EntryPath
                         $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value "$($Shortcut.TargetPath) $($Shortcut.Arguments)"
                         $Result | Add-Member -MemberType "NoteProperty" -Name "IsModifiable" -Value $IsModifiable
-
-                        if ($Info) { $Result; continue } # If Info, report directly and inspect the next value
-                        if ($IsModifiable) { $ArrayOfResults += $Result } # If vulnerable, report
+                        $ArrayOfResults += $Result
                     }
                     catch {
-                        Write-Warning "$($MyInvocation.MyCommand) [ Failed to create Shortcut object from path: $($EntryPath)"
+                        Write-Warning "$($MyInvocation.MyCommand) | Failed to create Shortcut object from path: $($EntryPath)"
                     }
                 }
             }
         }
 
-        if (-not $Info) {
-            $Result = New-Object -TypeName PSObject
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
-            $Result
-        }
+        $ModifiableCount = ([object[]] ($ArrayOfResults | Where-Object { $_.IsModifiable })).Count
+
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ModifiableCount -gt 0) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $Result
     }
 
     end {
