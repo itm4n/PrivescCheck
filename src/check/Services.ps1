@@ -105,9 +105,6 @@ function Invoke-ServicesUnquotedPathCheck {
     .DESCRIPTION
     In my version of this function, I tried to eliminate as much false positives as possible. PowerUp tends to report "C:\" as exploitable whenever a program located in "C:\Program Files" is identified. The problem is that we cannot write "C:\program.exe" so the service wouldn't be exploitable. We can only create folders in "C:\" by default.
 
-    .PARAMETER Info
-    Use this option to return all services with an unquoted path containing spaces without checking if they are vulnerable.
-
     .EXAMPLE
     PS C:\> Invoke-ServicesUnquotedPathCheck
 
@@ -123,7 +120,6 @@ function Invoke-ServicesUnquotedPathCheck {
     #>
 
     [CmdletBinding()] Param(
-        [switch] $Info = $false,
         [UInt32] $BaseSeverity
     )
 
@@ -135,56 +131,58 @@ function Invoke-ServicesUnquotedPathCheck {
     }
 
     process {
+
         Write-Verbose "Enumerating $($Services.Count) services..."
         foreach ($Service in $Services) {
 
+            $Vulnerable = $false
             $ImagePath = $Service.ImagePath.trim()
 
-            if ($Info) {
+            # If the path is quoted or doesn't contain spaces, ignore it.
+            $UnquotedPath = Get-UnquotedPath -Path $ImagePath -Spaces
+            if ([string]::IsNullOrEmpty($UnquotedPath)) { continue }
 
-                if (-not ([String]::IsNullOrEmpty($(Get-UnquotedPath -Path $ImagePath -Spaces)))) {
-                    $Service | Select-Object Name,DisplayName,User,ImagePath,StartMode
-                }
+            $ExploitablePaths = [object[]] (Get-ExploitableUnquotedPath -Path $ImagePath)
 
-                # If Info, return the result without checking if the path is vulnerable
-                continue
-            }
-
-            Get-ExploitableUnquotedPath -Path $ImagePath | ForEach-Object {
-
-                $Status = "Unknown"
-                $UserCanStart = $false
-                $UserCanStop = $false
-
-                $ServiceObject = Get-Service -Name $Service.Name -ErrorAction SilentlyContinue
-                if ($ServiceObject) {
-                    $Status = $ServiceObject | Select-Object -ExpandProperty "Status"
-                    $ServiceCanStart = Test-ServiceDaclPermission -Name $Service.Name -Permissions 'Start'
-                    if ($ServiceCanStart) { $UserCanStart = $true } else { $UserCanStart = $false }
-                    $ServiceCanStop = Test-ServiceDaclPermission -Name $Service.Name -Permissions 'Stop'
-                    if ($ServiceCanStop) { $UserCanStop = $true } else { $UserCanStop = $false }
-                }
-
-                $Result = New-Object -TypeName PSObject
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $Service.Name
-                $Result | Add-Member -MemberType "NoteProperty" -Name "ImagePath" -Value $Service.ImagePath
-                $Result | Add-Member -MemberType "NoteProperty" -Name "User" -Value $Service.User
-                $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $_.ModifiablePath
-                $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $_.IdentityReference
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value ($_.Permissions -join ", ")
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $Status
-                $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStart" -Value $UserCanStart
-                $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStop" -Value $UserCanStop
-                $ArrayOfResults += $Result
-            }
-        }
-
-        if (-not $Info) {
             $Result = New-Object -TypeName PSObject
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
-            $Result
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $Service.Name
+            $Result | Add-Member -MemberType "NoteProperty" -Name "ImagePath" -Value $Service.ImagePath
+            $Result | Add-Member -MemberType "NoteProperty" -Name "User" -Value $Service.User
+
+            $Status = "Unknown"
+            $UserCanStart = $false
+            $UserCanStop = $false
+
+            $ServiceObject = Get-Service -Name $Service.Name -ErrorAction SilentlyContinue
+            if ($ServiceObject) {
+                $Status = $ServiceObject | Select-Object -ExpandProperty "Status"
+                $ServiceCanStart = Test-ServiceDaclPermission -Name $Service.Name -Permissions 'Start'
+                if ($ServiceCanStart) { $UserCanStart = $true } else { $UserCanStart = $false }
+                $ServiceCanStop = Test-ServiceDaclPermission -Name $Service.Name -Permissions 'Stop'
+                if ($ServiceCanStop) { $UserCanStop = $true } else { $UserCanStop = $false }
+            }
+
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $Status
+            $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStart" -Value $UserCanStart
+            $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStop" -Value $UserCanStop
+
+            $ModifiablePathString = ""
+            if ($ExploitablePaths.Count -gt 0) {
+                $Vulnerable = $true
+                $ModifiablePathString = $(($ExploitablePaths | Select-Object -ExpandProperty "ModifiablePath") -join "; ")
+            }
+
+            $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $ModifiablePathString
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Vulnerable" -Value $Vulnerable
+            $ArrayOfResults += $Result
         }
+
+        $VulnerableCount = ([object[]] ($ArrayOfResults | Where-Object { $_.Vulnerable })).Count
+
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($VulnerableCount -gt 0) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $Result
     }
 
     end {

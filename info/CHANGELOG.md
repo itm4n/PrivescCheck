@@ -7,6 +7,7 @@
 - Last startup time using tick count.
 - Redundant startup application info check
 - Redundant hotfix info check
+- Redundant service unquoted path info check
 
 ## 2024-06-01
 
