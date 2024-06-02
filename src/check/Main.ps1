@@ -268,17 +268,9 @@ function Invoke-DynamicCommand {
         [string] $Command
     )
 
-    begin {
-
-    }
-
     process {
         $ScriptBlock = $ExecutionContext.InvokeCommand.NewScriptBlock($Command)
         . $ScriptBlock
-    }
-
-    end {
-
     }
 }
 
@@ -292,13 +284,11 @@ function Invoke-Check {
     $IsVulnerabilityCheck = $Check.Severity -ne $script:SeverityLevelEnum::None
 
     if ($IsVulnerabilityCheck) {
-        # $Result = Invoke-Expression -Command "$($Check.Command) -BaseSeverity $([UInt32] $Check.BaseSeverity)"
         $Result = Invoke-DynamicCommand -Command "$($Check.Command) -BaseSeverity $([UInt32] $Check.BaseSeverity)"
         $Check | Add-Member -MemberType "NoteProperty" -Name "ResultRaw" -Value $Result.Result
         if ($Check.Severity) { $Check.Severity = $Result.Severity }
     }
     else {
-        # $Result = Invoke-Expression -Command "$($Check.Command)"
         $Result = Invoke-DynamicCommand -Command "$($Check.Command)"
         $Check | Add-Member -MemberType "NoteProperty" -Name "ResultRaw" -Value $Result
     }
