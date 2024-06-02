@@ -356,29 +356,29 @@ function Invoke-GPPPasswordCheck {
             [CmdletBinding()] Param(
                 [string] $Cpass
             )
-    
+
             if (-not [string]::IsNullOrEmpty($Cpass)) {
-    
+
                 $Mod = $Cpass.Length % 4
                 if ($Mod -gt 0) {
                     $Cpass += "=" * (4 - $Mod)
                 }
-    
+
                 $Base64Decoded = [Convert]::FromBase64String($Cpass)
-    
+
                 try {
-    
+
                     $AesObject = New-Object System.Security.Cryptography.AesCryptoServiceProvider
                     [byte[]] $AesKey = @(0x4e,0x99,0x06,0xe8,0xfc,0xb6,0x6c,0xc9,0xfa,0xf4,0x93,0x10,0x62,0x0f,0xfe,0xe8,0xf4,0x96,0xe8,0x06,0xcc,0x05,0x79,0x90,0x20,0x9b,0x09,0xa4,0x33,0xb6,0x6c,0x1b)
-    
+
                     $AesIV = New-Object Byte[]($AesObject.IV.Length)
                     $AesObject.IV = $AesIV
                     $AesObject.Key = $AesKey
                     $DecryptorObject = $AesObject.CreateDecryptor()
                     [byte[]] $OutBlock = $DecryptorObject.TransformFinalBlock($Base64Decoded, 0, $Base64Decoded.length)
-    
+
                     [System.Text.UnicodeEncoding]::Unicode.GetString($OutBlock)
-    
+
                 }
                 catch [Exception] {
                     Write-Verbose $_.Exception.Message
@@ -402,69 +402,69 @@ function Invoke-GPPPasswordCheck {
                 $GppPath = Join-Path -Path $GppPath -ChildPath "Microsoft\Group Policy"
             }
         }
-    
+
         if (Test-Path -Path $GppPath -ErrorAction SilentlyContinue) {
-    
+
             $CachedGPPFiles = Get-ChildItem -Path $GppPath -Recurse -Include 'Groups.xml','Services.xml','Scheduledtasks.xml','DataSources.xml','Drives.xml','Printers.xml' -Force -ErrorAction SilentlyContinue
-    
+
             foreach ($File in $CachedGPPFiles) {
-    
+
                 $FileFullPath = $File.FullName
                 Write-Verbose $FileFullPath
-    
+
                 try {
                     [xml]$XmlFile = Get-Content -Path $FileFullPath -ErrorAction SilentlyContinue
                 }
                 catch [Exception] {
                     Write-Verbose $_.Exception.Message
                 }
-    
+
                 if ($null -eq $XmlFile) {
                     continue
                 }
-    
+
                 $XmlFile.GetElementsByTagName("Properties") | ForEach-Object {
-    
+
                     $Properties = $_
                     $Cpassword = ""
-    
+
                     switch ($File.BaseName) {
-    
+
                         Groups {
                             $Type = "User/Group"
                             $UserName = $Properties.userName
                             $Cpassword = $Properties.cpassword
                             $Content = "Description: $($Properties.description)"
                         }
-    
+
                         Scheduledtasks {
                             $Type = "Scheduled Task"
                             $UserName = $Properties.runAs
                             $Cpassword = $Properties.cpassword
                             $Content = "App: $($Properties.appName) $($Properties.args)"
                         }
-    
+
                         DataSources {
                             $Type = "Data Source"
                             $UserName = $Properties.username
                             $Cpassword = $Properties.cpassword
                             $Content = "DSN: $($Properties.dsn)"
                         }
-    
+
                         Drives {
                             $Type = "Mapped Drive"
                             $UserName = $Properties.userName
                             $Cpassword = $Properties.cpassword
                             $Content = "Path: $($Properties.path)"
                         }
-    
+
                         Services {
                             $Type = "Service"
                             $UserName = $Properties.accountName
                             $Cpassword = $Properties.cpassword
                             $Content = "Name: $($Properties.serviceName)"
                         }
-    
+
                         Printers {
                             $Type = "Printer"
                             $UserName = $Properties.username
@@ -472,7 +472,7 @@ function Invoke-GPPPasswordCheck {
                             $Content = "Path: $($Properties.path)"
                         }
                     }
-    
+
                     if (-not [String]::IsNullOrEmpty($Cpassword)) {
                         $Result = New-Object -TypeName PSObject
                         $Result | Add-Member -MemberType "NoteProperty" -Name "Type" -Value $Type
@@ -491,7 +491,7 @@ function Invoke-GPPPasswordCheck {
         $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
         $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { $SeverityLevelEnum::None })
         $Result
-    }  
+    }
 }
 
 function Invoke-PowerShellHistoryCheck {
@@ -573,9 +573,9 @@ function Invoke-SensitiveHiveFileAccessCheck {
         $UserIdentity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
         $CurrentUserSids = $UserIdentity.Groups | Select-Object -ExpandProperty Value
         $CurrentUserSids += $UserIdentity.User.Value
-    
+
         $TranslatedIdentityReferences = @{}
-    
+
         $ArrayOfPaths = New-Object System.Collections.ArrayList
         [void]$ArrayOfPaths.Add($(Join-Path -Path $env:SystemRoot -ChildPath "repair\SAM"))
         [void]$ArrayOfPaths.Add($(Join-Path -Path $env:SystemRoot -ChildPath "System32\config\RegBack\SAM"))
@@ -586,30 +586,30 @@ function Invoke-SensitiveHiveFileAccessCheck {
         [void]$ArrayOfPaths.Add($(Join-Path -Path $env:SystemRoot -ChildPath "repair\SECURITY"))
         [void]$ArrayOfPaths.Add($(Join-Path -Path $env:SystemRoot -ChildPath "System32\config\SECURITY"))
         [void]$ArrayOfPaths.Add($(Join-Path -Path $env:SystemRoot -ChildPath "System32\config\RegBack\SECURITY"))
-    
+
         $ArrayOfResults = @()
-    
+
         foreach ($Path in [string[]] $ArrayOfPaths) {
-    
+
             try {
                 $Acl = Get-Acl -Path $Path -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Access
                 if ($null -eq $Acl) { Write-Verbose "ACL is null"; continue }
-    
+
                 foreach ($Ace in $Acl) {
-    
+
                     $PermissionReference = @(
                         $FileAccessRightsEnum::ReadData
                     )
-    
+
                     $Permissions = [enum]::GetValues($FileAccessRightsEnum) | Where-Object {
                         ($Ace.FileSystemRights.value__ -band ($FileAccessRightsEnum::$_)) -eq ($FileAccessRightsEnum::$_)
                     }
-    
+
                     if (Compare-Object -ReferenceObject $Permissions -DifferenceObject $PermissionReference -IncludeEqual -ExcludeDifferent) {
-    
+
                         if ($Ace.IdentityReference -notmatch '^S-1-5.*' -and $Ace.IdentityReference -notmatch '^S-1-15-.*') {
                             if (-not ($TranslatedIdentityReferences[$Ace.IdentityReference])) {
-    
+
                                 try {
                                     # translate the IdentityReference if it's a username and not a SID
                                     $IdentityUser = New-Object System.Security.Principal.NTAccount($Ace.IdentityReference)
@@ -625,7 +625,7 @@ function Invoke-SensitiveHiveFileAccessCheck {
                         else {
                             $IdentitySID = $Ace.IdentityReference
                         }
-    
+
                         if ($CurrentUserSids -contains $IdentitySID) {
                             $Result = New-Object -TypeName PSObject
                             $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $Path
@@ -640,7 +640,7 @@ function Invoke-SensitiveHiveFileAccessCheck {
                 $null = $_
             }
         }
-    
+
         $Result = New-Object -TypeName PSObject
         $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
         $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { $SeverityLevelEnum::None })
@@ -787,15 +787,15 @@ function Invoke-UnattendFilesCheck {
             (Join-Path -Path $env:windir -ChildPath "System32\Sysprep\Unattend.xml"),
             (Join-Path -Path $env:windir -ChildPath "System32\Sysprep\Panther\Unattend.xml")
         )
-    
+
         $ArrayOfResults = @()
-    
+
         foreach ($Path in $ArrayOfPaths) {
-    
+
             if (Test-Path -Path $Path -ErrorAction SilentlyContinue) {
-    
+
                 Write-Verbose "Found file: $Path"
-    
+
                 $Result = Get-UnattendSensitiveData -Path $Path
                 if ($Result) {
                     $Result | Add-Member -MemberType "NoteProperty" -Name "File" -Value $Path
@@ -803,7 +803,7 @@ function Invoke-UnattendFilesCheck {
                 }
             }
         }
-    
+
         $Result = New-Object -TypeName PSObject
         $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
         $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { $SeverityLevelEnum::None })
@@ -822,7 +822,7 @@ function Invoke-SccmNaaCredentialsCheck {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     The cmdlet simply invokes the Find-WmiCcmNaaCredentials command to get a list of locally stored SCCM NAA credentials.
     #>
@@ -831,7 +831,7 @@ function Invoke-SccmNaaCredentialsCheck {
     param (
         [UInt32] $BaseSeverity
     )
-    
+
     process {
         $Entries = Find-WmiCcmNaaCredentials | Sort-Object -Unique
 
@@ -849,7 +849,7 @@ function Invoke-SccmCacheFolderCredentialsCheck {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     This cmdlet simply invokes the Find-SccmCacheFileCredentials command to get a list of files that potentially contain hard coded credentials.
     #>
@@ -858,18 +858,18 @@ function Invoke-SccmCacheFolderCredentialsCheck {
     param (
         [UInt32] $BaseSeverity
     )
-    
+
     begin {
         $Result = New-Object -TypeName PSObject
     }
-    
+
     process {
         $AllResults = Find-SccmCacheFileCredentials
 
         $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
         $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AllResults) { $BaseSeverity } else { $SeverityLevelEnum::None })
     }
-    
+
     end {
         $Result
     }

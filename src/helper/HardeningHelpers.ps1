@@ -161,7 +161,7 @@ function Get-BitLockerConfiguration {
     License: BSD 3-Clause
 
     .DESCRIPTION
-    This cmdlet retrieves information about the authentication mode used by the BitLocker configuration from the 'HKLM\Software\Policies\Microsoft\FVE' key (e.g. 'TPM only', 'TPM+PIN', etc.). 
+    This cmdlet retrieves information about the authentication mode used by the BitLocker configuration from the 'HKLM\Software\Policies\Microsoft\FVE' key (e.g. 'TPM only', 'TPM+PIN', etc.).
 
     .EXAMPLE
     PS C:\> Get-BitLockerConfiguration
@@ -242,7 +242,7 @@ function Get-BitLockerConfiguration {
         $RegKey = "HKLM\SYSTEM\CurrentControlSet\Control\BitLockerStatus"
         $RegValue = "BootStatus"
         $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
-    
+
         $BitLockerEnabled = $false
 
         if ($null -eq $RegData) {
@@ -279,7 +279,7 @@ function Get-BitLockerConfiguration {
                 $FveConfigValue = $FveConfigItem.name
                 $FveConfigValueDescriptions = $FveConfigValues[$FveConfigValue]
                 $IsValid = $true
-    
+
                 if (($FveConfigValue -eq "UseAdvancedStartup") -or ($FveConfigValue -eq "EnableBDEWithNoTPM")) {
                     if (($FveConfig[$FveConfigValue] -ne 0) -and ($FveConfig[$FveConfigValue] -ne 1)) {
                         $IsValid = $false
@@ -290,16 +290,16 @@ function Get-BitLockerConfiguration {
                         $IsValid = $false
                     }
                 }
-    
+
                 if (-not $IsValid) {
                     Write-Warning "Unexpected value for $($FveConfigValue): $($FveConfig[$FveConfigValue])"
                     continue
                 }
-    
+
                 $Item = New-Object -TypeName PSObject
                 $Item | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $($FveConfig[$FveConfigValue])
                 $Item | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $($FveConfigValueDescriptions[$FveConfig[$FveConfigValue]])
-    
+
                 $Result | Add-Member -MemberType "NoteProperty" -Name $FveConfigValue -Value $Item
             }
         }
@@ -315,14 +315,14 @@ function Get-AppLockerPolicyFromRegistry {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     This cmdlet is an alternative for the official "Get-AppLockerPolicy" (PSv4+) that works in PSv2. It reads the registry and builds an XML representation of the AppLocker policy, similar to the output of "Get-AppLockerPolicy".
     #>
 
     [CmdletBinding()]
     param ()
-    
+
     begin {
         function Convert-EnforcementModeToString {
             param (
@@ -345,7 +345,7 @@ function Get-AppLockerPolicyFromRegistry {
         $XmlWriter.WriteStartElement("AppLockerPolicy")
         $XmlWriter.WriteAttributeString("Version", "1")
     }
-    
+
     process {
         foreach ($RuleCollectionType in $RuleCollectionTypes) {
 
@@ -358,7 +358,7 @@ function Get-AppLockerPolicyFromRegistry {
             $XmlWriter.WriteStartElement("RuleCollection")
             $XmlWriter.WriteAttributeString("Type", $RuleCollectionType)
             $XmlWriter.WriteAttributeString("EnforcementMode", $EnforcementMode)
-            
+
             foreach ($ChildItem in $(Get-ChildItem -Path "Registry::$($RegKey)" -ErrorAction SilentlyContinue)) {
 
                 $SubKeyName = $ChildItem.PSChildName
@@ -373,7 +373,7 @@ function Get-AppLockerPolicyFromRegistry {
             $XmlWriter.WriteEndElement()
         }
     }
-    
+
     end {
         $XmlWriter.WriteEndElement()
         $XmlWriter.Flush()
@@ -390,12 +390,12 @@ function Get-AppLockerPolicyInternal {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
-    This cmdlet parses the AppLocker configuration to identify rules that can be exploited to execute arbitrary files. 
+    This cmdlet parses the AppLocker configuration to identify rules that can be exploited to execute arbitrary files.
 
     .PARAMETER FilterLevel
-    Filter rules based on their likelihood of exploitation (0 = all / no filter, 1 = low to high, 2 = medium and high, 3 = high only). 
+    Filter rules based on their likelihood of exploitation (0 = all / no filter, 1 = low to high, 2 = medium and high, 3 = high only).
     #>
 
     [CmdletBinding()]
@@ -403,7 +403,7 @@ function Get-AppLockerPolicyInternal {
         [ValidateSet(0, 1, 2, 3)]
         [UInt32] $FilterLevel = 0
     )
-    
+
     begin {
         $CurrentUserSids = Get-CurrentUserSids
         $Levels = @( "None", "Low", "Moderate", "High" )
@@ -412,7 +412,7 @@ function Get-AppLockerPolicyInternal {
             param(
                 [string] $Path
             )
-            
+
             # AppLocker path variables
             # https://learn.microsoft.com/en-us/windows/security/application-security/application-control/windows-defender-application-control/applocker/understanding-the-path-rule-condition-in-applocker
             $VariableHashmap = @{
@@ -457,7 +457,7 @@ function Get-AppLockerPolicyInternal {
             $ConditionString
         }
     }
-    
+
     process {
 
         if (([UInt32[]] $PSVersionTable.PSCompatibleVersions.Major) -contains 4) {
@@ -467,9 +467,9 @@ function Get-AppLockerPolicyInternal {
             Write-Warning "Incompatible PowerShell version detected, retrieving AppLocker policy from registry instead of using 'Get-AppLockerPolicy'..."
             $AppLockerPolicyXml = [xml] (Get-AppLockerPolicyFromRegistry)
         }
-        
+
         foreach ($RuleCollection in $AppLockerPolicyXml.AppLockerPolicy.GetElementsByTagName("RuleCollection")) {
-        
+
             # Type: Appx / Dll / Exe / Msi / Script
             # EnforcementMode: NotConfigured / Enabled / ServicesOnly
 
@@ -490,7 +490,7 @@ function Get-AppLockerPolicyInternal {
             foreach ($RuleType in $RuleTypes) {
 
                 $Rules = $RuleCollection.GetElementsByTagName("$($RuleType)Rule")
-                
+
                 foreach ($Rule in $Rules) {
 
                     if ($Rule.Action -eq "Deny") {
@@ -520,7 +520,7 @@ function Get-AppLockerPolicyInternal {
                     else {
                         $ExceptionListString = $null
                     }
-                    
+
                     foreach ($Condition in $Conditions) {
 
                         $ConditionString = Convert-AppLockerConditionToString -Condition $Condition -Type $RuleType
@@ -535,7 +535,7 @@ function Get-AppLockerPolicyInternal {
                                 }
                                 elseif (($Rule.Action -eq "Allow") -and (($Condition.ProductName -eq "*") -or ($Condition.BinaryName -eq "*"))) {
                                     $Level = 1
-                                    $Description = "This rule allows any product or file from the publisher '$($Condition.PublisherName)'."   
+                                    $Description = "This rule allows any product or file from the publisher '$($Condition.PublisherName)'."
                                 }
                             }
 
@@ -629,10 +629,10 @@ function Get-EnforcedPowerShellExecutionPolicy {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
-    This cmdlet retrieves the configuration of the PowerShell execution, when it is enforced with a GPO. If first checks the computer configuration, and returns it if found. Otherwise, it checks the the user configuration. If no execution policy is defined, this cmdlet returns null. 
-    
+    This cmdlet retrieves the configuration of the PowerShell execution, when it is enforced with a GPO. If first checks the computer configuration, and returns it if found. Otherwise, it checks the the user configuration. If no execution policy is defined, this cmdlet returns null.
+
     .EXAMPLE
     PS C:\> Get-EnforcedPowerShellExecutionPolicy
 
@@ -645,7 +645,7 @@ function Get-EnforcedPowerShellExecutionPolicy {
 
     [CmdletBinding()]
     param ()
-    
+
     begin {
         $RegKeys = @(
             "HKLM\SOFTWARE\Policies\Microsoft\Windows\PowerShell",
@@ -654,7 +654,7 @@ function Get-EnforcedPowerShellExecutionPolicy {
     }
 
     process {
-        
+
         foreach ($RegKey in $RegKeys) {
 
             $RegValue = "EnableScripts"
@@ -690,7 +690,7 @@ function Get-EnforcedPowerShellExecutionPolicy {
             $Result | Add-Member -MemberType "NoteProperty" -Name "ExecutionPolicy" -Value $ExecutionPolicy
             $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $(if ($Description) { $Description } else { "(null)" })
             $Result
-            
+
             # # A policy was found, so we can stop here. If it's defined in HKLM, it means
             # # that it's set in the computer configuration, which has precedence over the
             # # user configuration. Otherwise it's defined in the user configuration.

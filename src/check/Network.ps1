@@ -394,7 +394,7 @@ function Invoke-AirstrikeAttackCheck {
         $WindowsVersion = Get-WindowsVersion
         if ((($WindowsVersion.Major -eq 6) -and ($WindowsVersion.Minor -lt 2)) -or ($WindowsVersion.Major -lt 6)) {
             $Description = "This version of Windows is not supported."
-            
+
         }
         else {
             # Read the value of the 'DontDisplayNetworkSelectionUI' policy.

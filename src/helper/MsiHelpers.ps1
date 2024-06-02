@@ -129,16 +129,16 @@ function Get-CustomAction {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     This function extracts the Custom Actions defined in an MSI file. If no Custom Action is defined, it returns null.
-    
+
     .PARAMETER Database
     An object representing an MSI database.
-    
+
     .PARAMETER Arch
     Ths system's architecture (32, 64).
-    
+
     .PARAMETER AllUsers
     A parameter representing the value of the ALLUSERS MSI property.
     #>
@@ -162,22 +162,22 @@ function Get-CustomAction {
             $SqlQuery = "SELECT * FROM CustomAction"
             $View = Invoke-MsiDatabaseOpenView -Database $Database -Query $SqlQuery
             Invoke-MsiViewExecute -View $View
-    
+
             $Record = Invoke-MsiViewFetch -View $View
-    
+
             while ($null -ne $Record) {
-    
+
                 $Action = Invoke-MsiGetProperty -Record $Record -Property "StringData" -Index 1
                 $Type = [uint32] (Invoke-MsiGetProperty -Record $Record -Property "StringData" -Index 2)
                 $Source = Invoke-MsiGetProperty -Record $Record -Property "StringData" -Index 3
                 $Target = Invoke-MsiGetProperty -Record $Record -Property "StringData" -Index 4
-    
+
                 $ExeType = Get-CustomActionExecutableType -Type $Type
                 $SourceType = Get-CustomActionExecutableSource -Type $Type
                 $ReturnProcessing = ([string[]] (Get-CustomActionReturnProcessing -Type $Type)) -join ","
                 $SchedulingFlags = ([string[]] (Get-CustomActionExecutionSchedulingFlags -Type $Type)) -join ","
                 $SecurityContextFlags = ([string[]] (Get-CustomActionSecurityContextFlags -Type $Type)) -join ","
-    
+
                 $TargetExpanded = Get-MsiExpandedString -String $Target -Database $Database -SystemFolders $SystemFolders
                 if ($TargetExpanded -eq $Target) { $TargetExpanded = $null }
 
@@ -218,7 +218,7 @@ function Get-CustomAction {
                 ) {
                     $Candidate = $true
                 }
-    
+
                 $CustomAction = New-Object -TypeName PSObject
                 $CustomAction | Add-Member -MemberType "NoteProperty" -Name "Action" -Value $Action
                 $CustomAction | Add-Member -MemberType "NoteProperty" -Name "Type" -Value $Type
@@ -238,7 +238,7 @@ function Get-CustomAction {
 
                 $Record = Invoke-MsiViewFetch -View $View
             }
-    
+
             Invoke-MsiViewClose -View $View
         }
         catch {
@@ -254,13 +254,13 @@ function Get-MsiProperty {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     This function extracts the value of an MSI property, such as the product code, the product name, or the manufacturer name.
-    
+
     .PARAMETER Database
     An object representing an MSI database.
-    
+
     .PARAMETER Property
     The name of a metadata property.
     #>
@@ -269,7 +269,7 @@ function Get-MsiProperty {
         [ValidateSet("ProductCode", "ProductName", "Manufacturer", "ProductVersion", "ALLUSERS")]
         [string] $Property
     )
-    try {            
+    try {
         # No need for a parameterized query since the Property value is based on a
         # validated set.
         $SqlQuery = "SELECT Value FROM Property WHERE Property='$($Property)'"
@@ -290,13 +290,13 @@ function Get-MsiDirectoryProperty {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     This function retrieves the "Directory_Parent" and "DefaultDir" properties of a "Directory" entry from the input MSI database given its name.
-    
+
     .PARAMETER Database
     An object representing an MSI database.
-    
+
     .PARAMETER Directory
     The name of a "Directory" entry.
     #>
@@ -317,7 +317,7 @@ function Get-MsiDirectoryProperty {
             # Prepare a "Record" object to store the value to replace in the parameterized query.
             $Record = Invoke-MsiCreateRecord -Installer $TempInstaller -Count 1
             $null = Invoke-MsiSetProperty -Record $Record -Property "StringData" -Index 1 -Value $Directory
-    
+
             # Execute the parameterized query.
             $SqlQuery = "SELECT Directory_Parent,DefaultDir FROM Directory WHERE Directory=?"
             $View = Invoke-MsiDatabaseOpenView -Database $Database -Query $SqlQuery
@@ -352,13 +352,13 @@ function Get-MsiFilenameProperty {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     This function extracts the "FileName" property of a "File" entry in the input MSI database given its name.
-    
+
     .PARAMETER Database
     An object representing an MSI database.
-    
+
     .PARAMETER File
     The name of a "File" entry.
     #>
@@ -379,7 +379,7 @@ function Get-MsiFilenameProperty {
             # Prepare a "Record" object to store the value to replace in the parameterized query.
             $Record = Invoke-MsiCreateRecord -Installer $TempInstaller -Count 1
             $null = Invoke-MsiSetProperty -Record $Record -Property "StringData" -Index 1 -Value $File
-    
+
             # Execute the parameterized query.
             $SqlQuery = "SELECT FileName FROM File WHERE File=?"
             $View = Invoke-MsiDatabaseOpenView -Database $Database -Query $SqlQuery
@@ -408,17 +408,17 @@ function Get-MsiComponentProperty {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     This function retrieves the "Directory" property of an entry in the "Component" table given its name.
-    
+
     .PARAMETER Database
     An object representing an MSI database.
-    
+
     .PARAMETER Component
     The name of a "Component" entry.
     #>
-    
+
     [OutputType([string])]
     param (
         [object] $Database,
@@ -435,7 +435,7 @@ function Get-MsiComponentProperty {
             # Prepare a "Record" object to store the value to replace in the parameterized query.
             $Record = Invoke-MsiCreateRecord -Installer $TempInstaller -Count 1
             $null = Invoke-MsiSetProperty -Record $Record -Property "StringData" -Index 1 -Value $Component
-    
+
             # Execute the parameterized query.
             $SqlQuery = "SELECT Directory_ FROM Component WHERE Component=?"
             $View = Invoke-MsiDatabaseOpenView -Database $Database -Query $SqlQuery
@@ -464,13 +464,13 @@ function Get-MsiBinaryDataProperty {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     This function extracts a resource from the "Binary" table of the input MSI database given its name.
-    
+
     .PARAMETER Database
     An object representing an MSI database.
-    
+
     .PARAMETER Name
     The name of the binary resource to extract.
     #>
@@ -527,10 +527,10 @@ function Get-MsiTableList {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     This function enumerates the entries of the default table "_Tables" to return a list of tables contained within the input MSI database.
-    
+
     .PARAMETER Database
     An object representing an MSI database.
     #>
@@ -559,13 +559,13 @@ function Get-MsiSystemFolderProperties {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     This function resolves the known system folder paths in the context of current environment, user, and MSI properties.
-    
+
     .PARAMETER Arch
     The target architecture (32 or 64).
-    
+
     .PARAMETER AllUsers
     A parameter representing the value of the ALLUSERS MSI property.
     #>
@@ -579,7 +579,7 @@ function Get-MsiSystemFolderProperties {
     # https://learn.microsoft.com/en-us/windows/win32/msi/property-reference#system-folder-properties
 
     $AllUserAppData = Join-Path -Path $env:ALLUSERSPROFILE -ChildPath "Microsoft\Windows"
-    
+
     @{
         "AdminToolsFolder" = "ADMIN_TOOLS_FOLDER"
         "AppDataFolder" = $env:APPDATA
@@ -618,16 +618,16 @@ function Get-MsiExpandedString {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     This function takes a string as an input and attempts to resolve any variable it contains. In MSI files, variables are represented using a unique and custom identifier between square brackets.
-    
+
     .PARAMETER String
     The input string to process.
-    
+
     .PARAMETER Database
     An object representing an MSI database.
-    
+
     .PARAMETER SystemFolders
     A list of known system folder properties, already resolved in the current user's context.
     #>
@@ -704,7 +704,7 @@ function Get-MsiFileItem {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     This cmdlet enumerates cached MSI files (located in C:\Windows\Installer) and extracts useful information, such as the product's name, vendor's name, and its Custom Actions, if any are defined.
     #>
@@ -713,12 +713,12 @@ function Get-MsiFileItem {
     param (
         [string] $FilePath
     )
-    
+
     begin {
         $InstallerPath = Join-Path -Path $env:windir -ChildPath "Installer"
         $Arch = $(if ([Environment]::Is64BitOperatingSystem) { 64 } else { 32 })
     }
-    
+
     process {
         if ([string]::IsNullOrEmpty($FilePath)) {
             $MsiFiles = Get-ChildItem -Path "$($InstallerPath)\*.msi" -ErrorAction SilentlyContinue

@@ -55,7 +55,7 @@ function Invoke-ModifiableProgramsCheck {
         $FsRedirectionValue = Disable-Wow64FileSystemRedirection
 
         foreach ($Item in $Items) {
-    
+
             # Ensure the path is not a known system folder, in which case it does not make
             # sense to check it. This also prevents the script from spending a considerable
             # amount of time and resources searching those paths recursively.
@@ -63,16 +63,16 @@ function Invoke-ModifiableProgramsCheck {
                 Write-Warning "System path detected, ignoring: $($Item.FullName)"
                 continue
             }
-    
+
             # Build the search path list. The following trick is used to search recursively
             # without using the 'Depth' option, which is only available in PSv5+. This
             # allows us to maintain compatibility with PSv2.
             $SearchPath = New-Object -TypeName System.Collections.ArrayList
             [void]$SearchPath.Add([String]$(Join-Path -Path $Item.FullName -ChildPath "\*"))
             [void]$SearchPath.Add([String]$(Join-Path -Path $Item.FullName -ChildPath "\*\*"))
-    
+
             Get-ChildItem -Path $SearchPath -ErrorAction SilentlyContinue | ForEach-Object {
-    
+
                 if ($_ -is [System.IO.DirectoryInfo]) {
                     $ModifiablePaths = $_ | Get-ModifiablePath -LiteralPaths
                 }
@@ -192,22 +192,22 @@ function Invoke-ApplicationsOnStartupCheck {
         $ArrayOfResults = @()
 
         [string[]]$RegistryPaths = "HKLM\Software\Microsoft\Windows\CurrentVersion\Run", "HKLM\Software\Microsoft\Windows\CurrentVersion\RunOnce"
-    
+
         $RegistryPaths | ForEach-Object {
-    
+
             $RegKeyPath = $_
-    
+
             $Item = Get-Item -Path "Registry::$($RegKeyPath)" -ErrorAction SilentlyContinue -ErrorVariable ErrorGetItem
             if (-not $ErrorGetItem) {
-    
+
                 $Values = $Item | Select-Object -ExpandProperty Property
                 foreach ($Value in $Values) {
-    
+
                     $RegKeyValueName = $Value
                     $RegKeyValueData = $Item.GetValue($RegKeyValueName, "", "DoNotExpandEnvironmentNames")
-    
+
                     if ([String]::IsNullOrEmpty($RegKeyValueData)) { continue }
-    
+
                     $ModifiablePaths = $RegKeyValueData | Get-ModifiablePath | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
                     if (([Object[]]$ModifiablePaths).Length -gt 0) {
                         $IsModifiable = $true
@@ -215,42 +215,42 @@ function Invoke-ApplicationsOnStartupCheck {
                     else {
                         $IsModifiable = $false
                     }
-    
+
                     $Result = New-Object -TypeName PSObject
                     $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $RegKeyValueName
                     $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value "$($RegKeyPath)\$($RegKeyValueName)"
                     $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $RegKeyValueData
                     $Result | Add-Member -MemberType "NoteProperty" -Name "IsModifiable" -Value $IsModifiable
-    
+
                     if ($Info) { $Result; continue } # If Info, report directly and inspect the next value
                     if ($IsModifiable) { $ArrayOfResults += $Result } # If vulnerable, report
                 }
             }
         }
-    
+
         $Root = (Get-Item -Path $env:windir).PSDrive.Root
-    
+
         # We want to check only startup applications that affect all users
         [string[]]$FileSystemPaths = "\Users\All Users\Start Menu\Programs\Startup"
-    
+
         $FileSystemPaths | ForEach-Object {
-    
+
             $StartupFolderPath = Join-Path -Path $Root -ChildPath $_
-    
+
             $StartupFolders = Get-ChildItem -Path $StartupFolderPath -ErrorAction SilentlyContinue
-    
+
             foreach ($StartupFolder in $StartupFolders) {
-    
+
                 $EntryName = $StartupFolder.Name
                 $EntryPath = $StartupFolder.FullName
-    
+
                 if ($EntryPath -Like "*.lnk") {
-    
+
                     try {
-    
+
                         $Wsh = New-Object -ComObject WScript.Shell
                         $Shortcut = $Wsh.CreateShortcut((Resolve-Path -Path $EntryPath))
-    
+
                         $ModifiablePaths = $Shortcut.TargetPath | Get-ModifiablePath -LiteralPaths | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
                         if (([Object[]]$ModifiablePaths).Length -gt 0) {
                             $IsModifiable = $true
@@ -258,13 +258,13 @@ function Invoke-ApplicationsOnStartupCheck {
                         else {
                             $IsModifiable = $false
                         }
-    
+
                         $Result = New-Object -TypeName PSObject
                         $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $EntryName
                         $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $EntryPath
                         $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value "$($Shortcut.TargetPath) $($Shortcut.Arguments)"
                         $Result | Add-Member -MemberType "NoteProperty" -Name "IsModifiable" -Value $IsModifiable
-    
+
                         if ($Info) { $Result; continue } # If Info, report directly and inspect the next value
                         if ($IsModifiable) { $ArrayOfResults += $Result } # If vulnerable, report
                     }
@@ -274,7 +274,7 @@ function Invoke-ApplicationsOnStartupCheck {
                 }
             }
         }
-    
+
         if (-not $Info) {
             $Result = New-Object -TypeName PSObject
             $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults

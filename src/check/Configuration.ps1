@@ -20,7 +20,7 @@ function Get-PointAndPrintConfiguration {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     This cmdlet retrieves information about the Point and Print configuration, and checks whether each setting is considered as compliant depending on its value.
     #>
@@ -231,7 +231,7 @@ function Get-PointAndPrintConfiguration {
         # https://admx.help/?Category=Windows_10_2016&Policy=Microsoft.Policies.Printing::PackagePointAndPrintServerList
         $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PackagePointAndPrint\ListOfServers"
         $RegData = Get-Item -Path ($RegKey -replace "HKLM\\","HKLM:\") -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Property
-        
+
         $Item = New-Object -TypeName PSObject
         $Item | Add-Member -MemberType "NoteProperty" -Name "Policy" -Value "Package Point and print - Approved servers > PackagePointAndPrintServerList"
         $Item | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
@@ -284,7 +284,7 @@ function Invoke-RegistryAlwaysInstallElevatedCheck {
     $Config | Add-Member -MemberType "NoteProperty" -Name "LocalMachineKey" -Value $RegKey
     $Config | Add-Member -MemberType "NoteProperty" -Name "LocalMachineValue" -Value $RegValue
     $Config | Add-Member -MemberType "NoteProperty" -Name "LocalMachineData" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
-    
+
     # If the setting is not enabled in HKLM, it is not exploitable.
     if (($null -eq $RegData) -or ($RegData -eq 0)) {
         $Description = "AlwaysInstallElevated is not enabled in HKLM."
@@ -309,7 +309,7 @@ function Invoke-RegistryAlwaysInstallElevatedCheck {
     }
 
     $Config | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
-    
+
     $Result = New-Object -TypeName PSObject
     $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Config
     $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $SeverityLevelEnum::None })
@@ -471,36 +471,36 @@ function Invoke-HardenedUNCPathCheck {
         $OsVersionMajor = (Get-WindowsVersion).Major
 
         $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows\NetworkProvider\HardenedPaths"
-    
+
         if ($OsVersionMajor -ge 10) {
-    
+
             # If Windows >= 10, paths are "hardened" by default. Therefore, the "HardenedPaths" registry
             # key should not contain any value. If it contain values, ensure that protections were not
             # explicitely disabled.
-    
+
             Get-Item -Path "Registry::$RegKey" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty property | ForEach-Object {
-    
+
                 $RegValue = $_
                 $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
                 Write-Verbose "Value: $($RegValue) - Data: $($RegData)"
-    
+
                 $Description = ""
-    
+
                 if ($RegData -like "*RequireMutualAuthentication=0*") {
                     $Vulnerable = $true
                     $Description = "$($Description)Mutual authentication is disabled. "
                 }
-    
+
                 if ($RegData -like "*RequireIntegrity=0*") {
                     $Vulnerable = $true
                     $Description = "$($Description)Integrity mode is disabled. "
                 }
-    
+
                 if ($RegData -like "*RequirePrivacy=0*") {
                     $Vulnerable = $true
                     $Description = "$($Description)Privacy mode is disabled. "
                 }
-    
+
                 if ($Vulnerable) {
                     $Result = New-Object -TypeName PSObject
                     $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
@@ -512,19 +512,19 @@ function Invoke-HardenedUNCPathCheck {
             }
         }
         else {
-    
+
             # If Windows < 10, paths are not hardened by default. Therefore, the "HardenedPaths" registry
             # should contain at least two entries, as per Microsoft recommendations. One for SYSVOL and one
             # for NETLOGON: '\\*\SYSVOL' and '\\*\NETLOGON'. However, a list of server would be valid as
             # as well. Here, we will only ensure that both '\\*\SYSVOL' and '\\*\NETLOGON' are properly
             # configured though.
-    
+
             $RegValues = @("\\*\SYSVOL", "\\*\NETLOGON")
             foreach ($RegValue in $RegValues) {
-    
+
                 $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
                 $Description = ""
-    
+
                 if ($null -eq $RegData) {
                     $Vulnerable = $true
                     $Description = "Hardened UNC path is not configured."
@@ -534,13 +534,13 @@ function Invoke-HardenedUNCPathCheck {
                         $Vulnerable = $true
                         $Description = "$($Description)Mutual authentication is not enabled. "
                     }
-    
+
                     if ((-not ($RegData -like "*RequireIntegrity=1*")) -and (-not ($RegData -like "*RequirePrivacy=1*"))) {
                         $Vulnerable = $true
                         $Description = "$($Description)Integrity/privacy mode is not enabled. "
                     }
                 }
-    
+
                 if ($Vulnerable) {
                     $Result = New-Object -TypeName PSObject
                     $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
@@ -585,7 +585,7 @@ function Invoke-DllHijackingCheck {
         $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue).$RegValue
         $Paths = $RegData.Split(';') | ForEach-Object { $_.Trim() } | Where-Object { -not [String]::IsNullOrEmpty($_) }
         $ArrayOfResults = @()
-    
+
         foreach ($Path in $Paths) {
             $Path | Get-ModifiablePath -LiteralPaths | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) } | Foreach-Object {
                 $Result = New-Object -TypeName PSObject
@@ -596,7 +596,7 @@ function Invoke-DllHijackingCheck {
                 $ArrayOfResults += $Result
             }
         }
-    
+
         $Result = New-Object -TypeName PSObject
         $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
         $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { $SeverityLevelEnum::None })
@@ -691,7 +691,7 @@ function Invoke-PointAndPrintConfigCheck {
         $Service = Get-ServiceList -FilterLevel 2 | Where-Object { $_.Name -eq "Spooler" }
         if (-not $Service -or ($Service.StartMode -eq "Disabled")) {
             Write-Verbose "The Print Spooler service is not installed or is disabled."
-            
+
             $Result = New-Object -TypeName PSObject
             $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value "The Print Spooler service is disabled."
 
@@ -699,20 +699,20 @@ function Invoke-PointAndPrintConfigCheck {
         }
         else {
             $Config = Get-PointAndPrintConfiguration
-        
+
             if ($Config.RestrictDriverInstallationToAdministrators.Data -eq 0) {
-        
+
                 # Printer driver installation is not restricted to administrators, the system
                 # could therefore be vulnerable.
-        
+
                 # From the KB article KB5005652:
-                # "Setting the value to 0 allows non-administrators to install signed and      
-                # unsigned drivers to a print server but does not override the Point and Print 
+                # "Setting the value to 0 allows non-administrators to install signed and
+                # unsigned drivers to a print server but does not override the Point and Print
                 # Group Policy settings.
-                # Consequently, the Point and Print Restrictions Group Policy settings can 
+                # Consequently, the Point and Print Restrictions Group Policy settings can
                 # override this registry key setting to prevent non-administrators from
                 # installing signed and unsigned print drivers from a print server. Some
-                # administrators might set the value to 0 to allow non-admins to install and 
+                # administrators might set the value to 0 to allow non-admins to install and
                 # update drivers after adding additional restrictions, including adding a policy
                 # setting that constrains where drivers can be installed from."
 
@@ -739,7 +739,7 @@ function Invoke-PointAndPrintConfigCheck {
                     $Severity = [Math]::Max([UInt32] $Severity, [UInt32] $SeverityLevelEnum::Medium) -as $SeverityLevelEnum
                 }
             }
-        
+
             $ArrayOfResults = @(
                 $Config.RestrictDriverInstallationToAdministrators,
                 $Config.NoWarningNoElevationOnInstall,
@@ -800,7 +800,7 @@ function Invoke-DriverCoInstallersCheck {
     $Config | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
     $Config | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
     $Config | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
-    
+
     $Result = New-Object -TypeName PSObject
     $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Config
     $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $SeverityLevelEnum::None })
@@ -814,14 +814,14 @@ function Invoke-SccmCacheFoldersCheck {
 
     Author: @itm4n, @SAERXCIT
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     This cmdlet retrieves a list of SCCM cache folders. For each folder, it also enumerates interesting files (such as binaries, scripts, or various text files).
     #>
 
     [CmdletBinding()]
     param ()
-    
+
     process {
         $SccmCacheFolders = [object[]] (Get-SccmCacheFoldersFromRegistry)
 
@@ -857,12 +857,12 @@ function Invoke-ProxyAutoConfigUrlCheck {
     param (
         [UInt32] $BaseSeverity
     )
-    
+
     begin {
         $Result = New-Object -TypeName PSObject
         $AllResults = @()
     }
-    
+
     process {
         $AllResults = Get-ProxyAutoConfigURl | Where-Object { $_.ProxyEnable -ne 0 }
         $Vulnerable = $null -ne ($AllResults | Where-Object { $_.AutoConfigURL -like "http://*" })
@@ -870,7 +870,7 @@ function Invoke-ProxyAutoConfigUrlCheck {
         $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
         $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $SeverityLevelEnum::None })
     }
-    
+
     end {
         $Result
     }

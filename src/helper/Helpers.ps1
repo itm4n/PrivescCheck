@@ -143,13 +143,13 @@ function Test-IsMicrosoftFile {
 }
 
 function Test-CommonApplicationFile {
-    
+
     [CmdletBinding()]
     param (
         [ValidateNotNullOrEmpty()]
         [string] $Path
     )
-    
+
     process {
         $global:CommonApplicationExtensions -contains ([System.IO.Path]::GetExtension($Path)).Replace('.', '')
     }
@@ -161,11 +161,11 @@ function Test-IsSystemFolder {
     param (
         [string] $Path
     )
-    
+
     begin {
         $SystemPaths = @()
     }
-    
+
     process {
         # Initialize system path list
         if ($SystemPaths.Count -eq 0) {
@@ -217,19 +217,19 @@ function Get-AclModificationRights {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     This cmdlet retrieves the ACL of an object and returns the ACEs that grant modification permissions to the current user. It should be noted that, in case of deny ACEs, restricted rights are removed from the permission list of the ACEs.
-    
+
     .PARAMETER Path
     The full path of a securable object.
-    
+
     .PARAMETER Type
     The target object type (e.g. "File").
-    
+
     .EXAMPLE
     PS C:\> Get-AclModificationRights -Path C:\Temp\foo123.txt -Type File
-    
+
     ModifiablePath    : C:\Temp\foo123.txt
     IdentityReference : NT AUTHORITY\Authenticated Users
     Permissions       : Delete, WriteAttributes, Synchronize, ReadControl, ReadData, AppendData, WriteExtendedAttributes,
@@ -376,11 +376,11 @@ function Get-AclModificationRights {
     PROCESS {
 
         try {
-    
+
             # First things first, try to get the ACL of the object given its path.
             $Acl = Get-Acl -Path $Path -ErrorAction SilentlyContinue -ErrorVariable GetAclError
             if ($GetAclError) { return }
-    
+
             # If no ACL is returned, it means that the object has a "null" DACL, in which case everyone is
             # granted full access to the object. We can therefore simply return a "virtual" ACE that grants
             # Everyone the "FullControl" right and exit.
@@ -392,10 +392,10 @@ function Get-AclModificationRights {
                 $Result
                 return
             }
-            
+
             $DenyAces = [Object[]]($Acl | Select-Object -ExpandProperty Access | Where-Object { $_.AccessControlType -match "Deny" })
             $AllowAces = [Object[]]($Acl | Select-Object -ExpandProperty Access | Where-Object { $_.AccessControlType -match "Allow" })
-    
+
             # Here we simply get the access mask, access list name and list of access rights that are
             # specific to the object type we are dealing with.
             $TypeAccessMask = $AccessMask[$Type]
@@ -407,25 +407,25 @@ function Get-AclModificationRights {
             $RestrictedRights = @()
             if ($DenyAces) { # Need to make sure it not null because of PSv2
                 foreach ($DenyAce in $DenyAces) {
-    
+
                     # Ignore "InheritOnly" ACEs because they only apply to child objects, not to the object itself
                     # (e.g.: a file in a directory or a sub-key of a registry key).
                     if ($DenyAce.PropagationFlags -band ([System.Security.AccessControl.PropagationFlags]"InheritOnly").value__) { continue }
-        
+
                     # Convert the ACE's identity reference name to its SID. If the SID is not in the list
-                    # of deny-only SIDs of the current Token, ignore it. If the SID does not match the 
+                    # of deny-only SIDs of the current Token, ignore it. If the SID does not match the
                     # current user SID or the SID of any of its groups, ignore it as well.
                     # Note: deny-only SIDs are only used to check access-denied ACEs.
                     # https://docs.microsoft.com/en-us/windows/win32/secauthz/sid-attributes-in-an-access-token
                     $IdentityReferenceSid = Convert-NameToSid -Name $DenyAce.IdentityReference
                     if ($CurrentUserDenySids -notcontains $IdentityReferenceSid) { continue }
                     if ($CurrentUserSids -notcontains $IdentityReferenceSid) { continue }
-    
+
                     $Restrictions = $TypeAccessMask.Keys | Where-Object { $DenyAce.$TypeAccessRights.value__ -band $_ } | ForEach-Object { $TypeAccessMask[$_] }
                     $RestrictedRights += [String[]]$Restrictions
                 }
             }
-            
+
             # Need to make sure it not null because of PSv2
             if ($AllowAces) {
                 foreach ($AllowAce in $AllowAces) {
@@ -437,24 +437,24 @@ function Get-AclModificationRights {
                     # Here, we simply extract the permissions granted by the current ACE
                     $Permissions = New-Object System.Collections.ArrayList
                     $TypeAccessMask.Keys | Where-Object { $AllowAce.$TypeAccessRights.value__ -band $_ } | ForEach-Object { $null = $Permissions.Add($TypeAccessMask[$_]) }
-        
+
                     # ... and we remove any right that would be restricted due to deny ACEs.
                     if ($RestrictedRights) {
                         foreach ($RestrictedRight in $RestrictedRights) {
                             $null = $Permissions.Remove($RestrictedRight)
                         }
                     }
-    
+
                     # Here, we filter out ACEs that do not apply to the current user by checking whether the ACE's
                     # identity reference is in the current user's SID list.
                     $IdentityReferenceSid = Convert-NameToSid -Name $AllowAce.IdentityReference
                     if ($CurrentUserSids -notcontains $IdentityReferenceSid) { continue }
-    
+
                     # We compare the list of permissions (minus the potential restrictions) againts a list of
                     # predefined modification rights. If there is no match, we ignore the ACE.
                     $Comparison = Compare-Object -ReferenceObject $Permissions -DifferenceObject $TypeModificationRights -IncludeEqual -ExcludeDifferent
                     if (-not $Comparison) { continue }
-    
+
                     $Result = New-Object -TypeName PSObject
                     $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $Path
                     $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $AllowAce.IdentityReference
@@ -552,7 +552,7 @@ function Get-ModifiablePath {
             if ($PSBoundParameters['LiteralPaths']) {
 
                 $TempPath = $([System.Environment]::ExpandEnvironmentVariables($TargetPath))
-                
+
                 if (Test-Path -Path $TempPath -ErrorAction SilentlyContinue) {
 
                     $ResolvedPath = Resolve-Path -Path $TempPath | Select-Object -ExpandProperty Path
@@ -696,9 +696,9 @@ function Get-ExploitableUnquotedPath {
         $UnquotedPath = Get-UnquotedPath -Path $Path -Spaces
 
         if ([String]::IsNullOrEmpty($UnquotedPath)) { return }
-    
+
         Write-Verbose "Found an unquoted path that contains spaces: $($UnquotedPath)"
-    
+
         # Split path and build candidates paths
         $SplitPathArray = $UnquotedPath.Split(' ')
         $ConcatPathArray = @()
@@ -707,16 +707,16 @@ function Get-ExploitableUnquotedPath {
         }
 
         $CheckedPaths = @()
-        
+
         foreach ($ConcatPath in $ConcatPathArray) {
-    
+
             # We exclude the binary path itself
             if ($ConcatPath -like $UnquotedPath) { continue }
 
             # Get parent folder. Split-Path does not handle errors nicely so catch exceptions
             # and continue on failure.
             try { $BinFolder = Split-Path -Path $ConcatPath -Parent -ErrorAction SilentlyContinue } catch { continue }
-    
+
             # Split-Path failed without throwing an exception, so ignore and continue.
             if ( $null -eq $BinFolder) { continue }
 
@@ -732,7 +732,7 @@ function Get-ExploitableUnquotedPath {
             $CheckedPaths += $BinFolder
 
             foreach ($ModifiablePath in $ModifiablePaths) {
-    
+
                 # To exploit an unquoted path we need to create a file, so make sure that the
                 # permissions returned by Get-ModifiablePath really allow us to do that.
                 foreach ($Permission in $ModifiablePath.Permissions) {
@@ -747,7 +747,7 @@ function Get-ExploitableUnquotedPath {
                 }
             }
         }
-    }    
+    }
 }
 
 function Get-ModifiableRegistryPath {
@@ -814,16 +814,16 @@ function Get-FileHashHex {
     Author: @itm4n
     Credit: @jaredcatkinson
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     This cmdlet is a simplified version of 'Get-FileHash', which is not available in PSv2.
-    
+
     .PARAMETER FilePath
     The path of the file for which we want to compute the hash.
-    
+
     .PARAMETER Algorithm
     A hash algorithm: md5, sha1, or sha256
-    
+
     .EXAMPLE
     PS C:\> Get-FileHashHex -FilePath "C:\Windows\System32\drivers\RTCore64.sys"
     01aa278b07b58dc46c84bd0b1b5c8e9ee4e62ea0bf7a695862444af32e87f1fd
@@ -831,9 +831,9 @@ function Get-FileHashHex {
     PS C:\> Get-FileHashHex -FilePath "C:\Windows\System32\drivers\RTCore64.sys" -Algorithm sha1
     f6f11ad2cd2b0cf95ed42324876bee1d83e01775
 
-    PS C:\> Get-FileHashHex -FilePath "C:\Windows\System32\drivers\RTCore64.sys" -Algorithm md5 
+    PS C:\> Get-FileHashHex -FilePath "C:\Windows\System32\drivers\RTCore64.sys" -Algorithm md5
     2d8e4f38b36c334d0a32a7324832501d
-    
+
     .NOTES
     Credit goes to https://github.com/jaredcatkinson for the code.
 

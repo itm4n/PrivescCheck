@@ -543,19 +543,19 @@ function Find-WmiCcmNaaCredentials {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     This cmdlet attempts to find SCCM Network Access Account credential blobs in the raw WMI data file 'OBJECTS.DATA'.
-    
+
     .PARAMETER Path
     The path of the WMI data file to parse. If null, the default system path is used.
-    
+
     .EXAMPLE
     PS C:\> Find-WmiCcmNaaCredentials | Format-List
 
     NetworkAccessUsername : <PolicySecret Version="1"><![CDATA[0601000001000000D08...]]></PolicySecret>
     NetworkAccessPassword : <PolicySecret Version="1"><![CDATA[0601000001000000D08...]]></PolicySecret>
-    
+
     .NOTES
     https://posts.specterops.io/the-phantom-credentials-of-sccm-why-the-naa-wont-die-332ac7aa1ab9
     #>
@@ -564,7 +564,7 @@ function Find-WmiCcmNaaCredentials {
     param (
         [string] $Path
     )
-    
+
     begin {
         $SanityCheck = $true
 
@@ -583,9 +583,9 @@ function Find-WmiCcmNaaCredentials {
 
         $FsRedirectionValue = Disable-Wow64FileSystemRedirection
     }
-    
+
     process {
-        
+
         if (-not $SanityCheck) { return }
 
         $Candidates = Select-String -Path $Path -Pattern "$($BasePattern)`0`0$($PolicyPatternBegin)"
@@ -598,7 +598,7 @@ function Find-WmiCcmNaaCredentials {
             $Line = $Candidate.Line
             $Offset = $Line.IndexOf($BasePattern) + $BasePattern.Length + 2
             $Line = $Line.SubString($Offset, $Line.Length - $Offset)
-            
+
             # Find all occurrences of the XML start tag. For each one, find the XML end tag
             # and extract a substring containing the PolicySecret entry.
             $Offset = 0
@@ -642,14 +642,14 @@ function Find-SccmCacheFileCredentials {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     This function first retrieves a list of potentially interesting files from the SCCM cache folders, and tries to find potentially hard coded credentials or secrets. For binary files, it simply determines whether there is a potential match, without returning anything to avoid messing up with the terminal output. For text files (incl. scripts), it returns all matching results.
     #>
 
     [CmdletBinding()]
     param ()
-    
+
     begin {
         $Keywords = @( "password", "SecureString", "secret", "pwd", "token", "username" )
         $CredentialSearchPattern = "($($Keywords -join '|'))"
@@ -669,7 +669,7 @@ function Find-SccmCacheFileCredentials {
             return $KeywordMatched
         }
     }
-    
+
     process {
 
         $SccmCacheFolders = [object[]] (Get-SccmCacheFoldersFromRegistry)
@@ -686,23 +686,23 @@ function Find-SccmCacheFileCredentials {
 
                 $FileItem = Get-Item -Path $SccmCacheFile.Path -ErrorAction SilentlyContinue
                 if ($null -eq $FileItem) { continue }
-    
+
                 if ($SccmCacheFile.Type -eq "Binary") {
-                    
+
                     # For binary files, just check whether the target file matches at least
                     # once, without returning anything.
-    
+
                     # Ignore files that are larger than 100 MB to avoid spending too much
                     # time on the search.
-    
+
                     if ($FileItem.Length -gt 100000000) {
                         Write-Warning "File '$($SccmCacheFile.Path) is too big, ignoring."
                         continue
                     }
-    
+
                     $TempMatch = Get-Content -Path $SccmCacheFile.Path | Select-String -Pattern $CredentialSearchPattern
                     if ($null -ne $TempMatch) {
-        
+
                         $Result = $SccmCacheFile.PSObject.Copy()
                         $Result | Add-Member -MemberType "NoteProperty" -Name "Match" -Value "(binary file matches)"
                         $Result | Add-Member -MemberType "NoteProperty" -Name "Keyword" -Value (Get-MatchedKeyword -InputMatched $TempMatch.Line)
@@ -710,9 +710,9 @@ function Find-SccmCacheFileCredentials {
                     }
                 }
                 elseif (($SccmCacheFile.Type -eq "Script") -or ($SccmCacheFile.Type -eq "Text")) {
-    
+
                     # For script files and misc text files, return all matches of the pattern.
-    
+
                     $TempMatch = Get-Content -Path $SccmCacheFile.Path | Select-String -Pattern $CredentialSearchPattern -AllMatches
                     if ($null -ne $TempMatch) {
                         Write-Verbose "File '$($SccmCacheFile.Path)' matches pattern."

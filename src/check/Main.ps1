@@ -298,7 +298,7 @@ function Write-CheckBanner {
         [object] $Check,
         [switch] $Ascii
     )
-    
+
     function Split-Description {
         param([string]$Description)
 
@@ -577,7 +577,7 @@ function Write-ShortReport {
     Write-Host -ForegroundColor White "$($HeavyVertical)$(" " * 17)~~~ PrivescCheck Summary ~~~$(" " * 17)$($HeavyVertical)"
     Write-Host -ForegroundColor White "$($HeavyUpAndRight)$("$HeavyHorizontal" * 62)$($HeavyUpAndLeft)"
 
-    # Show only vulnerabilities, i.e. any finding that has a final severity of at 
+    # Show only vulnerabilities, i.e. any finding that has a final severity of at
     # least "low".
     $AllVulnerabilities = $ResultArrayList | Where-Object { $_.Severity -ne $SeverityLevelEnum::None }
     $Categories = $AllVulnerabilities | Select-Object -ExpandProperty "Category" | Sort-Object -Unique

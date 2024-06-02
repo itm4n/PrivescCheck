@@ -41,7 +41,7 @@ function Invoke-HotFixCheck {
     If a patch was not installed in the last 31 days, return the latest patch that was installed, otherwise return nothing.
 
     .DESCRIPTION
-    This check lists update packages and determines whether an update was applied within the last 31 days. 
+    This check lists update packages and determines whether an update was applied within the last 31 days.
 
     .PARAMETER Info
     Use this flag to get the list of all installed patches.
@@ -73,9 +73,9 @@ function Invoke-HotFixCheck {
 
     begin {
         function Get-HotFixDate {
-            $Session = New-Object -ComObject Microsoft.Update.Session            
-            $UpdateSearcher = $Session.CreateUpdateSearcher()            
-            $TotalHistoryCount = $UpdateSearcher.GetTotalHistoryCount()  
+            $Session = New-Object -ComObject Microsoft.Update.Session
+            $UpdateSearcher = $Session.CreateUpdateSearcher()
+            $TotalHistoryCount = $UpdateSearcher.GetTotalHistoryCount()
             foreach ($UpdateItem in $($UpdateSearcher.QueryHistory(0, $TotalHistoryCount))) {
                 if ($UpdateItem.Title -match "\(KB\d{6,7}\)"){
                     $Id = $Matches[0].Replace("(", "").Replace(")", "")

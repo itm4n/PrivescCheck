@@ -99,7 +99,7 @@ function Invoke-SystemInfoCheck {
     }
 
     # Windows 11 has the same version number as Windows 10. To differentiate them,
-    # we can use the build version though. According to Microsoft, if the build 
+    # we can use the build version though. According to Microsoft, if the build
     # version is greater than 22000, it is Windows 11.
     $ProductName = $OsVersion.ProductName
     if (($OsVersion.Major -ge 10) -and ($OsVersion.Build -ge 22000)) {
@@ -904,7 +904,7 @@ function Invoke-ExploitableLeakedHandlesCheck {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     This check attempts to enumerate handles to privileged objects that are inherited in processes we can open with the PROCESS_DUP_HANDLE access right. If the granted access rights of the handle are interesting and we can duplicate it, this could result in a privilege escalation. For instance, a process running as SYSTEM could open another process running as SYSTEM with the parameter bInheritHandle set to TRUE, and then create subprocesses as a low-privileged user. In this case, we might be able to duplicate the handle, and access the process running as SYSTEM, resulting in a privilege escalation.
 
@@ -981,7 +981,7 @@ function Invoke-ExploitableLeakedHandlesCheck {
             $ProcessHandles += @{ $HandleProcessId = $ProcHandle }
         }
 
-        # If we don't have a valid handle for the process holding the target handle, we won't be able to 
+        # If we don't have a valid handle for the process holding the target handle, we won't be able to
         # exploit it, so we can ignore it.
         if (($null -eq $ProcessHandles[$HandleProcessId]) -or ($ProcessHandles[$HandleProcessId] -eq [IntPtr]::Zero)) {
             continue
@@ -1023,10 +1023,10 @@ function Invoke-ExploitableLeakedHandlesCheck {
                     }
 
                     $Handle | Add-Member -MemberType "NoteProperty" -Name "HandleAccessRights" -Value ($Handle.GrantedAccess -as $ProcessAccessRightsEnum)
-    
+
                     $KeepHandle = $true
                 }
-    
+
                 "Thread" {
                     # Query the TID of the target Thread. We assume we have at least THREAD_QUERY_INFORMATION
                     # or THREAD_QUERY_LIMITED_INFORMATION rights on the handle.
@@ -1046,15 +1046,15 @@ function Invoke-ExploitableLeakedHandlesCheck {
                         $null = $Kernel32::CloseHandle($TargetThreadHandle)
                         continue
                     }
-    
+
                     $KeepHandle = $true
                 }
-    
+
                 "File" {
                     # Keep handles to files we don't already have write access to.
-    
+
                     if ([String]::IsNullOrEmpty($HandleName)) { continue }
-    
+
                     # For each path replace the device path with the DOS device name. For instance, transform the path
                     # '\Device\HarddiskVolume\Temp\test.txt' into 'C:\Temp\test.txt'.
                     foreach ($DosDevice in $DosDevices.Keys) {
@@ -1063,18 +1063,18 @@ function Invoke-ExploitableLeakedHandlesCheck {
                             break
                         }
                     }
-    
-                    # Handle only typical files and directories here, like 'C:\path\to\file.txt'. Ignore device paths 
+
+                    # Handle only typical files and directories here, like 'C:\path\to\file.txt'. Ignore device paths
                     # such as '\Device\Afd'.
                     if ($HandleName -notmatch "^?:\\.*$") { continue }
 
                     # Do we have write access on the target file?
                     $ModifiablePath = Get-ModifiablePath -LiteralPaths $HandleName
                     if ($null -ne $ModifiablePath) { continue }
-    
+
                     $KeepHandle = $true
                 }
-    
+
                 default {
                     # Keep handle by default in case we add another object type and want to test the output.
                     $KeepHandle = $true
@@ -1085,7 +1085,7 @@ function Invoke-ExploitableLeakedHandlesCheck {
         }
 
         if (-not $KeepHandle) { continue }
-        
+
         $Handle
     }
 
@@ -1102,7 +1102,7 @@ function Invoke-MsiCustomActionsCheck {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     This cmdlet retrieves a list of cached MSI files and analyzes them to find potentially unsafe Custom Actions.
 
@@ -1118,7 +1118,7 @@ function Invoke-MsiCustomActionsCheck {
     Version           : 23.11.0.197
     AllUsers          : 1
     CandidateCount    : 15
-    Candidates        : CA_FixCachedIcaWebWrapper; BackupAFDWindowSize; BackupAFDWindowSize_RB; BackupTCPIPWindowSize; BackupTCPIPWindowSize_RB; CallCtxCreatePFNRegKeyIfUpg; CtxModRegForceLAA; FixIniFile; HideCancelButton; 
+    Candidates        : CA_FixCachedIcaWebWrapper; BackupAFDWindowSize; BackupAFDWindowSize_RB; BackupTCPIPWindowSize; BackupTCPIPWindowSize_RB; CallCtxCreatePFNRegKeyIfUpg; CtxModRegForceLAA; FixIniFile; HideCancelButton;
                         GiveUsersLicensingAccess; LogInstallTime; RestoreAFDWindowSize; RestorePassThroughKey; RestoreTCPIPWindowSize; SetTimestamps
     AnalyzeCommand    : Get-MsiFileItem -FilePath "C:\Windows\Installer\38896.msi" | Select-Object -ExpandProperty CustomActions | Where-Object { $_.Candidate }
     RepairCommand     : Start-Process -FilePath "msiexec.exe" -ArgumentList "/fa C:\Windows\Installer\38896.msi"
@@ -1130,7 +1130,7 @@ function Invoke-MsiCustomActionsCheck {
     Version           : 23.11.0.197
     AllUsers          : 1
     CandidateCount    : 15
-    Candidates        : CA_LoadFilter; CA_UnLoadFilter; RB_LoadFilter; RB_UnLoadFilter; CA_Install_Ctxusbm; CA_Uninstall_Ctxusbm; RB_Install_Ctxusbm; RB_Uninstall_Ctxusbm; CA_DeleteDevices; CA_DriverInstall; CA_DriverUninstall; 
+    Candidates        : CA_LoadFilter; CA_UnLoadFilter; RB_LoadFilter; RB_UnLoadFilter; CA_Install_Ctxusbm; CA_Uninstall_Ctxusbm; RB_Install_Ctxusbm; RB_Uninstall_Ctxusbm; CA_DeleteDevices; CA_DriverInstall; CA_DriverUninstall;
                         RB_DriverInstall; RB_DriverUninstall; CA_CleanupDriverStore; CA_DeleteOldDriver
     AnalyzeCommand    : Get-MsiFileItem -FilePath "C:\Windows\Installer\3889e.msi" | Select-Object -ExpandProperty CustomActions | Where-Object { $_.Candidate }
     RepairCommand     : Start-Process -FilePath "msiexec.exe" -ArgumentList "/fa C:\Windows\Installer\3889e.msi"
@@ -1140,14 +1140,14 @@ function Invoke-MsiCustomActionsCheck {
 
     [CmdletBinding()]
     param ()
-    
+
     begin {
         $MsiItems = [object[]] (Get-MsiFileItem)
         $CandidateCount = 0
     }
-    
+
     process {
-        foreach ($MsiItem in $MsiItems) {            
+        foreach ($MsiItem in $MsiItems) {
 
             Write-Verbose "Analyzing file: $($MsiItem.Path)"
 
@@ -1175,14 +1175,14 @@ function Invoke-MsiCustomActionsCheck {
             $MsiItem | Select-Object -Property * -ExcludeProperty "CustomActions"
         }
     }
-    
+
     end {
         Write-Verbose "Candidate count: $($CandidateCount) / $($MsiItems.Count)"
     }
 }
 
 function Invoke-MsiExtractBinaryData {
-    
+
     [CmdletBinding()]
     param (
         [Parameter(Position=0, Mandatory=$true)]
@@ -1192,11 +1192,11 @@ function Invoke-MsiExtractBinaryData {
         [Parameter(Position=2, Mandatory=$true)]
         [string] $OutputPath
     )
-    
+
     begin {
         $Installer = New-Object -ComObject WindowsInstaller.Installer
     }
-    
+
     process {
         try {
             if ([string]::IsNullOrEmpty($OutputPath)) { $OutputPath = "$($Name)" }
@@ -1211,7 +1211,7 @@ function Invoke-MsiExtractBinaryData {
             Write-Warning "Invoke-MsiExtractBinaryData exception: $($_)"
         }
     }
-    
+
     end {
         $null = [System.Runtime.InteropServices.Marshal]::ReleaseComObject($Installer)
     }

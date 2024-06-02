@@ -262,7 +262,7 @@ function Invoke-LapsCheck {
                 }
                 $LapsSetting.Description = $SettingDescription
                 $Config += $LapsSetting | Select-Object "Policy","Key","Default","Value","Description"
-                
+
                 if ($LapsSetting.Name -eq "BackupDirectory") {
                     $LapsItem = $LapsSetting
                     if ($SettingValue -gt 0) { $LapsEnforced = $true}
@@ -282,7 +282,7 @@ function Invoke-LapsCheck {
 
             $Settings = Get-ItemProperty -Path "Registry::$($RegKey)" -ErrorAction SilentlyContinue
             $RegData = $Settings.$RegValue
-            
+
             $LapsLegacyItem = New-Object -TypeName PSObject
             $LapsLegacyItem | Add-Member -MemberType "NoteProperty" -Name "Policy" -Value "Enable local admin password management (LAPS legacy)"
             $LapsLegacyItem | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
@@ -389,7 +389,7 @@ function Invoke-BitLockerCheck {
         $MachineRole = Get-MachineRole
         $Config = New-Object -TypeName PSObject
         $Config | Add-Member -MemberType "NoteProperty" -Name "MachineRole" -Value $MachineRole.Role
-    
+
         $Vulnerable = $false
         $Severity = $BaseSeverity
     }
@@ -402,7 +402,7 @@ function Invoke-BitLockerCheck {
         else {
             $BitLockerConfig = Get-BitLockerConfiguration
             $Description = "$($BitLockerConfig.Status.Description)"
-        
+
             if ($BitLockerConfig.Status.Value -ne 1) {
                 # BitLocker is not enabled.
                 $Description = "BitLocker is not enabled."
@@ -417,7 +417,7 @@ function Invoke-BitLockerCheck {
                 $Config | Add-Member -MemberType "NoteProperty" -Name "UseTPMPIN" -Value "$($BitLockerConfig.UseTPMPIN.Value) - $($BitLockerConfig.UseTPMPIN.Description)"
                 $Config | Add-Member -MemberType "NoteProperty" -Name "UseTPMKey" -Value "$($BitLockerConfig.UseTPMKey.Value) - $($BitLockerConfig.UseTPMKey.Description)"
                 $Config | Add-Member -MemberType "NoteProperty" -Name "UseTPMKeyPIN" -Value "$($BitLockerConfig.UseTPMKeyPIN.Value) - $($BitLockerConfig.UseTPMKeyPIN.Description)"
-            
+
                 if ($BitLockerConfig.UseAdvancedStartup.Value -ne 1) {
                     # Advanced startup is not enabled. This means that a second factor of authentication
                     # cannot be configured. We can report this and return.
@@ -440,9 +440,9 @@ function Invoke-BitLockerCheck {
                 }
             }
         }
-    
+
         $Config | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
-    
+
         $Result = New-Object -TypeName PSObject
         $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Config
         $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $Severity } else { $SeverityLevelEnum::None })
@@ -479,7 +479,7 @@ function Invoke-LsaProtectionCheck {
         $RegValue = "RunAsPPL"
         $OsVersion = Get-WindowsVersion
     }
-    
+
     PROCESS {
         $Vulnerable = $false
 
@@ -498,13 +498,13 @@ function Invoke-LsaProtectionCheck {
                 $Vulnerable = $true
             }
         }
-    
+
         $Config = New-Object -TypeName PSObject
         $Config | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
         $Config | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
         $Config | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
         $Config | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
-        
+
         $Result = New-Object -TypeName PSObject
         $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Config
         $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $SeverityLevelEnum::None })
@@ -552,14 +552,14 @@ function Invoke-CredentialGuardCheck {
             "Credential Guard is enabled with UEFI persistence.",
             "Credential Guard is enabled without UEFI persistence."
         )
-    
+
         $Vulnerable = $false
     }
 
     process {
         # Check WMI information first
         $WmiObject = Get-WmiObject -Namespace "root\Microsoft\Windows\DeviceGuard" -Class "Win32_DeviceGuard" -ErrorAction SilentlyContinue
-        
+
         if ($WmiObject) {
 
             $SecurityServicesConfigured = [UInt32[]] $WmiObject.SecurityServicesConfigured
@@ -664,7 +664,7 @@ function Invoke-BiosModeCheck {
 
     $Uefi = Get-UEFIStatus
     $SecureBoot = Get-SecureBootStatus
-    
+
     # If BIOS mode is not set to UEFI or if Secure Boot is not enabled, consider
     # the machine is vulnerable.
     if (($Uefi.Status -eq $false) -or ($SecureBoot.Data -eq 0)) {
@@ -695,16 +695,16 @@ function Invoke-AppLockerCheck {
     <#
     .SYNOPSIS
     Short description
-    
+
     .DESCRIPTION
     Long description
-    
+
     .PARAMETER BaseSeverity
     Parameter description
-    
+
     .EXAMPLE
     An example
-    
+
     .NOTES
     General notes
     #>
@@ -713,11 +713,11 @@ function Invoke-AppLockerCheck {
     param (
         [UInt32] $BaseSeverity
     )
-    
+
     begin {
         $Result = New-Object -TypeName PSObject
     }
-    
+
     process {
         $AppLockerPolicy = [object[]] (Get-AppLockerPolicyInternal -FilterLevel 0)
 
@@ -739,7 +739,7 @@ function Invoke-AppLockerCheck {
         $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AppLockerConfigured
         $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $SeverityLevelEnum::None })
     }
-    
+
     end {
         $Result
     }
@@ -749,13 +749,13 @@ function Invoke-AppLockerPolicyCheck {
     <#
     .SYNOPSIS
     Check whether an AppLocker policy is defined and, if so, whether it contains rules that can be bypassed in the context of the current user.
-    
+
     Author: @itm4n
     License: BSD 3-Clause
 
     .DESCRIPTION
     This cmdlet first retrieves potentially vulnerable AppLocker rules thanks to the cmdlet "Get-AppLockerPolicyInternal". It then sorts them by their likelihood of exploitation, and excludes this information from the output. Only the human-readable "risk" level is returned for each item.
-    
+
     .EXAMPLE
     PS C:\> Invoke-AppLockerPolicyCheck
 
@@ -779,11 +779,11 @@ function Invoke-AppLockerPolicyCheck {
     param (
         [UInt32] $BaseSeverity
     )
-    
+
     begin {
         $Result = New-Object -TypeName PSObject
     }
-    
+
     process {
         # Find AppLocker rules that can be bypassed, with a likelihood of
         # exploitation from low to high.
@@ -792,7 +792,7 @@ function Invoke-AppLockerPolicyCheck {
         $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AppLockerPolicy
         $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AppLockerPolicy) { $BaseSeverity } else { $SeverityLevelEnum::None })
     }
-    
+
     end {
         $Result
     }
@@ -802,13 +802,13 @@ function Invoke-FileExtensionAssociationsCheck {
     <#
     .SYNOPSIS
     Check whether dangerous default file extensions such as '.bat' or '.wsh' are associated to a text editor such as 'notepad.exe'.
-    
+
     Author: @itm4n
     License: BSD 3-Clause
 
     .DESCRIPTION
     This cmdlet aims at listing default file associations that could be abused by an attacker to gain initial access to a user's computer by tricking them into double clicking a file.
-    
+
     .EXAMPLE
     PS C:\> Invoke-FileExtensionAssociationsCheck
 
@@ -824,13 +824,13 @@ function Invoke-FileExtensionAssociationsCheck {
     param (
         [UInt32] $BaseSeverity
     )
-    
+
     begin {
         $TextEditors = @("Notepad.exe", "Wordpad.exe", "Notepad++.exe")
         $DefaultAssociations = $global:DangerousDefaultFileExtensionAssociations | ConvertFrom-Csv -Header "Extension","Executable"
         $VulnerableAssociations = @()
     }
-    
+
     process {
         foreach ($DefaultAssociation in $DefaultAssociations) {
 
@@ -859,13 +859,13 @@ function Invoke-HiddenFilenameExtensionsCheck {
     <#
     .SYNOPSIS
     Check whether extensions of known file types are shown in the Explorer.
-    
+
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     This cmdlet checks whether the Explorer is configured to hide the file name extension of known file types.
-    
+
     .EXAMPLE
     An example
     #>
@@ -874,12 +874,12 @@ function Invoke-HiddenFilenameExtensionsCheck {
     param (
         [UInt32] $BaseSeverity
     )
-    
+
     begin {
         $RegKey = "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
         $RegValue = "HideFileExt"
     }
-    
+
     process {
         $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
         if (($null -eq $RegData) -or ($RegData -ge 1)) {
@@ -897,7 +897,7 @@ function Invoke-HiddenFilenameExtensionsCheck {
         $Config | Add-Member -MemberType "NoteProperty" -Name "Expected" -Value 0
         $Config | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
         $Config | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
-        
+
         $Result = New-Object -TypeName PSObject
         $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Config
         $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($IsVulnerable) { $BaseSeverity } else { $SeverityLevelEnum::None })
@@ -912,7 +912,7 @@ function Invoke-PowerShellExecutionPolicyCheck {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     This cmdlet checks whether a PowerShell execution policy is enforced, and, if so, ensures that the setting is set to 'AllSigned' or 'RemoteSigned'.
     #>
@@ -921,14 +921,14 @@ function Invoke-PowerShellExecutionPolicyCheck {
     param (
         [UInt32] $BaseSeverity
     )
-    
+
     begin {
         $Severity = $SeverityLevelEnum::None
         $Result = New-Object -TypeName PSObject
         $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $null
         $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $Severity
     }
-    
+
     process {
 
         if (-not (Test-IsDomainJoined)) {

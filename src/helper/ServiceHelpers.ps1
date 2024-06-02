@@ -227,37 +227,37 @@ function Get-ServiceList {
 
             # If the cached service list hasn't been initialized yet, enumerate all services and populate the
             # cache.
-    
+
             $ServicesRegPath = "HKLM\SYSTEM\CurrentControlSet\Services"
             $RegAllServices = Get-ChildItem -Path "Registry::$($ServicesRegPath)" -ErrorAction SilentlyContinue
-    
+
             $RegAllServices | ForEach-Object { [void]$CachedServiceList.Add((Get-ServiceFromRegistry -Name $_.PSChildName)) }
         }
-    
+
         foreach ($ServiceItem in $CachedServiceList) {
-    
+
             # FilterLevel = 0 - Add the service to the list and go to the next one
             if ($FilterLevel -eq 0) { $ServiceItem; continue }
-    
+
             if ($ServiceItem.ImagePath -and (-not [String]::IsNullOrEmpty($ServiceItem.ImagePath.trim()))) {
-    
+
                 # FilterLevel = 1 - Add the service to the list of its ImagePath is not empty
                 if ($FilterLevel -le 1) { $ServiceItem; continue }
-    
+
                 # Ignore services with no explicit type
                 if ($null -eq $ServiceItem.Type) {
                     Write-Warning "Service $($ServiceItem.Name) has no type"
                     continue
                 }
-    
+
                 $TypeMask = $ServiceTypeEnum::Win32OwnProcess -bor $ServiceTypeEnum::Win32ShareProcess -bor $ServiceTypeEnum::InteractiveProcess
                 if (($ServiceItem.Type -band $TypeMask) -gt 0) {
-    
+
                     # FilterLevel = 2 - Add the service to the list if it's not a driver
                     if ($FilterLevel -le 2) { $ServiceItem; continue }
-    
+
                     if (-not (Test-IsKnownService -Service $ServiceItem)) {
-    
+
                         # FilterLevel = 3 - Add the service if it's not a built-in Windows service
                         if ($FilterLevel -le 3) { $ServiceItem; continue }
                     }
@@ -558,7 +558,7 @@ function Test-ServiceDaclPermission {
 }
 
 function Resolve-DriverImagePath {
-    
+
     [CmdletBinding()]
     param (
         [Object]$Service
@@ -581,7 +581,7 @@ function Resolve-DriverImagePath {
 function Get-DriverList {
 
     [CmdletBinding()] param(
-        
+
     )
 
     if ($CachedDriverList.Count -eq 0) {

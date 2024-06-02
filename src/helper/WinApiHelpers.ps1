@@ -617,10 +617,10 @@ function Get-ObjectName {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     This function leverages the NtQueryObject syscall to get the name of a Kernel object based on its handle.
-    
+
     .PARAMETER ObjectHandle
     The handle of an object for wchich we should retrieve the name.
     #>
@@ -667,7 +667,7 @@ function Get-ObjectTypes {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     Helper - This function leverages the NtQueryObject syscall to list the object types and return a list of PS custom objects containing their index and name.
     #>
@@ -731,10 +731,10 @@ function Get-SystemInformationData {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     This helper leverages the syscall NtQuerySystemInformation to retrieve information about the system.
-    
+
     .PARAMETER InformationClass
     The class of information to retrieve (e.g. basic, code integrity, processes, handles).
 
@@ -780,16 +780,16 @@ function Get-SystemInformationExtendedHandles {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     This helper calls another helper function - Get-SystemInformationData - in order to get a list of extended system handle information.
-    
+
     .PARAMETER InheritedOnly
     Include only handles that are inherited from another process.
-    
+
     .PARAMETER ProcessId
     Include only handles that are opened in a specific process.
-    
+
     .PARAMETER TypeIndex
     Include only handles of a certain object type.
 
@@ -820,7 +820,7 @@ function Get-SystemInformationExtendedHandles {
     if (-not $SystemHandlesPtr) { return }
 
     $SystemHandles = [System.Runtime.InteropServices.Marshal]::PtrToStructure($SystemHandlesPtr, [type] $SYSTEM_HANDLE_INFORMATION_EX)
-    
+
     Write-Verbose "Number of handles: $($SystemHandles.NumberOfHandles)"
 
     $CurrentHandleInfoPtr = [IntPtr] ($SystemHandlesPtr.ToInt64() + ([IntPtr]::Size * 2))
@@ -936,10 +936,10 @@ function Convert-DosDeviceToDevicePath {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     This function leverages the QueryDosDevice API to get the path of a DOS device (e.g. C: -> \Device\HarddiskVolume4)
-    
+
     .PARAMETER DosDevice
     A DOS device name such as C:
     #>
@@ -1094,21 +1094,21 @@ function Disable-Wow64FileSystemRedirection {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     This cmdlet invokes the Wow64DisableWow64FsRedirection API to temporarily disable file system redirection when running from a Wow64 PowerShell process.
-    
+
     .NOTES
     https://learn.microsoft.com/en-us/windows/win32/api/wow64apiset/nf-wow64apiset-wow64disablewow64fsredirection
     #>
 
     [CmdletBinding()]
     param ()
-    
+
     begin {
         $OldValue = [IntPtr]::Zero
     }
-    
+
     process {
         if ([IntPtr]::Size -eq 4) {
             if ($Kernel32::Wow64DisableWow64FsRedirection([ref] $OldValue)) {
@@ -1120,7 +1120,7 @@ function Disable-Wow64FileSystemRedirection {
             }
         }
     }
-    
+
     end {
         $OldValue
     }
@@ -1130,16 +1130,16 @@ function Restore-Wow64FileSystemRedirection {
     <#
     .SYNOPSIS
     Restore filesystem redirection in Wow64 processes.
-    
+
     Author: @itm4n
     License: BSD 3-Clause
 
     .DESCRIPTION
     This cmdlet invokes the Wow64RevertWow64FsRedirection API to re-enable file system redirection when running from a Wow64 PowerShell process.
-    
+
     .PARAMETER OldValue
     The value returned by Disable-Wow64FileSystemRedirection.
-    
+
     .NOTES
     https://learn.microsoft.com/en-us/windows/win32/api/wow64apiset/nf-wow64apiset-wow64revertwow64fsredirection
     #>
@@ -1148,7 +1148,7 @@ function Restore-Wow64FileSystemRedirection {
     param (
         [IntPtr] $OldValue
     )
-        
+
     process {
         if ([IntPtr]::Size -eq 4) {
             if ($Kernel32::Wow64RevertWow64FsRedirection($OldValue)) {
@@ -1169,25 +1169,25 @@ function Get-FileExtensionAssociation {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     This cmdlet calls the API 'AssocQueryString' to query the executable or command associated to a file extension.
-    
+
     .PARAMETER Extension
     A file extension to query (e.g. ".bat"). The dot (".") is mandatory; if not specified, the API 'AssocQueryString' will fail.
-    
+
     .PARAMETER Type
     The type of association to query: executable or command line. This parameter is optional and defaults to "Executable" if not specified.
-    
+
     .EXAMPLE
     PS C:\> Get-FileExtensionAssociation -Extension .wsh -Type Command
     "C:\Windows\System32\WScript.exe" "%1" %*
-    
+
     .EXAMPLE
     PS C:\> Get-FileExtensionAssociation -Extension .wsh
     C:\Windows\System32\WScript.exe
     #>
-    
+
     [CmdletBinding()]
     param (
         [ValidateNotNullOrEmpty()]
@@ -1195,7 +1195,7 @@ function Get-FileExtensionAssociation {
         [ValidateSet("Command", "Executable")]
         [string] $Type = "Executable"
     )
-    
+
     begin {
         switch ($Type) {
             "Command" { $AssocType = $ASSOCSTR::ASSOCSTR_COMMAND; break }
@@ -1203,7 +1203,7 @@ function Get-FileExtensionAssociation {
             default { $AssocType = $ASSOCSTR::ASSOCSTR_EXECUTABLE }
         }
     }
-    
+
     process {
 
         # The fourth parameter of "AssocQueryString" is an optional string that we don't

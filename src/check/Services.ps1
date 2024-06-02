@@ -139,23 +139,23 @@ function Invoke-ServicesUnquotedPathCheck {
         foreach ($Service in $Services) {
 
             $ImagePath = $Service.ImagePath.trim()
-    
+
             if ($Info) {
-    
+
                 if (-not ([String]::IsNullOrEmpty($(Get-UnquotedPath -Path $ImagePath -Spaces)))) {
                     $Service | Select-Object Name,DisplayName,User,ImagePath,StartMode
                 }
-    
+
                 # If Info, return the result without checking if the path is vulnerable
                 continue
             }
-    
+
             Get-ExploitableUnquotedPath -Path $ImagePath | ForEach-Object {
-    
+
                 $Status = "Unknown"
                 $UserCanStart = $false
                 $UserCanStop = $false
-    
+
                 $ServiceObject = Get-Service -Name $Service.Name -ErrorAction SilentlyContinue
                 if ($ServiceObject) {
                     $Status = $ServiceObject | Select-Object -ExpandProperty "Status"
@@ -164,7 +164,7 @@ function Invoke-ServicesUnquotedPathCheck {
                     $ServiceCanStop = Test-ServiceDaclPermission -Name $Service.Name -Permissions 'Stop'
                     if ($ServiceCanStop) { $UserCanStop = $true } else { $UserCanStop = $false }
                 }
-    
+
                 $Result = New-Object -TypeName PSObject
                 $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $Service.Name
                 $Result | Add-Member -MemberType "NoteProperty" -Name "ImagePath" -Value $Service.ImagePath
@@ -178,7 +178,7 @@ function Invoke-ServicesUnquotedPathCheck {
                 $ArrayOfResults += $Result
             }
         }
-    
+
         if (-not $Info) {
             $Result = New-Object -TypeName PSObject
             $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
@@ -232,7 +232,7 @@ function Invoke-ServicesImagePermissionsCheck {
         foreach ($Service in $Services) {
 
             $Service.ImagePath | Get-ModifiablePath | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) } | Foreach-Object {
-    
+
                 $Status = "Unknown"
                 $UserCanStart = $false
                 $UserCanStop = $false
@@ -244,7 +244,7 @@ function Invoke-ServicesImagePermissionsCheck {
                     $ServiceCanStop = Test-ServiceDaclPermission -Name $Service.Name -Permissions 'Stop'
                     if ($ServiceCanStop) { $UserCanStop = $true } else { $UserCanStop = $false }
                 }
-    
+
                 $Result = New-Object -TypeName PSObject
                 $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $Service.Name
                 $Result | Add-Member -MemberType "NoteProperty" -Name "ImagePath" -Value $Service.ImagePath
@@ -258,7 +258,7 @@ function Invoke-ServicesImagePermissionsCheck {
                 $ArrayOfResults += $Result
             }
         }
-    
+
         $Result = New-Object -TypeName PSObject
         $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
         $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { $SeverityLevelEnum::None })
@@ -417,13 +417,13 @@ function Invoke-ThirdPartyDriversCheck {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     For each service registered as a driver, the properties of the driver file are queried. If the file does not originate from Microsoft, the service object is reported. In addition, the file's metadata is appended to the object.
-    
+
     .EXAMPLE
     PS C:\> Invoke-ThirdPartyDriversCheck
-    
+
     Name        : 3ware
     ImagePath   : System32\drivers\3ware.sys
     StartMode   : Boot
@@ -460,7 +460,7 @@ function Invoke-ThirdPartyDriversCheck {
         foreach ($Driver in (Get-DriverList)) {
 
             $ImageFile = Get-Item -Path $Driver.ImagePathResolved -ErrorAction SilentlyContinue
-            
+
             if ($null -eq $ImageFile) { Write-Warning "Failed to open file: $($Driver.ImagePathResolved)"; continue }
             if (Test-IsMicrosoftFile -File $ImageFile) { continue }
 
@@ -493,10 +493,10 @@ function Invoke-VulnerableDriverCheck {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     This check relies on the list of known vulnerable drivers provided by loldrivers.io to find vulnerable drivers installed on the host. For each installed driver, it computes its hash and chech whether it is in the list of vulnerable drivers.
-    
+
     .EXAMPLE
     PS C:\> Invoke-VulnerableDriverCheck
 
@@ -508,7 +508,7 @@ function Invoke-VulnerableDriverCheck {
     Status      : Running
     Hash        : 01aa278b07b58dc46c84bd0b1b5c8e9ee4e62ea0bf7a695862444af32e87f1fd
     Url         : https://www.loldrivers.io/drivers/e32bc3da-4db1-4858-a62c-6fbe4db6afbd
-    
+
     .NOTES
     When building the scripting, the driver list is downloaded from loldrivers.io, filtered, and exported again as a CSV file embedded in the script as a global variable.
     #>#

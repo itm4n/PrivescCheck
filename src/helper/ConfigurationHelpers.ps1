@@ -5,18 +5,18 @@ function Get-SccmCacheFoldersFromRegistry {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     This function lists the values of the registry key 'HKLM\SOFTWARE\Microsoft\SMS\Mobile Client\Software Distribution', checks if their data contains the path of an SCCM cache folder, and finally returns all valid paths
     #>
 
     [CmdletBinding()]
     param ()
-    
+
     begin {
         $SoftwareDistributionKey = "HKLM\SOFTWARE\Microsoft\SMS\Mobile Client\Software Distribution"
     }
-    
+
     process {
         $SoftwareDistributionKeyItem = Get-Item -Path "Registry::$($SoftwareDistributionKey)" -ErrorAction SilentlyContinue
         if ($null -eq $SoftwareDistributionKeyItem) { return }
@@ -46,7 +46,7 @@ function Get-SccmCacheFiles {
 
     Author: @itm4n
     License: BSD 3-Clause
-    
+
     .DESCRIPTION
     This function first retrieves a list of SCCM cache folders, and, for each path, lists files recursively. It then returns all paths corresponding to a script or executable.
     #>
@@ -55,7 +55,7 @@ function Get-SccmCacheFiles {
     param (
         [string] $Path
     )
-    
+
     begin {
         $ScriptFileExtensions = @( "bat", "cmd", "ps1", "vbe", "vbs", "wsf", "wsh" )
         $ScriptPathRegex = ".*\.($($ScriptFileExtensions -join '|'))$"
@@ -66,7 +66,7 @@ function Get-SccmCacheFiles {
         $TextFileExtensions = @( "reg", "cfg", "txt" )
         $TextFilePathRegex = ".*\.($($TextFileExtensions -join '|'))$"
     }
-    
+
     process {
 
         $SearchPath = [string[]] @()
@@ -116,16 +116,16 @@ function Get-ProxyAutoConfigURl {
 
     [CmdletBinding()]
     param (
-        
+
     )
-    
+
     begin {
         $RegKeys = @(
             "HKLM\Software\Microsoft\Windows\CurrentVersion\Internet Settings",
             "HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings"
         )
     }
-    
+
     process {
 
         foreach ($RegKey in $RegKeys) {
