@@ -182,45 +182,6 @@ function Invoke-SystemStartupHistoryCheck {
     }
 }
 
-function Invoke-SystemStartupCheck {
-    <#
-    .SYNOPSIS
-    Gets the last system startup time
-
-    Author: @itm4n
-    License: BSD 3-Clause
-
-    .DESCRIPTION
-    Gets the tickcount in milliseconds thanks to the GetTickCount64 Win32 function and substracts the value to the current date. This yields the date and time of the last system startup. The result is returned in a custom PS Object containing a string representation of the DateTime object.
-
-    .EXAMPLE
-    PS C:\> Invoke-SystemStartupCheck
-
-    Time
-    ----
-    2020-01-11 - 21:36:41
-
-    .NOTES
-    [Environment]::TickCount is a 32-bit signed integer
-    The max value it can hold is 49.7 days. That's why GetTickCount64() is used instead.
-    #>
-
-    [CmdletBinding()] Param()
-
-    try {
-        $TickcountMilliseconds = $script:kernel32::GetTickCount64()
-
-        $StartupDate = (Get-Date).AddMilliseconds(-$TickcountMilliseconds)
-
-        $Result = New-Object -TypeName PSObject
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Time" -Value "$(Convert-DateToString -Date $StartupDate)"
-        $Result
-    }
-    catch {
-        Write-Warning "$($MyInvocation.MyCommand) | $($_)"
-    }
-}
-
 function Invoke-SystemDrivesCheck {
     <#
     .SYNOPSIS

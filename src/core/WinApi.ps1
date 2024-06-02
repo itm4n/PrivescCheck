@@ -29,7 +29,6 @@ $FunctionDefinitions = @(
     (New-Function kernel32 GetThreadId ([UInt32]) @([IntPtr]) -SetLastError),
     (New-Function kernel32 DuplicateHandle ([IntPtr]) @([IntPtr], [IntPtr], [IntPtr], [IntPtr].MakeByRefType(), [UInt32], [Bool], [UInt32]) -SetLastError),
     (New-Function kernel32 CloseHandle ([Bool]) @([IntPtr]) -SetLastError),
-    (New-Function kernel32 GetTickCount64 ([UInt64]) @()),
     (New-Function kernel32 GetFirmwareEnvironmentVariable ([UInt32]) @([String], [String], [IntPtr], [UInt32]) -SetLastError),
     (New-Function kernel32 GetFirmwareType ([Bool]) @([UInt32].MakeByRefType()) -SetLastError),
     (New-Function kernel32 LocalFree ([IntPtr]) @([IntPtr])),

@@ -1,5 +1,11 @@
 # Changelog
 
+## 2024-06-02
+
+### Removed
+
+- Last startup time using tick count.
+
 ## 2024-06-01
 
 ### Added
