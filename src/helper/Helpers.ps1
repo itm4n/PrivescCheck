@@ -151,7 +151,7 @@ function Test-CommonApplicationFile {
     )
 
     process {
-        $global:CommonApplicationExtensions -contains ([System.IO.Path]::GetExtension($Path)).Replace('.', '')
+        $script:CommonApplicationExtensions -contains ([System.IO.Path]::GetExtension($Path)).Replace('.', '')
     }
 }
 
@@ -187,27 +187,27 @@ function Get-CurrentUserSids {
 
     [CmdletBinding()] Param()
 
-    if ($null -eq $global:CachedCurrentUserSids) {
+    if ($null -eq $script:CachedCurrentUserSids) {
         $UserIdentity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
-        $global:CachedCurrentUserSids = $UserIdentity.Groups | Select-Object -ExpandProperty Value
-        $global:CachedCurrentUserSids += $UserIdentity.User.Value
+        $script:CachedCurrentUserSids = $UserIdentity.Groups | Select-Object -ExpandProperty Value
+        $script:CachedCurrentUserSids += $UserIdentity.User.Value
     }
 
-    $global:CachedCurrentUserSids
+    $script:CachedCurrentUserSids
 }
 
 function Get-CurrentUserDenySids {
 
     [CmdletBinding()] Param()
 
-    if ($null -eq $global:CachedCurrentUserDenySids) {
-        $global:CachedCurrentUserDenySids = [string[]](Get-TokenInformationGroups -InformationClass Groups | Where-Object { $_.Attributes.Equals("UseForDenyOnly") } | Select-Object -ExpandProperty SID)
-        if ($null -eq $global:CachedCurrentUserDenySids) {
-            $global:CachedCurrentUserDenySids = @()
+    if ($null -eq $script:CachedCurrentUserDenySids) {
+        $script:CachedCurrentUserDenySids = [string[]](Get-TokenInformationGroups -InformationClass Groups | Where-Object { $_.Attributes.Equals("UseForDenyOnly") } | Select-Object -ExpandProperty SID)
+        if ($null -eq $script:CachedCurrentUserDenySids) {
+            $script:CachedCurrentUserDenySids = @()
         }
     }
 
-    $global:CachedCurrentUserDenySids
+    $script:CachedCurrentUserDenySids
 }
 
 function Get-AclModificationRights {

@@ -223,7 +223,7 @@ function Get-ServiceList {
     }
 
     process {
-        if ($CachedServiceList.Count -eq 0) {
+        if ($script:CachedServiceList.Count -eq 0) {
 
             # If the cached service list hasn't been initialized yet, enumerate all services and populate the
             # cache.
@@ -231,10 +231,10 @@ function Get-ServiceList {
             $ServicesRegPath = "HKLM\SYSTEM\CurrentControlSet\Services"
             $RegAllServices = Get-ChildItem -Path "Registry::$($ServicesRegPath)" -ErrorAction SilentlyContinue
 
-            $RegAllServices | ForEach-Object { [void]$CachedServiceList.Add((Get-ServiceFromRegistry -Name $_.PSChildName)) }
+            $RegAllServices | ForEach-Object { [void]$script:CachedServiceList.Add((Get-ServiceFromRegistry -Name $_.PSChildName)) }
         }
 
-        foreach ($ServiceItem in $CachedServiceList) {
+        foreach ($ServiceItem in $script:CachedServiceList) {
 
             # FilterLevel = 0 - Add the service to the list and go to the next one
             if ($FilterLevel -eq 0) { $ServiceItem; continue }
@@ -584,7 +584,7 @@ function Get-DriverList {
 
     )
 
-    if ($CachedDriverList.Count -eq 0) {
+    if ($script:CachedDriverList.Count -eq 0) {
 
         # If the cached driver list hasn't been initialized yet, enumerate all drivers,
         # resolve their paths and populate the cache.
@@ -600,18 +600,18 @@ function Get-DriverList {
 
             $Service | Add-Member -MemberType "NoteProperty" -Name "ImagePathResolved" -Value $ImagePath
 
-            [void]$CachedDriverList.Add($Service)
+            [void]$script:CachedDriverList.Add($Service)
         }
     }
 
-    $CachedDriverList | ForEach-Object { $_ }
+    $script:CachedDriverList | ForEach-Object { $_ }
 }
 
 function Get-VulnerableDriverHashes {
 
     [CmdletBinding()] param ()
 
-    $VulnerableDriverList = $VulnerableDrivers | ConvertFrom-Csv -Delimiter ";"
+    $VulnerableDriverList = $script:VulnerableDrivers | ConvertFrom-Csv -Delimiter ";"
     if ($null -eq $VulnerableDriverList) { Write-Warning "Failed to get list of vulnerable drivers."; return }
 
     $VulnerableDriverList | ForEach-Object {

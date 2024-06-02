@@ -51,7 +51,7 @@ function Get-ScheduledTaskList {
 
     try {
 
-        if ($CachedScheduledTaskList.Count -eq 0) {
+        if ($script:CachedScheduledTaskList.Count -eq 0) {
 
             # If the cache is empty, enumerate scheduled tasks and populate the cache.
 
@@ -115,7 +115,7 @@ function Get-ScheduledTaskList {
                             $Result | Add-Member -MemberType "NoteProperty" -Name "Command" -Value $TaskCommandLine
                             $Result | Add-Member -MemberType "NoteProperty" -Name "CurrentUserIsOwner" -Value $CurrentUserIsOwner
 
-                            [void] $CachedScheduledTaskList.Add($Result)
+                            [void] $script:CachedScheduledTaskList.Add($Result)
                         }
                     }
                 }
@@ -125,7 +125,7 @@ function Get-ScheduledTaskList {
             }
         }
 
-        $CachedScheduledTaskList | ForEach-Object {
+        $script:CachedScheduledTaskList | ForEach-Object {
             $_
         }
 

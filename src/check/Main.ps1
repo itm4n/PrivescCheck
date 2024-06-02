@@ -147,10 +147,10 @@ function Invoke-PrivescCheck {
         }
 
         # Reset all global ArrayLists on startup
-        $global:CachedServiceList.Clear()
-        $global:CachedHotFixList.Clear()
-        $global:CachedScheduledTaskList.Clear()
-        $global:ResultArrayList.Clear()
+        $script:CachedServiceList.Clear()
+        $script:CachedHotFixList.Clear()
+        $script:CachedScheduledTaskList.Clear()
+        $script:ResultArrayList.Clear()
 
         $AllChecks = New-Object System.Collections.ArrayList
     }
@@ -242,10 +242,10 @@ function Invoke-PrivescCheck {
                 # filename.
                 $ReportFileName = "$($Report.Trim()).$($_.ToLower())"
                 switch ($_) {
-                    "TXT"   { Write-TxtReport  -AllResults $ResultArrayList | Out-File $ReportFileName }
-                    "HTML"  { Write-HtmlReport -AllResults $ResultArrayList | Out-File $ReportFileName }
-                    "CSV"   { Write-CsvReport  -AllResults $ResultArrayList | Out-File $ReportFileName }
-                    "XML"   { Write-XmlReport  -AllResults $ResultArrayList | Out-File $ReportFileName }
+                    "TXT"   { Write-TxtReport  -AllResults $script:ResultArrayList | Out-File $ReportFileName }
+                    "HTML"  { Write-HtmlReport -AllResults $script:ResultArrayList | Out-File $ReportFileName }
+                    "CSV"   { Write-CsvReport  -AllResults $script:ResultArrayList | Out-File $ReportFileName }
+                    "XML"   { Write-XmlReport  -AllResults $script:ResultArrayList | Out-File $ReportFileName }
                     default { Write-Warning "`nReport format not implemented: $($Format.ToUpper())`n" }
                 }
             }
@@ -287,7 +287,7 @@ function Invoke-Check {
         $Check | Add-Member -MemberType "NoteProperty" -Name "ResultRawString" -Value $($Check.ResultRaw | Format-List | Out-String)
     }
 
-    [void] $ResultArrayList.Add($Check)
+    [void] $script:ResultArrayList.Add($Check)
     $Check
 }
 
@@ -579,7 +579,7 @@ function Write-ShortReport {
 
     # Show only vulnerabilities, i.e. any finding that has a final severity of at
     # least "low".
-    $AllVulnerabilities = $ResultArrayList | Where-Object { $_.Severity -ne $SeverityLevelEnum::None }
+    $AllVulnerabilities = $script:ResultArrayList | Where-Object { $_.Severity -ne $SeverityLevelEnum::None }
     $Categories = $AllVulnerabilities | Select-Object -ExpandProperty "Category" | Sort-Object -Unique
 
     if ($null -eq $AllVulnerabilities) {

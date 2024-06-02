@@ -520,7 +520,7 @@ function Invoke-PowerShellHistoryCheck {
     if (-not $ErrorGetContent) {
 
         $HistoryCount = $HistoryFileContent.Count
-        $AllMatches = $HistoryFileContent | Select-String -Pattern $KeywordsOfInterest -AllMatches
+        $AllMatches = $HistoryFileContent | Select-String -Pattern $script:KeywordsOfInterest -AllMatches
         $AllMatchesCount = $AllMatches.Count
         $FileItem = Get-Item -Path $HistoryFilePath
 

@@ -827,7 +827,7 @@ function Invoke-FileExtensionAssociationsCheck {
 
     begin {
         $TextEditors = @("Notepad.exe", "Wordpad.exe", "Notepad++.exe")
-        $DefaultAssociations = $global:DangerousDefaultFileExtensionAssociations | ConvertFrom-Csv -Header "Extension","Executable"
+        $DefaultAssociations = $script:DangerousDefaultFileExtensionAssociations | ConvertFrom-Csv -Header "Extension","Executable"
         $VulnerableAssociations = @()
     }
 

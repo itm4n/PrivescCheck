@@ -176,7 +176,7 @@ function Invoke-UserEnvCheck {
         $EntryValue = $_.Value
         $CheckVal = "$($_.Name) $($_.Value)"
 
-        foreach ($Keyword in $KeywordsOfInterest) {
+        foreach ($Keyword in $script:KeywordsOfInterest) {
 
             if ($CheckVal -Like "*$($Keyword)*") {
 
