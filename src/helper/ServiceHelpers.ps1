@@ -682,9 +682,10 @@ function Find-VulnerableDriver {
             }
 
             if (-not [String]::IsNullOrEmpty($ResultHash)) {
-                $Service | Add-Member -MemberType "NoteProperty" -Name "FileHash" -Value $ResultHash
-                $Service | Add-Member -MemberType "NoteProperty" -Name "Url" -Value $ResultUrl
-                $Service
+                $Result = $Service.PSObject.Copy()
+                $Result | Add-Member -MemberType "NoteProperty" -Name "FileHash" -Value $ResultHash
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Url" -Value $ResultUrl
+                $Result
                 break
             }
         }
