@@ -28,7 +28,7 @@ function Invoke-UserCheck {
     $TokenUser = Get-TokenInformationUser
     $TokenIntegrityLevel = Get-TokenInformationIntegrityLevel
     $TokenSessionId = Get-TokenInformationSessionId
-    $TokenStatistics = Get-TokenInformationStatistics
+    $TokenStatistics = Get-TokenInformationStatistic
     $TokenOrigin = Get-TokenInformationOrigin
     $TokenSource = Get-TokenInformationSource
 
@@ -80,7 +80,7 @@ function Invoke-UserGroupsCheck {
 
     [CmdletBinding()] Param()
 
-    Get-TokenInformationGroups -InformationClass Groups | Select-Object Name,Type,SID
+    Get-TokenInformationGroup -InformationClass Groups | Select-Object Name,Type,SID
 }
 
 function Invoke-UserRestrictedSidsCheck {
@@ -92,7 +92,7 @@ function Invoke-UserRestrictedSidsCheck {
     License: BSD 3-Clause
 
     .DESCRIPTION
-    This check leverages the Get-TokenInformationGroups helper function to list the restricted SIDs that are associated to the current user's Token. This may provide some useful information in case the current token is WRITE RESTRICTED.
+    This check leverages the Get-TokenInformationGroup helper function to list the restricted SIDs that are associated to the current user's Token. This may provide some useful information in case the current token is WRITE RESTRICTED.
 
     .EXAMPLE
     PS C:\> Invoke-UserRestrictedSidsCheck
@@ -110,7 +110,7 @@ function Invoke-UserRestrictedSidsCheck {
 
     [CmdletBinding()] Param()
 
-    Get-TokenInformationGroups -InformationClass RestrictedSids | Select-Object Name,Type,SID
+    Get-TokenInformationGroup -InformationClass RestrictedSids | Select-Object Name,Type,SID
 }
 
 function Invoke-UserPrivilegesCheck {
@@ -141,7 +141,7 @@ function Invoke-UserPrivilegesCheck {
 
     PROCESS {
         $Vulnerable = $false
-        $Privileges = Get-TokenInformationPrivileges
+        $Privileges = Get-TokenInformationPrivilege
 
         foreach ($Privilege in $Privileges) {
             $Exploitable = $($HighPotentialPrivileges -contains $Privilege.Name)
@@ -151,7 +151,7 @@ function Invoke-UserPrivilegesCheck {
 
         $Result = New-Object -TypeName PSObject
         $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Privileges
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $SeverityLevelEnum::None })
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
         $Result
     }
 }

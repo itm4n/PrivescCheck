@@ -39,7 +39,7 @@ function Get-SccmCacheFoldersFromRegistry {
     }
 }
 
-function Get-SccmCacheFiles {
+function Get-SccmCacheFile {
     <#
     .SYNOPSIS
     Helper - Enumerate application files in SCCM cache folders.
@@ -96,8 +96,8 @@ function Get-SccmCacheFiles {
                 Push-Location -Path $Path
                 $RelativePath = Resolve-Path -Path $FileItem.FullName -Relative
             }
-            catch {
-                # Nothing to do
+            catch [Exception] {
+                Write-Warning $_.Exception.Message
             }
             finally {
                 Pop-Location

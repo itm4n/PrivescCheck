@@ -155,7 +155,7 @@ function Invoke-WinlogonCheck {
 
     $Result = New-Object -TypeName PSObject
     $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { $SeverityLevelEnum::None })
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
     $Result
 }
 
@@ -251,7 +251,7 @@ function Invoke-VaultCredCheck {
 
     [CmdletBinding()] Param()
 
-    Get-VaultCreds -Filtered
+    Get-VaultCredential -Filtered
 }
 
 function Invoke-VaultListCheck {
@@ -489,7 +489,7 @@ function Invoke-GPPPasswordCheck {
 
         $Result = New-Object -TypeName PSObject
         $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { $SeverityLevelEnum::None })
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
         $Result
     }
 }
@@ -598,11 +598,11 @@ function Invoke-SensitiveHiveFileAccessCheck {
                 foreach ($Ace in $Acl) {
 
                     $PermissionReference = @(
-                        $FileAccessRightsEnum::ReadData
+                        $script:FileAccessRightsEnum::ReadData
                     )
 
-                    $Permissions = [enum]::GetValues($FileAccessRightsEnum) | Where-Object {
-                        ($Ace.FileSystemRights.value__ -band ($FileAccessRightsEnum::$_)) -eq ($FileAccessRightsEnum::$_)
+                    $Permissions = [enum]::GetValues($script:FileAccessRightsEnum) | Where-Object {
+                        ($Ace.FileSystemRights.value__ -band ($script:FileAccessRightsEnum::$_)) -eq ($script:FileAccessRightsEnum::$_)
                     }
 
                     if (Compare-Object -ReferenceObject $Permissions -DifferenceObject $PermissionReference -IncludeEqual -ExcludeDifferent) {
@@ -643,7 +643,7 @@ function Invoke-SensitiveHiveFileAccessCheck {
 
         $Result = New-Object -TypeName PSObject
         $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { $SeverityLevelEnum::None })
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
         $Result
     }
 
@@ -697,7 +697,7 @@ function Invoke-SensitiveHiveShadowCopyCheck {
     process {
         $ArrayOfResults = @()
 
-        foreach($ShadowCopy in $(Get-ShadowCopies)) {
+        foreach($ShadowCopy in $(Get-ShadowCopy)) {
 
             $ConfigPath = $(Join-Path -Path $ShadowCopy.Path -ChildPath "Windows\System32\config")
 
@@ -709,15 +709,15 @@ function Invoke-SensitiveHiveShadowCopyCheck {
                 if ($null -eq $FileDacl) { continue }
 
                 $PermissionReference = @(
-                    $FileAccessRightsEnum::ReadData
+                    $script:FileAccessRightsEnum::ReadData
                 )
 
                 foreach ($Ace in $FileDacl.Access) {
 
                     if ($Ace.AceType -notmatch "AccessAllowed") { continue }
 
-                    $Permissions = [Enum]::GetValues($FileAccessRightsEnum) | Where-Object {
-                        ($Ace.AccessMask -band ($FileAccessRightsEnum::$_)) -eq ($FileAccessRightsEnum::$_)
+                    $Permissions = [Enum]::GetValues($script:FileAccessRightsEnum) | Where-Object {
+                        ($Ace.AccessMask -band ($script:FileAccessRightsEnum::$_)) -eq ($script:FileAccessRightsEnum::$_)
                     }
 
                     if (Compare-Object -ReferenceObject $Permissions -DifferenceObject $PermissionReference -IncludeEqual -ExcludeDifferent) {
@@ -740,7 +740,7 @@ function Invoke-SensitiveHiveShadowCopyCheck {
 
         $Result = New-Object -TypeName PSObject
         $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { $SeverityLevelEnum::None })
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
         $Result
     }
 
@@ -806,7 +806,7 @@ function Invoke-UnattendFilesCheck {
 
         $Result = New-Object -TypeName PSObject
         $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { $SeverityLevelEnum::None })
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
         $Result
     }
 
@@ -824,7 +824,7 @@ function Invoke-SccmNaaCredentialsCheck {
     License: BSD 3-Clause
 
     .DESCRIPTION
-    The cmdlet simply invokes the Find-WmiCcmNaaCredentials command to get a list of locally stored SCCM NAA credentials.
+    The cmdlet simply invokes the Find-WmiCcmNaaCredential command to get a list of locally stored SCCM NAA credentials.
     #>
 
     [CmdletBinding()]
@@ -833,11 +833,11 @@ function Invoke-SccmNaaCredentialsCheck {
     )
 
     process {
-        $Entries = Find-WmiCcmNaaCredentials | Sort-Object -Unique
+        $Entries = Find-WmiCcmNaaCredential | Sort-Object -Unique
 
         $Result = New-Object -TypeName PSObject
         $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Entries
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Entries) { $BaseSeverity } else { $SeverityLevelEnum::None })
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Entries) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
         $Result
     }
 }
@@ -851,7 +851,7 @@ function Invoke-SccmCacheFolderCredentialsCheck {
     License: BSD 3-Clause
 
     .DESCRIPTION
-    This cmdlet simply invokes the Find-SccmCacheFileCredentials command to get a list of files that potentially contain hard coded credentials.
+    This cmdlet simply invokes the Find-SccmCacheFileCredential command to get a list of files that potentially contain hard coded credentials.
     #>
 
     [CmdletBinding()]
@@ -864,10 +864,10 @@ function Invoke-SccmCacheFolderCredentialsCheck {
     }
 
     process {
-        $AllResults = Find-SccmCacheFileCredentials
+        $AllResults = Find-SccmCacheFileCredential
 
         $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AllResults) { $BaseSeverity } else { $SeverityLevelEnum::None })
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AllResults) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
     }
 
     end {

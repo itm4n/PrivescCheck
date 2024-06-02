@@ -1,64 +1,64 @@
-$LARGE_INTEGER = New-Structure $Module WinApiModule.LARGE_INTEGER @{
+$script:LARGE_INTEGER = New-Structure $Module WinApiModule.LARGE_INTEGER @{
     LowPart                     = New-StructureField 0 UInt32
     HighPart                    = New-StructureField 1 Int32
 }
 
-$LUID = New-Structure $Module WinApiModule.LUID @{
+$script:LUID = New-Structure $Module WinApiModule.LUID @{
     LowPart                     = New-StructureField 0 UInt32
     HighPart                    = New-StructureField 1 Int32
 }
 
-$SID_AND_ATTRIBUTES = New-Structure $Module WinApiModule.SID_AND_ATTRIBUTES @{
+$script:SID_AND_ATTRIBUTES = New-Structure $Module WinApiModule.SID_AND_ATTRIBUTES @{
     Sid                         = New-StructureField 0 IntPtr
     Attributes                  = New-StructureField 1 UInt32
 }
 
-$LUID_AND_ATTRIBUTES = New-Structure $Module WinApiModule.LUID_AND_ATTRIBUTES @{
-    Luid                        = New-StructureField 0 $LUID
+$script:LUID_AND_ATTRIBUTES = New-Structure $Module WinApiModule.LUID_AND_ATTRIBUTES @{
+    Luid                        = New-StructureField 0 $script:LUID
     Attributes                  = New-StructureField 1 UInt32
 }
 
-$TOKEN_USER = New-Structure $Module WinApiModule.TOKEN_USER @{
-    User                        = New-StructureField 0 $SID_AND_ATTRIBUTES
+$script:TOKEN_USER = New-Structure $Module WinApiModule.TOKEN_USER @{
+    User                        = New-StructureField 0 $script:SID_AND_ATTRIBUTES
 }
 
-$TOKEN_GROUPS = New-Structure $Module WinApiModule.TOKEN_GROUPS @{
+$script:TOKEN_GROUPS = New-Structure $Module WinApiModule.TOKEN_GROUPS @{
     GroupCount                  = New-StructureField 0 UInt32
-    Groups                      = New-StructureField 1 $SID_AND_ATTRIBUTES.MakeArrayType() -MarshalAs @('ByValArray', 1)
+    Groups                      = New-StructureField 1 $script:SID_AND_ATTRIBUTES.MakeArrayType() -MarshalAs @('ByValArray', 1)
 }
 
-$TOKEN_PRIVILEGES = New-Structure $Module WinApiModule.TOKEN_PRIVILEGES @{
+$script:TOKEN_PRIVILEGES = New-Structure $Module WinApiModule.TOKEN_PRIVILEGES @{
     PrivilegeCount              = New-StructureField 0 UInt32
-    Privileges                  = New-StructureField 1 $LUID_AND_ATTRIBUTES.MakeArrayType() -MarshalAs @('ByValArray', 1)
+    Privileges                  = New-StructureField 1 $script:LUID_AND_ATTRIBUTES.MakeArrayType() -MarshalAs @('ByValArray', 1)
 }
 
-$TOKEN_MANDATORY_LABEL = New-Structure $Module WinApiModule.TOKEN_MANDATORY_LABEL @{
-    Label                       = New-StructureField 0 $SID_AND_ATTRIBUTES
+$script:TOKEN_MANDATORY_LABEL = New-Structure $Module WinApiModule.TOKEN_MANDATORY_LABEL @{
+    Label                       = New-StructureField 0 $script:SID_AND_ATTRIBUTES
 }
 
-$TOKEN_STATISTICS = New-Structure $Module WinApiModule.TOKEN_STATISTICS @{
-    TokenId                     = New-StructureField 0 $LUID
-    AuthenticationId            = New-StructureField 1 $LUID
-    ExpirationTime              = New-StructureField 2 $LARGE_INTEGER
-    TokenType                   = New-StructureField 3 $TOKEN_TYPE
-    ImpersonationLevel          = New-StructureField 4 $SECURITY_IMPERSONATION_LEVEL
+$script:TOKEN_STATISTICS = New-Structure $Module WinApiModule.TOKEN_STATISTICS @{
+    TokenId                     = New-StructureField 0 $script:LUID
+    AuthenticationId            = New-StructureField 1 $script:LUID
+    ExpirationTime              = New-StructureField 2 $script:LARGE_INTEGER
+    TokenType                   = New-StructureField 3 $script:TOKEN_TYPE
+    ImpersonationLevel          = New-StructureField 4 $script:SECURITY_IMPERSONATION_LEVEL
     DynamicCharged              = New-StructureField 5 UInt32
     DynamicAvailable            = New-StructureField 6 UInt32
     GroupCount                  = New-StructureField 7 UInt32
     PrivilegeCount              = New-StructureField 8 UInt32
-    ModifiedId                  = New-StructureField 9 $LUID
+    ModifiedId                  = New-StructureField 9 $script:LUID
 }
 
-$TOKEN_ORIGIN = New-Structure $Module WinApiModule.TOKEN_ORIGIN @{
-    OriginatingLogonSession     = New-StructureField 0 $LUID
+$script:TOKEN_ORIGIN = New-Structure $Module WinApiModule.TOKEN_ORIGIN @{
+    OriginatingLogonSession     = New-StructureField 0 $script:LUID
 }
 
-$TOKEN_SOURCE = New-Structure $Module WinApiModule.TOKEN_SOURCE @{
+$script:TOKEN_SOURCE = New-Structure $Module WinApiModule.TOKEN_SOURCE @{
     SourceName                  = New-StructureField 0 Byte[] -MarshalAs @('ByValArray', 8)
-    SourceIdentifier            = New-StructureField 1 $LUID
+    SourceIdentifier            = New-StructureField 1 $script:LUID
 }
 
-$SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX = New-Structure $Module WinApiModule.SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX @{
+$script:SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX = New-Structure $Module WinApiModule.SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX @{
     Object                      = New-StructureField 0 IntPtr
     UniqueProcessId             = New-StructureField 1 IntPtr
     HandleValue                 = New-StructureField 2 IntPtr
@@ -69,13 +69,13 @@ $SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX = New-Structure $Module WinApiModule.SYSTEM_H
     Reserved                    = New-StructureField 7 UInt32
 }
 
-$SYSTEM_HANDLE_INFORMATION_EX = New-Structure $Module WinApiModule.SYSTEM_HANDLE_INFORMATION_EX @{
+$script:SYSTEM_HANDLE_INFORMATION_EX = New-Structure $Module WinApiModule.SYSTEM_HANDLE_INFORMATION_EX @{
     NumberOfHandles             = New-StructureField 0 IntPtr
     Reserved                    = New-StructureField 1 IntPtr
-    Handles                     = New-StructureField 2 $SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX.MakeArrayType() -MarshalAs @('ByValArray', 1)
+    Handles                     = New-StructureField 2 $script:SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX.MakeArrayType() -MarshalAs @('ByValArray', 1)
 }
 
-$PPROCESS_BASIC_INFORMATION = New-Structure $Module WinApiModule.PPROCESS_BASIC_INFORMATION @{
+$script:PPROCESS_BASIC_INFORMATION = New-Structure $Module WinApiModule.PPROCESS_BASIC_INFORMATION @{
     ExitStatus                  = New-StructureField 0 Int32
     PebBaseAddress              = New-StructureField 1 IntPtr
     AffinityMask                = New-StructureField 2 IntPtr
@@ -107,33 +107,33 @@ $PPROCESS_BASIC_INFORMATION = New-Structure $Module WinApiModule.PPROCESS_BASIC_
 #     Flags                       = New-StructureField 6 UInt32
 # }
 
-$IN6_ADDR = New-Structure $Module WinApiModule.IN6_ADDR @{
+$script:IN6_ADDR = New-Structure $Module WinApiModule.IN6_ADDR @{
     Addr                        = New-StructureField 0 Byte[] -MarshalAs @('ByValArray', 16)
 }
 
-$SOCKADDR = New-Structure $Module WinApiModule.SOCKADDR @{
+$script:SOCKADDR = New-Structure $Module WinApiModule.SOCKADDR @{
     Family                      = New-StructureField 0 UInt16
     Data                        = New-StructureField 1 Byte[] -MarshalAs @('ByValArray', 14)
 }
 
-$SOCKADDR_IN6 = New-Structure $Module WinApiModule.SOCKADDR_IN6 @{
+$script:SOCKADDR_IN6 = New-Structure $Module WinApiModule.SOCKADDR_IN6 @{
     Family                      = New-StructureField 0 Int16
     Port                        = New-StructureField 1 UInt16
     lowInfo                     = New-StructureField 2 UInt32
-    Addr                        = New-StructureField 3 $IN6_ADDR
+    Addr                        = New-StructureField 3 $script:IN6_ADDR
     ScopeId                     = New-StructureField 4 UInt32
 }
 
-$SOCKET_ADDRESS = New-Structure $Module WinApiModule.SOCKET_ADDRESS @{
+$script:SOCKET_ADDRESS = New-Structure $Module WinApiModule.SOCKET_ADDRESS @{
     Sockaddr                    = New-StructureField 0 IntPtr # LPSOCKADDR -> SOCKADDR or SOCKADDR_IN6
     SockaddrLength              = New-StructureField 1 Int32
 }
 
-$IP_ADAPTER_UNICAST_ADDRESS_LH = New-Structure $Module WinApiModule.IP_ADAPTER_UNICAST_ADDRESS_LH @{
+$script:IP_ADAPTER_UNICAST_ADDRESS_LH = New-Structure $Module WinApiModule.IP_ADAPTER_UNICAST_ADDRESS_LH @{
     Length                      = New-StructureField 0 UInt32
     Flags                       = New-StructureField 1 UInt32
     Next                        = New-StructureField 2 IntPtr # struct _IP_ADAPTER_UNICAST_ADDRESS_LH *Next
-    Address                     = New-StructureField 3 $SOCKET_ADDRESS
+    Address                     = New-StructureField 3 $script:SOCKET_ADDRESS
     PrefixOrigin                = New-StructureField 4 UInt32
     SuffixOrigin                = New-StructureField 5 UInt32
     DadState                    = New-StructureField 6 UInt32
@@ -143,55 +143,55 @@ $IP_ADAPTER_UNICAST_ADDRESS_LH = New-Structure $Module WinApiModule.IP_ADAPTER_U
     OnLinkPrefixLength          = New-StructureField 10 Byte
 }
 
-$IP_ADAPTER_ANYCAST_ADDRESS_XP = New-Structure $Module WinApiModule.IP_ADAPTER_ANYCAST_ADDRESS_XP @{
+$script:IP_ADAPTER_ANYCAST_ADDRESS_XP = New-Structure $Module WinApiModule.IP_ADAPTER_ANYCAST_ADDRESS_XP @{
     Length                      = New-StructureField 0 UInt32
     Flags                       = New-StructureField 1 UInt32
     Next                        = New-StructureField 2 IntPtr # struct _IP_ADAPTER_ANYCAST_ADDRESS_XP *Next
-    Address                     = New-StructureField 3 $SOCKET_ADDRESS
+    Address                     = New-StructureField 3 $script:SOCKET_ADDRESS
 }
 
-$IP_ADAPTER_MULTICAST_ADDRESS_XP = New-Structure $Module WinApiModule.IP_ADAPTER_MULTICAST_ADDRESS_XP @{
+$script:IP_ADAPTER_MULTICAST_ADDRESS_XP = New-Structure $Module WinApiModule.IP_ADAPTER_MULTICAST_ADDRESS_XP @{
     Length                      = New-StructureField 0 UInt32
     Flags                       = New-StructureField 1 UInt32
     Next                        = New-StructureField 2 IntPtr # struct _IP_ADAPTER_MULTICAST_ADDRESS_XP *Next
-    Address                     = New-StructureField 3 $SOCKET_ADDRESS
+    Address                     = New-StructureField 3 $script:SOCKET_ADDRESS
 }
 
-$IP_ADAPTER_DNS_SERVER_ADDRESS_XP = New-Structure $Module WinApiModule.IP_ADAPTER_DNS_SERVER_ADDRESS_XP @{
+$script:IP_ADAPTER_DNS_SERVER_ADDRESS_XP = New-Structure $Module WinApiModule.IP_ADAPTER_DNS_SERVER_ADDRESS_XP @{
     Length                      = New-StructureField 0 UInt32
     Flags                       = New-StructureField 1 UInt32
     Next                        = New-StructureField 2 IntPtr # struct _IP_ADAPTER_DNS_SERVER_ADDRESS_XP *Next
-    Address                     = New-StructureField 3 $SOCKET_ADDRESS
+    Address                     = New-StructureField 3 $script:SOCKET_ADDRESS
 }
 
-$IP_ADAPTER_PREFIX_XP = New-Structure $Module WinApiModule.IP_ADAPTER_PREFIX_XP @{
+$script:IP_ADAPTER_PREFIX_XP = New-Structure $Module WinApiModule.IP_ADAPTER_PREFIX_XP @{
     Length                      = New-StructureField 0 UInt32
     Flags                       = New-StructureField 1 UInt32
     Next                        = New-StructureField 2 IntPtr # struct _IP_ADAPTER_PREFIX_XP *Next
-    Address                     = New-StructureField 3 $SOCKET_ADDRESS
+    Address                     = New-StructureField 3 $script:SOCKET_ADDRESS
     PrefixLength                = New-StructureField 4 UInt32
 }
 
-$IP_ADAPTER_WINS_SERVER_ADDRESS_LH = New-Structure $Module WinApiModule.IP_ADAPTER_WINS_SERVER_ADDRESS_LH @{
+$script:IP_ADAPTER_WINS_SERVER_ADDRESS_LH = New-Structure $Module WinApiModule.IP_ADAPTER_WINS_SERVER_ADDRESS_LH @{
     Length                      = New-StructureField 0 UInt32
     Reserved                    = New-StructureField 1 UInt32
     Next                        = New-StructureField 2 IntPtr # struct _IP_ADAPTER_WINS_SERVER_ADDRESS_LH *Next
-    Address                     = New-StructureField 3 $SOCKET_ADDRESS
+    Address                     = New-StructureField 3 $script:SOCKET_ADDRESS
 }
 
-$IP_ADAPTER_GATEWAY_ADDRESS_LH = New-Structure $Module WinApiModule.IP_ADAPTER_GATEWAY_ADDRESS_LH @{
+$script:IP_ADAPTER_GATEWAY_ADDRESS_LH = New-Structure $Module WinApiModule.IP_ADAPTER_GATEWAY_ADDRESS_LH @{
     Length                      = New-StructureField 0 UInt32
     Reserved                    = New-StructureField 1 UInt32
     Next                        = New-StructureField 2 IntPtr # struct _IP_ADAPTER_GATEWAY_ADDRESS_LH *Next
-    Address                     = New-StructureField 3 $SOCKET_ADDRESS
+    Address                     = New-StructureField 3 $script:SOCKET_ADDRESS
 }
 
-$IP_ADAPTER_DNS_SUFFIX = New-Structure $Module WinApiModule.IP_ADAPTER_DNS_SUFFIX @{
+$script:IP_ADAPTER_DNS_SUFFIX = New-Structure $Module WinApiModule.IP_ADAPTER_DNS_SUFFIX @{
     Next                        = New-StructureField 0 IntPtr # struct _IP_ADAPTER_DNS_SUFFIX *Next
     String                      = New-StructureField 1 String -MarshalAs @('ByValTStr', 256)
 } -Charset Unicode
 
-$IP_ADAPTER_ADDRESSES = New-Structure $Module WinApiModule.IP_ADAPTER_ADDRESSES @{
+$script:IP_ADAPTER_ADDRESSES = New-Structure $Module WinApiModule.IP_ADAPTER_ADDRESSES @{
     Length                      = New-StructureField 0 UInt32
     IfIndex                     = New-StructureField 1 UInt32
     Next                        = New-StructureField 2 IntPtr # struct _IP_ADAPTER_ADDRESSES_LH    *Next;
@@ -219,19 +219,19 @@ $IP_ADAPTER_ADDRESSES = New-Structure $Module WinApiModule.IP_ADAPTER_ADDRESSES 
     Ipv4Metric                  = New-StructureField 24 UInt32
     Ipv6Metric                  = New-StructureField 25 UInt32
     Luid                        = New-StructureField 26 UInt64
-    Dhcpv4Server                = New-StructureField 27 $SOCKET_ADDRESS
+    Dhcpv4Server                = New-StructureField 27 $script:SOCKET_ADDRESS
     CompartmentId               = New-StructureField 28 UInt32
     NetworkGuid                 = New-StructureField 29 Guid
     ConnectionType              = New-StructureField 30 UInt32
     TunnelType                  = New-StructureField 31 UInt32
-    Dhcpv6Server                = New-StructureField 32 $SOCKET_ADDRESS
+    Dhcpv6Server                = New-StructureField 32 $script:SOCKET_ADDRESS
     Dhcpv6ClientDuid            = New-StructureField 33 Byte[] -MarshalAs @('ByValArray', 130)
     Dhcpv6ClientDuidLength      = New-StructureField 34 UInt32
     Dhcpv6Iaid                  = New-StructureField 35 UInt32
     FirstDnsSuffix              = New-StructureField 36 IntPtr # PIP_ADAPTER_DNS_SUFFIX
 }
 
-$MIB_TCPROW_OWNER_PID = New-Structure $Module WinApiModule.MIB_TCPROW_OWNER_PID @{
+$script:MIB_TCPROW_OWNER_PID = New-Structure $Module WinApiModule.MIB_TCPROW_OWNER_PID @{
     State                       = New-StructureField 0 UInt32
     LocalAddr                   = New-StructureField 1 UInt32
     LocalPort                   = New-StructureField 2 Byte[] -MarshalAs @('ByValArray', 4)
@@ -240,13 +240,13 @@ $MIB_TCPROW_OWNER_PID = New-Structure $Module WinApiModule.MIB_TCPROW_OWNER_PID 
     OwningPid                   = New-StructureField 5 UInt32
 }
 
-$MIB_UDPROW_OWNER_PID = New-Structure $Module WinApiModule.MIB_UDPROW_OWNER_PID @{
+$script:MIB_UDPROW_OWNER_PID = New-Structure $Module WinApiModule.MIB_UDPROW_OWNER_PID @{
     LocalAddr                   = New-StructureField 0 UInt32
     LocalPort                   = New-StructureField 1 Byte[] -MarshalAs @('ByValArray', 4)
     OwningPid                   = New-StructureField 2 UInt32
 }
 
-$MIB_TCP6ROW_OWNER_PID = New-Structure $Module WinApiModule.MIB_TCP6ROW_OWNER_PID @{
+$script:MIB_TCP6ROW_OWNER_PID = New-Structure $Module WinApiModule.MIB_TCP6ROW_OWNER_PID @{
     LocalAddr                   = New-StructureField 0 Byte[] -MarshalAs @('ByValArray', 16)
     LocalScopeId                = New-StructureField 1 UInt32
     LocalPort                   = New-StructureField 2 Byte[] -MarshalAs @('ByValArray', 4)
@@ -257,44 +257,44 @@ $MIB_TCP6ROW_OWNER_PID = New-Structure $Module WinApiModule.MIB_TCP6ROW_OWNER_PI
     OwningPid                   = New-StructureField 7 UInt32
 }
 
-$MIB_UDP6ROW_OWNER_PID = New-Structure $Module WinApiModule.MIB_UDP6ROW_OWNER_PID @{
+$script:MIB_UDP6ROW_OWNER_PID = New-Structure $Module WinApiModule.MIB_UDP6ROW_OWNER_PID @{
     LocalAddr                   = New-StructureField 0 Byte[] -MarshalAs @('ByValArray', 16)
     LocalScopeId                = New-StructureField 1 UInt32
     LocalPort                   = New-StructureField 2 Byte[] -MarshalAs @('ByValArray', 4)
     OwningPid                   = New-StructureField 3 UInt32
 }
 
-$MIB_TCPTABLE_OWNER_PID = New-Structure $Module WinApiModule.MIB_TCPTABLE_OWNER_PID @{
+$script:MIB_TCPTABLE_OWNER_PID = New-Structure $Module WinApiModule.MIB_TCPTABLE_OWNER_PID @{
     NumEntries                  = New-StructureField 0 UInt32
-    Table                       = New-StructureField 1 $MIB_TCPROW_OWNER_PID.MakeArrayType() -MarshalAs @('ByValArray', 1)
+    Table                       = New-StructureField 1 $script:MIB_TCPROW_OWNER_PID.MakeArrayType() -MarshalAs @('ByValArray', 1)
 }
 
-$MIB_UDPTABLE_OWNER_PID = New-Structure $Module WinApiModule.MIB_UDPTABLE_OWNER_PID @{
+$script:MIB_UDPTABLE_OWNER_PID = New-Structure $Module WinApiModule.MIB_UDPTABLE_OWNER_PID @{
     NumEntries                  = New-StructureField 0 UInt32
-    Table                       = New-StructureField 1 $MIB_UDPROW_OWNER_PID.MakeArrayType() -MarshalAs @('ByValArray', 1)
+    Table                       = New-StructureField 1 $script:MIB_UDPROW_OWNER_PID.MakeArrayType() -MarshalAs @('ByValArray', 1)
 }
 
-$MIB_TCP6TABLE_OWNER_PID = New-Structure $Module WinApiModule.MIB_TCP6TABLE_OWNER_PID @{
+$script:MIB_TCP6TABLE_OWNER_PID = New-Structure $Module WinApiModule.MIB_TCP6TABLE_OWNER_PID @{
     NumEntries                  = New-StructureField 0 UInt32
-    Table                       = New-StructureField 1 $MIB_TCP6ROW_OWNER_PID.MakeArrayType() -MarshalAs @('ByValArray', 1)
+    Table                       = New-StructureField 1 $script:MIB_TCP6ROW_OWNER_PID.MakeArrayType() -MarshalAs @('ByValArray', 1)
 }
 
-$MIB_UDP6TABLE_OWNER_PID = New-Structure $Module WinApiModule.MIB_UDP6TABLE_OWNER_PID @{
+$script:MIB_UDP6TABLE_OWNER_PID = New-Structure $Module WinApiModule.MIB_UDP6TABLE_OWNER_PID @{
     NumEntries                  = New-StructureField 0 UInt32
-    Table                       = New-StructureField 1 $MIB_UDP6ROW_OWNER_PID.MakeArrayType() -MarshalAs @('ByValArray', 1)
+    Table                       = New-StructureField 1 $script:MIB_UDP6ROW_OWNER_PID.MakeArrayType() -MarshalAs @('ByValArray', 1)
 }
 
-$FILETIME = New-Structure $Module WinApiModule.FILETIME @{
+$script:FILETIME = New-Structure $Module WinApiModule.FILETIME @{
     LowDateTime                 = New-StructureField 0 UInt32
     HighDateTime                = New-StructureField 1 UInt32
 }
 
-$CREDENTIAL = New-Structure $Module WinApiModule.CREDENTIAL @{
+$script:CREDENTIAL = New-Structure $Module WinApiModule.CREDENTIAL @{
     Flags                       = New-StructureField 0 UInt32
     Type                        = New-StructureField 1 UInt32
     TargetName                  = New-StructureField 2 String
     Comment                     = New-StructureField 3 String
-    LastWritten                 = New-StructureField 4 $FILETIME
+    LastWritten                 = New-StructureField 4 $script:FILETIME
     CredentialBlobSize          = New-StructureField 5 UInt32
     CredentialBlob              = New-StructureField 6 IntPtr
     Persist                     = New-StructureField 7 UInt32
@@ -304,25 +304,25 @@ $CREDENTIAL = New-Structure $Module WinApiModule.CREDENTIAL @{
     UserName                    = New-StructureField 11 String
 } -Charset Unicode
 
-$UNICODE_STRING = New-Structure $Module WinApiModule.UNICODE_STRING @{
+$script:UNICODE_STRING = New-Structure $Module WinApiModule.UNICODE_STRING @{
     Length                      = New-StructureField 0 UInt16
     MaximumLength               = New-StructureField 1 UInt16
     Buffer                      = New-StructureField 2 IntPtr
 }
 
-$GENERIC_MAPPING = New-Structure $Module WinApiModule.GENERIC_MAPPING @{
+$script:GENERIC_MAPPING = New-Structure $Module WinApiModule.GENERIC_MAPPING @{
     GenericRead                 = New-StructureField 0 UInt32
     GenericWrite                = New-StructureField 1 UInt32
     GenericExecute              = New-StructureField 2 UInt32
     GenericAll                  = New-StructureField 3 UInt32
 }
 
-$OBJECT_NAME_INFORMATION = New-Structure $Module WinApiModule.OBJECT_NAME_INFORMATION @{
-    Name                        = New-StructureField 0 $UNICODE_STRING
+$script:OBJECT_NAME_INFORMATION = New-Structure $Module WinApiModule.OBJECT_NAME_INFORMATION @{
+    Name                        = New-StructureField 0 $script:UNICODE_STRING
 }
 
-$OBJECT_TYPE_INFORMATION = New-Structure $Module WinApiModule.OBJECT_TYPE_INFORMATION @{
-    TypeName                    = New-StructureField 0 $UNICODE_STRING
+$script:OBJECT_TYPE_INFORMATION = New-Structure $Module WinApiModule.OBJECT_TYPE_INFORMATION @{
+    TypeName                    = New-StructureField 0 $script:UNICODE_STRING
     TotalNumberOfObjects        = New-StructureField 1 UInt32
     TotalNumberOfHandles        = New-StructureField 2 UInt32
     TotalPagedPoolUsage         = New-StructureField 3 UInt32
@@ -336,7 +336,7 @@ $OBJECT_TYPE_INFORMATION = New-Structure $Module WinApiModule.OBJECT_TYPE_INFORM
     HighWaterNamePoolUsage      = New-StructureField 11 UInt32
     HighWaterHandleTableUsage   = New-StructureField 12 UInt32
     InvalidAttributes           = New-StructureField 13 UInt32
-    GenericMapping              = New-StructureField 14 $GENERIC_MAPPING
+    GenericMapping              = New-StructureField 14 $script:GENERIC_MAPPING
     ValidAccessMask             = New-StructureField 15 UInt32
     SecurityRequired            = New-StructureField 16 Byte
     MaintainHandleCount         = New-StructureField 17 Byte
@@ -347,56 +347,56 @@ $OBJECT_TYPE_INFORMATION = New-Structure $Module WinApiModule.OBJECT_TYPE_INFORM
     DefaultNonPagedPoolCharge   = New-StructureField 22 UInt32
 }
 
-$VAULT_ITEM_7 = New-Structure $Module WinApiModule.VAULT_ITEM_7 @{
+$script:VAULT_ITEM_7 = New-Structure $Module WinApiModule.VAULT_ITEM_7 @{
     SchemaId                    = New-StructureField 0 Guid
     FriendlyName                = New-StructureField 1 String
     Resource                    = New-StructureField 2 IntPtr
     Identity                    = New-StructureField 3 IntPtr
     Authenticator               = New-StructureField 4 IntPtr
-    LastWritten                 = New-StructureField 5 $FILETIME
+    LastWritten                 = New-StructureField 5 $script:FILETIME
     Flags                       = New-StructureField 6 Uint32
     PropertiesCount             = New-StructureField 7 UInt32
     Properties                  = New-StructureField 8 IntPtr
 }
 
-$VAULT_ITEM_8 = New-Structure $Module WinApiModule.VAULT_ITEM_8 @{
+$script:VAULT_ITEM_8 = New-Structure $Module WinApiModule.VAULT_ITEM_8 @{
     SchemaId                    = New-StructureField 0 Guid
     FriendlyName                = New-StructureField 1 String
     Resource                    = New-StructureField 2 IntPtr
     Identity                    = New-StructureField 3 IntPtr
     Authenticator               = New-StructureField 4 IntPtr
     PackageSid                  = New-StructureField 5 IntPtr
-    LastWritten                 = New-StructureField 6 $FILETIME
+    LastWritten                 = New-StructureField 6 $script:FILETIME
     Flags                       = New-StructureField 7 Uint32
     PropertiesCount             = New-StructureField 8 UInt32
     Properties                  = New-StructureField 9 IntPtr
 }
 
-$VAULT_ITEM_DATA_HEADER = New-Structure $Module WinApiModule.VAULT_ITEM_DATA_HEADER @{
+$script:VAULT_ITEM_DATA_HEADER = New-Structure $Module WinApiModule.VAULT_ITEM_DATA_HEADER @{
     SchemaElementId             = New-StructureField 0 UInt32
     Unknown1                    = New-StructureField 1 UInt32
     Type                        = New-StructureField 2 UInt32
     Unknown2                    = New-StructureField 3 UInt32
 }
 
-$WLAN_INTERFACE_INFO = New-Structure $Module WinApiModule.WLAN_INTERFACE_INFO @{
+$script:WLAN_INTERFACE_INFO = New-Structure $Module WinApiModule.WLAN_INTERFACE_INFO @{
     InterfaceGuid               = New-StructureField 0 Guid
     InterfaceDescription        = New-StructureField 1 String -MarshalAs @('ByValTStr', 256)
     State                       = New-StructureField 2 UInt32
 } -Charset Unicode
 
-$WLAN_PROFILE_INFO = New-Structure $Module WinApiModule.WLAN_PROFILE_INFO @{
+$script:WLAN_PROFILE_INFO = New-Structure $Module WinApiModule.WLAN_PROFILE_INFO @{
     ProfileName                 = New-StructureField 0 String -MarshalAs @('ByValTStr', 256)
     Flags                       = New-StructureField 1 UInt32
 } -Charset Unicode
 
-$SECURITY_ATTRIBUTES = New-Structure $Module WinApiModule.SECURITY_ATTRIBUTES @{
+$script:SECURITY_ATTRIBUTES = New-Structure $Module WinApiModule.SECURITY_ATTRIBUTES @{
     Length                      = New-StructureField 0 UInt32
     SecurityDescriptor          = New-StructureField 1 IntPtr
     InheritHandle               = New-StructureField 2 Bool
 }
 
-$OBJECT_ATTRIBUTES = New-Structure $Module WinApiModule.OBJECT_ATTRIBUTES @{
+$script:OBJECT_ATTRIBUTES = New-Structure $Module WinApiModule.OBJECT_ATTRIBUTES @{
     Length                      = New-StructureField 0 UInt32
     RootDirectory               = New-StructureField 1 IntPtr
     ObjectName                  = New-StructureField 2 IntPtr
@@ -405,23 +405,23 @@ $OBJECT_ATTRIBUTES = New-Structure $Module WinApiModule.OBJECT_ATTRIBUTES @{
     SecurityQualityOfService    = New-StructureField 5 IntPtr
 }
 
-$OBJECT_DIRECTORY_INFORMATION = New-Structure $Module WinApiModule.OBJECT_DIRECTORY_INFORMATION @{
-    Name                        = New-StructureField 0 $UNICODE_STRING
-    TypeName                    = New-StructureField 1 $UNICODE_STRING
+$script:OBJECT_DIRECTORY_INFORMATION = New-Structure $Module WinApiModule.OBJECT_DIRECTORY_INFORMATION @{
+    Name                        = New-StructureField 0 $script:UNICODE_STRING
+    TypeName                    = New-StructureField 1 $script:UNICODE_STRING
 }
 
-$WIN32_FILE_ATTRIBUTE_DATA = New-Structure $Module WinApiModule.WIN32_FILE_ATTRIBUTE_DATA @{
+$script:WIN32_FILE_ATTRIBUTE_DATA = New-Structure $Module WinApiModule.WIN32_FILE_ATTRIBUTE_DATA @{
     dwFileAttributes            = New-StructureField 0 UInt32
-    ftCreationTime              = New-StructureField 1 $FILETIME
-    ftLastAccessTime            = New-StructureField 2 $FILETIME
-    ftLastWriteTime             = New-StructureField 3 $FILETIME
+    ftCreationTime              = New-StructureField 1 $script:FILETIME
+    ftLastAccessTime            = New-StructureField 2 $script:FILETIME
+    ftLastWriteTime             = New-StructureField 3 $script:FILETIME
     nFileSizeHigh               = New-StructureField 4 UInt32
     nFileSizeLow                = New-StructureField 5 UInt32
 }
 
-$WTS_SESSION_INFO_1W = New-Structure $Module WinApiModule.WTS_SESSION_INFO_1W @{
+$script:WTS_SESSION_INFO_1W = New-Structure $Module WinApiModule.WTS_SESSION_INFO_1W @{
     ExecEnvId                   = New-StructureField 0 UInt32
-    State                       = New-StructureField 1 $WTS_CONNECTSTATE_CLASS
+    State                       = New-StructureField 1 $script:WTS_CONNECTSTATE_CLASS
     SessionId                   = New-StructureField 2 UInt32
     SessionName                 = New-StructureField 3 String -MarshalAs @('LPWStr')
     HostName                    = New-StructureField 4 String -MarshalAs @('LPWStr')
@@ -430,11 +430,11 @@ $WTS_SESSION_INFO_1W = New-Structure $Module WinApiModule.WTS_SESSION_INFO_1W @{
     FarmName                    = New-StructureField 7 String -MarshalAs @('LPWStr')
 }
 
-$DRIVER_INFO_1 = New-Structure $Module WinApiModule.DRIVER_INFO_1 @{
+$script:DRIVER_INFO_1 = New-Structure $Module WinApiModule.DRIVER_INFO_1 @{
     Name                        = New-StructureField 0 String -MarshalAs @('LPTStr')
 } -Charset Auto
 
-$DRIVER_INFO_2 = New-Structure $Module WinApiModule.DRIVER_INFO_2 @{
+$script:DRIVER_INFO_2 = New-Structure $Module WinApiModule.DRIVER_INFO_2 @{
     Version                     = New-StructureField 0 UInt32
     Name                        = New-StructureField 1 String -MarshalAs @('LPTStr')
     Environment                 = New-StructureField 2 String -MarshalAs @('LPTStr')
@@ -443,7 +443,7 @@ $DRIVER_INFO_2 = New-Structure $Module WinApiModule.DRIVER_INFO_2 @{
     ConfigFile                  = New-StructureField 5 String -MarshalAs @('LPTStr')
 } -Charset Auto
 
-$DRIVER_INFO_3 = New-Structure $Module WinApiModule.DRIVER_INFO_3 @{
+$script:DRIVER_INFO_3 = New-Structure $Module WinApiModule.DRIVER_INFO_3 @{
     Version                     = New-StructureField 0 UInt32
     Name                        = New-StructureField 1 String -MarshalAs @('LPTStr')
     Environment                 = New-StructureField 2 String -MarshalAs @('LPTStr')
@@ -456,7 +456,7 @@ $DRIVER_INFO_3 = New-Structure $Module WinApiModule.DRIVER_INFO_3 @{
     DefaultDataType             = New-StructureField 9 String -MarshalAs @('LPTStr')
 } -Charset Auto
 
-$DRIVER_INFO_4 = New-Structure $Module WinApiModule.DRIVER_INFO_4 @{
+$script:DRIVER_INFO_4 = New-Structure $Module WinApiModule.DRIVER_INFO_4 @{
     Version                     = New-StructureField 0 UInt32
     Name                        = New-StructureField 1 String -MarshalAs @('LPTStr')
     Environment                 = New-StructureField 2 String -MarshalAs @('LPTStr')
@@ -470,7 +470,7 @@ $DRIVER_INFO_4 = New-Structure $Module WinApiModule.DRIVER_INFO_4 @{
     PreviousNames               = New-StructureField 10 String -MarshalAs @('LPTStr')
 } -Charset Auto
 
-$DRIVER_INFO_5 = New-Structure $Module WinApiModule.DRIVER_INFO_5 @{
+$script:DRIVER_INFO_5 = New-Structure $Module WinApiModule.DRIVER_INFO_5 @{
     Version                     = New-StructureField 0 UInt32
     Name                        = New-StructureField 1 String -MarshalAs @('LPTStr')
     Environment                 = New-StructureField 2 String -MarshalAs @('LPTStr')
@@ -482,7 +482,7 @@ $DRIVER_INFO_5 = New-Structure $Module WinApiModule.DRIVER_INFO_5 @{
     DriverVersion               = New-StructureField 8 UInt32
 } -Charset Auto
 
-$PRINTER_INFO_2 = New-Structure $Module WinApiModule.PRINTER_INFO_2 @{
+$script:PRINTER_INFO_2 = New-Structure $Module WinApiModule.PRINTER_INFO_2 @{
     ServerName                  = New-StructureField 0 String -MarshalAs @('LPTStr')
     PrinterName                 = New-StructureField 1 String -MarshalAs @('LPTStr')
     ShareName                   = New-StructureField 2 String -MarshalAs @('LPTStr')

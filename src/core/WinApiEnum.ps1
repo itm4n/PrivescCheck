@@ -1,11 +1,11 @@
-$SeverityLevelEnum = New-Enum $Module WinApiModule.SeverityLevel UInt32 @{
+$script:SeverityLevelEnum = New-Enum $Module WinApiModule.SeverityLevel UInt32 @{
     None                                = '0x00000000'
     Low                                 = '0x00000001'
     Medium                              = '0x00000002'
     High                                = '0x00000003'
 }
 
-$FileAccessRightsEnum = New-Enum $Module WinApiModule.FileAccessRightsEnum UInt32 @{
+$script:FileAccessRightsEnum = New-Enum $Module WinApiModule.FileAccessRightsEnum UInt32 @{
     # GenericRead                       = '0x80000000'
     # GenericWrite                      = '0x40000000'
     # GenericExecute                    = '0x20000000'
@@ -28,7 +28,7 @@ $FileAccessRightsEnum = New-Enum $Module WinApiModule.FileAccessRightsEnum UInt3
     ReadData                            = '0x00000001'
 } -Bitfield
 
-$ServiceAccessRightsEnum = New-Enum $Module WinApiModule.ServiceAccessRights UInt32 @{
+$script:ServiceAccessRightsEnum = New-Enum $Module WinApiModule.ServiceAccessRights UInt32 @{
     QueryConfig                         = '0x00000001'
     ChangeConfig                        = '0x00000002'
     QueryStatus                         = '0x00000004'
@@ -51,7 +51,7 @@ $ServiceAccessRightsEnum = New-Enum $Module WinApiModule.ServiceAccessRights UIn
     AllAccess                           = '0x000F01FF'
 } -Bitfield
 
-$ServiceControlManagerAccessRightsEnum = New-Enum $Module WinApiModule.ServiceControlManagerAccessRights UInt32 @{
+$script:ServiceControlManagerAccessRightsEnum = New-Enum $Module WinApiModule.ServiceControlManagerAccessRights UInt32 @{
     Connect                             = '0x00000001'
     CreateService                       = '0x00000002'
     EnumerateService                    = '0x00000004'
@@ -64,7 +64,7 @@ $ServiceControlManagerAccessRightsEnum = New-Enum $Module WinApiModule.ServiceCo
     GenericExecute                      = '0x00020009' # STANDARD_RIGHTS_EXECUTE | SC_MANAGER_CONNECT | SC_MANAGER_LOCK
 } -Bitfield
 
-$ProcessAccessRightsEnum = New-Enum $Module WinApiModule.ProcessAccessRights UInt32 @{
+$script:ProcessAccessRightsEnum = New-Enum $Module WinApiModule.ProcessAccessRights UInt32 @{
     TERMINATE                           = '0x00000001'
     CREATE_THREAD                       = '0x00000002'
     SET_SESSIONID                       = '0x00000004'
@@ -83,7 +83,7 @@ $ProcessAccessRightsEnum = New-Enum $Module WinApiModule.ProcessAccessRights UIn
     SYNCHRONIZE                         = '0x00100000'
 } -Bitfield
 
-$TokenAccessRightsEnum = New-Enum $Module WinApiModule.TokenAccessRights UInt32 @{
+$script:TokenAccessRightsEnum = New-Enum $Module WinApiModule.TokenAccessRights UInt32 @{
     AssignPrimary                       = '0x00000001'
     Duplicate                           = '0x00000002'
     Impersonate                         = '0x00000004'
@@ -102,7 +102,7 @@ $TokenAccessRightsEnum = New-Enum $Module WinApiModule.TokenAccessRights UInt32 
     AllAccess                           = '0x000f01ff'
 } -Bitfield
 
-$ServiceTypeEnum = New-Enum $Module WinApiModule.ServiceType UInt32 @{
+$script:ServiceTypeEnum = New-Enum $Module WinApiModule.ServiceType UInt32 @{
     KernelDriver                        = '0x00000001'
     FileSystemDriver                    = '0x00000002'
     Adapter                             = '0x00000004'
@@ -120,7 +120,7 @@ $ServiceTypeEnum = New-Enum $Module WinApiModule.ServiceType UInt32 @{
     All                                 = '0x000003ff'
 } -Bitfield
 
-$ServiceStartTypeEnum = New-Enum $Module WinApiModule.ServiceStartType UInt32 @{
+$script:ServiceStartTypeEnum = New-Enum $Module WinApiModule.ServiceStartType UInt32 @{
     Boot                                = '0x00000000'
     System                              = '0x00000001'
     Automatic                           = '0x00000002'
@@ -128,7 +128,7 @@ $ServiceStartTypeEnum = New-Enum $Module WinApiModule.ServiceStartType UInt32 @{
     Disabled                            = '0x00000004'
 }
 
-$SID_NAME_USE = New-Enum $Module WinApiModule.SID_NAME_USE UInt32 @{
+$script:SID_NAME_USE = New-Enum $Module WinApiModule.SID_NAME_USE UInt32 @{
     User                                = '0x00000001'
     Group                               = '0x00000002'
     Domain                              = '0x00000003'
@@ -142,7 +142,7 @@ $SID_NAME_USE = New-Enum $Module WinApiModule.SID_NAME_USE UInt32 @{
     LogonSession                        = '0x0000000B'
 }
 
-$TOKEN_INFORMATION_CLASS = New-Enum $Module WinApiModule.TOKEN_INFORMATION_CLASS UInt32 @{
+$script:TOKEN_INFORMATION_CLASS = New-Enum $Module WinApiModule.TOKEN_INFORMATION_CLASS UInt32 @{
     TokenUser                           = '0x00000001'
     TokenGroups                         = '0x00000002'
     TokenPrivileges                     = '0x00000003'
@@ -194,19 +194,19 @@ $TOKEN_INFORMATION_CLASS = New-Enum $Module WinApiModule.TOKEN_INFORMATION_CLASS
     MaxTokenInfoClass                   = '0x00000032'
 }
 
-$TOKEN_TYPE = New-Enum $Module WinApiModule.TOKEN_TYPE UInt32 @{
+$script:TOKEN_TYPE = New-Enum $Module WinApiModule.TOKEN_TYPE UInt32 @{
     TokenPrimary                        = '0x00000001'
     TokenImpersonation                  = '0x00000002'
 }
 
-$SECURITY_IMPERSONATION_LEVEL = New-Enum $Module WinApiModule.SECURITY_IMPERSONATION_LEVEL UInt32 @{
+$script:SECURITY_IMPERSONATION_LEVEL = New-Enum $Module WinApiModule.SECURITY_IMPERSONATION_LEVEL UInt32 @{
     SecurityAnonymous                   = '0x00000001'
     SecurityIdentification              = '0x00000002'
     SecurityImpersonation               = '0x00000003'
     SecurityDelegation                  = '0x00000004'
 }
 
-$TCP_TABLE_CLASS = New-Enum $Module WinApiModule.TCP_TABLE_CLASS UInt32 @{
+$script:TCP_TABLE_CLASS = New-Enum $Module WinApiModule.TCP_TABLE_CLASS UInt32 @{
     TCP_TABLE_BASIC_LISTENER            = '0x00000000'
     TCP_TABLE_BASIC_CONNECTIONS         = '0x00000001'
     TCP_TABLE_BASIC_ALL                 = '0x00000002'
@@ -218,13 +218,13 @@ $TCP_TABLE_CLASS = New-Enum $Module WinApiModule.TCP_TABLE_CLASS UInt32 @{
     TCP_TABLE_OWNER_MODULE_ALL          = '0x00000008'
 }
 
-$UDP_TABLE_CLASS = New-Enum $Module WinApiModule.UDP_TABLE_CLASS UInt32 @{
+$script:UDP_TABLE_CLASS = New-Enum $Module WinApiModule.UDP_TABLE_CLASS UInt32 @{
     UDP_TABLE_BASIC                     = '0x00000000'
     UDP_TABLE_OWNER_PID                 = '0x00000001'
     UDP_TABLE_OWNER_MODULE              = '0x00000002'
 }
 
-$WLAN_INTERFACE_STATE = New-Enum $Module WinApiModule.WLAN_INTERFACE_STATE UInt32 @{
+$script:WLAN_INTERFACE_STATE = New-Enum $Module WinApiModule.WLAN_INTERFACE_STATE UInt32 @{
     NotReady                            = '0x00000000'
     Connected                           = '0x00000001'
     AdHocNetworkFormed                  = '0x00000002'
@@ -235,7 +235,7 @@ $WLAN_INTERFACE_STATE = New-Enum $Module WinApiModule.WLAN_INTERFACE_STATE UInt3
     Authenticating                      = '0x00000007'
 }
 
-$ADS_USER_FLAGS = New-Enum $Module WinApiModule.ADS_USER_FLAGS UInt32 @{
+$script:ADS_USER_FLAGS = New-Enum $Module WinApiModule.ADS_USER_FLAGS UInt32 @{
     Script                              = '0x00000001'
     AccountDisable                      = '0x00000002'
     HomedirRequired                     = '0x00000008'
@@ -259,7 +259,7 @@ $ADS_USER_FLAGS = New-Enum $Module WinApiModule.ADS_USER_FLAGS UInt32 @{
     TrustedToAuthenticateForDelegation  = '0x01000000'
 } -Bitfield
 
-$GROUP_TYPE_FLAGS = New-Enum $Module WinApiModule.GROUP_TYPE_FLAGS UInt32 @{
+$script:GROUP_TYPE_FLAGS = New-Enum $Module WinApiModule.GROUP_TYPE_FLAGS UInt32 @{
     BuiltinLocalGroup                   = '0x00000001'
     AccountGroup                        = '0x00000002'
     ResourceGroup                       = '0x00000004'
@@ -269,7 +269,7 @@ $GROUP_TYPE_FLAGS = New-Enum $Module WinApiModule.GROUP_TYPE_FLAGS UInt32 @{
     SecurityEnabled                     = '0x80000000'
 } -Bitfield
 
-$CRED_TYPE = New-Enum $Module WinApiModule.CRED_TYPE UInt32 @{
+$script:CRED_TYPE = New-Enum $Module WinApiModule.CRED_TYPE UInt32 @{
     Generic                             = '0x00000001'
     DomainPassword                      = '0x00000002'
     DomainCertificate                   = '0x00000003'
@@ -280,14 +280,14 @@ $CRED_TYPE = New-Enum $Module WinApiModule.CRED_TYPE UInt32 @{
     MaximumEx                           = '0x000003ef'
 }
 
-$CRED_PERSIST = New-Enum $Module WinApiModule.CRED_PERSIST UInt32 @{
+$script:CRED_PERSIST = New-Enum $Module WinApiModule.CRED_PERSIST UInt32 @{
     Session                             = '0x00000001'
     LocalMachine                        = '0x00000002'
     Enterprise                          = '0x00000003'
 }
 
 # Custom enum, does not actually exist
-$IP_ADAPTER_FLAGS = New-Enum $Module WinApiModule.IP_ADAPTER_FLAGS UInt32 @{
+$script:IP_ADAPTER_FLAGS = New-Enum $Module WinApiModule.IP_ADAPTER_FLAGS UInt32 @{
     DdnsEnabled                         = '0x00000001'
     RegisterAdapterSuffix               = '0x00000002'
     Dhcpv4Enabled                       = '0x00000004'
@@ -300,7 +300,7 @@ $IP_ADAPTER_FLAGS = New-Enum $Module WinApiModule.IP_ADAPTER_FLAGS UInt32 @{
     Ipv6ManagedAddressConfigurationSupported = '0x00000200'
 } -Bitfield
 
-$WTS_CONNECTSTATE_CLASS = New-Enum $Module WinApiModule.WTS_CONNECTSTATE_CLASS UInt32 @{
+$script:WTS_CONNECTSTATE_CLASS = New-Enum $Module WinApiModule.WTS_CONNECTSTATE_CLASS UInt32 @{
     Active                              = '0x00000000'
     Connected                           = '0x00000001'
     ConnectQuery                        = '0x00000002'
@@ -313,7 +313,7 @@ $WTS_CONNECTSTATE_CLASS = New-Enum $Module WinApiModule.WTS_CONNECTSTATE_CLASS U
     Init                                = '0x00000009'
 }
 
-$APD_FILE_COPY_FLAGS = New-Enum $Module WinApiModule.APD_FILE_COPY_FLAGS UInt32 @{
+$script:APD_FILE_COPY_FLAGS = New-Enum $Module WinApiModule.APD_FILE_COPY_FLAGS UInt32 @{
     APD_STRICT_UPGRADE                  = '0x00000001'
     APD_STRICT_DOWNGRADE                = '0x00000002'
     APD_COPY_ALL_FILES                  = '0x00000004'
@@ -325,7 +325,7 @@ $APD_FILE_COPY_FLAGS = New-Enum $Module WinApiModule.APD_FILE_COPY_FLAGS UInt32 
     APD_RETURN_BLOCKING_STATUS_CODE     = '0x00010000'
 } -Bitfield
 
-$ASSOCF = New-Enum $Module WinApiModule.ASSOCF UInt32 @{
+$script:ASSOCF = New-Enum $Module WinApiModule.ASSOCF UInt32 @{
     ASSOCF_NONE                         = '0x00000000'
     ASSOCF_INIT_NOREMAPCLSID            = '0x00000001'
     ASSOCF_INIT_BYEXENAME               = '0x00000002'
@@ -344,7 +344,7 @@ $ASSOCF = New-Enum $Module WinApiModule.ASSOCF UInt32 @{
     ASSOCF_INIT_FOR_FILE                = '0x00002000'
 } -Bitfield
 
-$ASSOCSTR = New-Enum $Module WinApiModule.ASSOCSTR UInt32 @{
+$script:ASSOCSTR = New-Enum $Module WinApiModule.ASSOCSTR UInt32 @{
     ASSOCSTR_COMMAND                    = '0x00000001'
     ASSOCSTR_EXECUTABLE                 = '0x00000002'
     ASSOCSTR_FRIENDLYDOCNAME            = '0x00000003'

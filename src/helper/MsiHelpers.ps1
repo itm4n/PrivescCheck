@@ -90,7 +90,7 @@ function Get-CustomActionReturnProcessing {
     if ($MaskedType -band 0x80) { "Asynchronous"     } else { "Synchronous"       }
 }
 
-function Get-CustomActionExecutionSchedulingFlags {
+function Get-CustomActionExecutionSchedulingFlag {
     # MsiDefs.h -> msidbCustomActionType
     param ( [uint32] $Type )
     if ($Type -band 0x700) {
@@ -110,7 +110,7 @@ function Get-CustomActionExecutionSchedulingFlags {
     }
 }
 
-function Get-CustomActionSecurityContextFlags {
+function Get-CustomActionSecurityContextFlag {
     # MsiDefs.h -> msidbCustomActionType
     param ( [uint32] $Type )
     if ($Type -band 0x800) {
@@ -151,7 +151,7 @@ function Get-CustomAction {
     )
 
     begin {
-        $SystemFolders = Get-MsiSystemFolderProperties -Arch $Arch -AllUsers $AllUsers
+        $SystemFolders = Get-MsiSystemFolderProperty -Arch $Arch -AllUsers $AllUsers
         $QuietExecFunctions = @("CAQuietExec", "CAQuietExec64", "WixQuietExec", "WixQuietExec64")
     }
 
@@ -175,8 +175,8 @@ function Get-CustomAction {
                 $ExeType = Get-CustomActionExecutableType -Type $Type
                 $SourceType = Get-CustomActionExecutableSource -Type $Type
                 $ReturnProcessing = ([string[]] (Get-CustomActionReturnProcessing -Type $Type)) -join ","
-                $SchedulingFlags = ([string[]] (Get-CustomActionExecutionSchedulingFlags -Type $Type)) -join ","
-                $SecurityContextFlags = ([string[]] (Get-CustomActionSecurityContextFlags -Type $Type)) -join ","
+                $SchedulingFlags = ([string[]] (Get-CustomActionExecutionSchedulingFlag -Type $Type)) -join ","
+                $SecurityContextFlags = ([string[]] (Get-CustomActionSecurityContextFlag -Type $Type)) -join ","
 
                 $TargetExpanded = Get-MsiExpandedString -String $Target -Database $Database -SystemFolders $SystemFolders
                 if ($TargetExpanded -eq $Target) { $TargetExpanded = $null }
@@ -552,7 +552,7 @@ function Get-MsiTableList {
     }
 }
 
-function Get-MsiSystemFolderProperties {
+function Get-MsiSystemFolderProperty {
     <#
     .SYNOPSIS
     Get a list of MSI system folder properties.

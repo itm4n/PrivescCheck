@@ -125,7 +125,7 @@ function Invoke-UacCheck {
 
     $Result = New-Object -TypeName PSObject
     $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $SeverityLevelEnum::None })
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
     $Result
 }
 
@@ -304,7 +304,7 @@ function Invoke-LapsCheck {
 
         $Result = New-Object -TypeName PSObject
         $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Config
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if (-not $LapsEnforced) { $BaseSeverity } else { $SeverityLevelEnum::None })
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if (-not $LapsEnforced) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
         $Result
     }
 }
@@ -408,7 +408,7 @@ function Invoke-BitLockerCheck {
                 $Description = "BitLocker is not enabled."
                 $Vulnerable = $true
                 # Increase the severity level.
-                $Severity = $SeverityLevelEnum::High
+                $Severity = $script:SeverityLevelEnum::High
             }
             else {
                 $Config | Add-Member -MemberType "NoteProperty" -Name "UseAdvancedStartup" -Value "$($BitLockerConfig.UseAdvancedStartup.Value) - $($BitLockerConfig.UseAdvancedStartup.Description)"
@@ -445,7 +445,7 @@ function Invoke-BitLockerCheck {
 
         $Result = New-Object -TypeName PSObject
         $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Config
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $Severity } else { $SeverityLevelEnum::None })
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $Severity } else { $script:SeverityLevelEnum::None })
         $Result
     }
 }
@@ -507,7 +507,7 @@ function Invoke-LsaProtectionCheck {
 
         $Result = New-Object -TypeName PSObject
         $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Config
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $SeverityLevelEnum::None })
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
         $Result
     }
 }
@@ -631,7 +631,7 @@ function Invoke-CredentialGuardCheck {
 
         $Result = New-Object -TypeName PSObject
         $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Config
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $SeverityLevelEnum::None })
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
         $Result
     }
 }
@@ -687,7 +687,7 @@ function Invoke-BiosModeCheck {
 
     $Result = New-Object -TypeName PSObject
     $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $SeverityLevelEnum::None })
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
     $Result
 }
 
@@ -737,7 +737,7 @@ function Invoke-AppLockerCheck {
         $AppLockerConfigured | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
 
         $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AppLockerConfigured
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $SeverityLevelEnum::None })
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
     }
 
     end {
@@ -790,7 +790,7 @@ function Invoke-AppLockerPolicyCheck {
         $AppLockerPolicy = Get-AppLockerPolicyInternal -FilterLevel 1 | Sort-Object -Property "Level" -Descending | Select-Object -Property "*" -ExcludeProperty "Level"
 
         $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AppLockerPolicy
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AppLockerPolicy) { $BaseSeverity } else { $SeverityLevelEnum::None })
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AppLockerPolicy) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
     }
 
     end {
@@ -850,7 +850,7 @@ function Invoke-FileExtensionAssociationsCheck {
 
         $Result = New-Object -TypeName PSObject
         $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $VulnerableAssociations
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($VulnerableAssociations.Count) { $BaseSeverity } else { $SeverityLevelEnum::None })
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($VulnerableAssociations.Count) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
         $Result
     }
 }
@@ -900,7 +900,7 @@ function Invoke-HiddenFilenameExtensionsCheck {
 
         $Result = New-Object -TypeName PSObject
         $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Config
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($IsVulnerable) { $BaseSeverity } else { $SeverityLevelEnum::None })
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($IsVulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
         $Result
     }
 }
@@ -923,7 +923,7 @@ function Invoke-PowerShellExecutionPolicyCheck {
     )
 
     begin {
-        $Severity = $SeverityLevelEnum::None
+        $Severity = $script:SeverityLevelEnum::None
         $Result = New-Object -TypeName PSObject
         $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $null
         $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $Severity

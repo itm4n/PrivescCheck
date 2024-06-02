@@ -90,7 +90,7 @@ function Invoke-ServicesPermissionsRegistryCheck {
 
     $Result = New-Object -TypeName PSObject
     $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { $SeverityLevelEnum::None })
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
     $Result
 }
 
@@ -182,7 +182,7 @@ function Invoke-ServicesUnquotedPathCheck {
         if (-not $Info) {
             $Result = New-Object -TypeName PSObject
             $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { $SeverityLevelEnum::None })
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
             $Result
         }
     }
@@ -261,7 +261,7 @@ function Invoke-ServicesImagePermissionsCheck {
 
         $Result = New-Object -TypeName PSObject
         $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { $SeverityLevelEnum::None })
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
         $Result
     }
 
@@ -343,7 +343,7 @@ function Invoke-ServicesPermissionsCheck {
 
     $Result = New-Object -TypeName PSObject
     $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { $SeverityLevelEnum::None })
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
     $Result
 }
 
@@ -377,15 +377,15 @@ function Invoke-SCMPermissionsCheck {
 
         $CurrentAce = $_
 
-        $Permissions = [Enum]::GetValues($ServiceControlManagerAccessRightsEnum) | Where-Object {
-            ($CurrentAce.AccessMask -band ($ServiceControlManagerAccessRightsEnum::$_)) -eq ($ServiceControlManagerAccessRightsEnum::$_)
+        $Permissions = [Enum]::GetValues($script:ServiceControlManagerAccessRightsEnum) | Where-Object {
+            ($CurrentAce.AccessMask -band ($script:ServiceControlManagerAccessRightsEnum::$_)) -eq ($script:ServiceControlManagerAccessRightsEnum::$_)
         }
 
         $PermissionReference = @(
-            $ServiceControlManagerAccessRightsEnum::CreateService,
-            $ServiceControlManagerAccessRightsEnum::ModifyBootConfig,
-            $ServiceControlManagerAccessRightsEnum::AllAccess,
-            $ServiceControlManagerAccessRightsEnum::GenericWrite
+            $script:ServiceControlManagerAccessRightsEnum::CreateService,
+            $script:ServiceControlManagerAccessRightsEnum::ModifyBootConfig,
+            $script:ServiceControlManagerAccessRightsEnum::AllAccess,
+            $script:ServiceControlManagerAccessRightsEnum::GenericWrite
         )
 
         if (Compare-Object -ReferenceObject $Permissions -DifferenceObject $PermissionReference -IncludeEqual -ExcludeDifferent) {
@@ -406,7 +406,7 @@ function Invoke-SCMPermissionsCheck {
 
     $Result = New-Object -TypeName PSObject
     $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { $SeverityLevelEnum::None })
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
     $Result
 }
 
@@ -533,6 +533,6 @@ function Invoke-VulnerableDriverCheck {
 
     $Result = New-Object -TypeName PSObject
     $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { $SeverityLevelEnum::None })
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
     $Result
 }

@@ -176,7 +176,7 @@
 
 ### Removed
 
-- Removed the check "types" ("info"/"vuln") as this information was redundant with the severity. 
+- Removed the check "types" ("info"/"vuln") as this information was redundant with the severity.
 
 ## 2023-08-13
 
@@ -311,14 +311,14 @@
 
 ### Changed
 
-- Second try to supporting deny-only SIDs when checking DACLs (Get-AclModificationRights).
+- Second try to supporting deny-only SIDs when checking DACLs (Get-AclModificationRight).
 
 ## 2022-08-07
 
 ### Changed
 
-- DACL checking is now done in a dedicated cmdlet (Get-AclModificationRights) which can currently handle objects of types "File", "Directory" and "Registry Key".
-- The Get-ModifiablePath and Get-ModifiableRegistryPath cmdlets now use the generic Get-AclModificationRights cmdlet.
+- DACL checking is now done in a dedicated cmdlet (Get-AclModificationRight) which can currently handle objects of types "File", "Directory" and "Registry Key".
+- The Get-ModifiablePath and Get-ModifiableRegistryPath cmdlets now use the generic Get-AclModificationRight cmdlet.
 - Deny ACEs are now taken into account when checking DACLs.
 
 ## 2022-06-08

@@ -19,15 +19,15 @@ function Get-ProcessTokenHandle {
     [OutputType([IntPtr])]
     [CmdletBinding()] Param(
         [UInt32]$ProcessId = 0,
-        [UInt32]$ProcessAccess = $ProcessAccessRightsEnum::QUERY_INFORMATION,
-        [UInt32]$TokenAccess = $TokenAccessRightsEnum::Query
+        [UInt32]$ProcessAccess = $script:ProcessAccessRightsEnum::QUERY_INFORMATION,
+        [UInt32]$TokenAccess = $script:TokenAccessRightsEnum::Query
     )
 
     if ($ProcessId -eq 0) {
-        $ProcessHandle = $Kernel32::GetCurrentProcess()
+        $ProcessHandle = $script:Kernel32::GetCurrentProcess()
     }
     else {
-        $ProcessHandle = $Kernel32::OpenProcess($ProcessAccess, $false, $ProcessId)
+        $ProcessHandle = $script:Kernel32::OpenProcess($ProcessAccess, $false, $ProcessId)
 
         if ($ProcessHandle -eq [IntPtr]::Zero) {
             $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
@@ -37,15 +37,15 @@ function Get-ProcessTokenHandle {
     }
 
     [IntPtr]$TokenHandle = [IntPtr]::Zero
-    $Success = $Advapi32::OpenProcessToken($ProcessHandle, $TokenAccess, [ref]$TokenHandle)
+    $Success = $script:Advapi32::OpenProcessToken($ProcessHandle, $TokenAccess, [ref]$TokenHandle)
     if (-not $Success) {
         $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
         Write-Verbose "OpenProcessToken - $([ComponentModel.Win32Exception] $LastError)"
-        $Kernel32::CloseHandle($ProcessHandle) | Out-Null
+        $script:Kernel32::CloseHandle($ProcessHandle) | Out-Null
         return
     }
 
-    $Kernel32::CloseHandle($ProcessHandle) | Out-Null
+    $script:Kernel32::CloseHandle($ProcessHandle) | Out-Null
 
     $TokenHandle
 }
@@ -74,7 +74,7 @@ function Get-TokenInformationData {
     )
 
     $DataSize = 0
-    $Success = $Advapi32::GetTokenInformation($TokenHandle, $InformationClass, 0, $null, [ref]$DataSize)
+    $Success = $script:Advapi32::GetTokenInformation($TokenHandle, $InformationClass, 0, $null, [ref]$DataSize)
     if ($DataSize -eq 0) {
         $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
         Write-Verbose "GetTokenInformation - $([ComponentModel.Win32Exception] $LastError)"
@@ -83,7 +83,7 @@ function Get-TokenInformationData {
 
     [IntPtr]$DataPtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($DataSize)
 
-    $Success = $Advapi32::GetTokenInformation($TokenHandle, $InformationClass, $DataPtr, $DataSize, [ref]$DataSize)
+    $Success = $script:Advapi32::GetTokenInformation($TokenHandle, $InformationClass, $DataPtr, $DataSize, [ref]$DataSize)
     if (-not $Success) {
         $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
         Write-Verbose "GetTokenInformation - $([ComponentModel.Win32Exception] $LastError)"
@@ -94,7 +94,7 @@ function Get-TokenInformationData {
     $DataPtr
 }
 
-function Get-TokenInformationGroups {
+function Get-TokenInformationGroup {
     <#
     .SYNOPSIS
     List the groups of a Token.
@@ -112,7 +112,7 @@ function Get-TokenInformationGroups {
     The type of group to retrieve. Supported values are: "Groups", "RestrictedSids", "LogonSid", "Capabilities", "DeviceGroups" and "RestrictedDeviceGroups".
 
     .EXAMPLE
-    PS C:\> Get-TokenInformationGroups -InformationClass Groups
+    PS C:\> Get-TokenInformationGroup -InformationClass Groups
 
     Name                                   Type           SID                                           Attributes
     ----                                   ----           ---                                           ----------
@@ -177,9 +177,9 @@ function Get-TokenInformationGroups {
     if (-not $TokenHandle) { return }
 
     $TokenGroupsPtr = Get-TokenInformationData -TokenHandle $TokenHandle -InformationClass $InformationClasses[$InformationClass]
-    if (-not $TokenGroupsPtr) { $Kernel32::CloseHandle($TokenHandle) | Out-Null; return }
+    if (-not $TokenGroupsPtr) { $script:Kernel32::CloseHandle($TokenHandle) | Out-Null; return }
 
-    $TokenGroups = [Runtime.InteropServices.Marshal]::PtrToStructure($TokenGroupsPtr, [type] $TOKEN_GROUPS)
+    $TokenGroups = [Runtime.InteropServices.Marshal]::PtrToStructure($TokenGroupsPtr, [type] $script:TOKEN_GROUPS)
 
     # Offset of the first SID_AND_ATTRIBUTES structure is +4 in 32-bits, and +8 in 64-bits (because
     # of the structure alignment in memory). Therefore we can use [IntPtr]::Size as the offset's
@@ -187,7 +187,7 @@ function Get-TokenInformationGroups {
     $CurrentGroupPtr = [IntPtr] ($TokenGroupsPtr.ToInt64() + [IntPtr]::Size)
     for ($i = 0; $i -lt $TokenGroups.GroupCount; $i++) {
 
-        $CurrentGroup = [Runtime.InteropServices.Marshal]::PtrToStructure($CurrentGroupPtr, [type] $SID_AND_ATTRIBUTES)
+        $CurrentGroup = [Runtime.InteropServices.Marshal]::PtrToStructure($CurrentGroupPtr, [type] $script:SID_AND_ATTRIBUTES)
 
         $GroupAttributes = $SupportedGroupAttributes.GetEnumerator() | ForEach-Object {
             if ( $_.value -band $CurrentGroup.Attributes ) {
@@ -213,14 +213,14 @@ function Get-TokenInformationGroups {
             $Result
         }
 
-        $CurrentGroupPtr = [IntPtr] ($CurrentGroupPtr.ToInt64() + [Runtime.InteropServices.Marshal]::SizeOf([type] $SID_AND_ATTRIBUTES))
+        $CurrentGroupPtr = [IntPtr] ($CurrentGroupPtr.ToInt64() + [Runtime.InteropServices.Marshal]::SizeOf([type] $script:SID_AND_ATTRIBUTES))
     }
 
     [System.Runtime.InteropServices.Marshal]::FreeHGlobal($TokenGroupsPtr)
-    $Kernel32::CloseHandle($TokenHandle) | Out-Null
+    $script:Kernel32::CloseHandle($TokenHandle) | Out-Null
 }
 
-function Get-TokenInformationPrivileges {
+function Get-TokenInformationPrivilege {
     <#
     .SYNOPSIS
     List the privileges associated to a Process Token.
@@ -235,7 +235,7 @@ function Get-TokenInformationPrivileges {
     The ID of Process. By default, the value is zero, which means retrieve information from the current process.
 
     .EXAMPLE
-    PS C:\> Get-TokenInformationPrivileges
+    PS C:\> Get-TokenInformationPrivilege
 
     Name                          State    Description
     ----                          -----    -----------
@@ -292,20 +292,20 @@ function Get-TokenInformationPrivileges {
     $TokenHandle = Get-ProcessTokenHandle -ProcessId $ProcessId
     if (-not $TokenHandle) { return }
 
-    $TokenPrivilegesPtr = Get-TokenInformationData -TokenHandle $TokenHandle -InformationClass $TOKEN_INFORMATION_CLASS::TokenPrivileges
-    if (-not $TokenPrivilegesPtr) { $Kernel32::CloseHandle($TokenHandle) | Out-Null; return }
+    $TokenPrivilegesPtr = Get-TokenInformationData -TokenHandle $TokenHandle -InformationClass $script:TOKEN_INFORMATION_CLASS::TokenPrivileges
+    if (-not $TokenPrivilegesPtr) { $script:Kernel32::CloseHandle($TokenHandle) | Out-Null; return }
 
-    $TokenPrivileges = [System.Runtime.InteropServices.Marshal]::PtrToStructure($TokenPrivilegesPtr, [type] $TOKEN_PRIVILEGES)
+    $TokenPrivileges = [System.Runtime.InteropServices.Marshal]::PtrToStructure($TokenPrivilegesPtr, [type] $script:TOKEN_PRIVILEGES)
 
     Write-Verbose "Number of privileges: $($TokenPrivileges.PrivilegeCount)"
 
     $CurrentPrivilegePtr = [IntPtr] ($TokenPrivilegesPtr.ToInt64() + 4)
     for ($i = 0; $i -lt $TokenPrivileges.PrivilegeCount; $i++) {
 
-        $CurrentPrivilege = [Runtime.InteropServices.Marshal]::PtrToStructure($CurrentPrivilegePtr, [type] $LUID_AND_ATTRIBUTES)
+        $CurrentPrivilege = [Runtime.InteropServices.Marshal]::PtrToStructure($CurrentPrivilegePtr, [type] $script:LUID_AND_ATTRIBUTES)
 
         [UInt32]$Length = 0
-        $Success = $Advapi32::LookupPrivilegeName($null, [ref] $CurrentPrivilege.Luid, $null, [ref]$Length)
+        $Success = $script:Advapi32::LookupPrivilegeName($null, [ref] $CurrentPrivilege.Luid, $null, [ref]$Length)
 
         if ($Length -eq 0) {
             $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
@@ -317,7 +317,7 @@ function Get-TokenInformationPrivileges {
 
         $Name = New-Object -TypeName System.Text.StringBuilder
         $Name.EnsureCapacity($Length + 1) |Out-Null
-        $Success = $Advapi32::LookupPrivilegeName($null, [ref] $CurrentPrivilege.Luid, $Name, [ref]$Length)
+        $Success = $script:Advapi32::LookupPrivilegeName($null, [ref] $CurrentPrivilege.Luid, $Name, [ref]$Length)
 
         if (-not $Success) {
             $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
@@ -338,11 +338,11 @@ function Get-TokenInformationPrivileges {
         $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $PrivilegeDescriptions[$PrivilegeName]
         $Result
 
-        $CurrentPrivilegePtr = [IntPtr] ($CurrentPrivilegePtr.ToInt64() + [Runtime.InteropServices.Marshal]::SizeOf([type] $LUID_AND_ATTRIBUTES))
+        $CurrentPrivilegePtr = [IntPtr] ($CurrentPrivilegePtr.ToInt64() + [Runtime.InteropServices.Marshal]::SizeOf([type] $script:LUID_AND_ATTRIBUTES))
     }
 
     [System.Runtime.InteropServices.Marshal]::FreeHGlobal($TokenPrivilegesPtr)
-    $Kernel32::CloseHandle($TokenHandle) | Out-Null
+    $script:Kernel32::CloseHandle($TokenHandle) | Out-Null
 }
 
 function Get-TokenInformationIntegrityLevel {
@@ -371,13 +371,13 @@ function Get-TokenInformationIntegrityLevel {
         [UInt32]$ProcessId = 0
     )
 
-    $TokenHandle = Get-ProcessTokenHandle -ProcessId $ProcessId -ProcessAccess $ProcessAccessRightsEnum::QUERY_LIMITED_INFORMATION
+    $TokenHandle = Get-ProcessTokenHandle -ProcessId $ProcessId -ProcessAccess $script:ProcessAccessRightsEnum::QUERY_LIMITED_INFORMATION
     if (-not $TokenHandle) { return }
 
-    $TokenMandatoryLabelPtr = Get-TokenInformationData -TokenHandle $TokenHandle -InformationClass $TOKEN_INFORMATION_CLASS::TokenIntegrityLevel
-    if (-not $TokenMandatoryLabelPtr) { $Kernel32::CloseHandle($TokenHandle) | Out-Null; return }
+    $TokenMandatoryLabelPtr = Get-TokenInformationData -TokenHandle $TokenHandle -InformationClass $script:TOKEN_INFORMATION_CLASS::TokenIntegrityLevel
+    if (-not $TokenMandatoryLabelPtr) { $script:Kernel32::CloseHandle($TokenHandle) | Out-Null; return }
 
-    $TokenMandatoryLabel = [System.Runtime.InteropServices.Marshal]::PtrToStructure($TokenMandatoryLabelPtr, [type] $TOKEN_MANDATORY_LABEL)
+    $TokenMandatoryLabel = [System.Runtime.InteropServices.Marshal]::PtrToStructure($TokenMandatoryLabelPtr, [type] $script:TOKEN_MANDATORY_LABEL)
 
     $SidString = Convert-PSidToStringSid -PSid $TokenMandatoryLabel.Label.Sid
     $SidInfo = Convert-PSidToNameAndType -PSid $TokenMandatoryLabel.Label.Sid
@@ -388,11 +388,11 @@ function Get-TokenInformationIntegrityLevel {
     $Result | Add-Member -MemberType "NoteProperty" -Name "Domain" -Value $SidInfo.Domain
     $Result | Add-Member -MemberType "NoteProperty" -Name "DisplayName" -Value $SidInfo.DisplayName
     $Result | Add-Member -MemberType "NoteProperty" -Name "SID" -Value $SidString
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Type" -Value ($SidInfo.Type -as $SID_NAME_USE)
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Type" -Value ($SidInfo.Type -as $script:SID_NAME_USE)
     $Result | Add-Member -MemberType "NoteProperty" -Name "Level" -Value $TokenIntegrityLevel
 
     [System.Runtime.InteropServices.Marshal]::FreeHGlobal($TokenMandatoryLabelPtr)
-    $Kernel32::CloseHandle($TokenHandle) | Out-Null
+    $script:Kernel32::CloseHandle($TokenHandle) | Out-Null
 
     $Result
 }
@@ -425,18 +425,18 @@ function Get-TokenInformationSessionId {
     $TokenHandle = Get-ProcessTokenHandle -ProcessId $ProcessId
     if (-not $TokenHandle) { return }
 
-    $TokenSessionIdPtr = Get-TokenInformationData -TokenHandle $TokenHandle -InformationClass $TOKEN_INFORMATION_CLASS::TokenSessionId
-    if (-not $TokenSessionIdPtr) { $Kernel32::CloseHandle($TokenHandle) | Out-Null; return }
+    $TokenSessionIdPtr = Get-TokenInformationData -TokenHandle $TokenHandle -InformationClass $script:TOKEN_INFORMATION_CLASS::TokenSessionId
+    if (-not $TokenSessionIdPtr) { $script:Kernel32::CloseHandle($TokenHandle) | Out-Null; return }
 
     $TokenSessionId = [System.Runtime.InteropServices.Marshal]::ReadInt32($TokenSessionIdPtr)
 
     [System.Runtime.InteropServices.Marshal]::FreeHGlobal($TokenSessionIdPtr)
-    $Kernel32::CloseHandle($TokenHandle) | Out-Null
+    $script:Kernel32::CloseHandle($TokenHandle) | Out-Null
 
     $TokenSessionId
 }
 
-function Get-TokenInformationStatistics {
+function Get-TokenInformationStatistic {
     <#
     .SYNOPSIS
     Get general statistics about a Token.
@@ -451,7 +451,7 @@ function Get-TokenInformationStatistics {
     The ID of Process. By default, the value is zero, which means retrieve information from the current process.
 
     .EXAMPLE
-    PS C:\> Get-TokenInformationStatistics
+    PS C:\> Get-TokenInformationStatistic
 
     TokenId            : WinApiModule.LUID
     AuthenticationId   : WinApiModule.LUID
@@ -472,13 +472,13 @@ function Get-TokenInformationStatistics {
     $TokenHandle = Get-ProcessTokenHandle -ProcessId $ProcessId
     if (-not $TokenHandle) { return }
 
-    $TokenStatisticsPtr = Get-TokenInformationData -TokenHandle $TokenHandle -InformationClass $TOKEN_INFORMATION_CLASS::TokenStatistics
-    if (-not $TokenStatisticsPtr) { $Kernel32::CloseHandle($TokenHandle) | Out-Null; return }
+    $TokenStatisticsPtr = Get-TokenInformationData -TokenHandle $TokenHandle -InformationClass $script:TOKEN_INFORMATION_CLASS::TokenStatistics
+    if (-not $TokenStatisticsPtr) { $script:Kernel32::CloseHandle($TokenHandle) | Out-Null; return }
 
-    $TokenStatistics = [System.Runtime.InteropServices.Marshal]::PtrToStructure($TokenStatisticsPtr, [type] $TOKEN_STATISTICS)
+    $TokenStatistics = [System.Runtime.InteropServices.Marshal]::PtrToStructure($TokenStatisticsPtr, [type] $script:TOKEN_STATISTICS)
 
     [System.Runtime.InteropServices.Marshal]::FreeHGlobal($TokenStatisticsPtr)
-    $Kernel32::CloseHandle($TokenHandle) | Out-Null
+    $script:Kernel32::CloseHandle($TokenHandle) | Out-Null
 
     $TokenStatistics
 }
@@ -512,13 +512,13 @@ function Get-TokenInformationOrigin {
     $TokenHandle = Get-ProcessTokenHandle -ProcessId $ProcessId
     if (-not $TokenHandle) { return }
 
-    $TokenOriginPtr = Get-TokenInformationData -TokenHandle $TokenHandle -InformationClass $TOKEN_INFORMATION_CLASS::TokenOrigin
-    if (-not $TokenOriginPtr) { $Kernel32::CloseHandle($TokenHandle) | Out-Null; return }
+    $TokenOriginPtr = Get-TokenInformationData -TokenHandle $TokenHandle -InformationClass $script:TOKEN_INFORMATION_CLASS::TokenOrigin
+    if (-not $TokenOriginPtr) { $script:Kernel32::CloseHandle($TokenHandle) | Out-Null; return }
 
-    $TokenOrigin = [System.Runtime.InteropServices.Marshal]::PtrToStructure($TokenOriginPtr, [type] $TOKEN_ORIGIN)
+    $TokenOrigin = [System.Runtime.InteropServices.Marshal]::PtrToStructure($TokenOriginPtr, [type] $script:TOKEN_ORIGIN)
 
     [System.Runtime.InteropServices.Marshal]::FreeHGlobal($TokenOriginPtr)
-    $Kernel32::CloseHandle($TokenHandle) | Out-Null
+    $script:Kernel32::CloseHandle($TokenHandle) | Out-Null
 
     $TokenOrigin
 }
@@ -549,16 +549,16 @@ function Get-TokenInformationSource {
         [UInt32]$ProcessId = 0
     )
 
-    $TokenHandle = Get-ProcessTokenHandle -ProcessId $ProcessId -TokenAccess $TokenAccessRightsEnum::QuerySource
+    $TokenHandle = Get-ProcessTokenHandle -ProcessId $ProcessId -TokenAccess $script:TokenAccessRightsEnum::QuerySource
     if (-not $TokenHandle) { return }
 
-    $TokenSourcePtr = Get-TokenInformationData -TokenHandle $TokenHandle -InformationClass $TOKEN_INFORMATION_CLASS::TokenSource
-    if (-not $TokenSourcePtr) { $Kernel32::CloseHandle($TokenHandle) | Out-Null; return }
+    $TokenSourcePtr = Get-TokenInformationData -TokenHandle $TokenHandle -InformationClass $script:TOKEN_INFORMATION_CLASS::TokenSource
+    if (-not $TokenSourcePtr) { $script:Kernel32::CloseHandle($TokenHandle) | Out-Null; return }
 
-    $TokenSource = [System.Runtime.InteropServices.Marshal]::PtrToStructure($TokenSourcePtr, [type] $TOKEN_SOURCE)
+    $TokenSource = [System.Runtime.InteropServices.Marshal]::PtrToStructure($TokenSourcePtr, [type] $script:TOKEN_SOURCE)
 
     [System.Runtime.InteropServices.Marshal]::FreeHGlobal($TokenSourcePtr)
-    $Kernel32::CloseHandle($TokenHandle) | Out-Null
+    $script:Kernel32::CloseHandle($TokenHandle) | Out-Null
 
     $TokenSource
 }
@@ -592,10 +592,10 @@ function Get-TokenInformationUser {
     $TokenHandle = Get-ProcessTokenHandle -ProcessId $ProcessId
     if (-not $TokenHandle) { return }
 
-    $TokenUserPtr = Get-TokenInformationData -TokenHandle $TokenHandle -InformationClass $TOKEN_INFORMATION_CLASS::TokenUser
-    if (-not $TokenUserPtr) { $Kernel32::CloseHandle($TokenHandle) | Out-Null; return }
+    $TokenUserPtr = Get-TokenInformationData -TokenHandle $TokenHandle -InformationClass $script:TOKEN_INFORMATION_CLASS::TokenUser
+    if (-not $TokenUserPtr) { $script:Kernel32::CloseHandle($TokenHandle) | Out-Null; return }
 
-    $TokenUser = [System.Runtime.InteropServices.Marshal]::PtrToStructure($TokenUserPtr, [type] $TOKEN_USER)
+    $TokenUser = [System.Runtime.InteropServices.Marshal]::PtrToStructure($TokenUserPtr, [type] $script:TOKEN_USER)
 
     $UserInfo = Convert-PSidToNameAndType -PSid $TokenUser.User.Sid
     $UserSid = Convert-PSidToStringSid -PSid $TokenUser.User.Sid
@@ -603,11 +603,11 @@ function Get-TokenInformationUser {
     $Result = New-Object -TypeName PSObject
     $Result | Add-Member -MemberType "NoteProperty" -Name "DisplayName" -Value $UserInfo.DisplayName
     $Result | Add-Member -MemberType "NoteProperty" -Name "SID" -Value $UserSid
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Type" -Value ($UserInfo.Type -as $SID_NAME_USE)
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Type" -Value ($UserInfo.Type -as $script:SID_NAME_USE)
     $Result
 
     [System.Runtime.InteropServices.Marshal]::FreeHGlobal($TokenUserPtr)
-    $Kernel32::CloseHandle($TokenHandle) | Out-Null
+    $script:Kernel32::CloseHandle($TokenHandle) | Out-Null
 }
 
 function Get-ObjectName {
@@ -638,7 +638,7 @@ function Get-ObjectName {
     while ($true) {
 
         # ObjectNameInformation = 1
-        $Status = $Ntdll::NtQueryObject($ObjectHandle, 1, $ObjectNamePtr, $DataSize, [ref] $ReturnLength)
+        $Status = $script:Ntdll::NtQueryObject($ObjectHandle, 1, $ObjectNamePtr, $DataSize, [ref] $ReturnLength)
         if ($Status -eq 0xC0000004) {
             $DataSize = $DataSize * 2
             $ObjectNamePtr = [System.Runtime.InteropServices.Marshal]::ReAllocHGlobal($ObjectNamePtr, $DataSize)
@@ -654,13 +654,13 @@ function Get-ObjectName {
         return
     }
 
-    $ObjectName = [Runtime.InteropServices.Marshal]::PtrToStructure($ObjectNamePtr, [type] $OBJECT_NAME_INFORMATION)
+    $ObjectName = [Runtime.InteropServices.Marshal]::PtrToStructure($ObjectNamePtr, [type] $script:OBJECT_NAME_INFORMATION)
     [Runtime.InteropServices.Marshal]::PtrToStringUni($ObjectName.Name.Buffer)
 
     [System.Runtime.InteropServices.Marshal]::FreeHGlobal($ObjectNamePtr)
 }
 
-function Get-ObjectTypes {
+function Get-ObjectType {
     <#
     .SYNOPSIS
     Get a list of kernel object types.
@@ -682,7 +682,7 @@ function Get-ObjectTypes {
     while ($true) {
 
         # ObjectTypesInformation = 3
-        $Status = $Ntdll::NtQueryObject([IntPtr]::Zero, 3, $ObjectTypesPtr, $DataSize, [ref] $ReturnLength)
+        $Status = $script:Ntdll::NtQueryObject([IntPtr]::Zero, 3, $ObjectTypesPtr, $DataSize, [ref] $ReturnLength)
         if ($Status -eq 0xC0000004) {
             $DataSize = $DataSize * 2
             $ObjectTypesPtr = [System.Runtime.InteropServices.Marshal]::ReAllocHGlobal($ObjectTypesPtr, $DataSize)
@@ -707,7 +707,7 @@ function Get-ObjectTypes {
 
     for ($i = 0; $i -lt $NumberOfTypes; $i++) {
 
-        $CurrentType = [Runtime.InteropServices.Marshal]::PtrToStructure($CurrentTypePtr, [type] $OBJECT_TYPE_INFORMATION)
+        $CurrentType = [Runtime.InteropServices.Marshal]::PtrToStructure($CurrentTypePtr, [type] $script:OBJECT_TYPE_INFORMATION)
 
         $TypeName = [Runtime.InteropServices.Marshal]::PtrToStringUni($CurrentType.TypeName.Buffer)
 
@@ -716,7 +716,7 @@ function Get-ObjectTypes {
         $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $TypeName
         $Result
 
-        $Offset = [Runtime.InteropServices.Marshal]::SizeOf([type] $OBJECT_TYPE_INFORMATION)
+        $Offset = [Runtime.InteropServices.Marshal]::SizeOf([type] $script:OBJECT_TYPE_INFORMATION)
         $Offset += ($CurrentType.TypeName.MaximumLength + [IntPtr]::Size - 1) -band (-bnot ([IntPtr]::Size - 1))
         $CurrentTypePtr = [IntPtr] ($CurrentTypePtr.ToInt64() + $Offset)
     }
@@ -754,7 +754,7 @@ function Get-SystemInformationData {
 
     while ($true) {
 
-        $Status = $Ntdll::NtQuerySystemInformation($InformationClass, $SystemInformationPtr, $DataSize, [ref] $ReturnLength)
+        $Status = $script:Ntdll::NtQuerySystemInformation($InformationClass, $SystemInformationPtr, $DataSize, [ref] $ReturnLength)
         if ($Status -eq 0xC0000004) {
             $DataSize = $DataSize * 2
             $SystemInformationPtr = [System.Runtime.InteropServices.Marshal]::ReAllocHGlobal($SystemInformationPtr, $DataSize)
@@ -773,7 +773,7 @@ function Get-SystemInformationData {
     $SystemInformationPtr
 }
 
-function Get-SystemInformationExtendedHandles {
+function Get-SystemInformationExtendedHandle {
     <#
     .SYNOPSIS
     Helper - List system handle information
@@ -794,7 +794,7 @@ function Get-SystemInformationExtendedHandles {
     Include only handles of a certain object type.
 
     .EXAMPLE
-    PS C:\> Get-SystemInformationExtendedHandles -InheritedOnly
+    PS C:\> Get-SystemInformationExtendedHandle -InheritedOnly
 
     Object           : -91242903594912
     UniqueProcessId  : 5980
@@ -813,13 +813,13 @@ function Get-SystemInformationExtendedHandles {
         [UInt32]$TypeIndex = 0
     )
 
-    $ObjectTypes = Get-ObjectTypes
+    $ObjectTypes = Get-ObjectType
 
     # SystemExtendedHandleInformation = 64
     $SystemHandlesPtr = Get-SystemInformationData -InformationClass 64
     if (-not $SystemHandlesPtr) { return }
 
-    $SystemHandles = [System.Runtime.InteropServices.Marshal]::PtrToStructure($SystemHandlesPtr, [type] $SYSTEM_HANDLE_INFORMATION_EX)
+    $SystemHandles = [System.Runtime.InteropServices.Marshal]::PtrToStructure($SystemHandlesPtr, [type] $script:SYSTEM_HANDLE_INFORMATION_EX)
 
     Write-Verbose "Number of handles: $($SystemHandles.NumberOfHandles)"
 
@@ -831,10 +831,10 @@ function Get-SystemInformationExtendedHandles {
         }
 
         # Get the handle information structure at the current pointer.
-        $CurrentHandleInfo = [Runtime.InteropServices.Marshal]::PtrToStructure($CurrentHandleInfoPtr, [type] $SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX)
+        $CurrentHandleInfo = [Runtime.InteropServices.Marshal]::PtrToStructure($CurrentHandleInfoPtr, [type] $script:SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX)
 
         # Pre-calculate the pointer for the next handle information structure.
-        $CurrentHandleInfoPtr = [IntPtr] ($CurrentHandleInfoPtr.ToInt64() + [Runtime.InteropServices.Marshal]::SizeOf([type] $SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX))
+        $CurrentHandleInfoPtr = [IntPtr] ($CurrentHandleInfoPtr.ToInt64() + [Runtime.InteropServices.Marshal]::SizeOf([type] $script:SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX))
 
         # If InheritedOnly, ignore handles that are not inherited (HANDLE_INHERIT = 0x2).
         if ($InheritedOnly -and (($CurrentHandleInfo.HandleAttributes -band 0x2) -ne 0x2)) { continue }
@@ -862,7 +862,7 @@ function Convert-PSidToStringSid {
     )
 
     $StringSidPtr = [IntPtr]::Zero
-    $Success = $Advapi32::ConvertSidToStringSidW($PSid, [ref] $StringSidPtr)
+    $Success = $script:Advapi32::ConvertSidToStringSidW($PSid, [ref] $StringSidPtr)
 
     if (-not $Success) {
         $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
@@ -871,7 +871,7 @@ function Convert-PSidToStringSid {
     }
 
     $StringSid = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($StringSidPtr)
-    $Kernel32::LocalFree($StringSidPtr) | Out-Null
+    $script:Kernel32::LocalFree($StringSidPtr) | Out-Null
 
     $StringSid
 }
@@ -893,7 +893,7 @@ function Convert-PSidToNameAndType {
     $Domain = New-Object -TypeName System.Text.StringBuilder
     $Domain.EnsureCapacity(256) | Out-Null
 
-    $Success = $Advapi32::LookupAccountSid($null, $PSid, $Name, [ref]$NameSize, $Domain, [ref]$DomainSize, [ref]$SidType)
+    $Success = $script:Advapi32::LookupAccountSid($null, $PSid, $Name, [ref]$NameSize, $Domain, [ref]$DomainSize, [ref]$SidType)
     if (-not $Success) {
         $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
         Write-Verbose "LookupAccountSid - $([ComponentModel.Win32Exception] $LastError)"
@@ -917,14 +917,15 @@ function Convert-PSidToNameAndType {
 
 function Convert-PSidToRid {
 
+    [OutputType([UInt32])]
     [CmdletBinding()] Param(
         [Parameter(Mandatory=$true)]
         [IntPtr]$PSid
     )
 
-    $SubAuthorityCountPtr = $Advapi32::GetSidSubAuthorityCount($PSid)
+    $SubAuthorityCountPtr = $script:Advapi32::GetSidSubAuthorityCount($PSid)
     $SubAuthorityCount = [Runtime.InteropServices.Marshal]::ReadByte($SubAuthorityCountPtr)
-    $SubAuthorityPtr = $Advapi32::GetSidSubAuthority($PSid, $SubAuthorityCount - 1)
+    $SubAuthorityPtr = $script:Advapi32::GetSidSubAuthority($PSid, $SubAuthorityCount - 1)
     $SubAuthority = [UInt32] [Runtime.InteropServices.Marshal]::ReadInt32($SubAuthorityPtr)
     $SubAuthority
 }
@@ -952,7 +953,7 @@ function Convert-DosDeviceToDevicePath {
 
     $TargetPathLen = 260
     $TargetPathPtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($TargetPathLen * 2)
-    $TargetPathLen = $Kernel32::QueryDosDevice($DosDevice, $TargetPathPtr, $TargetPathLen)
+    $TargetPathLen = $script:Kernel32::QueryDosDevice($DosDevice, $TargetPathPtr, $TargetPathLen)
 
     if ($TargetPathLen -eq 0) {
         [System.Runtime.InteropServices.Marshal]::FreeHGlobal($TargetPathPtr)
@@ -1007,11 +1008,11 @@ function Get-FileDacl {
         [String]$Path
     )
 
-    $DesiredAccess = $FileAccessRightsEnum::ReadControl
+    $DesiredAccess = $script:FileAccessRightsEnum::ReadControl
     $ShareMode = 0x00000001 # FILE_SHARE_READ
     $CreationDisposition = 3 # OPEN_EXISTING
     $FlagsAndAttributes = 0x80 # FILE_ATTRIBUTE_NORMAL
-    $FileHandle = $Kernel32::CreateFile($Path, $DesiredAccess, $ShareMode, [IntPtr]::Zero, $CreationDisposition, $FlagsAndAttributes, [IntPtr]::Zero)
+    $FileHandle = $script:Kernel32::CreateFile($Path, $DesiredAccess, $ShareMode, [IntPtr]::Zero, $CreationDisposition, $FlagsAndAttributes, [IntPtr]::Zero)
 
     if ($FileHandle -eq [IntPtr]-1) {
         $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
@@ -1026,12 +1027,12 @@ function Get-FileDacl {
     $DaclPtr = [IntPtr]::Zero
     $SaclPtr = [IntPtr]::Zero
     $SecurityDescriptorPtr = [IntPtr]::Zero
-    $Result = $Advapi32::GetSecurityInfo($FileHandle, $ObjectType, $SecurityInfo, [ref]$SidOwnerPtr, [ref]$SidGroupPtr, [ref]$DaclPtr, [ref]$SaclPtr, [ref]$SecurityDescriptorPtr)
+    $Result = $script:Advapi32::GetSecurityInfo($FileHandle, $ObjectType, $SecurityInfo, [ref]$SidOwnerPtr, [ref]$SidGroupPtr, [ref]$DaclPtr, [ref]$SaclPtr, [ref]$SecurityDescriptorPtr)
 
     if ($Result -ne 0) {
         $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
         Write-Verbose "GetSecurityInfo KO ($Result) - $([ComponentModel.Win32Exception] $LastError)"
-        $Kernel32::CloseHandle($FileHandle) | Out-Null
+        $script:Kernel32::CloseHandle($FileHandle) | Out-Null
         return
     }
 
@@ -1042,25 +1043,25 @@ function Get-FileDacl {
 
     $SecurityDescriptorString = ""
     $SecurityDescriptorStringLen = 0
-    $Success = $Advapi32::ConvertSecurityDescriptorToStringSecurityDescriptor($SecurityDescriptorPtr, 1, $SecurityInfo, [ref]$SecurityDescriptorString, [ref]$SecurityDescriptorStringLen)
+    $Success = $script:Advapi32::ConvertSecurityDescriptorToStringSecurityDescriptor($SecurityDescriptorPtr, 1, $SecurityInfo, [ref]$SecurityDescriptorString, [ref]$SecurityDescriptorStringLen)
 
     if (-not $Success) {
         $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
         Write-Verbose "ConvertSecurityDescriptorToStringSecurityDescriptor KO ($Result) - $([ComponentModel.Win32Exception] $LastError)"
-        $Kernel32::LocalFree($SecurityDescriptorPtr) | Out-Null
-        $Kernel32::CloseHandle($FileHandle) | Out-Null
+        $script:Kernel32::LocalFree($SecurityDescriptorPtr) | Out-Null
+        $script:Kernel32::CloseHandle($FileHandle) | Out-Null
         return
     }
 
     $SecurityDescriptorNewPtr = [IntPtr]::Zero
     $SecurityDescriptorNewSize = 0
-    $Success = $Advapi32::ConvertStringSecurityDescriptorToSecurityDescriptor($SecurityDescriptorString, 1, [ref]$SecurityDescriptorNewPtr, [ref]$SecurityDescriptorNewSize)
+    $Success = $script:Advapi32::ConvertStringSecurityDescriptorToSecurityDescriptor($SecurityDescriptorString, 1, [ref]$SecurityDescriptorNewPtr, [ref]$SecurityDescriptorNewSize)
 
     if (-not $Success) {
         $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
         Write-Verbose "ConvertStringSecurityDescriptorToSecurityDescriptor KO ($Result) - $([ComponentModel.Win32Exception] $LastError)"
-        $Kernel32::LocalFree($SecurityDescriptorPtr) | Out-Null
-        $Kernel32::CloseHandle($FileHandle) | Out-Null
+        $script:Kernel32::LocalFree($SecurityDescriptorPtr) | Out-Null
+        $script:Kernel32::CloseHandle($FileHandle) | Out-Null
         return
     }
 
@@ -1082,9 +1083,9 @@ function Get-FileDacl {
     $Result | Add-Member -MemberType "NoteProperty" -Name "SDDL" -Value $SecurityDescriptorString
     $Result
 
-    $Kernel32::LocalFree($SecurityDescriptorNewPtr) | Out-Null
-    $Kernel32::LocalFree($SecurityDescriptorPtr) | Out-Null
-    $Kernel32::CloseHandle($FileHandle) | Out-Null
+    $script:Kernel32::LocalFree($SecurityDescriptorNewPtr) | Out-Null
+    $script:Kernel32::LocalFree($SecurityDescriptorPtr) | Out-Null
+    $script:Kernel32::CloseHandle($FileHandle) | Out-Null
 }
 
 function Disable-Wow64FileSystemRedirection {
@@ -1102,6 +1103,7 @@ function Disable-Wow64FileSystemRedirection {
     https://learn.microsoft.com/en-us/windows/win32/api/wow64apiset/nf-wow64apiset-wow64disablewow64fsredirection
     #>
 
+    [OutputType([IntPtr])]
     [CmdletBinding()]
     param ()
 
@@ -1111,7 +1113,7 @@ function Disable-Wow64FileSystemRedirection {
 
     process {
         if ([IntPtr]::Size -eq 4) {
-            if ($Kernel32::Wow64DisableWow64FsRedirection([ref] $OldValue)) {
+            if ($script:Kernel32::Wow64DisableWow64FsRedirection([ref] $OldValue)) {
                 Write-Verbose "Wow64 file system redirection was disabled."
             }
             else {
@@ -1151,7 +1153,7 @@ function Restore-Wow64FileSystemRedirection {
 
     process {
         if ([IntPtr]::Size -eq 4) {
-            if ($Kernel32::Wow64RevertWow64FsRedirection($OldValue)) {
+            if ($script:Kernel32::Wow64RevertWow64FsRedirection($OldValue)) {
                 Write-Verbose "Wow64 file system redirection was restored."
             }
             else {
@@ -1198,9 +1200,9 @@ function Get-FileExtensionAssociation {
 
     begin {
         switch ($Type) {
-            "Command" { $AssocType = $ASSOCSTR::ASSOCSTR_COMMAND; break }
-            "Executable" { $AssocType = $ASSOCSTR::ASSOCSTR_EXECUTABLE; break }
-            default { $AssocType = $ASSOCSTR::ASSOCSTR_EXECUTABLE }
+            "Command" { $AssocType = $script:ASSOCSTR::ASSOCSTR_COMMAND; break }
+            "Executable" { $AssocType = $script:ASSOCSTR::ASSOCSTR_EXECUTABLE; break }
+            default { $AssocType = $script:ASSOCSTR::ASSOCSTR_EXECUTABLE }
         }
     }
 
@@ -1213,7 +1215,7 @@ function Get-FileExtensionAssociation {
         # IntPtr, so we can actually pass null (see API declaration).
 
         [UInt32] $Length = 0
-        $Result = $Shlwapi::AssocQueryStringW($ASSOCF::ASSOCF_NONE, $AssocType, $Extension, [IntPtr]::Zero, $null, [ref] $Length)
+        $Result = $script:Shlwapi::AssocQueryStringW($script:ASSOCF::ASSOCF_NONE, $AssocType, $Extension, [IntPtr]::Zero, $null, [ref] $Length)
         if ($Result -ne 1) {
             if ($Result -eq 0x80070483) {
                 Write-Warning "No file extension association found for '$($Extension)'."
@@ -1226,7 +1228,7 @@ function Get-FileExtensionAssociation {
 
         $ExtAssociation = New-Object -TypeName System.Text.StringBuilder
         $ExtAssociation.EnsureCapacity($Length + 1) | Out-Null
-        $Result = $Shlwapi::AssocQueryStringW($ASSOCF::ASSOCF_NONE, $AssocType, $Extension, [IntPtr]::Zero, $ExtAssociation, [ref] $Length)
+        $Result = $script:Shlwapi::AssocQueryStringW($script:ASSOCF::ASSOCF_NONE, $AssocType, $Extension, [IntPtr]::Zero, $ExtAssociation, [ref] $Length)
         if ($Result -ne 0) {
             Write-Warning "AssocQueryStringW KO ($Result)"
             return

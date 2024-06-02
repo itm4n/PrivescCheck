@@ -7,7 +7,7 @@ function Invoke-InstalledProgramsCheck {
     License: BSD 3-Clause
 
     .DESCRIPTION
-    Uses the custom "Get-InstalledPrograms" function to get a filtered list of installed programs and then returns each result as a simplified PS object, indicating the name and the path of the application.
+    Uses the custom "Get-InstalledProgram" function to get a filtered list of installed programs and then returns each result as a simplified PS object, indicating the name and the path of the application.
 
     .EXAMPLE
     PS C:\> Invoke-InstalledProgramsCheck | ft
@@ -20,7 +20,7 @@ function Invoke-InstalledProgramsCheck {
 
     [CmdletBinding()] Param()
 
-    Get-InstalledPrograms -Filtered | Select-Object -Property Name,FullName
+    Get-InstalledProgram -Filtered | Select-Object -Property Name,FullName
 }
 
 function Invoke-ModifiableProgramsCheck {
@@ -49,7 +49,7 @@ function Invoke-ModifiableProgramsCheck {
     )
 
     PROCESS {
-        $Items = Get-InstalledPrograms -Filtered
+        $Items = Get-InstalledProgram -Filtered
         $ArrayOfResults = @()
 
         $FsRedirectionValue = Disable-Wow64FileSystemRedirection
@@ -95,7 +95,7 @@ function Invoke-ModifiableProgramsCheck {
 
         $Result = New-Object -TypeName PSObject
         $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { $SeverityLevelEnum::None })
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
         $Result
     }
 }
@@ -278,7 +278,7 @@ function Invoke-ApplicationsOnStartupCheck {
         if (-not $Info) {
             $Result = New-Object -TypeName PSObject
             $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { $SeverityLevelEnum::None })
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
             $Result
         }
     }

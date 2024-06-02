@@ -36,7 +36,7 @@ function Get-ScheduledTaskList {
 
     [CmdletBinding()] Param()
 
-    function Get-ScheduledTasks {
+    function Get-ScheduledTaskCustom {
 
         Param (
             [object] $Service,
@@ -45,7 +45,7 @@ function Get-ScheduledTaskList {
 
         ($CurrentFolder = $Service.GetFolder($TaskPath)).GetTasks(0)
         $CurrentFolder.GetFolders(0) | ForEach-Object {
-            Get-ScheduledTasks -Service $Service -TaskPath $(Join-Path -Path $TaskPath -ChildPath $_.Name )
+            Get-ScheduledTaskCustom -Service $Service -TaskPath $(Join-Path -Path $TaskPath -ChildPath $_.Name )
         }
     }
 
@@ -58,7 +58,7 @@ function Get-ScheduledTaskList {
             $ScheduleService = New-Object -ComObject("Schedule.Service")
             $ScheduleService.Connect()
 
-            Get-ScheduledTasks -Service $ScheduleService -TaskPath "\" | ForEach-Object {
+            Get-ScheduledTaskCustom -Service $ScheduleService -TaskPath "\" | ForEach-Object {
 
                 if ($_.Enabled) {
 
@@ -186,7 +186,7 @@ function Invoke-ScheduledTasksImagePermissionsCheck {
 
         $Result = New-Object -TypeName PSObject
         $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { $SeverityLevelEnum::None })
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
         $Result
     }
 
@@ -250,7 +250,7 @@ function Invoke-ScheduledTasksUnquotedPathCheck {
 
         $Result = New-Object -TypeName PSObject
         $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { $SeverityLevelEnum::None })
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
         $Result
     }
 

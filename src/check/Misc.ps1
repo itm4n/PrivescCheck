@@ -37,7 +37,7 @@ function Get-RemoteDesktopUserSessionList {
     $SessionInfoListPtr = [IntPtr] 0
     $SessionInfoCount = [UInt32] 0
 
-    $Success = $Wtsapi32::WTSEnumerateSessionsEx(0, [ref]$Level, 0, [ref]$SessionInfoListPtr, [ref]$SessionInfoCount)
+    $Success = $script:Wtsapi32::WTSEnumerateSessionsEx(0, [ref]$Level, 0, [ref]$SessionInfoListPtr, [ref]$SessionInfoCount)
     Write-Verbose "WTSEnumerateSessionsEx: $($Success) | Count: $($SessionInfoCount) | List: 0x$('{0:x16}' -f [Int64]$SessionInfoListPtr)"
 
     if (-not $Success) {
@@ -49,13 +49,13 @@ function Get-RemoteDesktopUserSessionList {
     $SessionInfoPtr = $SessionInfoListPtr
     for ($i = 0; $i -lt $SessionInfoCount; $i++) {
 
-        $SessionInfo = [Runtime.InteropServices.Marshal]::PtrToStructure($SessionInfoPtr, [type] $WTS_SESSION_INFO_1W)
+        $SessionInfo = [Runtime.InteropServices.Marshal]::PtrToStructure($SessionInfoPtr, [type] $script:WTS_SESSION_INFO_1W)
         $SessionInfo
 
-        $SessionInfoPtr = [IntPtr] ($SessionInfoPtr.ToInt64() + [Runtime.InteropServices.Marshal]::SizeOf([type] $WTS_SESSION_INFO_1W))
+        $SessionInfoPtr = [IntPtr] ($SessionInfoPtr.ToInt64() + [Runtime.InteropServices.Marshal]::SizeOf([type] $script:WTS_SESSION_INFO_1W))
     }
 
-    $Success = $Wtsapi32::WTSFreeMemoryEx(2, $SessionInfoListPtr, $SessionInfoCount)
+    $Success = $script:Wtsapi32::WTSFreeMemoryEx(2, $SessionInfoListPtr, $SessionInfoCount)
     Write-Verbose "WTSFreeMemoryEx: $($Success)"
 
     if (-not $Success) {
@@ -208,7 +208,7 @@ function Invoke-SystemStartupCheck {
     [CmdletBinding()] Param()
 
     try {
-        $TickcountMilliseconds = $kernel32::GetTickCount64()
+        $TickcountMilliseconds = $script:kernel32::GetTickCount64()
 
         $StartupDate = (Get-Date).AddMilliseconds(-$TickcountMilliseconds)
 
@@ -301,13 +301,13 @@ function Invoke-LocalAdminGroupCheck {
 
                     if ($Member.SchemaClassName -eq "User") {
                         $UserFlags = $Member.UserFlags.value
-                        $MemberIsEnabled = -not $($UserFlags -band $ADS_USER_FLAGS::AccountDisable)
+                        $MemberIsEnabled = -not $($UserFlags -band $script:ADS_USER_FLAGS::AccountDisable)
                         $MemberType = "User"
                         $MemberIsLocal = $true
                     }
                     elseif ($Member.SchemaClassName -eq "Group") {
                         $GroupType = $Member.GroupType.value
-                        $MemberIsLocal = $($GroupType -band $GROUP_TYPE_FLAGS::ResourceGroup)
+                        $MemberIsLocal = $($GroupType -band $script:GROUP_TYPE_FLAGS::ResourceGroup)
                         $MemberType = "Group"
                         $MemberIsEnabled = $true
                     }
@@ -557,7 +557,7 @@ function Invoke-EndpointProtectionCheck {
     }
 
     # Check installed applications
-    Get-InstalledPrograms | Select-Object -Property Name | ForEach-Object {
+    Get-InstalledProgram | Select-Object -Property Name | ForEach-Object {
 
         Find-ProtectionSoftware -Object $_ | ForEach-Object {
 
@@ -633,7 +633,7 @@ function Invoke-HijackableDllsCheck {
 
     [CmdletBinding()] Param()
 
-    function Test-DllExists {
+    function Test-DllExistence {
 
         [OutputType([Boolean])]
         [CmdletBinding()] Param(
@@ -669,7 +669,7 @@ function Invoke-HijackableDllsCheck {
         $Service = Get-ServiceFromRegistry -Name $ServiceName
         if ($Service -and ($Service.StartMode -ne "Disabled")) {
 
-            if (-not (Test-DllExists -Name $DllName)) {
+            if (-not (Test-DllExistence -Name $DllName)) {
 
                 $Result = New-Object -TypeName PSObject
                 $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $DllName
@@ -762,19 +762,19 @@ function Invoke-NamedPipePermissionsCheck {
         }
 
         $PermissionReference = @(
-            $FileAccessRightsEnum::Delete,
-            $FileAccessRightsEnum::WriteDac,
-            $FileAccessRightsEnum::WriteOwner,
-            $FileAccessRightsEnum::FileWriteEa,
-            $FileAccessRightsEnum::FileWriteAttributes
+            $script:FileAccessRightsEnum::Delete,
+            $script:FileAccessRightsEnum::WriteDac,
+            $script:FileAccessRightsEnum::WriteOwner,
+            $script:FileAccessRightsEnum::FileWriteEa,
+            $script:FileAccessRightsEnum::FileWriteAttributes
         )
 
         ForEach ($Ace in $NamedPipeDacl.Access) {
 
             if ($Ace.AceType -notmatch "AccessAllowed") { continue }
 
-            $Permissions = [Enum]::GetValues($FileAccessRightsEnum) | Where-Object {
-                ($Ace.AccessMask -band ($FileAccessRightsEnum::$_)) -eq ($FileAccessRightsEnum::$_)
+            $Permissions = [Enum]::GetValues($script:FileAccessRightsEnum) | Where-Object {
+                ($Ace.AccessMask -band ($script:FileAccessRightsEnum::$_)) -eq ($script:FileAccessRightsEnum::$_)
             }
 
             if (Compare-Object -ReferenceObject $Permissions -DifferenceObject $PermissionReference -IncludeEqual -ExcludeDifferent) {
@@ -788,7 +788,7 @@ function Invoke-NamedPipePermissionsCheck {
                     $Result | Add-Member -MemberType "NoteProperty" -Name "Owner" -Value $NamedPipeDacl.Owner
                     # $Result | Add-Member -MemberType "NoteProperty" -Name "Group" -Value $NamedPipeDacl.Group
                     $Result | Add-Member -MemberType "NoteProperty" -Name "AceType" -Value ($Ace | Select-Object -ExpandProperty "AceType")
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "AccessRights" -Value ($Ace.AccessMask -as $FileAccessRightsEnum)
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "AccessRights" -Value ($Ace.AccessMask -as $script:FileAccessRightsEnum)
                     $Result | Add-Member -MemberType "NoteProperty" -Name "SecurityIdentifier" -Value $IdentityReference
                     $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityName" -Value (Convert-SidToName -Sid $IdentityReference)
                     $Result
@@ -933,7 +933,7 @@ function Invoke-ExploitableLeakedHandlesCheck {
 
     [CmdletBinding()] Param()
 
-    $CandidateHandles = Get-SystemInformationExtendedHandles -InheritedOnly | Where-Object { $_.UniqueProcessId -ne $Pid }
+    $CandidateHandles = Get-SystemInformationExtendedHandle -InheritedOnly | Where-Object { $_.UniqueProcessId -ne $Pid }
     $ProcessHandles = @{}
     $DosDevices = @{}
 
@@ -977,7 +977,7 @@ function Invoke-ExploitableLeakedHandlesCheck {
         # that we can duplicate the handle. Otherwise, the handle will not be exploitable. Whatever the
         # result, save it to a local hashtable for future use.
         if ($ProcessHandles.Keys -notcontains $HandleProcessId) {
-            $ProcHandle = $Kernel32::OpenProcess($ProcessAccessRightsEnum::DUP_HANDLE, $false, $HandleProcessId)
+            $ProcHandle = $script:Kernel32::OpenProcess($script:ProcessAccessRightsEnum::DUP_HANDLE, $false, $HandleProcessId)
             $ProcessHandles += @{ $HandleProcessId = $ProcHandle }
         }
 
@@ -992,7 +992,7 @@ function Invoke-ExploitableLeakedHandlesCheck {
 
         $DUPLICATE_SAME_ACCESS = 2
         [IntPtr]$HandleDup = [IntPtr]::Zero
-        if ($Kernel32::DuplicateHandle($ProcessHandles[$HandleProcessId], $Handle.HandleValue, $Kernel32::GetCurrentProcess(), [ref] $HandleDup, 0, $false, $DUPLICATE_SAME_ACCESS)) {
+        if ($script:Kernel32::DuplicateHandle($ProcessHandles[$HandleProcessId], $Handle.HandleValue, $script:Kernel32::GetCurrentProcess(), [ref] $HandleDup, 0, $false, $DUPLICATE_SAME_ACCESS)) {
 
             if (($Handle.GrantedAccess -ne 0x0012019f) -and ($Handle.GrantedAccess -ne 0x1A019F) -and ($Handle.GrantedAccess -ne 0x1048576f) -and ($Handle.GrantedAccess -ne 0x120189)) {
                 $HandleName = Get-ObjectName -ObjectHandle $HandleDup
@@ -1005,7 +1005,7 @@ function Invoke-ExploitableLeakedHandlesCheck {
                 "Process" {
                     # Query the PID of the target Process. We assume that we have at least the PROCESS_QUERY_INFORMATION
                     # or PROCESS_QUERY_LIMITED_INFORMATION right on the handle.
-                    $HandleProcessId = $Kernel32::GetProcessId($HandleDup)
+                    $HandleProcessId = $script:Kernel32::GetProcessId($HandleDup)
                     if ($HandleProcessId -eq 0) {
                         $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
                         Write-Verbose "GetProcessId KO - $([ComponentModel.Win32Exception] $LastError)"
@@ -1016,13 +1016,13 @@ function Invoke-ExploitableLeakedHandlesCheck {
 
                     # Can we open the target Process directly with the same access rights? If so, the handle is of no
                     # interest for privilege escalation.
-                    $TargetProcessHandle = $Kernel32::OpenProcess($Handle.GrantedAccess, $false, $HandleProcessId)
+                    $TargetProcessHandle = $script:Kernel32::OpenProcess($Handle.GrantedAccess, $false, $HandleProcessId)
                     if ($TargetProcessHandle -ne [IntPtr]::Zero) {
-                        $null = $Kernel32::CloseHandle($TargetProcessHandle)
+                        $null = $script:Kernel32::CloseHandle($TargetProcessHandle)
                         continue
                     }
 
-                    $Handle | Add-Member -MemberType "NoteProperty" -Name "HandleAccessRights" -Value ($Handle.GrantedAccess -as $ProcessAccessRightsEnum)
+                    $Handle | Add-Member -MemberType "NoteProperty" -Name "HandleAccessRights" -Value ($Handle.GrantedAccess -as $script:ProcessAccessRightsEnum)
 
                     $KeepHandle = $true
                 }
@@ -1030,7 +1030,7 @@ function Invoke-ExploitableLeakedHandlesCheck {
                 "Thread" {
                     # Query the TID of the target Thread. We assume we have at least THREAD_QUERY_INFORMATION
                     # or THREAD_QUERY_LIMITED_INFORMATION rights on the handle.
-                    $TargetThreadId = $Kernel32::GetThreadId($HandleDup)
+                    $TargetThreadId = $script:Kernel32::GetThreadId($HandleDup)
                     if ($TargetThreadId -eq 0) {
                         $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
                         Write-Verbose "GetThreadId KO - $([ComponentModel.Win32Exception] $LastError)"
@@ -1041,9 +1041,9 @@ function Invoke-ExploitableLeakedHandlesCheck {
 
                     # Can we open the Thread directly with the same access rights? If so, the handle is of no
                     # interest for privilege escalation.
-                    $TargetThreadHandle = $Kernel32::OpenThread($Handle.GrantedAccess, $false, $TargetThreadId)
+                    $TargetThreadHandle = $script:Kernel32::OpenThread($Handle.GrantedAccess, $false, $TargetThreadId)
                     if ($TargetThreadHandle -ne [IntPtr]::Zero) {
-                        $null = $Kernel32::CloseHandle($TargetThreadHandle)
+                        $null = $script:Kernel32::CloseHandle($TargetThreadHandle)
                         continue
                     }
 
@@ -1081,7 +1081,7 @@ function Invoke-ExploitableLeakedHandlesCheck {
                 }
             }
 
-            $null = $Kernel32::CloseHandle($HandleDup)
+            $null = $script:Kernel32::CloseHandle($HandleDup)
         }
 
         if (-not $KeepHandle) { continue }
@@ -1091,7 +1091,7 @@ function Invoke-ExploitableLeakedHandlesCheck {
 
     # Cleanup time. We need to close all the process handles we opened.
     foreach ($ProcessHandle in $ProcessHandles.Values) {
-        $null = $Kernel32::CloseHandle($ProcessHandle)
+        $null = $script:Kernel32::CloseHandle($ProcessHandle)
     }
 }
 

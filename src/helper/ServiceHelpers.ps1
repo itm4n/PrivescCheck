@@ -34,13 +34,13 @@ function Get-ServiceControlManagerDacl {
     [CmdletBinding()] Param()
 
     $SERVICES_ACTIVE_DATABASE = "ServicesActive"
-    $ServiceManagerHandle = $Advapi32::OpenSCManager($null, $SERVICES_ACTIVE_DATABASE, $ServiceControlManagerAccessRightsEnum::GenericRead)
+    $ServiceManagerHandle = $script:Advapi32::OpenSCManager($null, $SERVICES_ACTIVE_DATABASE, $script:ServiceControlManagerAccessRightsEnum::GenericRead)
     $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
 
     if ($ServiceManagerHandle) {
 
         $SizeNeeded = 0
-        $null = $Advapi32::QueryServiceObjectSecurity($ServiceManagerHandle, [Security.AccessControl.SecurityInfos]::DiscretionaryAcl, @(), 0, [Ref] $SizeNeeded)
+        $null = $script:Advapi32::QueryServiceObjectSecurity($ServiceManagerHandle, [Security.AccessControl.SecurityInfos]::DiscretionaryAcl, @(), 0, [Ref] $SizeNeeded)
         $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
 
         # 122 == The data area passed to a system call is too small
@@ -50,7 +50,7 @@ function Get-ServiceControlManagerDacl {
 
             $BinarySecurityDescriptor = New-Object Byte[]($SizeNeeded)
 
-            $Success = $Advapi32::QueryServiceObjectSecurity($ServiceManagerHandle, [Security.AccessControl.SecurityInfos]::DiscretionaryAcl, $BinarySecurityDescriptor, $BinarySecurityDescriptor.Count, [Ref] $SizeNeeded)
+            $Success = $script:Advapi32::QueryServiceObjectSecurity($ServiceManagerHandle, [Security.AccessControl.SecurityInfos]::DiscretionaryAcl, $BinarySecurityDescriptor, $BinarySecurityDescriptor.Count, [Ref] $SizeNeeded)
             $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
 
             if ($Success) {
@@ -61,7 +61,7 @@ function Get-ServiceControlManagerDacl {
 
                 if ($null -eq $Dacl) {
                     $Result = New-Object -TypeName PSObject
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "AccessRights" -Value $ServiceControlManagerAccessRightsEnum::AllAccess
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "AccessRights" -Value $script:ServiceControlManagerAccessRightsEnum::AllAccess
                     # $Result | Add-Member -MemberType "NoteProperty" -Name "AccessMask" -Value AccessRights.value__
                     $Result | Add-Member -MemberType "NoteProperty" -Name "SecurityIdentifier" -Value "S-1-1-0"
                     $Result | Add-Member -MemberType "NoteProperty" -Name "AceType" -Value "AccessAllowed"
@@ -69,7 +69,7 @@ function Get-ServiceControlManagerDacl {
                 }
                 else {
                     $Dacl | ForEach-Object {
-                        Add-Member -InputObject $_ -MemberType NoteProperty -Name AccessRights -Value ($_.AccessMask -as $ServiceControlManagerAccessRightsEnum) -PassThru
+                        Add-Member -InputObject $_ -MemberType NoteProperty -Name AccessRights -Value ($_.AccessMask -as $script:ServiceControlManagerAccessRightsEnum) -PassThru
                     }
                 }
             }
@@ -79,7 +79,7 @@ function Get-ServiceControlManagerDacl {
             Write-Verbose ([ComponentModel.Win32Exception] $LastError)
         }
 
-        $null = $Advapi32::CloseServiceHandle($ServiceManagerHandle)
+        $null = $script:Advapi32::CloseServiceHandle($ServiceManagerHandle)
     }
     else {
         Write-Verbose ([ComponentModel.Win32Exception] $LastError)
@@ -129,8 +129,8 @@ function Get-ServiceFromRegistry {
     $Result | Add-Member -MemberType "NoteProperty" -Name "DisplayName" -Value ([System.Environment]::ExpandEnvironmentVariables($RegItem.DisplayName))
     $Result | Add-Member -MemberType "NoteProperty" -Name "User" -Value $RegItem.ObjectName
     $Result | Add-Member -MemberType "NoteProperty" -Name "ImagePath" -Value $RegItem.ImagePath
-    $Result | Add-Member -MemberType "NoteProperty" -Name "StartMode" -Value ($RegItem.Start -as $ServiceStartTypeEnum)
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Type" -Value ($RegItem.Type -as $ServiceTypeEnum)
+    $Result | Add-Member -MemberType "NoteProperty" -Name "StartMode" -Value ($RegItem.Start -as $script:ServiceStartTypeEnum)
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Type" -Value ($RegItem.Type -as $script:ServiceTypeEnum)
     $Result | Add-Member -MemberType "NoteProperty" -Name "RegistryKey" -Value $RegKeyServices
     $Result | Add-Member -MemberType "NoteProperty" -Name "RegistryPath" -Value $RegKey
     $Result
@@ -250,7 +250,7 @@ function Get-ServiceList {
                     continue
                 }
 
-                $TypeMask = $ServiceTypeEnum::Win32OwnProcess -bor $ServiceTypeEnum::Win32ShareProcess -bor $ServiceTypeEnum::InteractiveProcess
+                $TypeMask = $script:ServiceTypeEnum::Win32OwnProcess -bor $script:ServiceTypeEnum::Win32ShareProcess -bor $script:ServiceTypeEnum::InteractiveProcess
                 if (($ServiceItem.Type -band $TypeMask) -gt 0) {
 
                     # FilterLevel = 2 - Add the service to the list if it's not a driver
@@ -345,14 +345,14 @@ function Add-ServiceDacl {
                 if ($ServiceHandle -and ($ServiceHandle -ne [IntPtr]::Zero)) {
                     $SizeNeeded = 0
 
-                    $Result = $Advapi32::QueryServiceObjectSecurity($ServiceHandle, [Security.AccessControl.SecurityInfos]::DiscretionaryAcl, @(), 0, [Ref] $SizeNeeded)
+                    $Result = $script:Advapi32::QueryServiceObjectSecurity($ServiceHandle, [Security.AccessControl.SecurityInfos]::DiscretionaryAcl, @(), 0, [Ref] $SizeNeeded)
                     $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
 
                     # 122 == The data area passed to a system call is too small
                     if ((-not $Result) -and ($LastError -eq 122) -and ($SizeNeeded -gt 0)) {
                         $BinarySecurityDescriptor = New-Object Byte[]($SizeNeeded)
 
-                        $Result = $Advapi32::QueryServiceObjectSecurity($ServiceHandle, [Security.AccessControl.SecurityInfos]::DiscretionaryAcl, $BinarySecurityDescriptor, $BinarySecurityDescriptor.Count, [Ref] $SizeNeeded)
+                        $Result = $script:Advapi32::QueryServiceObjectSecurity($ServiceHandle, [Security.AccessControl.SecurityInfos]::DiscretionaryAcl, $BinarySecurityDescriptor, $BinarySecurityDescriptor.Count, [Ref] $SizeNeeded)
                         $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
 
                         if ($Result) {
@@ -364,7 +364,7 @@ function Add-ServiceDacl {
                             # Check for NULL DACL first
                             if ($nul -eq $RawDacl) {
                                 $Ace = New-Object -TypeName PSObject
-                                $Ace | Add-Member -MemberType "NoteProperty" -Name "AccessRights" -Value $ServiceAccessRightsEnum::GenericAll
+                                $Ace | Add-Member -MemberType "NoteProperty" -Name "AccessRights" -Value $script:ServiceAccessRightsEnum::GenericAll
                                 # $Ace | Add-Member -MemberType "NoteProperty" -Name "AccessMask" -Value AccessRights.value__
                                 $Ace | Add-Member -MemberType "NoteProperty" -Name "SecurityIdentifier" -Value (Convert-SidStringToSid -Sid "S-1-1-0")
                                 $Ace | Add-Member -MemberType "NoteProperty" -Name "AceType" -Value "AccessAllowed"
@@ -372,7 +372,7 @@ function Add-ServiceDacl {
                             }
                             else {
                                 $Dacl = $RawDacl | ForEach-Object {
-                                    Add-Member -InputObject $_ -MemberType NoteProperty -Name AccessRights -Value ($_.AccessMask -as $ServiceAccessRightsEnum) -PassThru
+                                    Add-Member -InputObject $_ -MemberType NoteProperty -Name AccessRights -Value ($_.AccessMask -as $script:ServiceAccessRightsEnum) -PassThru
                                 }
                             }
 
@@ -380,7 +380,7 @@ function Add-ServiceDacl {
                         }
                     }
 
-                    $null = $Advapi32::CloseServiceHandle($ServiceHandle)
+                    $null = $script:Advapi32::CloseServiceHandle($ServiceHandle)
                 }
             }
         }
@@ -487,7 +487,7 @@ function Test-ServiceDaclPermission {
             }
         }
 
-        $CurrentUserSids = Get-CurrentUserSids
+        $CurrentUserSids = Get-CurrentUserSid
     }
 
     PROCESS {
@@ -607,7 +607,7 @@ function Get-DriverList {
     $script:CachedDriverList | ForEach-Object { $_ }
 }
 
-function Get-VulnerableDriverHashes {
+function Get-VulnerableDriverHash {
 
     [CmdletBinding()] param ()
 
@@ -632,7 +632,7 @@ function Find-VulnerableDriver {
 
     BEGIN {
         Write-Verbose "Initializing list of vulnerable driver hashes..."
-        $VulnerableDriverHashes = Get-VulnerableDriverHashes
+        $VulnerableDriverHashes = Get-VulnerableDriverHash
         $FsRedirectionValue = Disable-Wow64FileSystemRedirection
     }
 

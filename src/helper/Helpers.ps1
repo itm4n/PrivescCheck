@@ -130,6 +130,7 @@ function Get-WindowsVersion {
 
 function Test-IsMicrosoftFile {
 
+    [OutputType([Boolean])]
     [CmdletBinding()] Param(
         [Parameter(Mandatory=$true)]
         [Object]$File
@@ -144,6 +145,7 @@ function Test-IsMicrosoftFile {
 
 function Test-CommonApplicationFile {
 
+    [OutputType([Boolean])]
     [CmdletBinding()]
     param (
         [ValidateNotNullOrEmpty()]
@@ -157,6 +159,7 @@ function Test-CommonApplicationFile {
 
 function Test-IsSystemFolder {
 
+    [OutputType([Boolean])]
     [CmdletBinding()]
     param (
         [string] $Path
@@ -183,7 +186,7 @@ function Test-IsSystemFolder {
     }
 }
 
-function Get-CurrentUserSids {
+function Get-CurrentUserSid {
 
     [CmdletBinding()] Param()
 
@@ -196,12 +199,12 @@ function Get-CurrentUserSids {
     $script:CachedCurrentUserSids
 }
 
-function Get-CurrentUserDenySids {
+function Get-CurrentUserDenySid {
 
     [CmdletBinding()] Param()
 
     if ($null -eq $script:CachedCurrentUserDenySids) {
-        $script:CachedCurrentUserDenySids = [string[]](Get-TokenInformationGroups -InformationClass Groups | Where-Object { $_.Attributes.Equals("UseForDenyOnly") } | Select-Object -ExpandProperty SID)
+        $script:CachedCurrentUserDenySids = [string[]](Get-TokenInformationGroup -InformationClass Groups | Where-Object { $_.Attributes.Equals("UseForDenyOnly") } | Select-Object -ExpandProperty SID)
         if ($null -eq $script:CachedCurrentUserDenySids) {
             $script:CachedCurrentUserDenySids = @()
         }
@@ -210,7 +213,7 @@ function Get-CurrentUserDenySids {
     $script:CachedCurrentUserDenySids
 }
 
-function Get-AclModificationRights {
+function Get-AclModificationRight {
     <#
     .SYNOPSIS
     Helper - Enumerates modification rights the current user has on an object.
@@ -228,7 +231,7 @@ function Get-AclModificationRights {
     The target object type (e.g. "File").
 
     .EXAMPLE
-    PS C:\> Get-AclModificationRights -Path C:\Temp\foo123.txt -Type File
+    PS C:\> Get-AclModificationRight -Path C:\Temp\foo123.txt -Type File
 
     ModifiablePath    : C:\Temp\foo123.txt
     IdentityReference : NT AUTHORITY\Authenticated Users
@@ -236,7 +239,7 @@ function Get-AclModificationRights {
                         ReadAttributes, WriteData, ReadExtendedAttributes, Execute
 
     .EXAMPLE
-    PS C:\> Get-AclModificationRights -Path C:\Temp\deny-delete.txt -Type File
+    PS C:\> Get-AclModificationRight -Path C:\Temp\deny-delete.txt -Type File
 
     ModifiablePath    : C:\Temp\deny-delete.txt
     IdentityReference : NT AUTHORITY\Authenticated Users
@@ -244,7 +247,7 @@ function Get-AclModificationRights {
                         ReadAttributes, WriteData, ReadExtendedAttributes, Execute
 
     .EXAMPLE
-    PS C:\> Get-AclModificationRights -Path C:\Temp\deny-write.txt -Type File
+    PS C:\> Get-AclModificationRight -Path C:\Temp\deny-write.txt -Type File
 
     ModifiablePath    : C:\Temp\deny-write.txt
     IdentityReference : NT AUTHORITY\Authenticated Users
@@ -349,8 +352,8 @@ function Get-AclModificationRights {
             $TypeRegistryKey = @('SetValue', 'CreateSubKey', 'Delete', 'WriteDAC', 'WriteOwner')
         }
 
-        $CurrentUserSids = Get-CurrentUserSids
-        $CurrentUserDenySids = Get-CurrentUserDenySids
+        $CurrentUserSids = Get-CurrentUserSid
+        $CurrentUserDenySids = Get-CurrentUserDenySid
 
         $ResolvedIdentities = @{}
 
@@ -634,10 +637,10 @@ function Get-ModifiablePath {
                 if (-not $CandidateItem) { continue }
 
                 if ($CandidateItem -is [System.IO.DirectoryInfo]) {
-                    Get-AclModificationRights -Path $CandidateItem.FullName -Type Directory
+                    Get-AclModificationRight -Path $CandidateItem.FullName -Type Directory
                 }
                 else {
-                    Get-AclModificationRights -Path $CandidateItem.FullName -Type File
+                    Get-AclModificationRight -Path $CandidateItem.FullName -Type File
                 }
             }
         }
@@ -785,7 +788,7 @@ function Get-ModifiableRegistryPath {
         $Path | ForEach-Object {
             $RegPath = "Registry::$($_)"
             $OrigPath = $_
-            Get-AclModificationRights -Path $RegPath -Type RegistryKey | ForEach-Object { $_.ModifiablePath = $OrigPath; $_ }
+            Get-AclModificationRight -Path $RegPath -Type RegistryKey | ForEach-Object { $_.ModifiablePath = $OrigPath; $_ }
         }
     }
 }
@@ -861,7 +864,7 @@ function Get-FileHashHex {
     }
 }
 
-function Get-InstalledPrograms {
+function Get-InstalledProgram {
     <#
     .SYNOPSIS
     Helper - Enumerates the installed applications
@@ -876,7 +879,7 @@ function Get-InstalledPrograms {
     If True, only non-default applications are returned. Otherwise, all the applications are returned. The filter is base on a list of known applications which are known to be installed by default (e.g.: "Windows Defender").
 
     .EXAMPLE
-    PS C:\> Get-InstalledPrograms -Filtered
+    PS C:\> Get-InstalledProgram -Filtered
 
     Mode                LastWriteTime     Length Name
     ----                -------------     ------ ----

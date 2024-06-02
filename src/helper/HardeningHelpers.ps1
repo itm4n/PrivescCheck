@@ -30,7 +30,7 @@ function Get-UEFIStatus {
     if (($OsVersion.Major -ge 10) -or (($OsVersion.Major -ge 6) -and ($OsVersion.Minor -ge 2))) {
 
         [UInt32]$FirmwareType = 0
-        $Result = $Kernel32::GetFirmwareType([ref]$FirmwareType)
+        $Result = $script:Kernel32::GetFirmwareType([ref]$FirmwareType)
         $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
 
         if ($Result -gt 0) {
@@ -56,7 +56,7 @@ function Get-UEFIStatus {
     }
     elseif (($OsVersion.Major -eq 6) -and ($OsVersion.Minor -eq 1)) {
 
-        $null = $Kernel32::GetFirmwareEnvironmentVariable("", "{00000000-0000-0000-0000-000000000000}", [IntPtr]::Zero, 0)
+        $null = $script:Kernel32::GetFirmwareEnvironmentVariable("", "{00000000-0000-0000-0000-000000000000}", [IntPtr]::Zero, 0)
         $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
 
         $ERROR_INVALID_FUNCTION = 1
@@ -405,7 +405,7 @@ function Get-AppLockerPolicyInternal {
     )
 
     begin {
-        $CurrentUserSids = Get-CurrentUserSids
+        $CurrentUserSids = Get-CurrentUserSid
         $Levels = @( "None", "Low", "Moderate", "High" )
 
         function Convert-AppLockerPath {
