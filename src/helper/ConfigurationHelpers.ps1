@@ -69,12 +69,7 @@ function Get-SccmCacheFile {
 
     process {
 
-        $SearchPath = [string[]] @()
-        $SearchPath += Join-Path -Path $Path -ChildPath "\*"
-        $SearchPath += Join-Path -Path $Path -ChildPath "\*\*"
-        $SearchPath += Join-Path -Path $Path -ChildPath "\*\*\*"
-
-        foreach ($FileItem in $(Get-ChildItem -Path $SearchPath -ErrorAction SilentlyContinue)) {
+        foreach ($FileItem in $(Get-ChildItem -Path $Path -Recurse -ErrorAction SilentlyContinue)) {
 
             if ($FileItem -is [System.IO.DirectoryInfo]) { continue }
 
