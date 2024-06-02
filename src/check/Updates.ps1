@@ -43,11 +43,8 @@ function Invoke-HotFixCheck {
     .DESCRIPTION
     This check lists update packages and determines whether an update was applied within the last 31 days.
 
-    .PARAMETER Info
-    Use this flag to get the list of all installed patches.
-
     .EXAMPLE
-    PS C:\> Invoke-HotFixCheck -Info
+    PS C:\> Invoke-HotFixCheck
 
     HotFixID  Description     InstalledBy           InstalledOn
     --------  -----------     -----------           -----------
@@ -66,8 +63,7 @@ function Invoke-HotFixCheck {
     https://p0w3rsh3ll.wordpress.com/2012/10/25/getting-windows-updates-installation-history/
     #>
 
-    [CmdletBinding()] Param(
-        [switch] $Info,
+    [CmdletBinding()] param(
         [UInt32] $BaseSeverity
     )
 
@@ -91,6 +87,7 @@ function Invoke-HotFixCheck {
 
         $HotFixDates = $null
         $HotFixList = @()
+        $Vulnerable = $false
     }
 
     process {
@@ -115,21 +112,20 @@ function Invoke-HotFixCheck {
             $HotFixList += $HotFixObject
         }
 
-        if ($Info) { $HotFixList | Sort-Object -Property InstalledOn,HotFixID -Descending; return }
+        $HotFixListSorted = $HotFixList | Sort-Object -Property InstalledOn,HotFixID -Descending
+        $LatestHotfix = $HotFixListSorted | Select-Object -First 1
 
-        $LatestHotfix = $HotFixList | Sort-Object -Property InstalledOn,HotFixID -Descending | Select-Object -First 1
-        $TimeSpan = New-TimeSpan -Start $LatestHotfix.InstalledOn -End $(Get-Date)
+        if ($null -ne $LatestHotfix) {
+            $TimeSpan = New-TimeSpan -Start $LatestHotfix.InstalledOn -End $(Get-Date)
 
-        if ($TimeSpan.TotalDays -gt 31) {
-            $Results = $LatestHotfix
-        }
-        else {
-            Write-Verbose "At least one hotfix was installed in the last 31 days."
+            if ($TimeSpan.TotalDays -gt 31) {
+                $Vulnerable = $true
+            }
         }
 
         $Result = New-Object -TypeName PSObject
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Results
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Results) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $HotFixListSorted
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
         $Result
     }
 }
