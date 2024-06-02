@@ -110,7 +110,7 @@ function Invoke-Build {
                     if ($ModuleFilename -like "*globals*") {
 
                         Write-Message "Populating file '$($ModuleFilename)' with list of vulnerable drivers..."
-                        
+
                         if ($null -ne $LolDrivers) {
 
                             $LolDriversCsv = $LolDrivers | ConvertTo-Csv -Delimiter ";" | Out-String
@@ -122,7 +122,7 @@ function Invoke-Build {
 
                     # Is the script block detected by AMSI after stripping the comments?
                     # Note: if the script block is caught by AMSI, an exception is triggered, so we go
-                    # directly to the "catch" block. Otherwise, it means that the module was sucessfully 
+                    # directly to the "catch" block. Otherwise, it means that the module was sucessfully
                     # loaded.
                     $ScriptBlock = Remove-CommentsFromScriptBlock -ScriptBlock $ScriptBlock
                     $ScriptBlock | Invoke-Expression
@@ -189,11 +189,11 @@ function Get-Wordlist {
     param (
         [UInt32] $WordLength = 8
     )
-    
+
     begin {
         $WordlistUrl = "https://raw.githubusercontent.com/CBHue/PyFuscation/master/wordList.txt"
     }
-    
+
     process {
         try {
             $Wordlist = (New-Object Net.WebClient).DownloadString($WordlistUrl)
@@ -215,7 +215,7 @@ function Get-LolDrivers {
 
     $LolDriversUrl = 'https://www.loldrivers.io/api/drivers.csv'
     $WebClient = New-Object -TypeName 'System.Net.WebClient'
-    
+
     try { $LolDriversCsv = $WebClient.DownloadString($LolDriversUrl) }
     catch { Write-Message -Type Warning "Failed to download CSV file from loldrivers.io: $($_.Exception.Message.Trim())"; return }
 
@@ -268,7 +268,7 @@ function Get-ScriptLoader {
     param (
         [string[]] $Modules
     )
-    
+
     begin {
         $LoaderBlock = @"
 function ConvertFrom-Gzip {
@@ -286,11 +286,13 @@ function ConvertFrom-Gzip {
 `$Modules = @(MODULE_LIST)
 `$Modules | ForEach-Object {
     `$Decoded = [System.Convert]::FromBase64String(`$_)
-    ConvertFrom-Gzip -Bytes `$Decoded | Invoke-Expression
+    `$Decompressed = ConvertFrom-Gzip -Bytes `$Decoded
+    `$ScriptBlock = `$ExecutionContext.InvokeCommand.NewScriptBlock(`$Decompressed)
+    . `$ScriptBlock
 }
 "@
     }
-    
+
     process {
         $LoaderBlock -replace "MODULE_LIST",$(($Modules | ForEach-Object { "`$$($_)" }) -join ',')
     }
@@ -332,11 +334,11 @@ function ConvertTo-Gzip {
     param (
         [string] $InputText
     )
-    
+
     begin {
         [System.Text.Encoding] $Encoding = [System.Text.Encoding]::UTF8
     }
-    
+
     process {
         [byte[]] $InputTextEncoded = $Encoding.GetBytes($InputText)
         [System.IO.MemoryStream] $MemoryStream = New-Object System.IO.MemoryStream
