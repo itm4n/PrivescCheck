@@ -4,7 +4,11 @@
 
 ### Added
 
-- List Windows Defender Exploit Guard ASR rules
+- List Windows Defender Exploit Guard ASR rules.
+
+### Changed
+
+- Defender exclusions can now be obtained through event logs as well.
 
 ## 2024-06-02
 

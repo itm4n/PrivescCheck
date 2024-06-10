@@ -875,3 +875,36 @@ function Invoke-ProxyAutoConfigUrlCheck {
         $Result
     }
 }
+
+function Invoke-DefenderExclusionsCheck {
+    <#
+    .SYNOPSIS
+    List Microsoft Defender exclusions.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This check was inspired by a tweet from @splinter_code (see notes), mentioning the fact that Defender's exclusions can be listed as an unpriv user through the registry. This information is indeed stored in two registry keys (local and GPO) that are configured with a DACL that allows "Everyone" to read them. However, in some versions of Windows 10/11, the DACL is reportedly configured differently and would thus not grant read access for low-priv users. This check was then extended with a technique from @VakninHai, which consists in reading event log messages (with ID 5007) to identify modifications in the exclusions.
+
+    .EXAMPLE
+    PS C:\> Invoke-DefenderExclusionsCheck
+
+    Source   Type      Value
+    ------   ----      -----
+    EventLog Path      C:\Program Files\7-Zip\7zFM.exe
+    EventLog Process   evil.exe
+    EventLog Extension scr
+    EventLog Path      C:\tools\OleViewDotNet\OleViewDotNet.exe
+    EventLog Path      C:\tools
+    #>
+
+    [CmdletBinding()] param()
+
+    process {
+        $Exclusions = @()
+        $Exclusions += Get-WindowsDefenderExclusion -Source Registry
+        $Exclusions += Get-WindowsDefenderExclusion -Source EventLog
+        $Exclusions
+    }
+}

@@ -144,3 +144,98 @@ function Get-ProxyAutoConfigURl {
         }
     }
 }
+
+function Get-WindowsDefenderExclusion {
+    <#
+    .SYNOPSIS
+    Helper - Enumerate Windows Defender exclusions from various locations
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet attempts to find Windows Defender exclusions from various locations, such as the Registry, or the Event Logs.
+
+    .PARAMETER Source
+    The location to search for exclusions.
+
+    .NOTES
+    Source 1 - Registry: This technique is based on a tweet by @splinter_code, mentioning that exclusions can be listed as an unpriv user through the registry. This was fixed my Microsoft.
+    Source 2 - EventLog: This technique is based in a tweet by @VakninHai, mentioning that exclusions can be extracted from the message of event logs with the ID 5007.
+
+    .LINK
+    https://twitter.com/splinter_code/status/1481073265380581381
+    https://x.com/VakninHai/status/1796628601535652289
+    #>
+
+    [CmdletBinding()]
+    param (
+        [ValidateSet("Registry", "EventLog")]
+        [string] $Source = "Registry"
+    )
+
+    begin {
+        $ExclusionsRegKeys = @(
+            "HKLM\SOFTWARE\Microsoft\Windows Defender\Exclusions",
+            "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Exclusions"
+        )
+
+        $LogName = "Microsoft-Windows-Windows Defender/Operational"
+        $EventId = 5007
+
+        $ExclusionNames = @{
+            "Paths" = "Path"
+            "Extensions" = "Extension"
+            "Processes" = "Process"
+        }
+    }
+
+    process {
+
+        switch ($Source) {
+
+            "Registry" {
+
+                foreach ($ExclusionsRegKey in $ExclusionsRegKeys) {
+
+                    Get-ChildItem -Path "Registry::$($ExclusionsRegKey)" -ErrorAction SilentlyContinue | ForEach-Object {
+
+                        $Type = $ExclusionNames[$_.PSChildName]
+                        $_ | Get-Item | Select-Object -ExpandProperty property | ForEach-Object {
+
+                            $Exclusion = New-Object -TypeName PSObject
+                            $Exclusion | Add-Member -MemberType "NoteProperty" -Name "Source" -Value $Source
+                            $Exclusion | Add-Member -MemberType "NoteProperty" -Name "Type" -Value $Type
+                            $Exclusion | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $_
+                            $Exclusion
+                        }
+                    }
+                }
+            }
+
+            "EventLog" {
+
+                $RegKeyExclusionPattern = "HKLM\\SOFTWARE\\(Policies\\)?Microsoft\\Windows Defender\\Exclusions\\(Processes|Extensions|Paths)\\(.+)"
+                $Events = Get-WinEvent -LogName $LogName | Where-Object { $_.Id -eq $EventId }
+
+                foreach ($Event in $Events) {
+
+                    if ($Event.Message -match $RegKeyExclusionPattern) {
+                        $Type = $ExclusionNames[$Matches[2]]
+                        $Value = $Matches[3] -replace ' = .*'
+
+                        $Exclusion = New-Object -TypeName PSObject
+                        $Exclusion | Add-Member -MemberType "NoteProperty" -Name "Source" -Value $Source
+                        $Exclusion | Add-Member -MemberType "NoteProperty" -Name "Type" -Value $Type
+                        $Exclusion | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $Value
+                        $Exclusion
+                    }
+                }
+            }
+
+            default {
+                throw "Unhandled source: $($Source)"
+            }
+        }
+    }
+}

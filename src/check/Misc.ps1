@@ -759,59 +759,6 @@ function Invoke-NamedPipePermissionsCheck {
     }
 }
 
-function Invoke-DefenderExclusionsCheck {
-    <#
-    .SYNOPSIS
-    List Microsoft Defender exclusions.
-
-    Author: @itm4n
-    License: BSD 3-Clause
-
-    .DESCRIPTION
-    This check was inspired by a tweet from @splinter_code (see notes), mentioning the fact that Defender's exclusions can be listed as an unpriv user through the registry. This information is indeed stored in two registry keys (local and GPO) that are configured with a DACL that allows "Everyone" to read them. However, in some versions of Windows 10/11, the DACL is reportedly configured differently and would thus not grant read access for low-priv users.
-
-    .NOTES
-    @splinter_code: https://twitter.com/splinter_code/status/1481073265380581381
-
-    .EXAMPLE
-    PS C:\> Invoke-DefenderExclusionsCheck
-
-    Type       Value
-    ----       -----
-    Extensions .txt
-    Paths      c:\TEMP\foo123.txt
-    Paths      C:\TEMP
-    Processes  plop.exe
-    Processes  foo.exe
-    #>
-
-    [CmdletBinding()] Param()
-
-    $Exclusions = New-Object System.Collections.ArrayList
-
-    $ExclusionsRegKeys = @(
-        "HKLM\SOFTWARE\Microsoft\Windows Defender\Exclusions",
-        "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Exclusions"
-    )
-
-    $ExclusionsRegKeys | ForEach-Object {
-
-        Get-ChildItem -Path "Registry::$($_)" -ErrorAction SilentlyContinue | ForEach-Object {
-
-            $Type = $_.PSChildName
-            $_ | Get-Item | Select-Object -ExpandProperty property | ForEach-Object {
-
-                $Exclusion = New-Object -TypeName PSObject
-                $Exclusion | Add-Member -MemberType "NoteProperty" -Name "Type" -Value $Type
-                $Exclusion | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $_
-                [void]$Exclusions.Add($Exclusion)
-            }
-        }
-    }
-
-    $Exclusions | Sort-Object -Property "Type"
-}
-
 function Invoke-UserSessionListCheck {
     <#
     .SYNOPSIS
