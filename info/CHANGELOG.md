@@ -1,5 +1,11 @@
 # Changelog
 
+## 2024-06-10
+
+### Added
+
+- List Windows Defender Exploit Guard ASR rules
+
 ## 2024-06-02
 
 ### Removed

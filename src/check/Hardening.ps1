@@ -958,3 +958,36 @@ function Invoke-PowerShellExecutionPolicyCheck {
         $Result
     }
 }
+
+function Invoke-AttackSurfaceReductionRuleCheck {
+    <#
+    .SYNOPSIS
+    Get information about configured Windows Defender Exploit Guard Attack Surface Reduction (ASR) rules.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet returns a list of enabled ASR rules.
+
+    .EXAMPLE
+    PS C:\> Invoke-AttackSurfaceReductionRuleCheck
+
+    Rule        : Block Office applications from creating executable content
+    Id          : 3b576869-a4ec-4529-8536-b80a7769e899
+    State       : 2
+    Description : Audit
+
+    Rule        : Block Win32 API calls from Office macros
+    Id          : 92e97fa1-2edf-4476-bdd6-9dd0b4dddc7b
+    State       : 1
+    Description : Block
+    #>
+
+    [CmdletBinding()]
+    param ()
+
+    process {
+        Get-AttackSurfaceReductionRule | Where-Object { ($null -ne $_.State) -and ($_.State -ne 0) }
+    }
+}
