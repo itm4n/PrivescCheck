@@ -239,3 +239,85 @@ function Get-WindowsDefenderExclusion {
         }
     }
 }
+
+function Get-SmbConfiguration {
+    <#
+    .SYNOPSIS
+    Helper - Get the SMB server or client configuration
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet retrieves the SMB server or client configuration using the WMI/CIM classes MSFT_SmbServerConfiguration and MSFT_SmbClientConfiguration.
+
+    .PARAMETER Role
+    Either "Server" or "Client".
+
+    .EXAMPLE
+    PS C:\Temp> Get-SmbConfiguration -Role "Server"
+
+    AnnounceComment                        :
+    AnnounceServer                         : False
+    AsynchronousCredits                    : 64
+    AuditClientCertificateAccess           : False
+    AuditSmb1Access                        : False
+    AutoDisconnectTimeout                  : 15
+    AutoShareServer                        : True
+    AutoShareWorkstation                   : True
+    CachedOpenLimit                        : 10
+    DisableCompression                     : False
+    DisableSmbEncryptionOnSecureConnection : True
+    DurableHandleV2TimeoutInSeconds        : 180
+    EnableAuthenticateUserSharing          : False
+    EnableDirectoryHandleLeasing           : True
+    EnableDownlevelTimewarp                : False
+    EnableForcedLogoff                     : True
+    EnableLeasing                          : True
+    EnableMultiChannel                     : True
+    EnableOplocks                          : True
+    EnableSecuritySignature                : False
+    EnableSMB1Protocol                     : False
+    ...
+
+    .LINK
+    https://techcommunity.microsoft.com/t5/storage-at-microsoft/smb-signing-required-by-default-in-windows-insider/ba-p/3831704
+    https://learn.microsoft.com/en-us/powershell/module/smbshare/get-smbserverconfiguration?view=windowsserver2022-ps
+    https://learn.microsoft.com/en-us/powershell/module/smbshare/get-smbclientconfiguration?view=windowsserver2022-ps
+    #>
+
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory=$true)]
+        [ValidateSet("Server", "Client")]
+        [string] $Role
+    )
+
+    begin {
+        $Namespace = "ROOT/Microsoft/Windows/SMB"
+
+        switch ($Role) {
+            "Server" { $ClassName = "MSFT_SmbServerConfiguration" }
+            "Client" { $ClassName = "MSFT_SmbClientConfiguration" }
+            default  { throw "Unknown role: $($Role)" }
+        }
+    }
+
+    process {
+        try {
+            if ($PSVersionTable.PSVersion.Major -gt 2) {
+                $CimClass = Get-CimClass -ClassName $ClassName -Namespace $Namespace
+                $Invocation = Invoke-CimMethod -CimClass $CimClass -MethodName "GetConfiguration"
+                $Invocation.Output | Select-Object -Property * -ExcludeProperty "CimClass","CimInstanceProperties","CimSystemProperties","PSComputerName"
+            }
+            else {
+                $WmiObject = Get-WmiObject -Class $ClassName -Namespace $Namespace -List
+                $Invocation = $WmiObject.GetConfiguration()
+                $Invocation.Output | Select-Object -Property * -ExcludeProperty "__Genus","__Class","__Superclass","__Dynasty","__Relpath","__Property_Count","__Derivation","__Server","__Namespace","__Path","Properties","SystemProperties","Qualifiers","ClassPath","Site","Container"
+            }
+        }
+        catch {
+            Write-Warning "$($_.Exception)"
+        }
+    }
+}

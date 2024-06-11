@@ -908,3 +908,100 @@ function Invoke-DefenderExclusionsCheck {
         $Exclusions
     }
 }
+
+function Invoke-SmbConfigurationCheck {
+    <#
+    .SYNOPSIS
+    Check the SMB server and client configurations.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet checks whether SMBv1 is enabled on server side, and whether signing is required on both server and client sides.
+
+    .LINK
+    https://learn.microsoft.com/en-us/troubleshoot/windows-server/networking/overview-server-message-block-signing
+    https://learn.microsoft.com/en-us/windows-server/storage/file-server/troubleshoot/detect-enable-and-disable-smbv1-v2-v3?tabs=server
+    #>
+
+    [CmdletBinding()]
+    param (
+        [UInt32] $BaseSeverity
+    )
+
+    begin {
+        $AllResults = @()
+    }
+
+    process {
+        $ServerConfiguration = Get-SmbConfiguration -Role "Server"
+        $ClientConfiguration = Get-SmbConfiguration -Role "Client"
+
+        # Server - SMBv1 must be disabled
+
+        if ($ServerConfiguration.EnableSMB1Protocol -eq $true) {
+            $Vulnerable = $true
+            $Description = "SMBv1 is enabled."
+        }
+        else {
+            $Vulnerable = $false
+            $Description = "SMBv1 is disabled."
+        }
+
+        $ServerVersion = New-Object -TypeName PSObject
+        $ServerVersion | Add-Member -MemberType "NoteProperty" -Name "Role" -Value "Server"
+        $ServerVersion | Add-Member -MemberType "NoteProperty" -Name "Parameter" -Value "EnableSMB1Protocol"
+        $ServerVersion | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $ServerConfiguration.EnableSMB1Protocol
+        $ServerVersion | Add-Member -MemberType "NoteProperty" -Name "Vulnerable" -Value $Vulnerable
+        $ServerVersion | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+        $AllResults += $ServerVersion
+
+        # Server - SMB signing must be set to 'required'
+
+        if ($ServerConfiguration.RequireSecuritySignature -eq $false) {
+            $Vulnerable = $true
+            $Description = "SMB signing is not required."
+        }
+        else {
+            $Vulnerable = $false
+            $Description = "SMB signing is required."
+        }
+
+        $ServerSigning = New-Object -TypeName PSObject
+        $ServerSigning | Add-Member -MemberType "NoteProperty" -Name "Role" -Value "Server"
+        $ServerSigning | Add-Member -MemberType "NoteProperty" -Name "Parameter" -Value "RequireSecuritySignature"
+        $ServerSigning | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $ServerConfiguration.RequireSecuritySignature
+        $ServerSigning | Add-Member -MemberType "NoteProperty" -Name "Vulnerable" -Value $Vulnerable
+        $ServerSigning | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+        $AllResults += $ServerSigning
+
+        # Client - SMB signing must be set to 'required'
+
+        if ($ClientConfiguration.RequireSecuritySignature -eq $false) {
+            $Vulnerable = $true
+            $Description = "SMB signing is not required."
+        }
+        else {
+            $Vulnerable = $false
+            $Description = "SMB signing is required."
+        }
+
+        $ClientSigning = New-Object -TypeName PSObject
+        $ClientSigning | Add-Member -MemberType "NoteProperty" -Name "Role" -Value "Client"
+        $ClientSigning | Add-Member -MemberType "NoteProperty" -Name "Parameter" -Value "RequireSecuritySignature"
+        $ClientSigning | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $ClientConfiguration.RequireSecuritySignature
+        $ClientSigning | Add-Member -MemberType "NoteProperty" -Name "Vulnerable" -Value $Vulnerable
+        $ClientSigning | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+        $AllResults += $ClientSigning
+
+        # Final result
+
+        $Vulnerable = ([object[]] ($AllResults | Where-Object { $_.Vulnerable -eq $true })).Count
+
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $Result
+    }
+}

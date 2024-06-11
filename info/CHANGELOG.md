@@ -1,5 +1,11 @@
 # Changelog
 
+## 2024-06-11
+
+### Added
+
+- SMB server and client configuration check (SMBv1, signing)
+
 ## 2024-06-10
 
 ### Added
