@@ -833,7 +833,7 @@ function Invoke-SccmNaaCredentialsCheck {
     )
 
     process {
-        $Entries = Find-WmiCcmNaaCredential | Sort-Object -Unique
+        $Entries = Find-WmiCcmNaaCredential | Sort-Object -Property NetworkAccessUsername,NetworkAccessPassword -Unique
 
         $Result = New-Object -TypeName PSObject
         $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Entries

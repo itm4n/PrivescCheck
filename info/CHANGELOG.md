@@ -1,5 +1,11 @@
 # Changelog
 
+## 2024-06-20
+
+## Fixed
+
+- Improper sorting of NAA credential occurrences resulting in data loss.
+
 ## 2024-06-11
 
 ### Added
