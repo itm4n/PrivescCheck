@@ -1,37 +1,38 @@
 function Invoke-Build {
 
     [CmdletBinding()] param(
-        [string] $Name
+        [string] $Name,
+        [switch] $NoRandomNames
     )
 
     begin {
         $BuildProfileCore = @(
             "src\core\Reflection.ps1",
-            "src\core\WinApiEnum.ps1",
-            "src\core\WinApiStruct.ps1",
+            "src\core\WinApi.Enum.ps1",
+            "src\core\WinApi.Struct.ps1",
+            "src\core\WinApi.Wrappers.ps1",
             "src\core\WinApi.ps1"
         )
 
         $BuildProfilePrivescCheck = $BuildProfileCore + @(
-            "src\helper\Helpers.ps1",
-            "src\helper\WinApiHelpers.ps1",
-            "src\helper\ServiceHelpers.ps1",
-            "src\helper\HardeningHelpers.ps1",
-            "src\helper\CredentialHelpers.ps1",
-            "src\helper\ConfigurationHelpers.ps1",
-            "src\helper\MsiHelpers.ps1",
+            "src\check\Helpers.ps1",
             "src\check\Globals.ps1",
             "src\check\Main.ps1",
             "src\check\User.ps1",
+            "src\check\Services.Helpers.ps1",
             "src\check\Services.ps1",
             "src\check\Applications.ps1",
             "src\check\ScheduledTasks.ps1",
+            "src\check\Hardening.Helpers.ps1",
             "src\check\Hardening.ps1",
+            "src\check\Configuration.Helpers.ps1",
             "src\check\Configuration.ps1",
             "src\check\Network.ps1",
             "src\check\Updates.ps1",
+            "src\check\Credentials.Helpers.ps1",
             "src\check\Credentials.ps1",
-            "src\check\Misc.ps1"
+            "src\check\Misc.ps1",
+            "src\check\Msi.Helpers.ps1"
         )
 
         $BuildProfilePointAndPrint = $BuildProfileCore + @(
@@ -53,7 +54,7 @@ function Invoke-Build {
         if ($SanityCheck) {
             $ScriptHeader = "#Requires -Version 2`r`n`r`n"
             $RootPath = Split-Path -Path (Split-Path -Path $PSCommandPath -Parent) -Parent
-            $Wordlist = Get-Wordlist -WordLength 10
+            if (-not $NoRandomNames) { $Wordlist = Get-Wordlist -WordLength 10 }
             $LolDrivers = Get-LolDrivers
         }
     }
@@ -96,9 +97,9 @@ function Invoke-Build {
                     $ModuleName = ([regex]$ModuleName[0].ToString()).Replace($ModuleName, $ModuleName[0].ToString().ToUpper(), 1)
                 }
                 else {
-                    # Otherwise use the module name from the file name.
-                    $ModuleNameSplit = ($ModuleFilename.Split('.')[0]).Split('_')
-                    $ModuleName = $ModuleNameSplit[1..($ModuleNameSplit.Count-1)] -join '_'
+                    # Otherwise use the filename as the module name.
+                    $ModuleFilenameSplit = $ModuleFilename.Split('.')
+                    $ModuleName = ($ModuleFilenameSplit[0..($ModuleFilenameSplit.Count-2)] -join '.') -replace '\.',''
                 }
 
                 [string[]] $Modules += $ModuleName
