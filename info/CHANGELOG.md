@@ -6,6 +6,7 @@
 
 - LAPS check performed only if machine is domain-joined.
 - Domain membership tested using the Windows API NetWkstaGetInfo rather than the registry.
+- Asset files used when "building" the script can now be cached.
 
 ## 2024-06-20
 

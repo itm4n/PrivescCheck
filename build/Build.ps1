@@ -184,6 +184,70 @@ function Write-Message {
     Write-Host "$Message"
 }
 
+function Get-AssetFileContent {
+
+    [CmdletBinding()]
+    param (
+        [OutputType([String])]
+        [Parameter(Mandatory=$true)]
+        [ValidateSet("WordList", "KnownVulnerableDriverList")]
+        [string] $Name
+    )
+
+    begin {
+        $ExpirationDelayInDays = 30
+        switch ($Name) {
+            "WordList" {
+                $Filename = "wordlist.txt"
+                $FileUrl = "https://raw.githubusercontent.com/CBHue/PyFuscation/master/wordList.txt"
+            }
+            "KnownVulnerableDriverList" {
+                $Filename = "vulnerable_drivers.csv"
+                $FileUrl = "https://www.loldrivers.io/api/drivers.csv"
+            }
+        }
+        $BuildPath = Split-Path -Path $PSCommandPath -Parent
+        $FilePath = Join-Path -Path $BuildPath -ChildPath "cache"
+        $FilePath = Join-Path -Path $FilePath -ChildPath "$($Filename)"
+    }
+
+    process {
+        $DownloadFile = $true
+        $CachedFile = Get-Item -Path $FilePath -ErrorAction SilentlyContinue
+        if ($null -ne $CachedFile) {
+            $TimeSpan = New-TimeSpan -Start $CachedFile.CreationTime -End $(Get-Date)
+            if ($TimeSpan.TotalDays -gt $ExpirationDelayInDays) {
+                # Cached file expired, so delete it.
+                Remove-Item -Path $FilePath -Force
+            }
+            else {
+                # Cached file has not expired yet, use it.
+                $DownloadFile = $false
+            }
+        }
+
+        if ($DownloadFile) {
+            try {
+                # Download the file.
+                $FileContent = (New-Object Net.WebClient).DownloadString($FileUrl)
+                Write-Message "File '$($Filename)' downloaded from: $($FileUrl)"
+                # Save the file to the local cache folder.
+                $FileContent | Out-File -FilePath $FilePath -Encoding ASCII
+                Write-Message "File '$($Filename)' saved to: $($FilePath)"
+            }
+            catch {
+                Write-Message -Type Error "Failed to download file '$($Filename)' from $($FileUrl)."
+            }
+        }
+        else {
+            Write-Message "Retrieved file '$($Filename)' from local cache."
+            $FileContent = $CachedFile | Get-Content | Out-String
+        }
+
+        $FileContent
+    }
+}
+
 function Get-Wordlist {
 
     [CmdletBinding()]
@@ -191,22 +255,10 @@ function Get-Wordlist {
         [UInt32] $WordLength = 8
     )
 
-    begin {
-        $WordlistUrl = "https://raw.githubusercontent.com/CBHue/PyFuscation/master/wordList.txt"
-    }
-
-    process {
-        try {
-            $Wordlist = (New-Object Net.WebClient).DownloadString($WordlistUrl)
-            Write-Message "Wordlist downloaded from: $($WordlistUrl)"
-            $Wordlist = $Wordlist -split "`n"
-            $Wordlist = $Wordlist | Where-Object { (-not [string]::IsNullOrEmpty($_)) -and ($_.length -eq $WordLength) -and ($_.ToLower() -match "^[a-z]+$") }
-            Write-Message "Number of items in wordlist after filtering (word size=$($WordLength)): $($Wordlist.Count)"
-            $Wordlist
-        }
-        catch {
-            Write-Message -Type Warning "Failed to download wordlist."
-        }
+    $Wordlist = Get-AssetFileContent -Name "WordList"
+    if ($null -ne $Wordlist) {
+        $Wordlist = $Wordlist -split "`n"
+        $Wordlist | Where-Object { (-not [string]::IsNullOrEmpty($_)) -and ($_.length -eq $WordLength) -and ($_.ToLower() -match "^[a-z]+$") }
     }
 }
 
@@ -214,13 +266,7 @@ function Get-LolDrivers {
 
     [CmdletBinding()] param()
 
-    $LolDriversUrl = 'https://www.loldrivers.io/api/drivers.csv'
-    $WebClient = New-Object -TypeName 'System.Net.WebClient'
-
-    try { $LolDriversCsv = $WebClient.DownloadString($LolDriversUrl) }
-    catch { Write-Message -Type Warning "Failed to download CSV file from loldrivers.io: $($_.Exception.Message.Trim())"; return }
-
-    Write-Message "Driver list downloaded from: $($LolDriversUrl)"
+    $LolDriversCsv = Get-AssetFileContent -Name "KnownVulnerableDriverList"
 
     try { $LolDrivers = ConvertFrom-Csv -InputObject $LolDriversCsv }
     catch { Write-Message -Type Warning "Failed to parse CSV file: $($_.Exception.Message.Trim())"; return }
