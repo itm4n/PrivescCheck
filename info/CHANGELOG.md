@@ -1,8 +1,14 @@
 # Changelog
 
+## 2024-06-22
+
+### Changed
+
+- LAPS check performed only if machine is domain-joined.
+
 ## 2024-06-20
 
-## Fixed
+### Fixed
 
 - Improper sorting of NAA credential occurrences resulting in data loss.
 
