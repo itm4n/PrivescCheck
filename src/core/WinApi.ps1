@@ -41,6 +41,9 @@ $FunctionDefinitions = @(
     (New-Function kernel32 Wow64DisableWow64FsRedirection ([Bool]) @([IntPtr].MakeByRefType()) ([Runtime.InteropServices.CallingConvention]::Winapi) -SetLastError -EntryPoint Wow64DisableWow64FsRedirection),
     (New-Function kernel32 Wow64RevertWow64FsRedirection ([Bool]) @([IntPtr]) -SetLastError -EntryPoint Wow64RevertWow64FsRedirection),
 
+    (New-Function netapi32 NetWkstaGetInfo ([UInt32]) @([IntPtr], [UInt32], [IntPtr].MakeByRefType()) -EntryPoint NetWkstaGetInfo -Charset Unicode),
+    (New-Function netapi32 NetApiBufferFree ([uint32]) @([IntPtr]) -EntryPoint NetApiBufferFree),
+
     (New-Function ntdll RtlNtStatusToDosError ([UInt32]) @([UInt32]) -EntryPoint RtlNtStatusToDosError),
     (New-Function ntdll RtlInitUnicodeString ([IntPtr]) @($script:UNICODE_STRING.MakeByRefType(), [String]) -EntryPoint RtlInitUnicodeString),
     (New-Function ntdll NtQueryObject ([Int32]) @([IntPtr], [UInt32], [IntPtr], [UInt32], [UInt32].MakeByRefType()) -EntryPoint NtQueryObject),
@@ -82,6 +85,7 @@ $Types = $FunctionDefinitions | Add-Win32Type -Module $Module -Namespace 'WinApi
 $script:Advapi32 = $Types['advapi32']
 $script:Iphlpapi = $Types['iphlpapi']
 $script:Kernel32 = $Types['kernel32']
+$script:Netapi32 = $Types['netapi32']
 $script:Ntdll    = $Types['ntdll']
 $script:Shlwapi  = $Types['shlwapi']
 $script:Vaultcli = $Types['vaultcli']

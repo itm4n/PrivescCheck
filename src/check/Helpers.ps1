@@ -793,20 +793,25 @@ function Get-ModifiableRegistryPath {
     }
 }
 
-function Get-ADDomain {
-
-    [CmdletBinding()] Param()
-
-    $RegKey = "HKLM\System\CurrentControlSet\Services\Tcpip\Parameters"
-    $RegValue = "Domain"
-    (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
-}
-
 function Test-IsDomainJoined {
 
-    [CmdletBinding()] Param()
+    [OutputType([Boolean])]
+    [CmdletBinding()] param()
 
-    return (-not [string]::IsNullOrEmpty($(Get-ADDomain)))
+    $WorkstationInfo = Get-NetWkstaInfo
+    if ($null -eq $WorkstationInfo) {
+        Write-Warning "Test-IsDomainJoined - Failed to get workstation information."
+        return $false
+    }
+
+    if ([string]::IsNullOrEmpty($WorkstationInfo.LanGroup)) {
+        Write-Warning "Test-IsDomainJoined - Attribute 'LanGroup' is null."
+        return $false
+    }
+
+    Write-Verbose "Test-IsDomainJoined - LAN group: $($WorkstationInfo.LanGroup)"
+
+    return $WorkstationInfo.LanGroup -ne "WORKGROUP"
 }
 
 function Get-FileHashHex {

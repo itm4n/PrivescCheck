@@ -1237,3 +1237,64 @@ function Get-FileExtensionAssociation {
         $ExtAssociation.ToString()
     }
 }
+
+function Get-NetWkstaInfo {
+    <#
+    .SYNOPSIS
+    Wrapper for the API NetWkstaGetInfo
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet is a wrapper for the Windows API NetWkstaGetInfo.
+
+    .PARAMETER Level
+    Specifies the information level of the data.
+
+    .EXAMPLE
+    PS C:\> Get-NetWkstaGetInfo -Level 102
+
+    PlatformId    : 500
+    ComputerName  : DESKTOP-GSHP79S
+    LanGroup      : WORKGROUP
+    VerMajor      : 10
+    VerMinor      : 0
+    LanRoot       :
+    LoggedOnUsers : 2
+
+    .LINK
+    https://learn.microsoft.com/en-us/windows/win32/api/lmwksta/nf-lmwksta-netwkstagetinfo
+    #>
+
+    [CmdletBinding()]
+    param (
+        [ValidateSet(100, 101, 102)]
+        [UInt32] $Level = 100
+    )
+
+    begin {
+        switch ($Level) {
+            100 { $InfoType = $script:WKSTA_INFO_100 }
+            101 { $InfoType = $script:WKSTA_INFO_101 }
+            102 { $InfoType = $script:WKSTA_INFO_102 }
+        }
+    }
+
+    process {
+        $BufferPtr = [IntPtr]::Zero
+        $RetVal = $Netapi32::NetWkstaGetInfo([IntPtr]::Zero, $Level, [ref] $BufferPtr)
+        if ($RetVal -ne 0) {
+            Write-Warning "NetWkstaGetInfo - $([ComponentModel.Win32Exception] $RetVal)"
+            return
+        }
+
+        [System.Runtime.InteropServices.Marshal]::PtrToStructure($BufferPtr, [type] $InfoType)
+
+        $RetVal = $Netapi32::NetApiBufferFree($BufferPtr)
+        if ($RetVal -ne 0) {
+            Write-Warning "NetApiBufferFree - $([ComponentModel.Win32Exception] $RetVal)"
+            return
+        }
+    }
+}

@@ -505,3 +505,30 @@ $script:PRINTER_INFO_2 = New-Structure $Module WinApiModule.PRINTER_INFO_2 @{
     Jobs                        = New-StructureField 19 UInt32
     AveragePPM                  = New-StructureField 20 UInt32
 } -Charset Auto
+
+$script:WKSTA_INFO_100 = New-Structure $Module WinApiModule.WKSTA_INFO_100 @{
+    PlatformId                  = New-StructureField 0 UInt32
+    ComputerName                = New-StructureField 1 String -MarshalAs @('LPWStr')
+    LanGroup                    = New-StructureField 2 String -MarshalAs @('LPWStr')
+    VerMajor                    = New-StructureField 3 UInt32
+    VerMinor                    = New-StructureField 4 UInt32
+}
+
+$script:WKSTA_INFO_101 = New-Structure $Module WinApiModule.WKSTA_INFO_101 @{
+    PlatformId                  = New-StructureField 0 UInt32
+    ComputerName                = New-StructureField 1 String -MarshalAs @('LPWStr')
+    LanGroup                    = New-StructureField 2 String -MarshalAs @('LPWStr')
+    VerMajor                    = New-StructureField 3 UInt32
+    VerMinor                    = New-StructureField 4 UInt32
+    LanRoot                     = New-StructureField 5 String -MarshalAs @('LPWStr')
+}
+
+$script:WKSTA_INFO_102 = New-Structure $Module WinApiModule.WKSTA_INFO_102 @{
+    PlatformId                  = New-StructureField 0 UInt32
+    ComputerName                = New-StructureField 1 String -MarshalAs @('LPWStr')
+    LanGroup                    = New-StructureField 2 String -MarshalAs @('LPWStr')
+    VerMajor                    = New-StructureField 3 UInt32
+    VerMinor                    = New-StructureField 4 UInt32
+    LanRoot                     = New-StructureField 5 String -MarshalAs @('LPWStr')
+    LoggedOnUsers               = New-StructureField 6 UInt32
+}
