@@ -2,3 +2,5 @@
 *.html
 *.txt
 *.xml
+
+!/build/Checks.csv

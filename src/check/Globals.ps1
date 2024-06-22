@@ -46,3 +46,4 @@ $script:DangerousDefaultFileExtensionAssociations = @"
 $script:VulnerableDrivers = @"
 VULNERABLE_DRIVERS
 "@
+$script:CheckCsvBlob = "CHECK_CSV_BLOB"

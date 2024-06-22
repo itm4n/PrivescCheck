@@ -51,11 +51,22 @@ function Invoke-Build {
             $SanityCheck = $false
         }
 
+        if (-not (Test-Path -Path "build")) {
+            Write-Message -Type Error "Build folder not found."
+            $SanityCheck = $false
+        }
+
         if ($SanityCheck) {
             $ScriptHeader = "#Requires -Version 2`r`n`r`n"
             $RootPath = Split-Path -Path (Split-Path -Path $PSCommandPath -Parent) -Parent
             if (-not $NoRandomNames) { $Wordlist = Get-Wordlist -WordLength 10 }
+
             $LolDrivers = Get-LolDrivers
+
+            $CheckCsvFilePath = Split-Path -Path $PSCommandPath -Parent
+            $CheckCsvFilePath = Join-Path -Path $CheckCsvFilePath -ChildPath "Checks.csv"
+            $CheckCsv = Get-Content -Path $CheckCsvFilePath -Encoding Ascii | Out-String
+            $CheckCsvBlob = ConvertTo-EmbeddedTextBlob -Text $CheckCsv
         }
     }
 
@@ -107,23 +118,31 @@ function Invoke-Build {
                 try {
                     $ScriptBlock = Get-Content -Path $ModulePath | Out-String
 
-                    # Populate vulnerable driver list.
                     if ($ModuleFilename -like "*globals*") {
 
-                        Write-Message "Populating file '$($ModuleFilename)' with list of vulnerable drivers..."
-
                         if ($null -ne $LolDrivers) {
-
+                            # Populate vulnerable driver list.
                             $LolDriversCsv = $LolDrivers | ConvertTo-Csv -Delimiter ";" | Out-String
-                            Write-Message "Driver list exported as CSV."
                             $ScriptBlock = $ScriptBlock -replace "VULNERABLE_DRIVERS",$LolDriversCsv
                             Write-Message "Driver list written to '$($ModuleFilename)'."
+                        }
+                        else {
+                            Write-Warning "Known vulnerable driver CSV is null."
+                        }
+
+                        if ($null -ne $CheckCsvBlob) {
+                            # Populate check list as an encoded blob.
+                            $ScriptBlock = $ScriptBlock -replace "CHECK_CSV_BLOB",$CheckCsvBlob
+                            Write-Message "Check list written to '$($ModuleFilename)'."
+                        }
+                        else {
+                            Write-Warning "Check CSV text blob is null."
                         }
                     }
 
                     # Is the script block detected by AMSI after stripping the comments?
                     # Note: if the script block is caught by AMSI, an exception is triggered, so we go
-                    # directly to the "catch" block. Otherwise, it means that the module was sucessfully
+                    # directly to the "catch" block. Otherwise, it means that the module was successfully
                     # loaded.
                     $ScriptBlock = Remove-CommentsFromScriptBlock -ScriptBlock $ScriptBlock
                     $ScriptBlock | Invoke-Expression
@@ -182,6 +201,12 @@ function Write-Message {
 
     Write-Host -NoNewline -ForegroundColor "$Color" "$($Symbol) "
     Write-Host "$Message"
+}
+
+function ConvertTo-EmbeddedTextBlob {
+    param ([String] $Text)
+    $Compressed = ConvertTo-Gzip -InputText $Text
+    [System.Convert]::ToBase64String($Compressed)
 }
 
 function Get-AssetFileContent {
