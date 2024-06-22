@@ -4,20 +4,22 @@ function Test-IsRunningInConsole {
 
 function Convert-FiletimeToDatetime {
     [OutputType([DateTime])]
-    [CmdletBinding()] Param(
+    [CmdletBinding()]
+    param(
         [Parameter(Position = 1, Mandatory=$true)]
         [Object] # FILETIME
         $Filetime
     )
 
-    [Int64]$Time = $Filetime.LowDateTime + $Filetime.HighDateTime * 0x100000000
+    [Int64] $Time = $Filetime.LowDateTime + $Filetime.HighDateTime * 0x100000000
     [DateTime]::FromFileTimeUtc($Time)
 }
 
 function Convert-SidStringToSid {
 
-    [CmdletBinding()] Param(
-        [String]$Sid
+    [CmdletBinding()]
+    param(
+        [String] $Sid
     )
 
     try {
@@ -51,8 +53,9 @@ function Convert-SidToName {
     #>
 
     [OutputType([String])]
-    [CmdletBinding()] Param(
-        [String]$Sid
+    [CmdletBinding()]
+    param(
+        [String] $Sid
     )
 
     try {
@@ -86,8 +89,9 @@ function Convert-DateToString {
     #>
 
     [OutputType([String])]
-    [CmdletBinding()] Param(
-        [System.DateTime]$Date
+    [CmdletBinding()]
+    param(
+        [System.DateTime] $Date
     )
 
     if ($null -ne $Date) {
@@ -99,7 +103,8 @@ function Convert-DateToString {
 
 function Get-WindowsVersion {
 
-    [CmdletBinding()] Param()
+    [CmdletBinding()]
+    param()
 
     $RegKey = "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion"
     $RegItem = Get-ItemProperty -Path "Registry::$($RegKey)" -ErrorAction SilentlyContinue
@@ -131,9 +136,10 @@ function Get-WindowsVersion {
 function Test-IsMicrosoftFile {
 
     [OutputType([Boolean])]
-    [CmdletBinding()] Param(
+    [CmdletBinding()]
+    param(
         [Parameter(Mandatory=$true)]
-        [Object]$File
+        [Object] $File
     )
 
     if ($File.VersionInfo.LegalCopyright -like "*Microsoft Corporation*") {
@@ -147,7 +153,7 @@ function Test-CommonApplicationFile {
 
     [OutputType([Boolean])]
     [CmdletBinding()]
-    param (
+    param(
         [ValidateNotNullOrEmpty()]
         [string] $Path
     )
@@ -161,7 +167,7 @@ function Test-IsSystemFolder {
 
     [OutputType([Boolean])]
     [CmdletBinding()]
-    param (
+    param(
         [string] $Path
     )
 
@@ -188,7 +194,8 @@ function Test-IsSystemFolder {
 
 function Get-CurrentUserSid {
 
-    [CmdletBinding()] param()
+    [CmdletBinding()]
+    param()
 
     if ($null -eq $script:CachedCurrentUserSids) {
         $UserIdentity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
@@ -201,7 +208,8 @@ function Get-CurrentUserSid {
 
 function Get-CurrentUserDenySid {
 
-    [CmdletBinding()] Param()
+    [CmdletBinding()]
+    param()
 
     if ($null -eq $script:CachedCurrentUserDenySids) {
         $script:CachedCurrentUserDenySids = [string[]](Get-TokenInformationGroup -InformationClass Groups | Where-Object { $_.Attributes.Equals("UseForDenyOnly") } | Select-Object -ExpandProperty SID)
@@ -254,7 +262,8 @@ function Get-AclModificationRight {
     Permissions       : Delete, Synchronize, ReadControl, ReadData, ReadAttributes, ReadExtendedAttributes, Execute
     #>
 
-    [CmdletBinding()] Param(
+    [CmdletBinding()]
+    param(
         [String]
         $Path,
 
@@ -263,7 +272,7 @@ function Get-AclModificationRight {
         $Type
     )
 
-    BEGIN {
+    begin {
         $TypeFile = "File"
         $TypeDirectory = "Directory"
         $TypeRegistryKey = "RegistryKey"
@@ -359,7 +368,7 @@ function Get-AclModificationRight {
 
         function Convert-NameToSid {
 
-            Param([String]$Name)
+            param([String] $Name)
 
             if (($Name -match '^S-1-5.*') -or ($Name -match '^S-1-15-.*')) { $Name; return }
 
@@ -376,7 +385,7 @@ function Get-AclModificationRight {
         }
     }
 
-    PROCESS {
+    process {
 
         try {
 
@@ -425,7 +434,7 @@ function Get-AclModificationRight {
                     if ($CurrentUserSids -notcontains $IdentityReferenceSid) { continue }
 
                     $Restrictions = $TypeAccessMask.Keys | Where-Object { $DenyAce.$TypeAccessRights.value__ -band $_ } | ForEach-Object { $TypeAccessMask[$_] }
-                    $RestrictedRights += [String[]]$Restrictions
+                    $RestrictedRights += [String[]] $Restrictions
                 }
             }
 
@@ -510,7 +519,7 @@ function Get-ModifiablePath {
     #>
 
     [CmdletBinding()]
-    Param(
+    param(
         [Parameter(Mandatory=$true, ValueFromPipeline=$true, ValueFromPipelineByPropertyName=$true)]
         [Alias('FullName')]
         [String[]]
@@ -520,12 +529,12 @@ function Get-ModifiablePath {
         $LiteralPaths
     )
 
-    BEGIN {
+    begin {
 
         function Get-FirstExistingParentFolder {
 
-            Param(
-                [String]$Path
+            param(
+                [String] $Path
             )
 
             try {
@@ -543,7 +552,7 @@ function Get-ModifiablePath {
         }
     }
 
-    PROCESS {
+    process {
 
         foreach ($TargetPath in $Path) {
 
@@ -650,10 +659,11 @@ function Get-ModifiablePath {
 function Get-UnquotedPath {
 
     [OutputType([String])]
-    [CmdletBinding()] Param(
+    [CmdletBinding()]
+    param(
         [Parameter(Mandatory=$true)]
-        [String]$Path,
-        [Switch]$Spaces = $false
+        [String] $Path,
+        [Switch] $Spaces = $false
     )
 
     # Check Check if the path starts with a " or '
@@ -686,15 +696,16 @@ function Get-ExploitableUnquotedPath {
     A path (or a command line for example)
     #>
 
-    [CmdletBinding()] Param(
-        [String]$Path
+    [CmdletBinding()]
+    param(
+        [String] $Path
     )
 
-    BEGIN {
+    begin {
         $PermissionsAddFile = @("AddFile", "DeleteChild", "WriteDAC", "WriteOwner")
     }
 
-    PROCESS {
+    process {
 
         $UnquotedPath = Get-UnquotedPath -Path $Path -Spaces
 
@@ -776,15 +787,12 @@ function Get-ModifiableRegistryPath {
     #>
 
     [CmdletBinding()]
-    Param(
+    param(
         [Parameter(Mandatory=$true, ValueFromPipeline=$true, ValueFromPipelineByPropertyName=$true)]
-        [String[]]$Path
+        [String[]] $Path
     )
 
-    BEGIN { }
-
-    PROCESS {
-
+    process {
         $Path | ForEach-Object {
             $RegPath = "Registry::$($_)"
             $OrigPath = $_
@@ -796,7 +804,8 @@ function Get-ModifiableRegistryPath {
 function Test-IsDomainJoined {
 
     [OutputType([Boolean])]
-    [CmdletBinding()] param()
+    [CmdletBinding()]
+    param()
 
     $WorkstationInfo = Get-NetWkstaInfo
     if ($null -eq $WorkstationInfo) {
@@ -849,7 +858,8 @@ function Get-FileHashHex {
     https://gist.github.com/jaredcatkinson/7d561b553a04501238f8e4f061f112b7
     #>#
 
-    [CmdletBinding()] param (
+    [CmdletBinding()]
+    param(
         [Parameter(Mandatory=$true)]
         [ValidateNotNullOrEmpty()]
         [string] $FilePath,
@@ -892,7 +902,8 @@ function Get-InstalledProgram {
     d----        29/11/2019     10:51            Wireshark
     #>
 
-    [CmdletBinding()] param(
+    [CmdletBinding()]
+    param(
         [switch] $Filtered = $false
     )
 
@@ -906,7 +917,7 @@ function Get-InstalledProgram {
 
     $Items = Get-ChildItem -Path $PathProgram32,$PathProgram64 -ErrorAction SilentlyContinue
     if ($Items) {
-        [void]$InstalledPrograms.AddRange($Items)
+        [void] $InstalledPrograms.AddRange($Items)
     }
 
     $RegInstalledPrograms = Get-ChildItem -Path "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"
@@ -930,7 +941,7 @@ function Get-InstalledProgram {
 
                 if (-not ($FileObject -is [System.IO.DirectoryInfo])) { continue }
 
-                [void]$InstalledPrograms.Add([Object]$FileObject)
+                [void] $InstalledPrograms.Add([Object] $FileObject)
             }
         }
     }

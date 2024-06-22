@@ -18,7 +18,8 @@ function Invoke-InstalledProgramsCheck {
     Wireshark       C:\Program Files\Wireshark
     #>
 
-    [CmdletBinding()] Param()
+    [CmdletBinding()]
+    param()
 
     Get-InstalledProgram -Filtered | Select-Object -Property Name,FullName
 }
@@ -44,15 +45,18 @@ function Invoke-ModifiableProgramsCheck {
     C:\Program Files\VulnApp\foobar.dll DESKTOP-FEOHNOM\user {WriteOwner, Delete, WriteAttributes, Synchronize...}
     #>
 
-    [CmdletBinding()] Param(
+    [CmdletBinding()]
+    param(
         [UInt32] $BaseSeverity
     )
 
-    PROCESS {
-        $Items = Get-InstalledProgram -Filtered
-        $ArrayOfResults = @()
-
+    begin {
+        $AllResults = @()
         $FsRedirectionValue = Disable-Wow64FileSystemRedirection
+    }
+
+    process {
+        $Items = Get-InstalledProgram -Filtered
 
         foreach ($Item in $Items) {
 
@@ -68,8 +72,8 @@ function Invoke-ModifiableProgramsCheck {
             # without using the 'Depth' option, which is only available in PSv5+. This
             # allows us to maintain compatibility with PSv2.
             $SearchPath = New-Object -TypeName System.Collections.ArrayList
-            [void]$SearchPath.Add([String]$(Join-Path -Path $Item.FullName -ChildPath "\*"))
-            [void]$SearchPath.Add([String]$(Join-Path -Path $Item.FullName -ChildPath "\*\*"))
+            [void] $SearchPath.Add([String] $(Join-Path -Path $Item.FullName -ChildPath "\*"))
+            [void] $SearchPath.Add([String] $(Join-Path -Path $Item.FullName -ChildPath "\*\*"))
 
             Get-ChildItem -Path $SearchPath -ErrorAction SilentlyContinue | ForEach-Object {
 
@@ -85,18 +89,20 @@ function Invoke-ModifiableProgramsCheck {
                 foreach ($Path in $ModifiablePaths) {
                     if ($Path.ModifiablePath -eq $_.FullName) {
                         $Path.Permissions = ($Path.Permissions -join ', ')
-                        $ArrayOfResults += $Path
+                        $AllResults += $Path
                     }
                 }
             }
         }
 
-        Restore-Wow64FileSystemRedirection -OldValue $FsRedirectionValue
+        $CheckResult = New-Object -TypeName PSObject
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AllResults) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult
+    }
 
-        $Result = New-Object -TypeName PSObject
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
-        $Result
+    end {
+        Restore-Wow64FileSystemRedirection -OldValue $FsRedirectionValue
     }
 }
 
@@ -135,7 +141,8 @@ function Invoke-ProgramDataCheck {
     Permissions       : {WriteAttributes, AppendData/AddSubdirectory, WriteExtendedAttributes, WriteData/AddFile}
     #>
 
-    [CmdletBinding()] Param()
+    [CmdletBinding()]
+    param()
 
     $IgnoredProgramData = @("Microsoft", "Microsoft OneDrive", "Package Cache", "Packages", "SoftwareDistribution", "ssh", "USOPrivate", "USOShared", "")
 
@@ -176,19 +183,18 @@ function Invoke-ApplicationsOnStartupCheck {
     IsModifiable : False
     #>
 
-    [CmdletBinding()] Param(
+    [CmdletBinding()]
+    param(
         [UInt32] $BaseSeverity
     )
 
     begin {
+        $AllResults = @()
+        [string[]] $RegistryPaths = "HKLM\Software\Microsoft\Windows\CurrentVersion\Run", "HKLM\Software\Microsoft\Windows\CurrentVersion\RunOnce"
         $FsRedirectionValue = Disable-Wow64FileSystemRedirection
     }
 
     process {
-        $ArrayOfResults = @()
-
-        [string[]]$RegistryPaths = "HKLM\Software\Microsoft\Windows\CurrentVersion\Run", "HKLM\Software\Microsoft\Windows\CurrentVersion\RunOnce"
-
         $RegistryPaths | ForEach-Object {
 
             $RegKeyPath = $_
@@ -205,7 +211,7 @@ function Invoke-ApplicationsOnStartupCheck {
                     if ([String]::IsNullOrEmpty($RegKeyValueData)) { continue }
 
                     $ModifiablePaths = $RegKeyValueData | Get-ModifiablePath | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
-                    if (([Object[]]$ModifiablePaths).Length -gt 0) {
+                    if (([Object[]] $ModifiablePaths).Length -gt 0) {
                         $IsModifiable = $true
                     }
                     else {
@@ -217,7 +223,7 @@ function Invoke-ApplicationsOnStartupCheck {
                     $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value "$($RegKeyPath)\$($RegKeyValueName)"
                     $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $RegKeyValueData
                     $Result | Add-Member -MemberType "NoteProperty" -Name "IsModifiable" -Value $IsModifiable
-                    $ArrayOfResults += $Result
+                    $AllResults += $Result
                 }
             }
         }
@@ -225,7 +231,7 @@ function Invoke-ApplicationsOnStartupCheck {
         $Root = (Get-Item -Path $env:windir).PSDrive.Root
 
         # We want to check only startup applications that affect all users
-        [string[]]$FileSystemPaths = "\Users\All Users\Start Menu\Programs\Startup"
+        [string[]] $FileSystemPaths = "\Users\All Users\Start Menu\Programs\Startup"
 
         $FileSystemPaths | ForEach-Object {
 
@@ -246,7 +252,7 @@ function Invoke-ApplicationsOnStartupCheck {
                         $Shortcut = $Wsh.CreateShortcut((Resolve-Path -Path $EntryPath))
 
                         $ModifiablePaths = $Shortcut.TargetPath | Get-ModifiablePath -LiteralPaths | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
-                        if (([Object[]]$ModifiablePaths).Length -gt 0) {
+                        if (([Object[]] $ModifiablePaths).Length -gt 0) {
                             $IsModifiable = $true
                         }
                         else {
@@ -258,7 +264,7 @@ function Invoke-ApplicationsOnStartupCheck {
                         $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $EntryPath
                         $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value "$($Shortcut.TargetPath) $($Shortcut.Arguments)"
                         $Result | Add-Member -MemberType "NoteProperty" -Name "IsModifiable" -Value $IsModifiable
-                        $ArrayOfResults += $Result
+                        $AllResults += $Result
                     }
                     catch {
                         Write-Warning "$($MyInvocation.MyCommand) | Failed to create Shortcut object from path: $($EntryPath)"
@@ -267,12 +273,12 @@ function Invoke-ApplicationsOnStartupCheck {
             }
         }
 
-        $ModifiableCount = ([object[]] ($ArrayOfResults | Where-Object { $_.IsModifiable })).Count
+        $ModifiableCount = ([object[]] ($AllResults | Where-Object { $_.IsModifiable })).Count
 
-        $Result = New-Object -TypeName PSObject
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ModifiableCount -gt 0) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
-        $Result
+        $CheckResult = New-Object -TypeName PSObject
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ModifiableCount -gt 0) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult
     }
 
     end {
@@ -323,7 +329,8 @@ function Invoke-RunningProcessCheck {
     WmiPrvSE              3972 N/A               0
     #>
 
-    [CmdletBinding()] Param(
+    [CmdletBinding()]
+    param(
         [switch] $Self = $false
     )
 

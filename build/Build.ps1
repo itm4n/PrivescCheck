@@ -1,6 +1,7 @@
 function Invoke-Build {
 
-    [CmdletBinding()] param(
+    [CmdletBinding()]
+    param(
         [string] $Name,
         [switch] $NoRandomNames
     )
@@ -105,7 +106,7 @@ function Invoke-Build {
                     $RandomName = Get-Random -InputObject $Wordlist -Count 1
                     $Wordlist = $Wordlist | Where-Object { $_ -ne $RandomName }
                     $ModuleName = $RandomName.ToLower()
-                    $ModuleName = ([regex]$ModuleName[0].ToString()).Replace($ModuleName, $ModuleName[0].ToString().ToUpper(), 1)
+                    $ModuleName = ([regex] $ModuleName[0].ToString()).Replace($ModuleName, $ModuleName[0].ToString().ToUpper(), 1)
                 }
                 else {
                     # Otherwise use the filename as the module name.
@@ -178,7 +179,8 @@ function Invoke-Build {
 
 function Write-Message {
 
-    [CmdletBinding()] param(
+    [CmdletBinding()]
+    param(
         [Parameter(Position=0,Mandatory=$true)]
         [String] $Message,
         [ValidateSet("Success", "Info", "Warning", "Error")]
@@ -204,7 +206,7 @@ function Write-Message {
 }
 
 function ConvertTo-EmbeddedTextBlob {
-    param ([String] $Text)
+    param([String] $Text)
     $Compressed = ConvertTo-Gzip -InputText $Text
     [System.Convert]::ToBase64String($Compressed)
 }
@@ -212,7 +214,7 @@ function ConvertTo-EmbeddedTextBlob {
 function Get-AssetFileContent {
 
     [CmdletBinding()]
-    param (
+    param(
         [OutputType([String])]
         [Parameter(Mandatory=$true)]
         [ValidateSet("WordList", "KnownVulnerableDriverList")]
@@ -276,7 +278,7 @@ function Get-AssetFileContent {
 function Get-Wordlist {
 
     [CmdletBinding()]
-    param (
+    param(
         [UInt32] $WordLength = 8
     )
 
@@ -289,7 +291,8 @@ function Get-Wordlist {
 
 function Get-LolDrivers {
 
-    [CmdletBinding()] param()
+    [CmdletBinding()]
+    param()
 
     $LolDriversCsv = Get-AssetFileContent -Name "KnownVulnerableDriverList"
 
@@ -337,14 +340,15 @@ function Get-LolDrivers {
 function Get-ScriptLoader {
 
     [CmdletBinding()]
-    param (
+    param(
         [string[]] $Modules
     )
 
     begin {
         $LoaderBlock = @"
 function ConvertFrom-Gzip {
-    [CmdletBinding()] param([byte[]] `$Bytes)
+    [CmdletBinding()]
+    param([byte[]] `$Bytes)
     `$is = New-Object IO.MemoryStream(, `$Bytes)
     `$gs = New-Object IO.Compression.GzipStream `$is, ([IO.Compression.CompressionMode]::Decompress)
     `$sr = New-Object IO.StreamReader(`$gs)
@@ -372,7 +376,8 @@ function ConvertFrom-Gzip {
 
 function Remove-CommentsFromScriptBlock {
 
-    [CmdletBinding()] param(
+    [CmdletBinding()]
+    param(
         [String] $ScriptBlock
     )
 
@@ -403,7 +408,7 @@ function Remove-CommentsFromScriptBlock {
 function ConvertTo-Gzip {
 
     [CmdletBinding()]
-    param (
+    param(
         [string] $InputText
     )
 

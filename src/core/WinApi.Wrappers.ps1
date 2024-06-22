@@ -17,10 +17,11 @@ function Get-ProcessTokenHandle {
     #>
 
     [OutputType([IntPtr])]
-    [CmdletBinding()] Param(
-        [UInt32]$ProcessId = 0,
-        [UInt32]$ProcessAccess = $script:ProcessAccessRightsEnum::QUERY_INFORMATION,
-        [UInt32]$TokenAccess = $script:TokenAccessRightsEnum::Query
+    [CmdletBinding()]
+    param(
+        [UInt32] $ProcessId = 0,
+        [UInt32] $ProcessAccess = $script:ProcessAccessRightsEnum::QUERY_INFORMATION,
+        [UInt32] $TokenAccess = $script:TokenAccessRightsEnum::Query
     )
 
     if ($ProcessId -eq 0) {
@@ -36,8 +37,8 @@ function Get-ProcessTokenHandle {
         }
     }
 
-    [IntPtr]$TokenHandle = [IntPtr]::Zero
-    $Success = $script:Advapi32::OpenProcessToken($ProcessHandle, $TokenAccess, [ref]$TokenHandle)
+    [IntPtr] $TokenHandle = [IntPtr]::Zero
+    $Success = $script:Advapi32::OpenProcessToken($ProcessHandle, $TokenAccess, [ref] $TokenHandle)
     if (-not $Success) {
         $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
         Write-Verbose "OpenProcessToken - $([ComponentModel.Win32Exception] $LastError)"
@@ -66,24 +67,25 @@ function Get-TokenInformationData {
     #>
 
     [OutputType([IntPtr])]
-    [CmdletBinding()] Param(
+    [CmdletBinding()]
+    param(
         [Parameter(Mandatory=$true)]
-        [IntPtr]$TokenHandle,
+        [IntPtr] $TokenHandle,
         [Parameter(Mandatory=$true)]
-        [UInt32]$InformationClass
+        [UInt32] $InformationClass
     )
 
     $DataSize = 0
-    $Success = $script:Advapi32::GetTokenInformation($TokenHandle, $InformationClass, 0, $null, [ref]$DataSize)
+    $Success = $script:Advapi32::GetTokenInformation($TokenHandle, $InformationClass, 0, $null, [ref] $DataSize)
     if ($DataSize -eq 0) {
         $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
         Write-Verbose "GetTokenInformation - $([ComponentModel.Win32Exception] $LastError)"
         return
     }
 
-    [IntPtr]$DataPtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($DataSize)
+    [IntPtr] $DataPtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($DataSize)
 
-    $Success = $script:Advapi32::GetTokenInformation($TokenHandle, $InformationClass, $DataPtr, $DataSize, [ref]$DataSize)
+    $Success = $script:Advapi32::GetTokenInformation($TokenHandle, $InformationClass, $DataPtr, $DataSize, [ref] $DataSize)
     if (-not $Success) {
         $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
         Write-Verbose "GetTokenInformation - $([ComponentModel.Win32Exception] $LastError)"
@@ -131,11 +133,12 @@ function Get-TokenInformationGroup {
     Mandatory Label\Medium Mandatory Level Label          S-1-16-8192                                   Integrity, IntegrityEnabled
     #>
 
-    [CmdletBinding()] Param(
-        [UInt32]$ProcessId = 0,
+    [CmdletBinding()]
+    param(
+        [UInt32] $ProcessId = 0,
         [Parameter(Mandatory=$true)]
         [ValidateSet("Groups", "RestrictedSids", "LogonSid", "Capabilities", "DeviceGroups", "RestrictedDeviceGroups")]
-        [String]$InformationClass
+        [String] $InformationClass
     )
 
     $InformationClasses = @{
@@ -246,8 +249,9 @@ function Get-TokenInformationPrivilege {
     SeTimeZonePrivilege           Disabled Change the time zone
     #>
 
-    [CmdletBinding()] Param(
-        [UInt32]$ProcessId = 0
+    [CmdletBinding()]
+    param(
+        [UInt32] $ProcessId = 0
     )
 
     $PrivilegeDescriptions = @{
@@ -304,8 +308,8 @@ function Get-TokenInformationPrivilege {
 
         $CurrentPrivilege = [Runtime.InteropServices.Marshal]::PtrToStructure($CurrentPrivilegePtr, [type] $script:LUID_AND_ATTRIBUTES)
 
-        [UInt32]$Length = 0
-        $Success = $script:Advapi32::LookupPrivilegeName($null, [ref] $CurrentPrivilege.Luid, $null, [ref]$Length)
+        [UInt32] $Length = 0
+        $Success = $script:Advapi32::LookupPrivilegeName($null, [ref] $CurrentPrivilege.Luid, $null, [ref] $Length)
 
         if ($Length -eq 0) {
             $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
@@ -317,7 +321,7 @@ function Get-TokenInformationPrivilege {
 
         $Name = New-Object -TypeName System.Text.StringBuilder
         $Name.EnsureCapacity($Length + 1) |Out-Null
-        $Success = $script:Advapi32::LookupPrivilegeName($null, [ref] $CurrentPrivilege.Luid, $Name, [ref]$Length)
+        $Success = $script:Advapi32::LookupPrivilegeName($null, [ref] $CurrentPrivilege.Luid, $Name, [ref] $Length)
 
         if (-not $Success) {
             $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
@@ -367,8 +371,9 @@ function Get-TokenInformationIntegrityLevel {
     Mandatory Label\Medium Mandatory Level S-1-16-8192 Label
     #>
 
-    [CmdletBinding()] Param(
-        [UInt32]$ProcessId = 0
+    [CmdletBinding()]
+    param(
+        [UInt32] $ProcessId = 0
     )
 
     $TokenHandle = Get-ProcessTokenHandle -ProcessId $ProcessId -ProcessAccess $script:ProcessAccessRightsEnum::QUERY_LIMITED_INFORMATION
@@ -418,8 +423,9 @@ function Get-TokenInformationSessionId {
     #>
 
     [OutputType([Int32])]
-    [CmdletBinding()] Param(
-        [UInt32]$ProcessId = 0
+    [CmdletBinding()]
+    param(
+        [UInt32] $ProcessId = 0
     )
 
     $TokenHandle = Get-ProcessTokenHandle -ProcessId $ProcessId
@@ -465,8 +471,9 @@ function Get-TokenInformationStatistic {
     ModifiedId         : WinApiModule.LUID
     #>
 
-    [CmdletBinding()] Param(
-        [UInt32]$ProcessId = 0
+    [CmdletBinding()]
+    param(
+        [UInt32] $ProcessId = 0
     )
 
     $TokenHandle = Get-ProcessTokenHandle -ProcessId $ProcessId
@@ -505,8 +512,9 @@ function Get-TokenInformationOrigin {
     WinApiModule.LUID
     #>
 
-    [CmdletBinding()] Param(
-        [UInt32]$ProcessId = 0
+    [CmdletBinding()]
+    param(
+        [UInt32] $ProcessId = 0
     )
 
     $TokenHandle = Get-ProcessTokenHandle -ProcessId $ProcessId
@@ -545,8 +553,9 @@ function Get-TokenInformationSource {
     {85, 115, 101, 114...} WinApiModule.LUID
     #>
 
-    [CmdletBinding()] Param(
-        [UInt32]$ProcessId = 0
+    [CmdletBinding()]
+    param(
+        [UInt32] $ProcessId = 0
     )
 
     $TokenHandle = Get-ProcessTokenHandle -ProcessId $ProcessId -TokenAccess $script:TokenAccessRightsEnum::QuerySource
@@ -585,8 +594,9 @@ function Get-TokenInformationUser {
     DESKTOP-E1BRKMO\Lab-User S-1-5-21-3539966466-3447975095-3309057754-1002 User
     #>
 
-    [CmdletBinding()] Param(
-        [UInt32]$ProcessId = 0
+    [CmdletBinding()]
+    param(
+        [UInt32] $ProcessId = 0
     )
 
     $TokenHandle = Get-ProcessTokenHandle -ProcessId $ProcessId
@@ -626,14 +636,15 @@ function Get-ObjectName {
     #>
 
     [OutputType([String])]
-    [CmdletBinding()] Param(
+    [CmdletBinding()]
+    param(
         [Parameter(Mandatory=$true)]
-        [IntPtr]$ObjectHandle
+        [IntPtr] $ObjectHandle
     )
 
-    [UInt32]$DataSize = 0x1000
-    [IntPtr]$ObjectNamePtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($DataSize)
-    [UInt32]$ReturnLength = 0
+    [UInt32] $DataSize = 0x1000
+    [IntPtr] $ObjectNamePtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($DataSize)
+    [UInt32] $ReturnLength = 0
 
     while ($true) {
 
@@ -673,11 +684,12 @@ function Get-ObjectType {
     #>
 
     [OutputType([Object[]])]
-    [CmdletBinding()] Param()
+    [CmdletBinding()]
+    param()
 
-    [UInt32]$DataSize = 0x10000
-    [IntPtr]$ObjectTypesPtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($DataSize)
-    [UInt32]$ReturnLength = 0
+    [UInt32] $DataSize = 0x10000
+    [IntPtr] $ObjectTypesPtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($DataSize)
+    [UInt32] $ReturnLength = 0
 
     while ($true) {
 
@@ -743,14 +755,15 @@ function Get-SystemInformationData {
     #>
 
     [OutputType([IntPtr])]
-    [CmdletBinding()] Param(
+    [CmdletBinding()]
+    param(
         [Parameter(Mandatory=$true)]
-        [UInt32]$InformationClass
+        [UInt32] $InformationClass
     )
 
-    [UInt32]$DataSize = 0x10000
-    [IntPtr]$SystemInformationPtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($DataSize)
-    [UInt32]$ReturnLength = 0
+    [UInt32] $DataSize = 0x10000
+    [IntPtr] $SystemInformationPtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($DataSize)
+    [UInt32] $ReturnLength = 0
 
     while ($true) {
 
@@ -807,10 +820,11 @@ function Get-SystemInformationExtendedHandle {
     [...]
     #>
 
-    [CmdletBinding()] Param(
-        [Switch]$InheritedOnly = $false,
-        [UInt32]$ProcessId = 0,
-        [UInt32]$TypeIndex = 0
+    [CmdletBinding()]
+    param(
+        [Switch] $InheritedOnly = $false,
+        [UInt32] $ProcessId = 0,
+        [UInt32] $TypeIndex = 0
     )
 
     $ObjectTypes = Get-ObjectType
@@ -856,9 +870,10 @@ function Get-SystemInformationExtendedHandle {
 function Convert-PSidToStringSid {
 
     [OutputType([String])]
-    [CmdletBinding()] Param(
+    [CmdletBinding()]
+    param(
         [Parameter(Mandatory=$true)]
-        [IntPtr]$PSid
+        [IntPtr] $PSid
     )
 
     $StringSidPtr = [IntPtr]::Zero
@@ -878,9 +893,10 @@ function Convert-PSidToStringSid {
 
 function Convert-PSidToNameAndType {
 
-    [CmdletBinding()] Param(
+    [CmdletBinding()]
+    param(
         [Parameter(Mandatory=$true)]
-        [IntPtr]$PSid
+        [IntPtr] $PSid
     )
 
     $SidType = 0
@@ -893,7 +909,7 @@ function Convert-PSidToNameAndType {
     $Domain = New-Object -TypeName System.Text.StringBuilder
     $Domain.EnsureCapacity(256) | Out-Null
 
-    $Success = $script:Advapi32::LookupAccountSid($null, $PSid, $Name, [ref]$NameSize, $Domain, [ref]$DomainSize, [ref]$SidType)
+    $Success = $script:Advapi32::LookupAccountSid($null, $PSid, $Name, [ref] $NameSize, $Domain, [ref] $DomainSize, [ref] $SidType)
     if (-not $Success) {
         $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
         Write-Verbose "LookupAccountSid - $([ComponentModel.Win32Exception] $LastError)"
@@ -918,9 +934,10 @@ function Convert-PSidToNameAndType {
 function Convert-PSidToRid {
 
     [OutputType([UInt32])]
-    [CmdletBinding()] Param(
+    [CmdletBinding()]
+    param(
         [Parameter(Mandatory=$true)]
-        [IntPtr]$PSid
+        [IntPtr] $PSid
     )
 
     $SubAuthorityCountPtr = $script:Advapi32::GetSidSubAuthorityCount($PSid)
@@ -946,9 +963,10 @@ function Convert-DosDeviceToDevicePath {
     #>
 
     [OutputType([String])]
-    [CmdletBinding()] Param(
+    [CmdletBinding()]
+    param(
         [Parameter(Mandatory=$true)]
-        [String]$DosDevice
+        [String] $DosDevice
     )
 
     $TargetPathLen = 260
@@ -1004,8 +1022,9 @@ function Get-FileDacl {
     SDDL     : O:SYG:SYD:(A;;0x100003;;;BU)(A;;0x1201bb;;;WD)(A;;0x1201bb;;;AN)(A;;FA;;;CO)(A;;FA;;;SY)(A;;FA;;;BA)
     #>
 
-    [CmdletBinding()] Param(
-        [String]$Path
+    [CmdletBinding()]
+    param(
+        [String] $Path
     )
 
     $DesiredAccess = $script:FileAccessRightsEnum::ReadControl
@@ -1027,7 +1046,7 @@ function Get-FileDacl {
     $DaclPtr = [IntPtr]::Zero
     $SaclPtr = [IntPtr]::Zero
     $SecurityDescriptorPtr = [IntPtr]::Zero
-    $Result = $script:Advapi32::GetSecurityInfo($FileHandle, $ObjectType, $SecurityInfo, [ref]$SidOwnerPtr, [ref]$SidGroupPtr, [ref]$DaclPtr, [ref]$SaclPtr, [ref]$SecurityDescriptorPtr)
+    $Result = $script:Advapi32::GetSecurityInfo($FileHandle, $ObjectType, $SecurityInfo, [ref] $SidOwnerPtr, [ref] $SidGroupPtr, [ref] $DaclPtr, [ref] $SaclPtr, [ref] $SecurityDescriptorPtr)
 
     if ($Result -ne 0) {
         $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
@@ -1043,7 +1062,7 @@ function Get-FileDacl {
 
     $SecurityDescriptorString = ""
     $SecurityDescriptorStringLen = 0
-    $Success = $script:Advapi32::ConvertSecurityDescriptorToStringSecurityDescriptor($SecurityDescriptorPtr, 1, $SecurityInfo, [ref]$SecurityDescriptorString, [ref]$SecurityDescriptorStringLen)
+    $Success = $script:Advapi32::ConvertSecurityDescriptorToStringSecurityDescriptor($SecurityDescriptorPtr, 1, $SecurityInfo, [ref] $SecurityDescriptorString, [ref] $SecurityDescriptorStringLen)
 
     if (-not $Success) {
         $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
@@ -1055,7 +1074,7 @@ function Get-FileDacl {
 
     $SecurityDescriptorNewPtr = [IntPtr]::Zero
     $SecurityDescriptorNewSize = 0
-    $Success = $script:Advapi32::ConvertStringSecurityDescriptorToSecurityDescriptor($SecurityDescriptorString, 1, [ref]$SecurityDescriptorNewPtr, [ref]$SecurityDescriptorNewSize)
+    $Success = $script:Advapi32::ConvertStringSecurityDescriptorToSecurityDescriptor($SecurityDescriptorString, 1, [ref] $SecurityDescriptorNewPtr, [ref] $SecurityDescriptorNewSize)
 
     if (-not $Success) {
         $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()

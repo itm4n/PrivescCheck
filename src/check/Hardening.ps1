@@ -50,83 +50,88 @@ function Invoke-UacCheck {
     https://labs.f-secure.com/blog/enumerating-remote-access-policies-through-gpo/
     #>
 
-    [CmdletBinding()] Param(
+    [CmdletBinding()]
+    param(
         [UInt32] $BaseSeverity
     )
 
-    $ArrayOfResults = @()
-    $Vulnerable = $false
-
-    # Check whether UAC is enabled.
-    $RegKey = "HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\System"
-    $RegValue = "EnableLUA"
-    $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
-
-    if ($RegData -ge 1) {
-        $Description = "UAC is enabled."
-    } else {
-        $Description = "UAC is not enabled."
-        $Vulnerable = $true
+    begin {
+        $AllResults = @()
+        $Vulnerable = $false
     }
 
-    $Result = New-Object -TypeName PSObject
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value "$(if ($null -eq $RegData) { "(null)" } else { $RegData })"
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Vulnerable" -Value $(($null -eq $RegData) -or ($RegData -eq 0))
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
-    $ArrayOfResults += $Result
+    process {
+        # Check whether UAC is enabled.
+        $RegKey = "HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\System"
+        $RegValue = "EnableLUA"
+        $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
 
-    # If UAC is enabled, check LocalAccountTokenFilterPolicy to determine if only the built-in
-    # administrator can get a high integrity token remotely or if any local user that is a
-    # member of the Administrators group can also get one.
-    $RegKey = "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System"
-    $RegValue = "LocalAccountTokenFilterPolicy"
-    $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+        if ($RegData -ge 1) {
+            $Description = "UAC is enabled."
+        } else {
+            $Description = "UAC is not enabled."
+            $Vulnerable = $true
+        }
 
-    if ($RegData -ge 1) {
-        $Description = "Local users that are members of the Administrators group are granted a high integrity token when authenticating remotely."
-        $Vulnerable = $true
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value "$(if ($null -eq $RegData) { "(null)" } else { $RegData })"
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Vulnerable" -Value $(($null -eq $RegData) -or ($RegData -eq 0))
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+        $AllResults += $Result
+
+        # If UAC is enabled, check LocalAccountTokenFilterPolicy to determine if only the built-in
+        # administrator can get a high integrity token remotely or if any local user that is a
+        # member of the Administrators group can also get one.
+        $RegKey = "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System"
+        $RegValue = "LocalAccountTokenFilterPolicy"
+        $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+
+        if ($RegData -ge 1) {
+            $Description = "Local users that are members of the Administrators group are granted a high integrity token when authenticating remotely."
+            $Vulnerable = $true
+        }
+        else {
+            $Description = "Only the built-in Administrator account (RID 500) can be granted a high integrity token when authenticating remotely (default)."
+        }
+
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value "$(if ($null -eq $RegData) { "(null)" } else { $RegData })"
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Vulnerable" -Value $($RegData -ge 1)
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+        $AllResults += $Result
+
+        # If LocalAccountTokenFilterPolicy != 1, i.e. local admins other than RID 500 are not granted a
+        # high integrity token. However, we need to check if other restrictions apply to the built-in
+        # administrator as well.
+        $RegKey = "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System"
+        $RegValue = "FilterAdministratorToken"
+        $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+
+        if ($RegData -ge 1) {
+            $Description = "The built-in Administrator account (RID 500) is only granted a medium integrity token when authenticating remotely."
+        }
+        else {
+            $Description = "The built-in administrator account (RID 500) is granted a high integrity token when authenticating remotely (default)."
+            $Vulnerable = $true
+        }
+
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value "$(if ($null -eq $RegData) { "(null)" } else { $RegData })"
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Vulnerable" -Value $(($null -eq $RegData) -or ($RegData -eq 0))
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+        $AllResults += $Result
+
+        $CheckResult = New-Object -TypeName PSObject
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult
     }
-    else {
-        $Description = "Only the built-in Administrator account (RID 500) can be granted a high integrity token when authenticating remotely (default)."
-    }
-
-    $Result = New-Object -TypeName PSObject
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value "$(if ($null -eq $RegData) { "(null)" } else { $RegData })"
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Vulnerable" -Value $($RegData -ge 1)
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
-    $ArrayOfResults += $Result
-
-    # If LocalAccountTokenFilterPolicy != 1, i.e. local admins other than RID 500 are not granted a
-    # high integrity token. However, we need to check if other restrictions apply to the built-in
-    # administrator as well.
-    $RegKey = "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System"
-    $RegValue = "FilterAdministratorToken"
-    $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
-
-    if ($RegData -ge 1) {
-        $Description = "The built-in Administrator account (RID 500) is only granted a medium integrity token when authenticating remotely."
-    }
-    else {
-        $Description = "The built-in administrator account (RID 500) is granted a high integrity token when authenticating remotely (default)."
-        $Vulnerable = $true
-    }
-
-    $Result = New-Object -TypeName PSObject
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value "$(if ($null -eq $RegData) { "(null)" } else { $RegData })"
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Vulnerable" -Value $(($null -eq $RegData) -or ($RegData -eq 0))
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
-    $ArrayOfResults += $Result
-
-    $Result = New-Object -TypeName PSObject
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
-    $Result
 }
 
 function Invoke-LapsCheck {
@@ -144,13 +149,14 @@ function Invoke-LapsCheck {
     https://learn.microsoft.com/en-us/windows-server/identity/laps/laps-management-policy-settings
     #>
 
-    [CmdletBinding()] Param(
+    [CmdletBinding()]
+    param(
         [UInt32] $BaseSeverity
     )
 
     begin {
         function New-LapsSettingObject {
-            param ($Name, $Policy, $Default, $Description)
+            param($Name, $Policy, $Default, $Description)
             $Item = New-Object -TypeName PSObject
             $Item | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $Name
             $Item | Add-Member -MemberType "NoteProperty" -Name "Policy" -Value "LAPS > $($Policy)"
@@ -310,10 +316,10 @@ function Invoke-LapsCheck {
             }
         }
 
-        $Result = New-Object -TypeName PSObject
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $LapsResult
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
-        $Result
+        $CheckResult = New-Object -TypeName PSObject
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $LapsResult
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult
     }
 }
 
@@ -350,7 +356,8 @@ function Invoke-PowershellTranscriptionCheck {
     Set an output directory and set the policy as Enabled
     #>
 
-    [CmdletBinding()] Param()
+    [CmdletBinding()]
+    param()
 
     $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows\PowerShell\Transcription"
     $RegItem = Get-ItemProperty -Path "Registry::$($RegKey)" -ErrorAction SilentlyContinue
@@ -389,7 +396,8 @@ function Invoke-BitLockerCheck {
                         is 'TPM only'.
     #>
 
-    [CmdletBinding()] Param(
+    [CmdletBinding()]
+    param(
         [UInt32] $BaseSeverity
     )
 
@@ -451,10 +459,10 @@ function Invoke-BitLockerCheck {
 
         $Config | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
 
-        $Result = New-Object -TypeName PSObject
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Config
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $Severity } else { $script:SeverityLevelEnum::None })
-        $Result
+        $CheckResult = New-Object -TypeName PSObject
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Config
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $Severity } else { $script:SeverityLevelEnum::None })
+        $CheckResult
     }
 }
 
@@ -478,17 +486,18 @@ function Invoke-LsaProtectionCheck {
     Description : LSA protection is not enabled.
     #>
 
-    [CmdletBinding()] Param(
+    [CmdletBinding()]
+    param(
         [UInt32] $BaseSeverity
     )
 
-    BEGIN {
+    begin {
         $RegKey = "HKLM\SYSTEM\CurrentControlSet\Control\Lsa"
         $RegValue = "RunAsPPL"
         $OsVersion = Get-WindowsVersion
     }
 
-    PROCESS {
+    process {
         $Vulnerable = $false
 
         if (-not ($OsVersion.Major -ge 10 -or (($OsVersion.Major -eq 6) -and ($OsVersion.Minor -ge 3)))) {
@@ -513,10 +522,10 @@ function Invoke-LsaProtectionCheck {
         $Config | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
         $Config | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
 
-        $Result = New-Object -TypeName PSObject
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Config
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
-        $Result
+        $CheckResult = New-Object -TypeName PSObject
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Config
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult
     }
 }
 
@@ -550,7 +559,8 @@ function Invoke-CredentialGuardCheck {
     https://learn.microsoft.com/en-us/windows/security/identity-protection/credential-guard/credential-guard-manage
     #>
 
-    [CmdletBinding()] Param(
+    [CmdletBinding()]
+    param(
         [UInt32] $BaseSeverity
     )
 
@@ -637,10 +647,10 @@ function Invoke-CredentialGuardCheck {
         $Config | Add-Member -MemberType "NoteProperty" -Name "LsaCfgFlagsData" -Value $(if ($null -eq $LsaCfgFlagsData) { "(null)" } else { $LsaCfgFlagsData })
         $Config | Add-Member -MemberType "NoteProperty" -Name "LsaCfgFlagsDescription" -Value $(if ($null -eq $LsaCfgFlagsDescription) { "(null)" } else { $LsaCfgFlagsDescription })
 
-        $Result = New-Object -TypeName PSObject
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Config
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
-        $Result
+        $CheckResult = New-Object -TypeName PSObject
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Config
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult
     }
 }
 
@@ -664,39 +674,43 @@ function Invoke-BiosModeCheck {
     Secure Boot       True Secure Boot is not enabled.
     #>
 
-    [CmdletBinding()] Param(
+    [CmdletBinding()]
+    param(
         [UInt32] $BaseSeverity
     )
 
-    $Vulnerable = $false
-
-    $Uefi = Get-UEFIStatus
-    $SecureBoot = Get-SecureBootStatus
-
-    # If BIOS mode is not set to UEFI or if Secure Boot is not enabled, consider
-    # the machine is vulnerable.
-    if (($Uefi.Status -eq $false) -or ($SecureBoot.Data -eq 0)) {
-        $Vulnerable = $true
+    begin {
+        $AllResults = @()
+        $Vulnerable = $false
     }
 
-    $ArrayOfResults = @()
+    process {
+        $Uefi = Get-UEFIStatus
+        $SecureBoot = Get-SecureBootStatus
 
-    $ConfigItem = New-Object -TypeName PSObject
-    $ConfigItem | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $Uefi.Name
-    $ConfigItem | Add-Member -MemberType "NoteProperty" -Name "Vulnerable" -Value ($Uefi.Status -eq $false)
-    $ConfigItem | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Uefi.Description
-    $ArrayOfResults += $ConfigItem
+        # If BIOS mode is not set to UEFI or if Secure Boot is not enabled, consider
+        # the machine is vulnerable.
+        if (($Uefi.Status -eq $false) -or ($SecureBoot.Data -eq 0)) {
+            $Vulnerable = $true
+        }
 
-    $ConfigItem = New-Object -TypeName PSObject
-    $ConfigItem | Add-Member -MemberType "NoteProperty" -Name "Name" -Value "Secure Boot"
-    $ConfigItem | Add-Member -MemberType "NoteProperty" -Name "Vulnerable" -Value ($SecureBoot.Data -eq 0)
-    $ConfigItem | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $SecureBoot.Description
-    $ArrayOfResults += $ConfigItem
+        $ConfigItem = New-Object -TypeName PSObject
+        $ConfigItem | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $Uefi.Name
+        $ConfigItem | Add-Member -MemberType "NoteProperty" -Name "Vulnerable" -Value ($Uefi.Status -eq $false)
+        $ConfigItem | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Uefi.Description
+        $AllResults += $ConfigItem
 
-    $Result = New-Object -TypeName PSObject
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
-    $Result
+        $ConfigItem = New-Object -TypeName PSObject
+        $ConfigItem | Add-Member -MemberType "NoteProperty" -Name "Name" -Value "Secure Boot"
+        $ConfigItem | Add-Member -MemberType "NoteProperty" -Name "Vulnerable" -Value ($SecureBoot.Data -eq 0)
+        $ConfigItem | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $SecureBoot.Description
+        $AllResults += $ConfigItem
+
+        $CheckResult = New-Object -TypeName PSObject
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult
+    }
 }
 
 function Invoke-AppLockerCheck {
@@ -718,13 +732,9 @@ function Invoke-AppLockerCheck {
     #>
 
     [CmdletBinding()]
-    param (
+    param(
         [UInt32] $BaseSeverity
     )
-
-    begin {
-        $Result = New-Object -TypeName PSObject
-    }
 
     process {
         $AppLockerPolicy = [object[]] (Get-AppLockerPolicyInternal -FilterLevel 0)
@@ -744,12 +754,10 @@ function Invoke-AppLockerCheck {
         $AppLockerConfigured | Add-Member -MemberType "NoteProperty" -Name "RuleCount" -Value $RuleCount
         $AppLockerConfigured | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
 
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AppLockerConfigured
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
-    }
-
-    end {
-        $Result
+        $CheckResult = New-Object -TypeName PSObject
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AppLockerConfigured
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult
     }
 }
 
@@ -784,25 +792,19 @@ function Invoke-AppLockerPolicyCheck {
     #>
 
     [CmdletBinding()]
-    param (
+    param(
         [UInt32] $BaseSeverity
     )
-
-    begin {
-        $Result = New-Object -TypeName PSObject
-    }
 
     process {
         # Find AppLocker rules that can be bypassed, with a likelihood of
         # exploitation from low to high.
         $AppLockerPolicy = Get-AppLockerPolicyInternal -FilterLevel 1 | Sort-Object -Property "Level" -Descending | Select-Object -Property "*" -ExcludeProperty "Level"
 
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AppLockerPolicy
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AppLockerPolicy) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
-    }
-
-    end {
-        $Result
+        $CheckResult = New-Object -TypeName PSObject
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AppLockerPolicy
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AppLockerPolicy) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult
     }
 }
 
@@ -829,7 +831,7 @@ function Invoke-FileExtensionAssociationsCheck {
     #>
 
     [CmdletBinding()]
-    param (
+    param(
         [UInt32] $BaseSeverity
     )
 
@@ -856,10 +858,10 @@ function Invoke-FileExtensionAssociationsCheck {
             }
         }
 
-        $Result = New-Object -TypeName PSObject
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $VulnerableAssociations
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($VulnerableAssociations.Count) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
-        $Result
+        $CheckResult = New-Object -TypeName PSObject
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $VulnerableAssociations
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($VulnerableAssociations.Count) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult
     }
 }
 
@@ -879,7 +881,7 @@ function Invoke-HiddenFilenameExtensionsCheck {
     #>
 
     [CmdletBinding()]
-    param (
+    param(
         [UInt32] $BaseSeverity
     )
 
@@ -906,10 +908,10 @@ function Invoke-HiddenFilenameExtensionsCheck {
         $Config | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
         $Config | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
 
-        $Result = New-Object -TypeName PSObject
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Config
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($IsVulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
-        $Result
+        $CheckResult = New-Object -TypeName PSObject
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Config
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($IsVulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult
     }
 }
 
@@ -926,15 +928,12 @@ function Invoke-PowerShellExecutionPolicyCheck {
     #>
 
     [CmdletBinding()]
-    param (
+    param(
         [UInt32] $BaseSeverity
     )
 
     begin {
-        $Severity = $script:SeverityLevelEnum::None
-        $Result = New-Object -TypeName PSObject
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $null
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $Severity
+        $Vulnerable = $false
     }
 
     process {
@@ -947,23 +946,21 @@ function Invoke-PowerShellExecutionPolicyCheck {
             $PolicyResult = Get-EnforcedPowerShellExecutionPolicy
 
             if ($null -eq $PolicyResult) {
-                $Severity = $BaseSeverity
+                $Vulnerable = $true
                 $PolicyResult = New-Object -TypeName PSObject
                 $PolicyResult | Add-Member -MemberType "NoteProperty" -Name "Description" -Value "No PowerShell execution policy is enforced."
             }
             else {
                 if ($PolicyResult.ExecutionPolicy -eq "Unrestricted") {
-                    $Severity = $BaseSeverity
+                    $Vulnerable = $true
                 }
             }
         }
 
-        $Result.Result = $PolicyResult
-        $Result.Severity = $Severity
-    }
-
-    end {
-        $Result
+        $CheckResult = New-Object -TypeName PSObject
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $PolicyResult
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult
     }
 }
 
@@ -993,7 +990,7 @@ function Invoke-AttackSurfaceReductionRuleCheck {
     #>
 
     [CmdletBinding()]
-    param ()
+    param()
 
     process {
         Get-AttackSurfaceReductionRule | Where-Object { ($null -ne $_.State) -and ($_.State -ne 0) }

@@ -1,14 +1,15 @@
 function Convert-CredentialBlobToString {
 
-    [CmdletBinding()] Param(
+    [CmdletBinding()]
+    param(
         [Parameter(Position = 1, Mandatory=$true)]
-        [Object]$RawObject # CREDENTIAL
+        [Object] $RawObject # CREDENTIAL
     )
 
     if (-not ($RawObject.CredentialBlobSize -eq 0)) {
 
         $TestFlags = 2 # IS_TEXT_UNICODE_STATISTICS
-        $IsUnicode = $script:Advapi32::IsTextUnicode($RawObject.CredentialBlob, $RawObject.CredentialBlobSize, [ref]$TestFlags)
+        $IsUnicode = $script:Advapi32::IsTextUnicode($RawObject.CredentialBlob, $RawObject.CredentialBlobSize, [ref] $TestFlags)
 
         if ($IsUnicode) {
             Write-Verbose "Encoding of input text is UNICODE"
@@ -73,15 +74,17 @@ function Get-UnattendSensitiveData {
     /!\ UNICODE encoding!
     #>
 
-    [CmdletBinding()]Param(
+    [CmdletBinding()]
+    param(
         [Parameter(Mandatory=$true)]
-        [String]$Path
+        [String] $Path
     )
 
     function Get-DecodedPassword {
 
-        [CmdletBinding()]Param(
-            [Object]$XmlNode
+        [CmdletBinding()]
+        param(
+            [Object] $XmlNode
         )
 
         if ($XmlNode.GetType().Name -eq "string") {
@@ -184,14 +187,15 @@ function Get-VaultCredential {
     Credential : dBa2F06TTsrvSeLbyoW8
     #>
 
-    [CmdletBinding()] Param(
-        [Switch]$Filtered = $false
+    [CmdletBinding()]
+    param(
+        [Switch] $Filtered = $false
     )
 
     # CRED_ENUMERATE_ALL_CREDENTIALS = 0x1
     $Count = 0;
     $CredentialsPtr = [IntPtr]::Zero
-    $Success = $script:Advapi32::CredEnumerate([IntPtr]::Zero, 1, [ref]$Count, [ref]$CredentialsPtr)
+    $Success = $script:Advapi32::CredEnumerate([IntPtr]::Zero, 1, [ref] $Count, [ref] $CredentialsPtr)
     $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
 
     if ($Success) {
@@ -235,13 +239,15 @@ function Get-VaultCredential {
 
 function Get-VaultList {
 
-    [CmdletBinding()] Param(
+    [CmdletBinding()]
+    param(
         [Switch]
         $Filtered = $false
     )
 
     function Get-VaultNameFromGuid {
-        [CmdletBinding()] Param(
+        [CmdletBinding()]
+        param(
             [Guid] $VaultGuid
         )
 
@@ -266,9 +272,9 @@ function Get-VaultList {
         [OutputType([Int16])]
         [OutputType([Int32])]
         [OutputType([String])]
-        [CmdletBinding()] Param(
-            [IntPtr]
-            $VaultItemElementPtr
+        [CmdletBinding()]
+        param(
+            [IntPtr] $VaultItemElementPtr
         )
 
         if ($VaultItemElementPtr -eq [IntPtr]::Zero) {
@@ -357,7 +363,7 @@ function Get-VaultList {
 
     $VaultsCount = 0
     $VaultGuids = [IntPtr]::Zero
-    $Result = $script:Vaultcli::VaultEnumerateVaults(0, [ref]$VaultsCount, [ref]$VaultGuids)
+    $Result = $script:Vaultcli::VaultEnumerateVaults(0, [ref] $VaultsCount, [ref] $VaultGuids)
 
     if ($Result -eq 0) {
 
@@ -372,7 +378,7 @@ function Get-VaultList {
             Write-Verbose "Vault: $($VaultGuid) - $($VaultName)"
 
             $VaultHandle = [IntPtr]::Zero
-            $Result = $script:Vaultcli::VaultOpenVault($VaultGuidPtr, 0, [ref]$VaultHandle)
+            $Result = $script:Vaultcli::VaultOpenVault($VaultGuidPtr, 0, [ref] $VaultHandle)
 
             if ($Result -eq 0) {
 
@@ -380,7 +386,7 @@ function Get-VaultList {
 
                 $VaultItemsCount = 0
                 $ItemsPtr = [IntPtr]::Zero
-                $Result = $script:Vaultcli::VaultEnumerateItems($VaultHandle, 0x0200, [ref]$VaultItemsCount, [ref]$ItemsPtr)
+                $Result = $script:Vaultcli::VaultEnumerateItems($VaultHandle, 0x0200, [ref] $VaultItemsCount, [ref] $ItemsPtr)
 
                 $VaultItemPtr = $ItemsPtr
 
@@ -408,12 +414,12 @@ function Get-VaultList {
                             if ($OSVersion.Major -le 6 -and $OSVersion.Minor -le 1) {
                                 # Windows 7
                                 $PasswordItemPtr = [IntPtr]::Zero
-                                $Result = $script:Vaultcli::VaultGetItem7($VaultHandle, [ref]$VaultItem.SchemaId, $VaultItem.Resource, $VaultItem.Identity, [IntPtr]::Zero, 0, [ref]$PasswordItemPtr)
+                                $Result = $script:Vaultcli::VaultGetItem7($VaultHandle, [ref] $VaultItem.SchemaId, $VaultItem.Resource, $VaultItem.Identity, [IntPtr]::Zero, 0, [ref] $PasswordItemPtr)
                             }
                             else {
                                 # Windows 8+
                                 $PasswordItemPtr = [IntPtr]::Zero
-                                $Result = $script:Vaultcli::VaultGetItem8($VaultHandle, [ref]$VaultItem.SchemaId, $VaultItem.Resource, $VaultItem.Identity, $VaultItem.PackageSid, [IntPtr]::Zero, 0, [ref]$PasswordItemPtr)
+                                $Result = $script:Vaultcli::VaultGetItem8($VaultHandle, [ref] $VaultItem.SchemaId, $VaultItem.Resource, $VaultItem.Identity, $VaultItem.PackageSid, [IntPtr]::Zero, 0, [ref] $PasswordItemPtr)
                             }
 
                             if ($Result -eq 0) {
@@ -450,7 +456,7 @@ function Get-VaultList {
                     Write-Verbose "VaultEnumerateItems() failed - Err: 0x$($Result.ToString('X8'))"
                 }
 
-                $script:Vaultcli::VaultCloseVault([ref]$VaultHandle) | Out-Null
+                $script:Vaultcli::VaultCloseVault([ref] $VaultHandle) | Out-Null
             }
             else {
                 Write-Verbose "VaultOpenVault() failed - Err: 0x$($Result.ToString('X8'))"
@@ -484,11 +490,12 @@ function Get-ShadowCopy {
     Path   : \\?\GLOBALROOT\Device\HarddiskVolumeShadowCopy2
     #>
 
-    [CmdletBinding()] Param()
+    [CmdletBinding()]
+    param()
 
     $ObjectName = "\Device"
     $ObjectNameBuffer = [Activator]::CreateInstance($script:UNICODE_STRING)
-    $script:Ntdll::RtlInitUnicodeString([ref]$ObjectNameBuffer, $ObjectName) | Out-Null
+    $script:Ntdll::RtlInitUnicodeString([ref] $ObjectNameBuffer, $ObjectName) | Out-Null
 
     $ObjectAttributes = [Activator]::CreateInstance($script:OBJECT_ATTRIBUTES)
     $ObjectAttributes.Length = $script:OBJECT_ATTRIBUTES::GetSize()
@@ -502,7 +509,7 @@ function Get-ShadowCopy {
 
     $ObjectHandle = [IntPtr]::Zero
 
-    $Status = $script:Ntdll::NtOpenDirectoryObject([ref]$ObjectHandle, 3, [ref]$ObjectAttributes)
+    $Status = $script:Ntdll::NtOpenDirectoryObject([ref] $ObjectHandle, 3, [ref] $ObjectAttributes)
 
     if ($Status -ne 0) {
         $LastError = $script:Ntdll::RtlNtStatusToDosError($Status)
@@ -521,7 +528,7 @@ function Get-ShadowCopy {
 
     while ($true) {
 
-        $Status = $script:Ntdll::NtQueryDirectoryObject($ObjectHandle, $Buffer, $BufferSize, $true, $Context -eq 0, [ref]$Context, [ref]$Length)
+        $Status = $script:Ntdll::NtQueryDirectoryObject($ObjectHandle, $Buffer, $BufferSize, $true, $Context -eq 0, [ref] $Context, [ref] $Length)
 
         if ($Status -ne 0) { break }
 
@@ -565,7 +572,7 @@ function Find-WmiCcmNaaCredential {
     #>
 
     [CmdletBinding()]
-    param (
+    param(
         [string] $Path
     )
 
@@ -652,16 +659,14 @@ function Find-SccmCacheFileCredential {
     #>
 
     [CmdletBinding()]
-    param ()
+    param()
 
     begin {
         $Keywords = @( "password", "SecureString", "secret", "pwd", "token", "username" )
         $CredentialSearchPattern = "($($Keywords -join '|'))"
 
         function Get-MatchedKeyword {
-            param (
-                [string] $InputMatched
-            )
+            param([string] $InputMatched)
             $KeywordMatched = $null
             foreach ($Keyword in $Keywords) {
                 $KeywordMatch = $InputMatched | Select-String -Pattern $Keyword

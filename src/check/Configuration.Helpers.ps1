@@ -11,7 +11,7 @@ function Get-SccmCacheFoldersFromRegistry {
     #>
 
     [CmdletBinding()]
-    param ()
+    param()
 
     begin {
         $SoftwareDistributionKey = "HKLM\SOFTWARE\Microsoft\SMS\Mobile Client\Software Distribution"
@@ -52,7 +52,7 @@ function Get-SccmCacheFile {
     #>
 
     [CmdletBinding()]
-    param (
+    param(
         [string] $Path
     )
 
@@ -110,9 +110,7 @@ function Get-SccmCacheFile {
 function Get-ProxyAutoConfigURl {
 
     [CmdletBinding()]
-    param (
-
-    )
+    param()
 
     begin {
         $RegKeys = @(
@@ -169,7 +167,7 @@ function Get-WindowsDefenderExclusion {
     #>
 
     [CmdletBinding()]
-    param (
+    param(
         [ValidateSet("Registry", "EventLog")]
         [string] $Source = "Registry"
     )
@@ -287,7 +285,7 @@ function Get-SmbConfiguration {
     #>
 
     [CmdletBinding()]
-    param (
+    param(
         [Parameter(Mandatory=$true)]
         [ValidateSet("Server", "Client")]
         [string] $Role

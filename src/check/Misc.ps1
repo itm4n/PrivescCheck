@@ -31,14 +31,15 @@ function Get-RemoteDesktopUserSessionList {
     FarmName    :
     #>
 
-    [CmdletBinding()] Param()
+    [CmdletBinding()]
+    param()
 
     $Level = 1
     $SessionInfoListPtr = [IntPtr] 0
     $SessionInfoCount = [UInt32] 0
 
-    $Success = $script:Wtsapi32::WTSEnumerateSessionsEx(0, [ref]$Level, 0, [ref]$SessionInfoListPtr, [ref]$SessionInfoCount)
-    Write-Verbose "WTSEnumerateSessionsEx: $($Success) | Count: $($SessionInfoCount) | List: 0x$('{0:x16}' -f [Int64]$SessionInfoListPtr)"
+    $Success = $script:Wtsapi32::WTSEnumerateSessionsEx(0, [ref] $Level, 0, [ref] $SessionInfoListPtr, [ref] $SessionInfoCount)
+    Write-Verbose "WTSEnumerateSessionsEx: $($Success) | Count: $($SessionInfoCount) | List: 0x$('{0:x16}' -f [Int64] $SessionInfoListPtr)"
 
     if (-not $Success) {
         $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
@@ -85,7 +86,8 @@ function Invoke-SystemInfoCheck {
     https://techthoughts.info/windows-version-numbers/
     #>
 
-    [CmdletBinding()] Param()
+    [CmdletBinding()]
+    param()
 
     $OsVersion = Get-WindowsVersion
 
@@ -150,8 +152,9 @@ function Invoke-SystemStartupHistoryCheck {
     Event ID 6005: The Event log service was started, i.e. system startup theoretically.
     #>
 
-    [CmdletBinding()] Param(
-        [Int]$TimeSpanInDays = 31
+    [CmdletBinding()]
+    param(
+        [Int] $TimeSpanInDays = 31
     )
 
     try {
@@ -170,7 +173,7 @@ function Invoke-SystemStartupHistoryCheck {
             $Result | Add-Member -MemberType "NoteProperty" -Name "Index" -Value $EventNumber
             $Result | Add-Member -MemberType "NoteProperty" -Name "Time" -Value "$(Convert-DateToString -Date $Event.TimeGenerated)"
 
-            [void]$SystemStartupHistoryResult.Add($Result)
+            [void] $SystemStartupHistoryResult.Add($Result)
             $EventNumber += 1
         }
 
@@ -202,7 +205,8 @@ function Invoke-SystemDrivesCheck {
     E:\              DATA
     #>
 
-    [CmdletBinding()] Param()
+    [CmdletBinding()]
+    param()
 
     $Drives = Get-PSDrive -PSProvider "FileSystem"
 
@@ -238,7 +242,8 @@ function Invoke-LocalAdminGroupCheck {
     S-1-5-32-544 = SID of the local admin group
     #>
 
-    [CmdletBinding()] Param()
+    [CmdletBinding()]
+    param()
 
     $LocalAdminGroupFullname = ([Security.Principal.SecurityIdentifier]"S-1-5-32-544").Translate([Security.Principal.NTAccount]).Value
     $LocalAdminGroupName = $LocalAdminGroupFullname.Split('\')[1]
@@ -315,7 +320,8 @@ function Invoke-UsersHomeFolderCheck {
     C:\Users\Public        True  True
     #>
 
-    [CmdletBinding()] Param()
+    [CmdletBinding()]
+    param()
 
     $UsersHomeFolder = Join-Path -Path $((Get-Item $env:windir).Root) -ChildPath Users
 
@@ -331,7 +337,7 @@ function Invoke-UsersHomeFolderCheck {
             $ReadAccess = $true
 
             $ModifiablePaths = $FolderPath | Get-ModifiablePath -LiteralPaths
-            if (([Object[]]$ModifiablePaths).Length -gt 0) {
+            if (([Object[]] $ModifiablePaths).Length -gt 0) {
                 $WriteAccess = $true
             }
         }
@@ -368,7 +374,8 @@ function Invoke-MachineRoleCheck {
     ServerNT = server
     #>
 
-    [CmdletBinding()] Param()
+    [CmdletBinding()]
+    param()
 
     Get-MachineRole
 }
@@ -419,7 +426,8 @@ function Invoke-EndpointProtectionCheck {
     Credit goes to PwnDexter: https://github.com/PwnDexter/Invoke-EDRChecker
     #>
 
-    [CmdletBinding()] Param()
+    [CmdletBinding()]
+    param()
 
     $Signatures = @{
         "AMSI"                          = "amsi.dll"
@@ -459,8 +467,8 @@ function Invoke-EndpointProtectionCheck {
 
     function Find-ProtectionSoftware {
 
-        Param(
-            [Object]$Object
+        param(
+            [Object] $Object
         )
 
         $Signatures.Keys | ForEach-Object {
@@ -592,22 +600,24 @@ function Invoke-HijackableDllsCheck {
     https://www.reddit.com/r/hacking/comments/b0lr05/a_few_binary_plating_0days_for_windows/
     #>
 
-    [CmdletBinding()] Param()
+    [CmdletBinding()]
+    param()
 
     function Test-DllExistence {
 
         [OutputType([Boolean])]
-        [CmdletBinding()] Param(
-            [String]$Name
+        [CmdletBinding()]
+        param(
+            [String] $Name
         )
 
         $WindowsDirectories = New-Object System.Collections.ArrayList
-        [void]$WindowsDirectories.Add($(Join-Path -Path $env:windir -ChildPath "System32"))
-        [void]$WindowsDirectories.Add($(Join-Path -Path $env:windir -ChildPath "SysNative"))
-        [void]$WindowsDirectories.Add($(Join-Path -Path $env:windir -ChildPath "System"))
-        [void]$WindowsDirectories.Add($env:windir)
+        [void] $WindowsDirectories.Add($(Join-Path -Path $env:windir -ChildPath "System32"))
+        [void] $WindowsDirectories.Add($(Join-Path -Path $env:windir -ChildPath "SysNative"))
+        [void] $WindowsDirectories.Add($(Join-Path -Path $env:windir -ChildPath "System"))
+        [void] $WindowsDirectories.Add($env:windir)
 
-        foreach ($WindowsDirectory in [String[]]$WindowsDirectories) {
+        foreach ($WindowsDirectory in [String[]] $WindowsDirectories) {
             $Path = Join-Path -Path $WindowsDirectory -ChildPath $Name
             $null = Get-Item -Path $Path -ErrorAction SilentlyContinue -ErrorVariable ErrorGetItem
             if (-not $ErrorGetItem) {
@@ -619,12 +629,13 @@ function Invoke-HijackableDllsCheck {
 
     function Test-HijackableDll {
 
-        [CmdletBinding()] param (
-            [String]$ServiceName,
-            [String]$DllName,
-            [String]$Description,
-            [Boolean]$RebootRequired = $true,
-            [String]$Link
+        [CmdletBinding()]
+        param (
+            [String] $ServiceName,
+            [String] $DllName,
+            [String] $Description,
+            [Boolean] $RebootRequired = $true,
+            [String] $Link
         )
 
         $Service = Get-ServiceFromRegistry -Name $ServiceName
@@ -694,7 +705,8 @@ function Invoke-NamedPipePermissionsCheck {
     An example
     #>
 
-    [CmdletBinding()] Param()
+    [CmdletBinding()]
+    param()
 
     $UserIdentity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
     $CurrentUserSids = Get-CurrentUserSid
@@ -779,7 +791,8 @@ function Invoke-UserSessionListCheck {
     RDP-Tcp#3   SANDBOX\Administrator  3       Active
     #>
 
-    [CmdletBinding()] Param()
+    [CmdletBinding()]
+    param()
 
     foreach ($Session in (Get-RemoteDesktopUserSessionList)) {
 
@@ -838,7 +851,8 @@ function Invoke-ExploitableLeakedHandlesCheck {
     https://github.com/lab52io/LeakedHandlesFinder/
     #>
 
-    [CmdletBinding()] Param()
+    [CmdletBinding()]
+    param()
 
     $CandidateHandles = Get-SystemInformationExtendedHandle -InheritedOnly | Where-Object { $_.UniqueProcessId -ne $Pid }
     $ProcessHandles = @{}
@@ -898,7 +912,7 @@ function Invoke-ExploitableLeakedHandlesCheck {
         $KeepHandle = $false
 
         $DUPLICATE_SAME_ACCESS = 2
-        [IntPtr]$HandleDup = [IntPtr]::Zero
+        [IntPtr] $HandleDup = [IntPtr]::Zero
         if ($script:Kernel32::DuplicateHandle($ProcessHandles[$HandleProcessId], $Handle.HandleValue, $script:Kernel32::GetCurrentProcess(), [ref] $HandleDup, 0, $false, $DUPLICATE_SAME_ACCESS)) {
 
             if (($Handle.GrantedAccess -ne 0x0012019f) -and ($Handle.GrantedAccess -ne 0x1A019F) -and ($Handle.GrantedAccess -ne 0x1048576f) -and ($Handle.GrantedAccess -ne 0x120189)) {

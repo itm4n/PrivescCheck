@@ -17,7 +17,8 @@ function Invoke-WindowsUpdateCheck {
     2020-01-12 - 09:17:37
     #>
 
-    [CmdletBinding()] Param()
+    [CmdletBinding()]
+    param()
 
     try {
         $WindowsUpdate = (New-Object -ComObject "Microsoft.Update.AutoUpdate").Results
@@ -63,7 +64,8 @@ function Invoke-HotFixCheck {
     https://p0w3rsh3ll.wordpress.com/2012/10/25/getting-windows-updates-installation-history/
     #>
 
-    [CmdletBinding()] param(
+    [CmdletBinding()]
+    param(
         [UInt32] $BaseSeverity
     )
 
@@ -123,9 +125,9 @@ function Invoke-HotFixCheck {
             }
         }
 
-        $Result = New-Object -TypeName PSObject
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $HotFixListSorted
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
-        $Result
+        $CheckResult = New-Object -TypeName PSObject
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $HotFixListSorted
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult
     }
 }

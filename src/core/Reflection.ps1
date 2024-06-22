@@ -17,7 +17,7 @@ function New-DynamicModule {
     #>
 
     [CmdletBinding()]
-    Param (
+    param(
         [String]
         $ModuleName = [Guid]::NewGuid().ToString()
     )
@@ -94,7 +94,7 @@ function New-Enum {
     #>
 
     [OutputType([Type])]
-    Param (
+    param(
         [Parameter(Position = 0, Mandatory = $true)]
         [ValidateScript( { ($_ -is [Reflection.Emit.ModuleBuilder]) -or ($_ -is [Reflection.Assembly]) })]
         $Module,
@@ -141,7 +141,7 @@ function New-Enum {
 
 # A helper function used to reduce typing while defining struct fields.
 function New-StructureField {
-    Param (
+    param(
         [Parameter(Position = 0, Mandatory = $true)]
         [UInt16]
         $Position,
@@ -231,7 +231,7 @@ function New-Structure {
     #>
 
     [OutputType([Type])]
-    Param (
+    param(
         [Parameter(Position = 1, Mandatory = $true)]
         [ValidateScript( { ($_ -is [Reflection.Emit.ModuleBuilder]) -or ($_ -is [Reflection.Assembly]) })]
         $Module,
@@ -351,7 +351,7 @@ function New-Structure {
 # A helper function used to reduce typing while defining function
 # prototypes for Add-Win32Type.
 function New-Function {
-    Param (
+    param(
         [Parameter(Position = 0, Mandatory = $true)]
         [String]
         $DllName,
@@ -460,7 +460,7 @@ function Add-Win32Type {
     #>
 
     [OutputType([Hashtable])]
-    Param(
+    param(
         [Parameter(Mandatory = $true, ValueFromPipelineByPropertyName = $true)]
         [String]
         $DllName,
@@ -502,11 +502,11 @@ function Add-Win32Type {
         $Namespace = ''
     )
 
-    BEGIN {
+    begin {
         $TypeHash = @{}
     }
 
-    PROCESS {
+    process {
         if ($Module -is [Reflection.Assembly]) {
             if ($Namespace) {
                 $TypeHash[$DllName] = $Module.GetType("$Namespace.$DllName")

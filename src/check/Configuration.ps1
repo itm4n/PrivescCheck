@@ -7,7 +7,8 @@ function Get-SccmCacheFolder {
     License: BSD 3-Clause
     #>
 
-    [CmdletBinding()] Param()
+    [CmdletBinding()]
+    param()
 
     $CcmCachePath = Join-Path -Path $env:windir -ChildPath "CCMCache"
     Get-Item -Path $CcmCachePath -ErrorAction SilentlyContinue | Select-Object -Property FullName,Attributes,Exists
@@ -25,7 +26,8 @@ function Get-PointAndPrintConfiguration {
     This cmdlet retrieves information about the Point and Print configuration, and checks whether each setting is considered as compliant depending on its value.
     #>
 
-    [CmdletBinding()] param()
+    [CmdletBinding()]
+    param()
 
     begin {
         $NoWarningNoElevationOnInstallDescriptions = @(
@@ -269,7 +271,8 @@ function Invoke-RegistryAlwaysInstallElevatedCheck {
     Description       : AlwaysInstallElevated is enabled in both HKLM and HKCU.
     #>
 
-    [CmdletBinding()] Param(
+    [CmdletBinding()]
+    param(
         [UInt32] $BaseSeverity
     )
 
@@ -310,10 +313,10 @@ function Invoke-RegistryAlwaysInstallElevatedCheck {
 
     $Config | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
 
-    $Result = New-Object -TypeName PSObject
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Config
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
-    $Result
+    $CheckResult = New-Object -TypeName PSObject
+    $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Config
+    $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+    $CheckResult
 }
 
 function Invoke-WsusConfigCheck {
@@ -347,66 +350,71 @@ function Invoke-WsusConfigCheck {
     https://github.com/GoSecure/wsuspicious
     #>
 
-    [CmdletBinding()] Param(
+    [CmdletBinding()]
+    param(
         [UInt32] $BaseSeverity
     )
 
-    $Vulnerable = $true
-    $ArrayOfResults = @()
+    begin {
+        $Vulnerable = $true
+        $AllResults = @()
+    }
 
-    $RegKey = "HKLM\Software\Policies\Microsoft\Windows\WindowsUpdate"
-    $RegValue = "WUServer"
-    $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+    process {
+        $RegKey = "HKLM\Software\Policies\Microsoft\Windows\WindowsUpdate"
+        $RegValue = "WUServer"
+        $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
 
-    $Item = New-Object -TypeName PSObject
-    $Item | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
-    $Item | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
-    $Item | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ([string]::IsNullOrEmpty($RegData)) { "(null)" } else { $RegData })
-    $Item | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $(if ([string]::IsNullOrEmpty($RegData)) { "No WSUS server is configured (default)." } else { "A WSUS server is configured." })
-    $ArrayOfResults += $Item
+        $Item = New-Object -TypeName PSObject
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ([string]::IsNullOrEmpty($RegData)) { "(null)" } else { $RegData })
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $(if ([string]::IsNullOrEmpty($RegData)) { "No WSUS server is configured (default)." } else { "A WSUS server is configured." })
+        $AllResults += $Item
 
-    if ([string]::IsNullOrEmpty($RegData)) { $Vulnerable = $false }
-    if ($RegData -like "https://*") { $Vulnerable = $false }
+        if ([string]::IsNullOrEmpty($RegData)) { $Vulnerable = $false }
+        if ($RegData -like "https://*") { $Vulnerable = $false }
 
-    $RegKey = "HKLM\Software\Policies\Microsoft\Windows\WindowsUpdate\AU"
-    $RegValue = "UseWUServer"
-    $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+        $RegKey = "HKLM\Software\Policies\Microsoft\Windows\WindowsUpdate\AU"
+        $RegValue = "UseWUServer"
+        $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
 
-    $Item = New-Object -TypeName PSObject
-    $Item | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
-    $Item | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
-    $Item | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
-    $Item | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $(if ($RegData -ge 1) { "WSUS server enabled." } else { "WSUS server not enabled (default)." })
-    $ArrayOfResults += $Item
+        $Item = New-Object -TypeName PSObject
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $(if ($RegData -ge 1) { "WSUS server enabled." } else { "WSUS server not enabled (default)." })
+        $AllResults += $Item
 
-    if (($null -eq $RegData) -or ($RegData -lt 1)) { $Vulnerable = $false }
+        if (($null -eq $RegData) -or ($RegData -lt 1)) { $Vulnerable = $false }
 
-    $RegKey = "HKLM\Software\Policies\Microsoft\Windows\WindowsUpdate"
-    $RegValue = "SetProxyBehaviorForUpdateDetection"
-    $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+        $RegKey = "HKLM\Software\Policies\Microsoft\Windows\WindowsUpdate"
+        $RegValue = "SetProxyBehaviorForUpdateDetection"
+        $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
 
-    $Item = New-Object -TypeName PSObject
-    $Item | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
-    $Item | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
-    $Item | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
-    $Item | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $(if ($RegData -ge 1) { "Fallback to user proxy is enabled." } else { "Proxy fallback not configured (default)." })
-    $ArrayOfResults += $Item
+        $Item = New-Object -TypeName PSObject
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $(if ($RegData -ge 1) { "Fallback to user proxy is enabled." } else { "Proxy fallback not configured (default)." })
+        $AllResults += $Item
 
-    $RegKey = "HKLM\Software\Policies\Microsoft\Windows\WindowsUpdate"
-    $RegValue = "DisableWindowsUpdateAccess"
-    $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+        $RegKey = "HKLM\Software\Policies\Microsoft\Windows\WindowsUpdate"
+        $RegValue = "DisableWindowsUpdateAccess"
+        $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
 
-    $Item = New-Object -TypeName PSObject
-    $Item | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
-    $Item | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
-    $Item | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $regData) { "(null)" } else { $RegData })
-    $Item | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $(if ($RegData -ge 1) { "Windows Update features are disabled." } else { "Windows Update features are enabled (default)." })
-    $ArrayOfResults += $Item
+        $Item = New-Object -TypeName PSObject
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $regData) { "(null)" } else { $RegData })
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $(if ($RegData -ge 1) { "Windows Update features are disabled." } else { "Windows Update features are enabled (default)." })
+        $AllResults += $Item
 
-    $Result = New-Object -TypeName PSObject
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
-    $Result
+        $CheckResult = New-Object -TypeName PSObject
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult
+    }
 }
 
 function Invoke-HardenedUNCPathCheck {
@@ -455,108 +463,113 @@ function Invoke-HardenedUNCPathCheck {
       * https://beyondsecurity.com/scan-pentest-network-vulnerabilities-in-group-policy-allows-code-execution-ms15-011.html
     #>
 
-    [CmdletBinding()] Param(
+    [CmdletBinding()]
+    param(
         [UInt32] $BaseSeverity
     )
 
-    $Vulnerable = $false
-    $ArrayOfResults = @()
-
-    if (-not (Test-IsDomainJoined)) {
-        $Description = "The machine is not domain-joined, this check is irrelevant."
-        $Results = New-Object -TypeName PSObject
-        $Results | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+    begin {
+        $Vulnerable = $false
+        $AllResults = @()
     }
-    else {
-        $OsVersionMajor = (Get-WindowsVersion).Major
 
-        $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows\NetworkProvider\HardenedPaths"
-
-        if ($OsVersionMajor -ge 10) {
-
-            # If Windows >= 10, paths are "hardened" by default. Therefore, the "HardenedPaths" registry
-            # key should not contain any value. If it contain values, ensure that protections were not
-            # explicitely disabled.
-
-            Get-Item -Path "Registry::$RegKey" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty property | ForEach-Object {
-
-                $RegValue = $_
-                $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
-                Write-Verbose "Value: $($RegValue) - Data: $($RegData)"
-
-                $Description = ""
-
-                if ($RegData -like "*RequireMutualAuthentication=0*") {
-                    $Vulnerable = $true
-                    $Description = "$($Description)Mutual authentication is disabled. "
-                }
-
-                if ($RegData -like "*RequireIntegrity=0*") {
-                    $Vulnerable = $true
-                    $Description = "$($Description)Integrity mode is disabled. "
-                }
-
-                if ($RegData -like "*RequirePrivacy=0*") {
-                    $Vulnerable = $true
-                    $Description = "$($Description)Privacy mode is disabled. "
-                }
-
-                if ($Vulnerable) {
-                    $Result = New-Object -TypeName PSObject
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $RegData
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
-                    $ArrayOfResults += $Result
-                }
-            }
+    process {
+        if (-not (Test-IsDomainJoined)) {
+            $Description = "The machine is not domain-joined, this check is irrelevant."
+            $Results = New-Object -TypeName PSObject
+            $Results | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
         }
         else {
+            $OsVersionMajor = (Get-WindowsVersion).Major
 
-            # If Windows < 10, paths are not hardened by default. Therefore, the "HardenedPaths" registry
-            # should contain at least two entries, as per Microsoft recommendations. One for SYSVOL and one
-            # for NETLOGON: '\\*\SYSVOL' and '\\*\NETLOGON'. However, a list of server would be valid as
-            # as well. Here, we will only ensure that both '\\*\SYSVOL' and '\\*\NETLOGON' are properly
-            # configured though.
+            $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows\NetworkProvider\HardenedPaths"
 
-            $RegValues = @("\\*\SYSVOL", "\\*\NETLOGON")
-            foreach ($RegValue in $RegValues) {
+            if ($OsVersionMajor -ge 10) {
 
-                $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
-                $Description = ""
+                # If Windows >= 10, paths are "hardened" by default. Therefore, the "HardenedPaths" registry
+                # key should not contain any value. If it contain values, ensure that protections were not
+                # explicitely disabled.
 
-                if ($null -eq $RegData) {
-                    $Vulnerable = $true
-                    $Description = "Hardened UNC path is not configured."
-                }
-                else {
-                    if (-not ($RegData -like "*RequireMutualAuthentication=1*")) {
+                Get-Item -Path "Registry::$RegKey" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty property | ForEach-Object {
+
+                    $RegValue = $_
+                    $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+                    Write-Verbose "Value: $($RegValue) - Data: $($RegData)"
+
+                    $Description = ""
+
+                    if ($RegData -like "*RequireMutualAuthentication=0*") {
                         $Vulnerable = $true
-                        $Description = "$($Description)Mutual authentication is not enabled. "
+                        $Description = "$($Description)Mutual authentication is disabled. "
                     }
 
-                    if ((-not ($RegData -like "*RequireIntegrity=1*")) -and (-not ($RegData -like "*RequirePrivacy=1*"))) {
+                    if ($RegData -like "*RequireIntegrity=0*") {
                         $Vulnerable = $true
-                        $Description = "$($Description)Integrity/privacy mode is not enabled. "
+                        $Description = "$($Description)Integrity mode is disabled. "
+                    }
+
+                    if ($RegData -like "*RequirePrivacy=0*") {
+                        $Vulnerable = $true
+                        $Description = "$($Description)Privacy mode is disabled. "
+                    }
+
+                    if ($Vulnerable) {
+                        $Result = New-Object -TypeName PSObject
+                        $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+                        $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
+                        $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $RegData
+                        $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+                        $AllResults += $Result
                     }
                 }
+            }
+            else {
 
-                if ($Vulnerable) {
-                    $Result = New-Object -TypeName PSObject
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $RegData
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
-                    $ArrayOfResults += $Result
+                # If Windows < 10, paths are not hardened by default. Therefore, the "HardenedPaths" registry
+                # should contain at least two entries, as per Microsoft recommendations. One for SYSVOL and one
+                # for NETLOGON: '\\*\SYSVOL' and '\\*\NETLOGON'. However, a list of server would be valid as
+                # as well. Here, we will only ensure that both '\\*\SYSVOL' and '\\*\NETLOGON' are properly
+                # configured though.
+
+                $RegValues = @("\\*\SYSVOL", "\\*\NETLOGON")
+                foreach ($RegValue in $RegValues) {
+
+                    $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+                    $Description = ""
+
+                    if ($null -eq $RegData) {
+                        $Vulnerable = $true
+                        $Description = "Hardened UNC path is not configured."
+                    }
+                    else {
+                        if (-not ($RegData -like "*RequireMutualAuthentication=1*")) {
+                            $Vulnerable = $true
+                            $Description = "$($Description)Mutual authentication is not enabled. "
+                        }
+
+                        if ((-not ($RegData -like "*RequireIntegrity=1*")) -and (-not ($RegData -like "*RequirePrivacy=1*"))) {
+                            $Vulnerable = $true
+                            $Description = "$($Description)Integrity/privacy mode is not enabled. "
+                        }
+                    }
+
+                    if ($Vulnerable) {
+                        $Result = New-Object -TypeName PSObject
+                        $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+                        $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
+                        $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $RegData
+                        $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+                        $AllResults += $Result
+                    }
                 }
             }
         }
-    }
 
-    $Result = New-Object -TypeName PSObject
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
-    $Result
+        $CheckResult = New-Object -TypeName PSObject
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult
+    }
 }
 
 function Invoke-DllHijackingCheck {
@@ -571,11 +584,13 @@ function Invoke-DllHijackingCheck {
     First, it reads the system environment PATH from the registry. Then, for each entry, it checks whether the current user has write permissions.
     #>
 
-    [CmdletBinding()] Param(
+    [CmdletBinding()]
+    param(
         [UInt32] $BaseSeverity
     )
 
     begin {
+        $AllResults = @()
         $FsRedirectionValue = Disable-Wow64FileSystemRedirection
     }
 
@@ -584,7 +599,6 @@ function Invoke-DllHijackingCheck {
         $RegValue = "Path"
         $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue).$RegValue
         $Paths = $RegData.Split(';') | ForEach-Object { $_.Trim() } | Where-Object { -not [String]::IsNullOrEmpty($_) }
-        $ArrayOfResults = @()
 
         foreach ($Path in $Paths) {
             $Path | Get-ModifiablePath -LiteralPaths | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) } | Foreach-Object {
@@ -593,14 +607,14 @@ function Invoke-DllHijackingCheck {
                 $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $_.ModifiablePath
                 $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $_.IdentityReference
                 $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value $_.Permissions
-                $ArrayOfResults += $Result
+                $AllResults += $Result
             }
         }
 
-        $Result = New-Object -TypeName PSObject
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ArrayOfResults) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
-        $Result
+        $CheckResult = New-Object -TypeName PSObject
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AllResults) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult
     }
 
     end {
@@ -677,12 +691,14 @@ function Invoke-PointAndPrintConfigCheck {
     Description : A list of approved Package Point and Print servers is not defined.
     #>
 
-    [CmdletBinding()] param (
+    [CmdletBinding()]
+    param(
         [UInt32] $BaseSeverity
     )
 
     begin {
         $ConfigVulnerable = $false
+        $AllResults = @()
         $Severity = $BaseSeverity
     }
 
@@ -694,8 +710,7 @@ function Invoke-PointAndPrintConfigCheck {
 
             $Result = New-Object -TypeName PSObject
             $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value "The Print Spooler service is disabled."
-
-            $ArrayOfResults = @($Result)
+            $AllResults += $Result
         }
         else {
             $Config = Get-PointAndPrintConfiguration
@@ -740,7 +755,7 @@ function Invoke-PointAndPrintConfigCheck {
                 }
             }
 
-            $ArrayOfResults = @(
+            $AllResults = @(
                 $Config.RestrictDriverInstallationToAdministrators,
                 $Config.NoWarningNoElevationOnInstall,
                 $Config.UpdatePromptSettings,
@@ -752,15 +767,15 @@ function Invoke-PointAndPrintConfigCheck {
                 $Config.PackagePointAndPrintServerList
             )
 
-            foreach ($Result in $ArrayOfResults) {
+            foreach ($Result in $AllResults) {
                 if ($null -eq $Result.Data) { $Result.Data = "(null)"}
             }
         }
 
-        $Result = New-Object -TypeName PSObject
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $ArrayOfResults
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ConfigVulnerable) { $Severity } else { $script:SeverityLevelEnum::None })
-        $Result
+        $CheckResult = New-Object -TypeName PSObject
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ConfigVulnerable) { $Severity } else { $script:SeverityLevelEnum::None })
+        $CheckResult
     }
 }
 
@@ -784,7 +799,8 @@ function Invoke-DriverCoInstallersCheck {
     Description : CoInstallers are not disabled (default).
     #>
 
-    [CmdletBinding()] Param(
+    [CmdletBinding()]
+    param(
         [UInt32] $BaseSeverity
     )
 
@@ -801,10 +817,10 @@ function Invoke-DriverCoInstallersCheck {
     $Config | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
     $Config | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
 
-    $Result = New-Object -TypeName PSObject
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Config
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
-    $Result
+    $CheckResult = New-Object -TypeName PSObject
+    $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Config
+    $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+    $CheckResult
 }
 
 function Invoke-SccmCacheFoldersCheck {
@@ -820,7 +836,7 @@ function Invoke-SccmCacheFoldersCheck {
     #>
 
     [CmdletBinding()]
-    param ()
+    param()
 
     process {
         $SccmCacheFolders = [object[]] (Get-SccmCacheFoldersFromRegistry)
@@ -854,12 +870,11 @@ function Invoke-SccmCacheFoldersCheck {
 function Invoke-ProxyAutoConfigUrlCheck {
 
     [CmdletBinding()]
-    param (
+    param(
         [UInt32] $BaseSeverity
     )
 
     begin {
-        $Result = New-Object -TypeName PSObject
         $AllResults = @()
     }
 
@@ -867,12 +882,10 @@ function Invoke-ProxyAutoConfigUrlCheck {
         $AllResults = Get-ProxyAutoConfigURl | Where-Object { $_.ProxyEnable -ne 0 }
         $Vulnerable = $null -ne ($AllResults | Where-Object { $_.AutoConfigURL -like "http://*" })
 
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
-    }
-
-    end {
-        $Result
+        $CheckResult = New-Object -TypeName PSObject
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult
     }
 }
 
@@ -899,7 +912,8 @@ function Invoke-DefenderExclusionsCheck {
     EventLog Path      C:\tools
     #>
 
-    [CmdletBinding()] param()
+    [CmdletBinding()]
+    param()
 
     process {
         $Exclusions = @()
@@ -926,7 +940,7 @@ function Invoke-SmbConfigurationCheck {
     #>
 
     [CmdletBinding()]
-    param (
+    param(
         [UInt32] $BaseSeverity
     )
 
@@ -999,9 +1013,9 @@ function Invoke-SmbConfigurationCheck {
 
         $Vulnerable = ([object[]] ($AllResults | Where-Object { $_.Vulnerable -eq $true })).Count
 
-        $Result = New-Object -TypeName PSObject
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
-        $Result
+        $CheckResult = New-Object -TypeName PSObject
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult
     }
 }

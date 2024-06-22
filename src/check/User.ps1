@@ -23,7 +23,8 @@ function Invoke-UserCheck {
     Source           : User32  (00000000-000323db)
     #>
 
-    [CmdletBinding()] Param()
+    [CmdletBinding()]
+    param()
 
     $TokenUser = Get-TokenInformationUser
     $TokenIntegrityLevel = Get-TokenInformationIntegrityLevel
@@ -78,7 +79,8 @@ function Invoke-UserGroupsCheck {
     Mandatory Label\Medium Mandatory Level Label          S-1-16-8192
     #>
 
-    [CmdletBinding()] Param()
+    [CmdletBinding()]
+    param()
 
     Get-TokenInformationGroup -InformationClass Groups | Select-Object Name,Type,SID
 }
@@ -108,7 +110,8 @@ function Invoke-UserRestrictedSidsCheck {
     NT AUTHORITY\WRITE RESTRICTED       WellKnownGroup S-1-5-33
     #>
 
-    [CmdletBinding()] Param()
+    [CmdletBinding()]
+    param()
 
     Get-TokenInformationGroup -InformationClass RestrictedSids | Select-Object Name,Type,SID
 }
@@ -131,7 +134,8 @@ function Invoke-UserPrivilegesCheck {
     SeImpersonatePrivilege  Enabled Impersonate a client after authentication        True
     #>
 
-    [CmdletBinding()] Param(
+    [CmdletBinding()]
+    param(
         [UInt32] $BaseSeverity
     )
 
@@ -144,10 +148,10 @@ function Invoke-UserPrivilegesCheck {
         $Privilege | Add-Member -MemberType "NoteProperty" -Name "Exploitable" -Value $Exploitable
     }
 
-    $Result = New-Object -TypeName PSObject
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Privileges
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
-    $Result
+    $CheckResult = New-Object -TypeName PSObject
+    $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Privileges
+    $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+    $CheckResult
 }
 
 function Invoke-UserPrivilegesGpoCheck {
@@ -179,10 +183,10 @@ function Invoke-UserPrivilegesGpoCheck {
     )
 
     begin {
+        $AllResults = @()
         $FsRedirectionValue = Disable-Wow64FileSystemRedirection
         $PolicyCacheFolderPath = Join-Path -Path $env:windir -ChildPath "System32\GroupPolicy\DataStore"
         $CurrentUserSids = Get-CurrentUserSid
-        $AllResults = @()
     }
 
     process {
@@ -248,7 +252,8 @@ function Invoke-UserEnvCheck {
     Environment variables may contain sensitive information such as database credentials or API keys.
     #>
 
-    [CmdletBinding()] Param()
+    [CmdletBinding()]
+    param()
 
     Get-ChildItem -Path env: | ForEach-Object {
 

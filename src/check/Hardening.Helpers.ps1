@@ -22,15 +22,16 @@ function Get-UEFIStatus {
     https://github.com/ChrisWarwick/GetUEFI/blob/master/GetFirmwareBIOSorUEFI.psm1
     #>
 
-    [CmdletBinding()] Param()
+    [CmdletBinding()]
+    param()
 
     $OsVersion = Get-WindowsVersion
 
     # Windows >= 8/2012
     if (($OsVersion.Major -ge 10) -or (($OsVersion.Major -ge 6) -and ($OsVersion.Minor -ge 2))) {
 
-        [UInt32]$FirmwareType = 0
-        $Result = $script:Kernel32::GetFirmwareType([ref]$FirmwareType)
+        [UInt32] $FirmwareType = 0
+        $Result = $script:Kernel32::GetFirmwareType([ref] $FirmwareType)
         $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
 
         if ($Result -gt 0) {
@@ -103,7 +104,8 @@ function Get-SecureBootStatus {
     Description : Secure Boot is disabled
     #>
 
-    [CmdletBinding()] Param()
+    [CmdletBinding()]
+    param()
 
     $RegKey = "HKLM\SYSTEM\CurrentControlSet\Control\SecureBoot\State"
     $RegValue = "UEFISecureBootEnabled"
@@ -130,9 +132,10 @@ function Get-SecureBootStatus {
 
 function Get-MachineRole {
 
-    [CmdletBinding()] Param()
+    [CmdletBinding()]
+    param()
 
-    BEGIN {
+    begin {
         $FriendlyNames = @{
             "WinNT"     = "Workstation";
             "LanmanNT"  = "Domain Controller";
@@ -140,7 +143,7 @@ function Get-MachineRole {
         }
     }
 
-    PROCESS {
+    process {
         $RegKey = "HKLM\SYSTEM\CurrentControlSet\Control\ProductOptions"
         $RegValue = "ProductType"
         $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -ErrorAction SilentlyContinue).$RegValue
@@ -178,9 +181,10 @@ function Get-BitLockerConfiguration {
     https://www.geoffchappell.com/studies/windows/win32/fveapi/policy/index.htm
     #>
 
-    [CmdletBinding()] Param ()
+    [CmdletBinding()]
+    param()
 
-    BEGIN {
+    begin {
         # Default values for FVE parameters in HKLM\Software\Policies\Microsoft\FVE
         $FveConfig = @{
             UseAdvancedStartup = 0
@@ -235,7 +239,7 @@ function Get-BitLockerConfiguration {
         }
     }
 
-    PROCESS {
+    process {
 
         $Result = New-Object -TypeName PSObject
 
@@ -321,13 +325,11 @@ function Get-AppLockerPolicyFromRegistry {
     #>
 
     [CmdletBinding()]
-    param ()
+    param()
 
     begin {
         function Convert-EnforcementModeToString {
-            param (
-                [UInt32] $EnforcementMode = 0
-            )
+            param([UInt32] $EnforcementMode = 0)
             switch ($EnforcementMode) {
                 0 { "NotConfigured" }
                 1 { "Enabled" }
@@ -399,7 +401,7 @@ function Get-AppLockerPolicyInternal {
     #>
 
     [CmdletBinding()]
-    param (
+    param(
         [ValidateSet(0, 1, 2, 3)]
         [UInt32] $FilterLevel = 0
     )
@@ -436,10 +438,7 @@ function Get-AppLockerPolicyInternal {
         }
 
         function Convert-AppLockerConditionToString {
-            param (
-                [object] $Condition,
-                [string] $Type
-            )
+            param([object] $Condition, [string] $Type)
             switch ($Type) {
                 "FilePublisher" {
                     $ConditionString = "Publisher='$($Condition.PublisherName)', Product='$($Condition.ProductName)', Binary='$($Condition.BinaryName)'"
@@ -644,7 +643,7 @@ function Get-EnforcedPowerShellExecutionPolicy {
     #>
 
     [CmdletBinding()]
-    param ()
+    param()
 
     begin {
         $RegKeys = @(
@@ -736,7 +735,7 @@ function Get-AttackSurfaceReductionRule {
     #>
 
     [CmdletBinding()]
-    param ()
+    param()
 
     begin {
         $RuleIds = @{

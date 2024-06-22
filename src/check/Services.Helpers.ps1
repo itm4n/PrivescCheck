@@ -31,7 +31,8 @@ function Get-ServiceControlManagerDacl {
     https://docs.microsoft.com/en-us/windows/win32/services/service-security-and-access-rights
     #>
 
-    [CmdletBinding()] Param()
+    [CmdletBinding()]
+    param()
 
     $SERVICES_ACTIVE_DATABASE = "ServicesActive"
     $ServiceManagerHandle = $script:Advapi32::OpenSCManager($null, $SERVICES_ACTIVE_DATABASE, $script:ServiceControlManagerAccessRightsEnum::GenericRead)
@@ -113,10 +114,11 @@ function Get-ServiceFromRegistry {
     RegistryPath : HKLM\SYSTEM\CurrentControlSet\Services\Spooler
     #>
 
-    [CmdletBinding()] Param(
+    [CmdletBinding()]
+    param(
         [Parameter(Mandatory=$true)]
         [ValidateNotNullOrEmpty()]
-        [String]$Name
+        [String] $Name
     )
 
     $RegKeyServices = "HKLM\SYSTEM\CurrentControlSet\Services"
@@ -139,9 +141,10 @@ function Get-ServiceFromRegistry {
 function Test-IsKnownService {
 
     [OutputType([Boolean])]
-    [CmdletBinding()] Param(
+    [CmdletBinding()]
+    param(
         [Parameter(Mandatory=$true)]
-        [Object]$Service
+        [Object] $Service
     )
 
     $SeparationCharacterSets = @('"', "'", ' ', "`"'", '" ', "' ", "`"' ")
@@ -211,11 +214,11 @@ function Get-ServiceList {
         InteractiveProcess = 256
     #>
 
-    [CmdletBinding()] Param(
+    [CmdletBinding()]
+    param(
         [Parameter(Mandatory=$true)]
         [ValidateSet(0,1,2,3)]
-        [Int]
-        $FilterLevel
+        [Int] $FilterLevel
     )
 
     begin {
@@ -231,7 +234,7 @@ function Get-ServiceList {
             $ServicesRegPath = "HKLM\SYSTEM\CurrentControlSet\Services"
             $RegAllServices = Get-ChildItem -Path "Registry::$($ServicesRegPath)" -ErrorAction SilentlyContinue
 
-            $RegAllServices | ForEach-Object { [void]$script:CachedServiceList.Add((Get-ServiceFromRegistry -Name $_.PSChildName)) }
+            $RegAllServices | ForEach-Object { [void] $script:CachedServiceList.Add((Get-ServiceFromRegistry -Name $_.PSChildName)) }
         }
 
         foreach ($ServiceItem in $script:CachedServiceList) {
@@ -309,10 +312,10 @@ function Add-ServiceDacl {
         [Parameter(Position=0, Mandatory=$true, ValueFromPipeline=$true, ValueFromPipelineByPropertyName=$true)]
         [Alias('ServiceName')]
         [ValidateNotNullOrEmpty()]
-        [String[]]$Name
+        [String[]] $Name
     )
 
-    BEGIN {
+    begin {
         filter Local:Get-ServiceReadControlHandle {
             [OutputType([IntPtr])]
             param (
@@ -329,7 +332,7 @@ function Add-ServiceDacl {
         }
     }
 
-    PROCESS {
+    process {
         foreach ($ServiceName in $Name) {
 
             $IndividualService = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue -ErrorVariable GetServiceError
@@ -428,8 +431,7 @@ function Test-ServiceDaclPermission {
     .LINK
     https://rohnspowershellblog.wordpress.com/2013/03/19/viewing-service-acls/
     #>
-    [OutputType('ServiceProcess.ServiceController')]
-    param (
+    [OutputType('ServiceProcess.ServiceController')] param(
         [Parameter(Position=0, Mandatory=$true, ValueFromPipeline=$true, ValueFromPipelineByPropertyName=$true)]
         [Alias('ServiceName')]
         [String[]]
@@ -445,7 +447,7 @@ function Test-ServiceDaclPermission {
         $PermissionSet = 'ChangeConfig'
     )
 
-    BEGIN {
+    begin {
         $AccessMask = @{
             'QueryConfig'           = [UInt32]'0x00000001'
             'ChangeConfig'          = [UInt32]'0x00000002'
@@ -490,7 +492,7 @@ function Test-ServiceDaclPermission {
         $CurrentUserSids = Get-CurrentUserSid
     }
 
-    PROCESS {
+    process {
 
         foreach ($IndividualService in $Name) {
 
@@ -561,7 +563,7 @@ function Resolve-DriverImagePath {
 
     [CmdletBinding()]
     param (
-        [Object]$Service
+        [Object] $Service
     )
 
     if ($Service.ImagePath -match "^\\SystemRoot\\") {
@@ -580,9 +582,8 @@ function Resolve-DriverImagePath {
 
 function Get-DriverList {
 
-    [CmdletBinding()] param(
-
-    )
+    [CmdletBinding()]
+    param()
 
     if ($script:CachedDriverList.Count -eq 0) {
 
@@ -600,7 +601,7 @@ function Get-DriverList {
 
             $Service | Add-Member -MemberType "NoteProperty" -Name "ImagePathResolved" -Value $ImagePath
 
-            [void]$script:CachedDriverList.Add($Service)
+            [void] $script:CachedDriverList.Add($Service)
         }
     }
 
@@ -609,7 +610,8 @@ function Get-DriverList {
 
 function Get-VulnerableDriverHash {
 
-    [CmdletBinding()] param ()
+    [CmdletBinding()]
+    param ()
 
     $VulnerableDriverList = $script:VulnerableDrivers | ConvertFrom-Csv -Delimiter ";"
     if ($null -eq $VulnerableDriverList) { Write-Warning "Failed to get list of vulnerable drivers."; return }
@@ -625,18 +627,19 @@ function Get-VulnerableDriverHash {
 
 function Find-VulnerableDriver {
 
-    [CmdletBinding()] param (
+    [CmdletBinding()]
+    param (
         [Parameter(Mandatory=$true, ValueFromPipeline=$true, ValueFromPipelineByPropertyName=$true)]
         [Object] $Service
     )
 
-    BEGIN {
+    begin {
         Write-Verbose "Initializing list of vulnerable driver hashes..."
         $VulnerableDriverHashes = Get-VulnerableDriverHash
         $FsRedirectionValue = Disable-Wow64FileSystemRedirection
     }
 
-    PROCESS {
+    process {
 
         $ResultHash = ""
         $ResultUrl = ""
