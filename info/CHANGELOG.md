@@ -2,6 +2,10 @@
 
 ## 2024-06-22
 
+### Added
+
+- Check for user privileges granted through GPOs.
+
 ### Changed
 
 - LAPS check performed only if machine is domain-joined.

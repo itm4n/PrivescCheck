@@ -135,24 +135,108 @@ function Invoke-UserPrivilegesCheck {
         [UInt32] $BaseSeverity
     )
 
-    BEGIN {
-        $HighPotentialPrivileges = "SeAssignPrimaryTokenPrivilege", "SeImpersonatePrivilege", "SeCreateTokenPrivilege", "SeDebugPrivilege", "SeLoadDriverPrivilege", "SeRestorePrivilege", "SeTakeOwnershipPrivilege", "SeTcbPrivilege", "SeBackupPrivilege", "SeManageVolumePrivilege", "SeRelabelPrivilege"
+    $Vulnerable = $false
+    $Privileges = Get-TokenInformationPrivilege
+
+    foreach ($Privilege in $Privileges) {
+        $Exploitable = $($script:ExploitablePrivileges -contains $Privilege.Name)
+        if ($Exploitable) { $Vulnerable = $true }
+        $Privilege | Add-Member -MemberType "NoteProperty" -Name "Exploitable" -Value $Exploitable
     }
 
-    PROCESS {
-        $Vulnerable = $false
-        $Privileges = Get-TokenInformationPrivilege
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Privileges
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+    $Result
+}
 
-        foreach ($Privilege in $Privileges) {
-            $Exploitable = $($HighPotentialPrivileges -contains $Privilege.Name)
-            if ($Exploitable) { $Vulnerable = $true }
-            $Privilege | Add-Member -MemberType "NoteProperty" -Name "Exploitable" -Value $Exploitable
+function Invoke-UserPrivilegesGpoCheck {
+    <#
+    .SYNOPSIS
+    Check whether the current user is granted privileges, through a group policy, that can be leveraged for local privilege escalation.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet enumerates cached group policy files that define rules for granting users specific privileges. When UAC is enabled, those privileges might not be present in the current user's token. In that case, opening a privileged process is required. The aim of this check is to detect such privileges.
+
+    .EXAMPLE
+    PS C:\> Invoke-UserPrivilegesGpoCheck
+
+    Privilege   : SeRelabelPrivilege
+    IdentitySid : S-1-5-21-1765376299-219387937-761915811-513
+    Identity    : FOUNDATION\Domain Users
+    PolicyFile  : C:\Windows\System32\GroupPolicy\DataStore\0\sysvol\foundation.local\Policies\{0629F62E-98C3-4497-BBF2-03F62B04D761}\Machine\Microsoft\Windows NT\SecEdit\GptTmpl.inf
+
+    .LINK
+    https://decoder.cloud/2024/05/30/abusing-the-serelabelprivilege/
+    #>
+
+    [CmdletBinding()]
+    param (
+        [UInt32] $BaseSeverity
+    )
+
+    begin {
+        $FsRedirectionValue = Disable-Wow64FileSystemRedirection
+        $PolicyCacheFolderPath = Join-Path -Path $env:windir -ChildPath "System32\GroupPolicy\DataStore"
+
+        $UserIdentity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
+        $CurrentUserSids = $UserIdentity.Groups | Select-Object -ExpandProperty Value
+        $CurrentUserSids += $UserIdentity.User.Value
+
+        $AllResults = @()
+    }
+
+    process {
+        $PolicyFiles = Get-ChildItem -Path $PolicyCacheFolderPath -Recurse -Filter "GptTmpl.inf" -ErrorAction SilentlyContinue
+
+        foreach ($PolicyFile in $PolicyFiles) {
+
+            $Candidates = Select-String -Path $PolicyFile.FullName -Pattern "Privilege = " -AllMatches
+
+            foreach ($Candidate in $Candidates) {
+
+                # In a cached GPO file, a privilege policy entry is defined like this:
+                # SeSomePrivilege = *S-1-2-3-123,*S-1-2-3-456,*S-1-2-3-789
+                if ($Candidate.Line -match "^([a-zA-Z]+Privilege) = ([0-9-,*S]+)`$") {
+
+                    # Extract privilege name and SID list from matched line.
+                    $PrivilegeName = $Matches[1]
+                    $IdentityList = $Matches[2]
+
+                    # Check if the privilege is exploitable, ignore if not.
+                    if ($script:ExploitablePrivileges -notcontains $PrivilegeName) { continue }
+
+                    # The identity list is represented like this:
+                    # *S-1-2-3-123,*S-1-2-3-456,*S-1-2-3-789
+                    $Identities = $IdentityList.Split(',') | ForEach-Object { $_ -replace '\*','' }
+
+                    foreach ($Identity in $Identities) {
+
+                        if ($CurrentUserSids -contains $Identity) {
+
+                            $Result = New-Object -TypeName PSObject
+                            $Result | Add-Member -MemberType "NoteProperty" -Name "Privilege" -Value $PrivilegeName
+                            $Result | Add-Member -MemberType "NoteProperty" -Name "IdentitySid" -Value $Identity
+                            $Result | Add-Member -MemberType "NoteProperty" -Name "Identity" -Value $(Convert-SidToName -Sid $Identity)
+                            $Result | Add-Member -MemberType "NoteProperty" -Name "PolicyFile" -Value $PolicyFile.FullName
+                            $AllResults += $Result
+                        }
+                    }
+                }
+            }
         }
 
-        $Result = New-Object -TypeName PSObject
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Privileges
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
-        $Result
+        $CheckResult = New-Object -TypeName PSObject
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AllResults.Count -gt 0) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult
+    }
+
+    end {
+        Restore-Wow64FileSystemRedirection -OldValue $FsRedirectionValue
     }
 }
 

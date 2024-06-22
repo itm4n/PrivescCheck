@@ -7,6 +7,7 @@ $script:CachedCurrentUserDenySids = $null
 $script:ResultArrayList = New-Object -TypeName System.Collections.ArrayList
 $script:KeywordsOfInterest = @( "key", "passw", "secret", "pwd", "creds", "credential", "api" )
 $script:CommonApplicationExtensions = @( "bat", "cmd", "exe", "dll", "msi", "ps1", "reg", "vbe", "vbs" )
+$script:ExploitablePrivileges = @( "SeAssignPrimaryTokenPrivilege", "SeImpersonatePrivilege", "SeCreateTokenPrivilege", "SeDebugPrivilege", "SeLoadDriverPrivilege", "SeRestorePrivilege", "SeTakeOwnershipPrivilege", "SeTcbPrivilege", "SeBackupPrivilege", "SeManageVolumePrivilege", "SeRelabelPrivilege" )
 $script:DangerousDefaultFileExtensionAssociations = @"
 ".application","C:\Windows\System32\dfshim.dll"
 ".appref-ms","C:\Windows\System32\dfshim.dll"
