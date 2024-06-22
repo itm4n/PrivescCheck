@@ -188,7 +188,7 @@ function Test-IsSystemFolder {
 
 function Get-CurrentUserSid {
 
-    [CmdletBinding()] Param()
+    [CmdletBinding()] param()
 
     if ($null -eq $script:CachedCurrentUserSids) {
         $UserIdentity = [System.Security.Principal.WindowsIdentity]::GetCurrent()

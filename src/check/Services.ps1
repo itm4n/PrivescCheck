@@ -366,9 +366,7 @@ function Invoke-SCMPermissionsCheck {
         [UInt32] $BaseSeverity
     )
 
-    $UserIdentity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
-    $CurrentUserSids = $UserIdentity.Groups | Select-Object -ExpandProperty Value
-    $CurrentUserSids += $UserIdentity.User.Value
+    $CurrentUserSids = Get-CurrentUserSid
     $ArrayOfResults = @()
 
     Get-ServiceControlManagerDacl | Where-Object { $($_ | Select-Object -ExpandProperty "AceType") -match "AccessAllowed" } | ForEach-Object {

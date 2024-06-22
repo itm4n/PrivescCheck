@@ -697,8 +697,7 @@ function Invoke-NamedPipePermissionsCheck {
     [CmdletBinding()] Param()
 
     $UserIdentity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
-    $CurrentUserSids = $UserIdentity.Groups | Select-Object -ExpandProperty Value
-    $CurrentUserSids += $UserIdentity.User.Value
+    $CurrentUserSids = Get-CurrentUserSid
 
     ForEach ($NamedPipe in $(Get-ChildItem -Path "\\.\pipe\")) {
 

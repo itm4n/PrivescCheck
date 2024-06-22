@@ -181,11 +181,7 @@ function Invoke-UserPrivilegesGpoCheck {
     begin {
         $FsRedirectionValue = Disable-Wow64FileSystemRedirection
         $PolicyCacheFolderPath = Join-Path -Path $env:windir -ChildPath "System32\GroupPolicy\DataStore"
-
-        $UserIdentity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
-        $CurrentUserSids = $UserIdentity.Groups | Select-Object -ExpandProperty Value
-        $CurrentUserSids += $UserIdentity.User.Value
-
+        $CurrentUserSids = Get-CurrentUserSid
         $AllResults = @()
     }
 

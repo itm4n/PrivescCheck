@@ -570,9 +570,7 @@ function Invoke-SensitiveHiveFileAccessCheck {
     }
 
     process {
-        $UserIdentity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
-        $CurrentUserSids = $UserIdentity.Groups | Select-Object -ExpandProperty Value
-        $CurrentUserSids += $UserIdentity.User.Value
+        $CurrentUserSids = Get-CurrentUserSid
 
         $TranslatedIdentityReferences = @{}
 
@@ -687,10 +685,7 @@ function Invoke-SensitiveHiveShadowCopyCheck {
     )
 
     begin {
-        $UserIdentity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
-        $CurrentUserSids = $UserIdentity.Groups | Select-Object -ExpandProperty Value
-        $CurrentUserSids += $UserIdentity.User.Value
-
+        $CurrentUserSids = Get-CurrentUserSid
         $FsRedirectionValue = Disable-Wow64FileSystemRedirection
     }
 

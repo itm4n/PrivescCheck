@@ -327,7 +327,7 @@ function Invoke-RunningProcessCheck {
         [switch] $Self = $false
     )
 
-    $CurrentUser = $CurrentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+    $CurrentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
 
     # csrss -> Client/Server Runtime Subsystem
     # dwm -> Desktop Window Manager
