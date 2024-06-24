@@ -71,6 +71,7 @@ function Invoke-PrivescCheck {
         $script:CachedServiceList.Clear()
         $script:CachedHotFixList.Clear()
         $script:CachedScheduledTaskList.Clear()
+        $script:CachedRegisteredComList.Clear()
         $script:ResultArrayList.Clear()
 
         $AllChecks = New-Object System.Collections.ArrayList

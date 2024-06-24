@@ -319,3 +319,54 @@ function Get-SmbConfiguration {
         }
     }
 }
+
+function Get-RegisteredComFromRegistry {
+    <#
+    .SYNOPSIS
+    Helper - Enumerate registered COM classes through the registry
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet enumerates the registry keys under HKLM\SOFTWARE\Classes\CLSID to list registered COM classes.
+
+    .LINK
+    https://learn.microsoft.com/en-us/windows/win32/com/component-object-model--com--portal
+    #>
+
+    [CmdletBinding()]
+    param ()
+
+    begin {
+        $RootKey = "HKLM\SOFTWARE\Classes\CLSID"
+        $ComTypes = @( "InprocHandler", "InprocHandler32", "InprocServer", "InprocServer32", "LocalServer", "LocalServer32" )
+    }
+
+    process {
+
+        if ($script:CachedRegisteredComList.Count -eq 0) {
+
+            $ClassIds = [object[]] (Get-ChildItem -Path "Registry::$($RootKey)" -ErrorAction SilentlyContinue)
+            Write-Verbose "CLSID count: $($ClassIds.Count)"
+
+            foreach ($ClassId in $ClassIds) {
+                $ServerProperties = [object[]] (Get-ChildItem -Path "Registry::$($ClassId.Name)" -ErrorAction SilentlyContinue | Where-Object { $ComTypes -contains $_.PSChildName })
+
+                foreach ($ServerProperty in $ServerProperties) {
+
+                    $ServerData = (Get-ItemProperty -Path "Registry::$($ServerProperty.Name)")."(Default)"
+
+                    $Result = New-Object -TypeName PSObject
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "Id" -Value $ClassId.PSChildName
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $($ClassId.Name -replace "HKEY_LOCAL_MACHINE","HKLM")
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $ServerProperty.PSChildName
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $ServerData
+                    [void] $script:CachedRegisteredComList.Add($Result)
+                }
+            }
+        }
+
+        $script:CachedRegisteredComList
+    }
+}
