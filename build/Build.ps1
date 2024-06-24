@@ -8,6 +8,7 @@ function Invoke-Build {
 
     begin {
         $BuildProfileCore = @(
+            "src\core\Compression.ps1",
             "src\core\Reflection.ps1",
             "src\core\WinApi.Enum.ps1",
             "src\core\WinApi.Struct.ps1",
@@ -67,7 +68,7 @@ function Invoke-Build {
                 $Wordlist = Get-Wordlist -WordLength 10
             }
 
-            $LolDrivers = Get-LolDrivers
+            $LolDrivers = Get-LolDriverList
 
             $CheckCsvFilePath = Split-Path -Path $PSCommandPath -Parent
             $CheckCsvFilePath = Join-Path -Path $CheckCsvFilePath -ChildPath "Checks.csv"
@@ -121,48 +122,60 @@ function Invoke-Build {
 
                 [string[]] $Modules += $ModuleName
 
-                try {
-                    $ScriptBlock = Get-Content -Path $ModulePath | Out-String
+                $ScriptBlock = Get-Content -Path $ModulePath | Out-String
+                $CompressScriptBlock = $true
 
-                    if ($ModuleFilename -like "*globals*") {
+                if ($ModuleFilename -like "Globals*") {
 
-                        if ($null -ne $LolDrivers) {
-                            # Populate vulnerable driver list.
-                            $LolDriversCsv = $LolDrivers | ConvertTo-Csv -Delimiter ";" | Out-String
-                            $ScriptBlock = $ScriptBlock -replace "VULNERABLE_DRIVERS",$LolDriversCsv
-                            Write-Message "Driver list written to '$($ModuleFilename)'."
-                        }
-                        else {
-                            Write-Message -Type Warning "Known vulnerable driver CSV is null."
-                        }
-
-                        if ($null -ne $CheckCsvBlob) {
-                            # Populate check list as an encoded blob.
-                            $ScriptBlock = $ScriptBlock -replace "CHECK_CSV_BLOB",$CheckCsvBlob
-                            Write-Message "Check list written to '$($ModuleFilename)'."
-                        }
-                        else {
-                            Write-Message -Type Warning "Check CSV text blob is null."
-                        }
+                    if ($null -ne $LolDrivers) {
+                        # Populate vulnerable driver list.
+                        $LolDriversCsv = $LolDrivers | ConvertTo-Csv -Delimiter ";" | Out-String
+                        $ScriptBlock = $ScriptBlock -replace "VULNERABLE_DRIVERS",$LolDriversCsv
+                        Write-Message "Driver list written to '$($ModuleFilename)'."
+                    }
+                    else {
+                        Write-Message -Type Warning "Known vulnerable driver CSV is null."
                     }
 
-                    # Is the script block detected by AMSI after stripping the comments?
-                    # Note: if the script block is caught by AMSI, an exception is triggered, so we go
-                    # directly to the "catch" block. Otherwise, it means that the module was successfully
-                    # loaded.
-                    $ScriptBlock = Remove-CommentsFromScriptBlock -ScriptBlock $ScriptBlock
+                    if ($null -ne $CheckCsvBlob) {
+                        # Populate check list as an encoded blob.
+                        $ScriptBlock = $ScriptBlock -replace "CHECK_CSV_BLOB",$CheckCsvBlob
+                        Write-Message "Check list written to '$($ModuleFilename)'."
+                    }
+                    else {
+                        Write-Message -Type Warning "Check CSV text blob is null."
+                    }
+                }
+
+                if ($ModuleFilename -like "Compression*") {
+
+                    $CompressScriptBlock = $false
+                }
+
+                # Is the script block detected by AMSI after stripping the comments?
+                # Note: if the script block is caught by AMSI, an exception is triggered, so we go
+                # directly to the "catch" block. Otherwise, it means that the module was successfully
+                # loaded.
+                $ScriptBlock = Remove-CommentsFromScriptBlock -ScriptBlock $ScriptBlock
+                try {
                     $ScriptBlock | Invoke-Expression
-
-                    Write-Message "File '$($ModuleFilename)' (name: '$($ModuleName)') was loaded successfully."
-
-                    $ScriptCompressed = ConvertTo-Gzip -InputText $ScriptBlock
-                    $ScriptCompressedEncoded = [System.Convert]::ToBase64String($ScriptCompressed)
-                    $ScriptContent += "`$$($ModuleName) = `"$($ScriptCompressedEncoded)`"`r`n"
                 }
                 catch {
                     $ErrorCount += 1
                     Write-Message -Type Error "$($_.Exception.Message.Trim())"
                 }
+
+                Write-Message "File '$($ModuleFilename)' (name: '$($ModuleName)') was loaded successfully."
+
+                if ($CompressScriptBlock) {
+                    $ScriptEncoded = ConvertTo-Gzip -InputText $ScriptBlock
+                }
+                else {
+                    $ScriptEncoded = [Text.Encoding]::UTF8.GetBytes($ScriptBlock)
+                }
+
+                $ScriptEncoded = [System.Convert]::ToBase64String($ScriptEncoded)
+                $ScriptContent += "`$$($ModuleName) = `"$($ScriptEncoded)`"`r`n"
             }
 
             if ($ErrorCount -eq 0) {
@@ -291,10 +304,10 @@ function Get-Wordlist {
     }
 }
 
-function Get-LolDrivers {
+function Get-LolDriverList {
 
     [CmdletBinding()]
-    param()
+    param ()
 
     $LolDriversCsv = Get-AssetFileContent -Name "KnownVulnerableDriverList"
 
@@ -348,24 +361,16 @@ function Get-ScriptLoader {
 
     begin {
         $LoaderBlock = @"
-function ConvertFrom-Gzip {
-    [CmdletBinding()]
-    param([byte[]] `$Bytes)
-    `$is = New-Object IO.MemoryStream(, `$Bytes)
-    `$gs = New-Object IO.Compression.GzipStream `$is, ([IO.Compression.CompressionMode]::Decompress)
-    `$sr = New-Object IO.StreamReader(`$gs)
-    `$sbd = `$sr.ReadToEnd()
-    `$sr.Close()
-    `$gs.Close()
-    `$is.Close()
-    `$sbd
-}
-
 `$Modules = @(MODULE_LIST)
 `$Modules | ForEach-Object {
     `$Decoded = [System.Convert]::FromBase64String(`$_)
-    `$Decompressed = ConvertFrom-Gzip -Bytes `$Decoded
-    `$ScriptBlock = `$ExecutionContext.InvokeCommand.NewScriptBlock(`$Decompressed)
+    if (`$_ -like "H4s*") {
+        `$Decoded = ConvertFrom-Gzip -Bytes `$Decoded
+    }
+    else {
+        `$Decoded = [Text.Encoding]::UTF8.GetString(`$Decoded)
+    }
+    `$ScriptBlock = `$ExecutionContext.InvokeCommand.NewScriptBlock(`$Decoded)
     . `$ScriptBlock
 }
 "@
@@ -410,15 +415,12 @@ function Remove-CommentsFromScriptBlock {
 function ConvertTo-Gzip {
 
     [CmdletBinding()]
-    param(
+    param (
         [string] $InputText
     )
 
-    begin {
-        [System.Text.Encoding] $Encoding = [System.Text.Encoding]::UTF8
-    }
-
     process {
+        [System.Text.Encoding] $Encoding = [System.Text.Encoding]::UTF8
         [byte[]] $InputTextEncoded = $Encoding.GetBytes($InputText)
         [System.IO.MemoryStream] $MemoryStream = New-Object System.IO.MemoryStream
         $GzipStream = New-Object System.IO.Compression.GzipStream $MemoryStream, ([System.IO.Compression.CompressionMode]::Compress)
