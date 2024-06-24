@@ -1066,7 +1066,7 @@ function Invoke-ComRegistryPermissionsCheck {
     }
 }
 
-function Invoke-ComRegistryImagePermissionsCheck {
+function Invoke-ComImagePermissionsCheck {
     <#
     .SYNOPSIS
     Check whether the current user has any modification rights on a COM server module file.
@@ -1091,7 +1091,6 @@ function Invoke-ComRegistryImagePermissionsCheck {
 
     process {
         $RegisteredClasses = Get-RegisteredComFromRegistry | Where-Object { ($_.Value -like "*server*") -and ($null -ne $_.Path) -and ($null -ne $_.Data) }
-        Write-Verbose "Server COM classes count: $($RegisteredClasses.Count)"
 
         foreach ($RegisteredClass in $RegisteredClasses) {
 
@@ -1149,6 +1148,75 @@ function Invoke-ComRegistryImagePermissionsCheck {
                     $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value $($ModifiablePath.Permissions -join ", ")
                     $AllResults += $Result
                 }
+            }
+        }
+
+        $CheckResult = New-Object -TypeName PSObject
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AllResults.Count -gt 0) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult
+    }
+
+    end {
+        Restore-Wow64FileSystemRedirection -OldValue $FsRedirectionValue
+    }
+}
+
+function Invoke-ComGhostDllHijackingCheck {
+    <#
+    .SYNOPSIS
+    Check whether there are COM servers registered with a non-existent module using a relative path.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet checks registered COM servers to identify modules using a relative path to a non-existent file. This could result in ghost DLL hijacking.
+    #>
+
+    [CmdletBinding()]
+    param (
+        [UInt32] $BaseSeverity
+    )
+
+    begin {
+        $AllResults = @()
+        $AlreadyChecked = @()
+        $FsRedirectionValue = Disable-Wow64FileSystemRedirection
+    }
+
+    process {
+        $RegisteredClasses = Get-RegisteredComFromRegistry | Where-Object { ($_.Value -like "*server*") -and ($null -ne $_.Data) }
+
+        foreach ($RegisteredClass in $RegisteredClasses) {
+
+            $Candidates = @()
+
+            switch ($RegisteredClass.DataType) {
+                "FileName" {
+                    $Candidates += $RegisteredClass.Data.Trim('"')
+                }
+                "CommandLine" {
+                    $Arguments = [String[]] (ConvertTo-ArgumentList -CommandLine $RegisteredClass.Data)
+                    if ($null -eq $Arguments) { continue }
+                    $Candidates += $Arguments[0]
+
+                    if (($Arguments[0] -match ".*rundll32(\.exe)?`$") -and ($Arguments.Count -gt 1) -and ($Arguments[1] -like "*.dll,*")) {
+                        $Candidates += $Arguments[1].Split(',')[0]
+                    }
+                }
+            }
+
+            foreach ($Candidate in $Candidates) {
+
+                if ($AlreadyChecked -contains $Candidate) { continue }
+                if ([System.IO.Path]::IsPathRooted($Candidate)) { $AlreadyChecked += $Candidate; continue }
+
+                $ResolvedPath = Resolve-ModulePath -Name $Candidate
+
+                if ($null -ne $ResolvedPath) { $AlreadyChecked += $Candidate; continue }
+
+                $AllResults += $RegisteredClass
             }
         }
 
