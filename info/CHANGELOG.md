@@ -1,5 +1,12 @@
 # Changelog
 
+## 2024-06-24
+
+### Added
+
+- Check for COM registry permissions.
+- Helper function for resolving module paths.
+
 ## 2024-06-22
 
 ### Added

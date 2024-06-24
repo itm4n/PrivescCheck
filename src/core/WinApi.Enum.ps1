@@ -5,6 +5,10 @@ $script:SeverityLevelEnum = New-Enum $Module WinApiModule.SeverityLevel UInt32 @
     High                                = '0x00000003'
 }
 
+$script:SystemErrorCodeEnum = New-Enum $Module WinApiModule.SystemErrorCodeEnum UInt32 @{
+    ERROR_INSUFFICIENT_BUFFER           = 122
+}
+
 $script:FileAccessRightsEnum = New-Enum $Module WinApiModule.FileAccessRightsEnum UInt32 @{
     # GenericRead                       = '0x80000000'
     # GenericWrite                      = '0x40000000'

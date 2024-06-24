@@ -40,6 +40,9 @@ $FunctionDefinitions = @(
     # (New-Function kernel32 Thread32Next ([Bool]) @([IntPtr], [IntPtr]) -SetLastError -EntryPoint Thread32Next),
     (New-Function kernel32 Wow64DisableWow64FsRedirection ([Bool]) @([IntPtr].MakeByRefType()) ([Runtime.InteropServices.CallingConvention]::Winapi) -SetLastError -EntryPoint Wow64DisableWow64FsRedirection),
     (New-Function kernel32 Wow64RevertWow64FsRedirection ([Bool]) @([IntPtr]) -SetLastError -EntryPoint Wow64RevertWow64FsRedirection),
+    (New-Function kernel32 LoadLibrary ([IntPtr]) @([String]) ([Runtime.InteropServices.CallingConvention]::Winapi) ([Runtime.InteropServices.CharSet]::Unicode) -EntryPoint LoadLibraryW -SetLastError),
+    (New-Function kernel32 FreeLibrary ([Bool]) @([IntPtr]) -EntryPoint FreeLibrary -SetLastError),
+    (New-Function kernel32 GetModuleFileName ([UInt32]) @([IntPtr], [System.Text.StringBuilder], [UInt32]) ([Runtime.InteropServices.CallingConvention]::Winapi) ([Runtime.InteropServices.CharSet]::Unicode) -EntryPoint GetModuleFileNameW -SetLastError),
 
     (New-Function netapi32 NetWkstaGetInfo ([UInt32]) @([IntPtr], [UInt32], [IntPtr].MakeByRefType()) -EntryPoint NetWkstaGetInfo -Charset Unicode),
     (New-Function netapi32 NetApiBufferFree ([uint32]) @([IntPtr]) -EntryPoint NetApiBufferFree),
@@ -52,7 +55,7 @@ $FunctionDefinitions = @(
     (New-Function ntdll NtQuerySystemInformation ([Int32]) @([UInt32], [IntPtr], [UInt32], [UInt32].MakeByRefType()) -EntryPoint NtQuerySystemInformation),
     # (New-Function ntdll NtQueryInformationProcess ([Int32]) @([IntPtr], [UInt32], [IntPtr], [UInt32], [UInt32].MakeByRefType()) -EntryPoint NtQueryInformationProcess),
 
-    (New-Function shell32 CommandLineToArgvW ([IntPtr]) @([String], [Int32].MakeByRefType()) -EntryPoint CommandLineToArgvW -Charset Unicode),
+    (New-Function shell32 CommandLineToArgvW ([IntPtr]) @([String], [Int32].MakeByRefType()) -SetLastError -EntryPoint CommandLineToArgvW -Charset Unicode),
 
     (New-Function shlwapi AssocQueryStringW ([Int32]) @($script:ASSOCF, $script:ASSOCSTR, [String], [IntPtr], [System.Text.StringBuilder], [UInt32].MakeByRefType()) -Charset Unicode -EntryPoint AssocQueryStringW),
 
