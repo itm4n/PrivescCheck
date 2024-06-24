@@ -1019,3 +1019,48 @@ function Invoke-SmbConfigurationCheck {
         $CheckResult
     }
 }
+
+function Invoke-ComRegistryPermissionsCheck {
+    <#
+    .SYNOPSIS
+    Check whether the current user has any modification rights on a COM class in the registry.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet checks the permissions of each registered COM class in the registry to determine if the current user can modify them. It should be noted that, if so, this may not necessarily result in a privilege escalation because the COM class could be instantiated in a process running as the current user instead of SYSTEM, or any other privileged account. This check is inspired from a writeup about CVE-2023-51715 (see LINK section).
+
+    .LINK
+    https://herolab.usd.de/security-advisories/usd-2023-0029/
+    #>
+
+    [CmdletBinding()]
+    param (
+        [UInt32] $BaseSeverity
+    )
+
+    begin {
+        $AllResults = @()
+    }
+
+    process {
+        $RegisteredClasses = Get-RegisteredComFromRegistry | Where-Object { ($_.Value -like "*server*") -and ($null -ne $_.Path) }
+
+        foreach ($RegisteredClass in $RegisteredClasses) {
+
+            $RegPath = Join-Path -Path $RegisteredClass.Path -ChildPath $RegisteredClass.Value
+            $ModifiableRegPaths = Get-ModifiableRegistryPath -Path $RegPath | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
+
+            foreach ($ModifiableRegPath in $ModifiableRegPaths) {
+
+                $AllResults += $ModifiableRegPath
+            }
+        }
+
+        $CheckResult = New-Object -TypeName PSObject
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AllResults.Count -gt 0) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult
+    }
+}
