@@ -331,6 +331,31 @@ function Get-RegisteredComFromRegistry {
     .DESCRIPTION
     This cmdlet enumerates the registry keys under HKLM\SOFTWARE\Classes\CLSID to list registered COM classes.
 
+    .EXAMPLE
+    PS C:\> Get-RegisteredComFromRegistry
+
+    ...
+
+    Id       : {0429EC6E-1144-4bed-B88B-2FB9899A4A3D}
+    Path     : HKLM\SOFTWARE\Classes\CLSID\{0429EC6E-1144-4bed-B88B-2FB9899A4A3D}
+    Value    : InprocServer32
+    Data     : C:\Windows\System32\msvidctl.dll
+    DataType : FilePath
+
+    Id       : {046AEAD9-5A27-4D3C-8A67-F82552E0A91B}
+    Path     : HKLM\SOFTWARE\Classes\CLSID\{046AEAD9-5A27-4D3C-8A67-F82552E0A91B}
+    Value    : LocalServer32
+    Data     : C:\Windows\System32\rundll32.exe shell32.dll,SHCreateLocalServerRunDll {046AEAD9-5A27-4D3C-8A67-F82552E0A91B}
+    DataType : CommandLine
+
+    Id       : {04731B67-D933-450a-90E6-4ACD2E9408FE}
+    Path     : HKLM\SOFTWARE\Classes\CLSID\{04731B67-D933-450a-90E6-4ACD2E9408FE}
+    Value    : InProcServer32
+    Data     : C:\Windows\system32\Windows.Storage.Search.dll
+    DataType : FilePath
+
+    ...
+
     .LINK
     https://learn.microsoft.com/en-us/windows/win32/com/component-object-model--com--portal
     #>
@@ -356,12 +381,35 @@ function Get-RegisteredComFromRegistry {
                 foreach ($ServerProperty in $ServerProperties) {
 
                     $ServerData = (Get-ItemProperty -Path "Registry::$($ServerProperty.Name)")."(Default)"
+                    $ServerDataType = $null
+
+                    if ($ServerProperty.PSChildName -like "Inproc*") {
+                        # The data contains the name or path of a DLL.
+                        $PathToAnalyze = $ServerData
+                        # The following regex matches any string surrounded by double quotes, but not
+                        # containing double quotes within it. This should match quoted paths such as
+                        # "C:\windows\system32\combase.dll"
+                        if ($ServerData -match "^`"[^`"]+`"`$") {
+                            $PathToAnalyze = $ServerData.Trim('"')
+                        }
+                        if ([System.IO.Path]::IsPathRooted($PathToAnalyze)) {
+                            $ServerDataType = "FilePath"
+                        }
+                        else {
+                            $ServerDataType = "FileName"
+                        }
+                    }
+                    elseif ($ServerProperty.PSChildName -like "Local*") {
+                        # The data contains the path of an executable or a command line.
+                        $ServerDataType = "CommandLine"
+                    }
 
                     $Result = New-Object -TypeName PSObject
                     $Result | Add-Member -MemberType "NoteProperty" -Name "Id" -Value $ClassId.PSChildName
                     $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $($ClassId.Name -replace "HKEY_LOCAL_MACHINE","HKLM")
                     $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $ServerProperty.PSChildName
                     $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $ServerData
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "DataType" -Value $ServerDataType
                     [void] $script:CachedRegisteredComList.Add($Result)
                 }
             }
