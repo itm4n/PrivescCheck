@@ -60,7 +60,12 @@ function Invoke-Build {
         if ($SanityCheck) {
             $ScriptHeader = "#Requires -Version 2`r`n`r`n"
             $RootPath = Split-Path -Path (Split-Path -Path $PSCommandPath -Parent) -Parent
-            if (-not $NoRandomNames) { $Wordlist = Get-Wordlist -WordLength 10 }
+            if ($NoRandomNames) {
+                Write-Message -Type Warning "Random name disabled."
+            }
+            else {
+                $Wordlist = Get-Wordlist -WordLength 10
+            }
 
             $LolDrivers = Get-LolDrivers
 
@@ -128,7 +133,7 @@ function Invoke-Build {
                             Write-Message "Driver list written to '$($ModuleFilename)'."
                         }
                         else {
-                            Write-Warning "Known vulnerable driver CSV is null."
+                            Write-Message -Type Warning "Known vulnerable driver CSV is null."
                         }
 
                         if ($null -ne $CheckCsvBlob) {
@@ -137,7 +142,7 @@ function Invoke-Build {
                             Write-Message "Check list written to '$($ModuleFilename)'."
                         }
                         else {
-                            Write-Warning "Check CSV text blob is null."
+                            Write-Message -Type Warning "Check CSV text blob is null."
                         }
                     }
 
@@ -266,25 +271,22 @@ function Get-AssetFileContent {
                 Write-Message -Type Error "Failed to download file '$($Filename)' from $($FileUrl)."
             }
         }
-        else {
-            Write-Message "Retrieved file '$($Filename)' from local cache."
-            $FileContent = $CachedFile | Get-Content | Out-String
-        }
 
-        $FileContent
+        Write-Message "Retrieved file '$($Filename)' from local cache."
+        Get-Content -LiteralPath $FilePath | Out-String
     }
 }
 
 function Get-Wordlist {
 
     [CmdletBinding()]
-    param(
+    param (
         [UInt32] $WordLength = 8
     )
 
     $Wordlist = Get-AssetFileContent -Name "WordList"
     if ($null -ne $Wordlist) {
-        $Wordlist = $Wordlist -split "`n"
+        $Wordlist = $Wordlist -split "`n" | ForEach-Object { $_.Trim() }
         $Wordlist | Where-Object { (-not [string]::IsNullOrEmpty($_)) -and ($_.length -eq $WordLength) -and ($_.ToLower() -match "^[a-z]+$") }
     }
 }
