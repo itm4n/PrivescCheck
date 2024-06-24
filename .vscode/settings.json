@@ -1,0 +1,4 @@
+{
+    "powershell.scriptAnalysis.settingsPath": "test/ScriptAnalyzerSettings.psd1",
+    "files.trimTrailingWhitespace": true
+}
