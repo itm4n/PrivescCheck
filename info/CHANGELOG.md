@@ -6,6 +6,7 @@
 
 - Check for COM registry permissions.
 - Helper function for resolving module paths.
+- Check for COM module file permissions.
 
 ## 2024-06-22
 

@@ -1054,6 +1054,7 @@ function Invoke-ComRegistryPermissionsCheck {
 
             foreach ($ModifiableRegPath in $ModifiableRegPaths) {
 
+                $ModifiableRegPath.Permissions = $ModifiableRegPath.Permissions -join ", "
                 $AllResults += $ModifiableRegPath
             }
         }
@@ -1062,5 +1063,102 @@ function Invoke-ComRegistryPermissionsCheck {
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AllResults.Count -gt 0) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
         $CheckResult
+    }
+}
+
+function Invoke-ComRegistryImagePermissionsCheck {
+    <#
+    .SYNOPSIS
+    Check whether the current user has any modification rights on a COM server module file.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet checks the file permissions of each COM class module, and determines whether the current user has any modification rights. It should be noted that, if so, this may not necessarily result in a privilege escalation because the COM class could be instantiated in a process running as the current user instead of SYSTEM, or any other privileged account.
+    #>
+
+    [CmdletBinding()]
+    param (
+        [UInt32] $BaseSeverity
+    )
+
+    begin {
+        $AllResults = @()
+        $AlreadyCheckedPaths = @()
+        $FsRedirectionValue = Disable-Wow64FileSystemRedirection
+    }
+
+    process {
+        $RegisteredClasses = Get-RegisteredComFromRegistry | Where-Object { ($_.Value -like "*server*") -and ($null -ne $_.Path) -and ($null -ne $_.Data) }
+        Write-Verbose "Server COM classes count: $($RegisteredClasses.Count)"
+
+        foreach ($RegisteredClass in $RegisteredClasses) {
+
+            $CandidatePaths = @()
+
+            switch ($RegisteredClass.DataType) {
+                "FileName" {
+                    Resolve-ModulePath -Name $RegisteredClass.Data | ForEach-Object { $CandidatePaths += $_ }
+                }
+                "FilePath" {
+                    $CandidatePaths += $RegisteredClass.Data.Trim('"')
+                }
+                "CommandLine" {
+                    # Extract the executable path. If it's a filename, try to resolve it first.
+                    $Arguments = [String[]] (ConvertTo-ArgumentList -CommandLine $RegisteredClass.Data)
+                    if ($null -eq $Arguments) { continue }
+                    if ([System.IO.Path]::IsPathRooted($Arguments[0])) {
+                        $CandidatePaths += $Arguments[0]
+                    }
+                    else {
+                        Resolve-ModulePath -Name $Arguments[0] | ForEach-Object { $CandidatePaths += $_ }
+                    }
+
+                    # If the executable is rundll32, try to extract a DLL path from the first
+                    # argument, and add its path to the candidate path list.
+                    if (($Arguments[0] -match ".*rundll32(\.exe)?`$") -and ($Arguments.Count -gt 1) -and ($Arguments[1] -like "*.dll,*")) {
+                        $PathToAnalyze = $Arguments[1].Split(',')[0]
+                        if ([System.IO.Path]::IsPathRooted($Arguments[0])) {
+                            $CandidatePaths += $PathToAnalyze
+                        }
+                        else {
+                            Resolve-ModulePath -Name $PathToAnalyze | ForEach-Object { $CandidatePaths += $_ }
+                        }
+                    }
+                }
+                default {
+                    Write-Warning "Unknown server data type: $($RegisteredClass.DataType)"
+                    continue
+                }
+            }
+
+            foreach ($CandidatePath in $CandidatePaths) {
+
+                if ($AlreadyCheckedPaths -contains $CandidatePath) { continue }
+
+                $ModifiablePaths = $CandidatePath | Get-ModifiablePath -LiteralPaths
+
+                if ($null -eq $ModifiablePaths) { $AlreadyCheckedPaths += $CandidatePath; continue}
+
+                foreach ($ModifiablePath in $ModifiablePaths) {
+
+                    $Result = $RegisteredClass.PSObject.Copy()
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $ModifiablePath.ModifiablePath
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $ModifiablePath.IdentityReference
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value $($ModifiablePath.Permissions -join ", ")
+                    $AllResults += $Result
+                }
+            }
+        }
+
+        $CheckResult = New-Object -TypeName PSObject
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AllResults.Count -gt 0) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult
+    }
+
+    end {
+        Restore-Wow64FileSystemRedirection -OldValue $FsRedirectionValue
     }
 }

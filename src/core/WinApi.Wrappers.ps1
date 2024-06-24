@@ -1403,7 +1403,7 @@ function Resolve-ModulePath {
         $RetVal = $script:Kernel32::LoadLibrary($Name)
         if ($RetVal -eq [IntPtr]::Zero) {
             $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-            Write-Warning "LoadLibrary - $([ComponentModel.Win32Exception] $LastError)"
+            Write-Verbose "LoadLibrary(`"$($Name)`") - $([ComponentModel.Win32Exception] $LastError)"
             return
         }
 
