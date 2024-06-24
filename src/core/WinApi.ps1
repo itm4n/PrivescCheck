@@ -52,6 +52,8 @@ $FunctionDefinitions = @(
     (New-Function ntdll NtQuerySystemInformation ([Int32]) @([UInt32], [IntPtr], [UInt32], [UInt32].MakeByRefType()) -EntryPoint NtQuerySystemInformation),
     # (New-Function ntdll NtQueryInformationProcess ([Int32]) @([IntPtr], [UInt32], [IntPtr], [UInt32], [UInt32].MakeByRefType()) -EntryPoint NtQueryInformationProcess),
 
+    (New-Function shell32 CommandLineToArgvW ([IntPtr]) @([String], [Int32].MakeByRefType()) -EntryPoint CommandLineToArgvW -Charset Unicode),
+
     (New-Function shlwapi AssocQueryStringW ([Int32]) @($script:ASSOCF, $script:ASSOCSTR, [String], [IntPtr], [System.Text.StringBuilder], [UInt32].MakeByRefType()) -Charset Unicode -EntryPoint AssocQueryStringW),
 
     (New-Function vaultcli VaultEnumerateVaults ([UInt32]) @([UInt32], [UInt32].MakeByRefType(), [IntPtr].MakeByRefType()) -EntryPoint VaultEnumerateVaults),
@@ -87,6 +89,7 @@ $script:Iphlpapi = $Types['iphlpapi']
 $script:Kernel32 = $Types['kernel32']
 $script:Netapi32 = $Types['netapi32']
 $script:Ntdll    = $Types['ntdll']
+$script:Shell32  = $Types['shell32']
 $script:Shlwapi  = $Types['shlwapi']
 $script:Vaultcli = $Types['vaultcli']
 $script:Winspool = $Types['winspool.drv']

@@ -1317,3 +1317,49 @@ function Get-NetWkstaInfo {
         }
     }
 }
+
+function ConvertTo-ArgumentList {
+    <#
+    .SYNOPSIS
+    Wrapper for the API CommandLineToArgvW
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet is a wrapper for the Windows API CommandLineToArgvW.
+
+    .PARAMETER CommandLine
+    Unicode string that contains the full command line.
+    #>
+
+    [OutputType([string[]])]
+    [CmdletBinding()]
+    param (
+        [string] $CommandLine
+    )
+
+    process {
+        $NumArgs = [Int32] 0
+        $RetVal = $script:Shell32::CommandLineToArgvW($CommandLine, [ref] $NumArgs)
+        if ($RetVal -eq [IntPtr]::Zero) {
+            $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+            Write-Warning "CommandLineToArgvW - $([ComponentModel.Win32Exception] $LastError)"
+            return
+        }
+
+        $Arguments = [string[]] @()
+        $PointerArrayPtr = $RetVal
+        for ($i = 0; $i -lt $NumArgs; $i++) {
+
+            $ArgumentPtr = [System.Runtime.InteropServices.Marshal]::ReadIntPtr($PointerArrayPtr)
+            $Arguments += [System.Runtime.InteropServices.Marshal]::PtrToStringUni($ArgumentPtr)
+
+            $PointerArrayPtr = [IntPtr] ($PointerArrayPtr.ToInt64() + [IntPtr]::Size)
+        }
+
+        $Arguments
+
+        $script:Kernel32::LocalFree($RetVal) | Out-Null
+    }
+}
