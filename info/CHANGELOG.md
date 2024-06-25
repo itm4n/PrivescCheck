@@ -1,5 +1,11 @@
 # Changelog
 
+## 2024-06-25
+
+### Added
+
+- Check for COM servers with a missing module.
+
 ## 2024-06-24
 
 ### Added

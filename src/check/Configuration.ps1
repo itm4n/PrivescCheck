@@ -1020,7 +1020,7 @@ function Invoke-SmbConfigurationCheck {
     }
 }
 
-function Invoke-ComRegistryPermissionsCheck {
+function Invoke-ComServerRegistryPermissionsCheck {
     <#
     .SYNOPSIS
     Check whether the current user has any modification rights on a COM class in the registry.
@@ -1066,7 +1066,7 @@ function Invoke-ComRegistryPermissionsCheck {
     }
 }
 
-function Invoke-ComImagePermissionsCheck {
+function Invoke-ComServerImagePermissionsCheck {
     <#
     .SYNOPSIS
     Check whether the current user has any modification rights on a COM server module file.
@@ -1162,7 +1162,7 @@ function Invoke-ComImagePermissionsCheck {
     }
 }
 
-function Invoke-ComGhostDllHijackingCheck {
+function Invoke-ComServerGhostDllHijackingCheck {
     <#
     .SYNOPSIS
     Check whether there are COM servers registered with a non-existent module using a relative path.
@@ -1216,6 +1216,93 @@ function Invoke-ComGhostDllHijackingCheck {
 
                 if ($null -ne $ResolvedPath) { $AlreadyChecked += $Candidate; continue }
 
+                $AllResults += $RegisteredClass
+            }
+        }
+
+        $CheckResult = New-Object -TypeName PSObject
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AllResults.Count -gt 0) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult
+    }
+
+    end {
+        Restore-Wow64FileSystemRedirection -OldValue $FsRedirectionValue
+    }
+}
+
+function Invoke-ComServerMissingModuleFileCheck {
+    <#
+    .SYNOPSIS
+    Check whether there are leftover COM servers registered with non-existent modules.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet enumerates registered COM servers and checks whether their module file path points to an existing file. It should be noted that it does not check for file permissions. Such issue is already reported by 'Invoke-ComServerImagePermissionsCheck', which checks the permissions of parent folders in case the target file doesn't exist.
+    #>
+
+    [CmdletBinding()]
+    param (
+        [UInt32] $BaseSeverity
+    )
+
+    begin {
+        $AllResults = @()
+        $AlreadyChecked = @()
+        $FsRedirectionValue = Disable-Wow64FileSystemRedirection
+    }
+
+    process {
+        $RegisteredClasses = Get-RegisteredComFromRegistry | Where-Object { ($_.Value -like "*server*") -and ($null -ne $_.Path) -and ($null -ne $_.Data) }
+
+        foreach ($RegisteredClass in $RegisteredClasses) {
+
+            $CandidatePaths = @()
+
+            switch ($RegisteredClass.DataType) {
+                "FilePath" {
+                    $CandidatePaths += $RegisteredClass.Data.Trim('"')
+                }
+                "CommandLine" {
+                    # Extract the executable path.
+                    $Arguments = [String[]] (ConvertTo-ArgumentList -CommandLine $RegisteredClass.Data)
+                    if ($null -eq $Arguments) { continue }
+                    $CandidatePaths += $Arguments[0]
+
+                    # If the executable is rundll32, try to extract a DLL path from the first
+                    # argument, and add its path to the candidate path list.
+                    if (($Arguments[0] -match ".*rundll32(\.exe)?`$") -and ($Arguments.Count -gt 1) -and ($Arguments[1] -like "*.dll,*")) {
+                        $CandidatePaths += $Arguments[1].Split(',')[0]
+                    }
+                }
+            }
+
+            $MissingFiles = @()
+
+            foreach ($CandidatePath in $CandidatePaths) {
+
+                if ($AlreadyChecked -contains $CandidatePath) { continue }
+
+                if ([System.IO.Path]::IsPathRooted($CandidatePath)) {
+                    if (Test-Path -LiteralPath $CandidatePath -ErrorAction SilentlyContinue) {
+                        $AlreadyChecked += $CandidatePath
+                        continue
+                    }
+                    $MissingFiles += $CandidatePath
+                }
+                else {
+                    $ResolvedPath = Resolve-ModulePath -Name $CandidatePath
+                    if ($null -ne $ResolvedPath) {
+                        $AlreadyChecked += $CandidatePath
+                        continue
+                    }
+                    $MissingFiles += $CandidatePath
+                }
+            }
+
+            if ($MissingFiles.Count -gt 0) {
                 $AllResults += $RegisteredClass
             }
         }
