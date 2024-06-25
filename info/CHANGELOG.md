@@ -6,6 +6,10 @@
 
 - Check for COM servers with a missing module.
 
+### Changed
+
+- Reintroduce the leaked handle check.
+
 ## 2024-06-24
 
 ### Added

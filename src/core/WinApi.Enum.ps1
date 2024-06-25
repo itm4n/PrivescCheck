@@ -18,7 +18,7 @@ $script:FileAccessRightEnum = New-Enum $Module WinApiModule.FileAccessRight UInt
     AccessSystemSecurity                = '0x01000000'
     Synchronize                         = '0x00100000'
     WriteOwner                          = '0x00080000'
-    WriteDAC                            = '0x00040000'
+    WriteDac                            = '0x00040000'
     ReadControl                         = '0x00020000'
     Delete                              = '0x00010000'
     WriteAttributes                     = '0x00000100'
@@ -85,6 +85,26 @@ $script:ProcessAccessRightEnum = New-Enum $Module WinApiModule.ProcessAccessRigh
     SET_LIMITED_INFORMATION             = '0x00002000'
     ALL_ACCESS                          = '0x001FFFFF' # STANDARD_RIGHTS_REQUIRED (0x000F0000L) | SYNCHRONIZE (0x00100000L) | 0xFFFF
     SYNCHRONIZE                         = '0x00100000'
+} -Bitfield
+
+$script:ThreadAccessRightEnum = New-Enum $Module WinApiModule.ThreadAccessRight UInt32 @{
+    Terminate                           = '0x00000001'
+    SuspendResume                       = '0x00000002'
+    GetContext                          = '0x00000008'
+    SetContext                          = '0x00000010'
+    SetInformation                      = '0x00000020'
+    QueryInformation                    = '0x00000040'
+    SetThreadToken                      = '0x00000080'
+    Impersonate                         = '0x00000100'
+    DirectImpersonation                 = '0x00000200'
+    SetLimitedInformation               = '0x00000400'
+    QueryLimitedInformation             = '0x00000800'
+    Delete                              = '0x00010000'
+    ReadControl                         = '0x00020000'
+    WriteDac                            = '0x00040000'
+    WriteOwner                          = '0x00080000'
+    Synchronize                         = '0x00100000'
+    AllAccess                           = '0x001FFFFF' # STANDARD_RIGHTS_REQUIRED (0x000F0000L) | SYNCHRONIZE (0x00100000L) | 0xFFFF
 } -Bitfield
 
 $script:TokenAccessRightEnum = New-Enum $Module WinApiModule.TokenAccessRight UInt32 @{
