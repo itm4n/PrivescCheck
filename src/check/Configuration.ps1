@@ -1059,9 +1059,6 @@ function Invoke-ComServerRegistryPermissionsCheck {
                 $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $ModifiableRegPath.IdentityReference
                 $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value ($ModifiableRegPath.Permissions -join ", ")
                 $AllResults += $Result
-
-                # $ModifiableRegPath.Permissions = $ModifiableRegPath.Permissions -join ", "
-                # $AllResults += $ModifiableRegPath
             }
         }
 
@@ -1107,11 +1104,12 @@ function Invoke-ComServerImagePermissionsCheck {
                     Resolve-ModulePath -Name $RegisteredClass.Data | ForEach-Object { $CandidatePaths += $_ }
                 }
                 "FilePath" {
-                    $CandidatePaths += $RegisteredClass.Data.Trim('"')
+                    $CandidatePaths += [System.Environment]::ExpandEnvironmentVariables($RegisteredClass.Data).Trim('"')
                 }
                 "CommandLine" {
                     # Extract the executable path. If it's a filename, try to resolve it first.
-                    $Arguments = [String[]] (ConvertTo-ArgumentList -CommandLine $RegisteredClass.Data)
+                    $CommandLine = [System.Environment]::ExpandEnvironmentVariables($RegisteredClass.Data)
+                    $Arguments = [String[]] (ConvertTo-ArgumentList -CommandLine $CommandLine)
                     if ($null -eq $Arguments) { continue }
                     if ([System.IO.Path]::IsPathRooted($Arguments[0])) {
                         $CandidatePaths += $Arguments[0]
@@ -1200,10 +1198,11 @@ function Invoke-ComServerGhostDllHijackingCheck {
 
             switch ($RegisteredClass.DataType) {
                 "FileName" {
-                    $Candidates += $RegisteredClass.Data.Trim('"')
+                    $Candidates += [System.Environment]::ExpandEnvironmentVariables($RegisteredClass.Data).Trim('"')
                 }
                 "CommandLine" {
-                    $Arguments = [String[]] (ConvertTo-ArgumentList -CommandLine $RegisteredClass.Data)
+                    $CommandLine = [System.Environment]::ExpandEnvironmentVariables($RegisteredClass.Data)
+                    $Arguments = [String[]] (ConvertTo-ArgumentList -CommandLine $CommandLine)
                     if ($null -eq $Arguments) { continue }
                     $Candidates += $Arguments[0]
 
@@ -1269,11 +1268,12 @@ function Invoke-ComServerMissingModuleFileCheck {
 
             switch ($RegisteredClass.DataType) {
                 "FilePath" {
-                    $CandidatePaths += $RegisteredClass.Data.Trim('"')
+                    $CandidatePaths += [System.Environment]::ExpandEnvironmentVariables($RegisteredClass.Data).Trim('"')
                 }
                 "CommandLine" {
                     # Extract the executable path.
-                    $Arguments = [String[]] (ConvertTo-ArgumentList -CommandLine $RegisteredClass.Data)
+                    $CommandLine = [System.Environment]::ExpandEnvironmentVariables($RegisteredClass.Data)
+                    $Arguments = [String[]] (ConvertTo-ArgumentList -CommandLine $CommandLine)
                     if ($null -eq $Arguments) { continue }
                     $CandidatePaths += $Arguments[0]
 

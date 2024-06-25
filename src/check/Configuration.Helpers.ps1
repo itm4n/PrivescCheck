@@ -380,12 +380,14 @@ function Get-RegisteredComFromRegistry {
 
                 foreach ($ServerProperty in $ServerProperties) {
 
-                    $ServerData = (Get-ItemProperty -Path "Registry::$($ServerProperty.Name)")."(Default)"
+                    $ServerData = $ServerProperty.GetValue($null, $null, "DoNotExpandEnvironmentNames")
+                    # $ServerData = (Get-ItemProperty -Path "Registry::$($ServerProperty.Name)")."(Default)"
                     $ServerDataType = $null
 
                     if ($ServerProperty.PSChildName -like "Inproc*") {
                         # The data contains the name or path of a DLL.
-                        $PathToAnalyze = $ServerData
+                        # $PathToAnalyze = $ServerData
+                        $PathToAnalyze = [System.Environment]::ExpandEnvironmentVariables($ServerData)
                         # The following regex matches any string surrounded by double quotes, but not
                         # containing double quotes within it. This should match quoted paths such as
                         # "C:\windows\system32\combase.dll"
