@@ -9,6 +9,7 @@
 ### Changed
 
 - Reintroduce the leaked handle check.
+- Handle service image path as a command line to prevent false positives when checking file permissions.
 
 ## 2024-06-24
 
