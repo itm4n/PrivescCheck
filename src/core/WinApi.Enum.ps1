@@ -5,11 +5,11 @@ $script:SeverityLevelEnum = New-Enum $Module WinApiModule.SeverityLevel UInt32 @
     High                                = '0x00000003'
 }
 
-$script:SystemErrorCodeEnum = New-Enum $Module WinApiModule.SystemErrorCodeEnum UInt32 @{
+$script:SystemErrorCodeEnum = New-Enum $Module WinApiModule.SystemErrorCode UInt32 @{
     ERROR_INSUFFICIENT_BUFFER           = 122
 }
 
-$script:FileAccessRightsEnum = New-Enum $Module WinApiModule.FileAccessRightsEnum UInt32 @{
+$script:FileAccessRightEnum = New-Enum $Module WinApiModule.FileAccessRight UInt32 @{
     # GenericRead                       = '0x80000000'
     # GenericWrite                      = '0x40000000'
     # GenericExecute                    = '0x20000000'
@@ -32,7 +32,7 @@ $script:FileAccessRightsEnum = New-Enum $Module WinApiModule.FileAccessRightsEnu
     ReadData                            = '0x00000001'
 } -Bitfield
 
-$script:ServiceAccessRightsEnum = New-Enum $Module WinApiModule.ServiceAccessRights UInt32 @{
+$script:ServiceAccessRightEnum = New-Enum $Module WinApiModule.ServiceAccessRight UInt32 @{
     QueryConfig                         = '0x00000001'
     ChangeConfig                        = '0x00000002'
     QueryStatus                         = '0x00000004'
@@ -55,7 +55,7 @@ $script:ServiceAccessRightsEnum = New-Enum $Module WinApiModule.ServiceAccessRig
     AllAccess                           = '0x000F01FF'
 } -Bitfield
 
-$script:ServiceControlManagerAccessRightsEnum = New-Enum $Module WinApiModule.ServiceControlManagerAccessRights UInt32 @{
+$script:ServiceControlManagerAccessRightEnum = New-Enum $Module WinApiModule.ServiceControlManagerAccessRight UInt32 @{
     Connect                             = '0x00000001'
     CreateService                       = '0x00000002'
     EnumerateService                    = '0x00000004'
@@ -68,7 +68,7 @@ $script:ServiceControlManagerAccessRightsEnum = New-Enum $Module WinApiModule.Se
     GenericExecute                      = '0x00020009' # STANDARD_RIGHTS_EXECUTE | SC_MANAGER_CONNECT | SC_MANAGER_LOCK
 } -Bitfield
 
-$script:ProcessAccessRightsEnum = New-Enum $Module WinApiModule.ProcessAccessRights UInt32 @{
+$script:ProcessAccessRightEnum = New-Enum $Module WinApiModule.ProcessAccessRight UInt32 @{
     TERMINATE                           = '0x00000001'
     CREATE_THREAD                       = '0x00000002'
     SET_SESSIONID                       = '0x00000004'
@@ -87,7 +87,7 @@ $script:ProcessAccessRightsEnum = New-Enum $Module WinApiModule.ProcessAccessRig
     SYNCHRONIZE                         = '0x00100000'
 } -Bitfield
 
-$script:TokenAccessRightsEnum = New-Enum $Module WinApiModule.TokenAccessRights UInt32 @{
+$script:TokenAccessRightEnum = New-Enum $Module WinApiModule.TokenAccessRight UInt32 @{
     AssignPrimary                       = '0x00000001'
     Duplicate                           = '0x00000002'
     Impersonate                         = '0x00000004'

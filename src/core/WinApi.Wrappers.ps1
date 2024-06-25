@@ -20,8 +20,8 @@ function Get-ProcessTokenHandle {
     [CmdletBinding()]
     param(
         [UInt32] $ProcessId = 0,
-        [UInt32] $ProcessAccess = $script:ProcessAccessRightsEnum::QUERY_INFORMATION,
-        [UInt32] $TokenAccess = $script:TokenAccessRightsEnum::Query
+        [UInt32] $ProcessAccess = $script:ProcessAccessRightEnum::QUERY_INFORMATION,
+        [UInt32] $TokenAccess = $script:TokenAccessRightEnum::Query
     )
 
     if ($ProcessId -eq 0) {
@@ -376,7 +376,7 @@ function Get-TokenInformationIntegrityLevel {
         [UInt32] $ProcessId = 0
     )
 
-    $TokenHandle = Get-ProcessTokenHandle -ProcessId $ProcessId -ProcessAccess $script:ProcessAccessRightsEnum::QUERY_LIMITED_INFORMATION
+    $TokenHandle = Get-ProcessTokenHandle -ProcessId $ProcessId -ProcessAccess $script:ProcessAccessRightEnum::QUERY_LIMITED_INFORMATION
     if (-not $TokenHandle) { return }
 
     $TokenMandatoryLabelPtr = Get-TokenInformationData -TokenHandle $TokenHandle -InformationClass $script:TOKEN_INFORMATION_CLASS::TokenIntegrityLevel
@@ -558,7 +558,7 @@ function Get-TokenInformationSource {
         [UInt32] $ProcessId = 0
     )
 
-    $TokenHandle = Get-ProcessTokenHandle -ProcessId $ProcessId -TokenAccess $script:TokenAccessRightsEnum::QuerySource
+    $TokenHandle = Get-ProcessTokenHandle -ProcessId $ProcessId -TokenAccess $script:TokenAccessRightEnum::QuerySource
     if (-not $TokenHandle) { return }
 
     $TokenSourcePtr = Get-TokenInformationData -TokenHandle $TokenHandle -InformationClass $script:TOKEN_INFORMATION_CLASS::TokenSource
@@ -1027,7 +1027,7 @@ function Get-FileDacl {
         [String] $Path
     )
 
-    $DesiredAccess = $script:FileAccessRightsEnum::ReadControl
+    $DesiredAccess = $script:FileAccessRightEnum::ReadControl
     $ShareMode = 0x00000001 # FILE_SHARE_READ
     $CreationDisposition = 3 # OPEN_EXISTING
     $FlagsAndAttributes = 0x80 # FILE_ATTRIBUTE_NORMAL

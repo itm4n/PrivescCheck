@@ -35,7 +35,7 @@ function Get-ServiceControlManagerDacl {
     param()
 
     $SERVICES_ACTIVE_DATABASE = "ServicesActive"
-    $ServiceManagerHandle = $script:Advapi32::OpenSCManager($null, $SERVICES_ACTIVE_DATABASE, $script:ServiceControlManagerAccessRightsEnum::GenericRead)
+    $ServiceManagerHandle = $script:Advapi32::OpenSCManager($null, $SERVICES_ACTIVE_DATABASE, $script:ServiceControlManagerAccessRightEnum::GenericRead)
     $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
 
     if ($ServiceManagerHandle) {
@@ -62,7 +62,7 @@ function Get-ServiceControlManagerDacl {
 
                 if ($null -eq $Dacl) {
                     $Result = New-Object -TypeName PSObject
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "AccessRights" -Value $script:ServiceControlManagerAccessRightsEnum::AllAccess
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "AccessRights" -Value $script:ServiceControlManagerAccessRightEnum::AllAccess
                     # $Result | Add-Member -MemberType "NoteProperty" -Name "AccessMask" -Value AccessRights.value__
                     $Result | Add-Member -MemberType "NoteProperty" -Name "SecurityIdentifier" -Value "S-1-1-0"
                     $Result | Add-Member -MemberType "NoteProperty" -Name "AceType" -Value "AccessAllowed"
@@ -70,7 +70,7 @@ function Get-ServiceControlManagerDacl {
                 }
                 else {
                     $Dacl | ForEach-Object {
-                        Add-Member -InputObject $_ -MemberType NoteProperty -Name AccessRights -Value ($_.AccessMask -as $script:ServiceControlManagerAccessRightsEnum) -PassThru
+                        Add-Member -InputObject $_ -MemberType NoteProperty -Name AccessRights -Value ($_.AccessMask -as $script:ServiceControlManagerAccessRightEnum) -PassThru
                     }
                 }
             }
@@ -367,7 +367,7 @@ function Add-ServiceDacl {
                             # Check for NULL DACL first
                             if ($nul -eq $RawDacl) {
                                 $Ace = New-Object -TypeName PSObject
-                                $Ace | Add-Member -MemberType "NoteProperty" -Name "AccessRights" -Value $script:ServiceAccessRightsEnum::GenericAll
+                                $Ace | Add-Member -MemberType "NoteProperty" -Name "AccessRights" -Value $script:ServiceAccessRightEnum::GenericAll
                                 # $Ace | Add-Member -MemberType "NoteProperty" -Name "AccessMask" -Value AccessRights.value__
                                 $Ace | Add-Member -MemberType "NoteProperty" -Name "SecurityIdentifier" -Value (Convert-SidStringToSid -Sid "S-1-1-0")
                                 $Ace | Add-Member -MemberType "NoteProperty" -Name "AceType" -Value "AccessAllowed"
@@ -375,7 +375,7 @@ function Add-ServiceDacl {
                             }
                             else {
                                 $Dacl = $RawDacl | ForEach-Object {
-                                    Add-Member -InputObject $_ -MemberType NoteProperty -Name AccessRights -Value ($_.AccessMask -as $script:ServiceAccessRightsEnum) -PassThru
+                                    Add-Member -InputObject $_ -MemberType NoteProperty -Name AccessRights -Value ($_.AccessMask -as $script:ServiceAccessRightEnum) -PassThru
                                 }
                             }
 

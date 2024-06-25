@@ -607,11 +607,11 @@ function Invoke-SensitiveHiveFileAccessCheck {
                 foreach ($Ace in $Acl) {
 
                     $PermissionReference = @(
-                        $script:FileAccessRightsEnum::ReadData
+                        $script:FileAccessRightEnum::ReadData
                     )
 
-                    $Permissions = [enum]::GetValues($script:FileAccessRightsEnum) | Where-Object {
-                        ($Ace.FileSystemRights.value__ -band ($script:FileAccessRightsEnum::$_)) -eq ($script:FileAccessRightsEnum::$_)
+                    $Permissions = [enum]::GetValues($script:FileAccessRightEnum) | Where-Object {
+                        ($Ace.FileSystemRights.value__ -band ($script:FileAccessRightEnum::$_)) -eq ($script:FileAccessRightEnum::$_)
                     }
 
                     if (Compare-Object -ReferenceObject $Permissions -DifferenceObject $PermissionReference -IncludeEqual -ExcludeDifferent) {
@@ -715,15 +715,15 @@ function Invoke-SensitiveHiveShadowCopyCheck {
                 if ($null -eq $FileDacl) { continue }
 
                 $PermissionReference = @(
-                    $script:FileAccessRightsEnum::ReadData
+                    $script:FileAccessRightEnum::ReadData
                 )
 
                 foreach ($Ace in $FileDacl.Access) {
 
                     if ($Ace.AceType -notmatch "AccessAllowed") { continue }
 
-                    $Permissions = [Enum]::GetValues($script:FileAccessRightsEnum) | Where-Object {
-                        ($Ace.AccessMask -band ($script:FileAccessRightsEnum::$_)) -eq ($script:FileAccessRightsEnum::$_)
+                    $Permissions = [Enum]::GetValues($script:FileAccessRightEnum) | Where-Object {
+                        ($Ace.AccessMask -band ($script:FileAccessRightEnum::$_)) -eq ($script:FileAccessRightEnum::$_)
                     }
 
                     if (Compare-Object -ReferenceObject $Permissions -DifferenceObject $PermissionReference -IncludeEqual -ExcludeDifferent) {

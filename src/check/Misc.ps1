@@ -734,19 +734,19 @@ function Invoke-NamedPipePermissionsCheck {
         }
 
         $PermissionReference = @(
-            $script:FileAccessRightsEnum::Delete,
-            $script:FileAccessRightsEnum::WriteDac,
-            $script:FileAccessRightsEnum::WriteOwner,
-            $script:FileAccessRightsEnum::FileWriteEa,
-            $script:FileAccessRightsEnum::FileWriteAttributes
+            $script:FileAccessRightEnum::Delete,
+            $script:FileAccessRightEnum::WriteDac,
+            $script:FileAccessRightEnum::WriteOwner,
+            $script:FileAccessRightEnum::FileWriteEa,
+            $script:FileAccessRightEnum::FileWriteAttributes
         )
 
         ForEach ($Ace in $NamedPipeDacl.Access) {
 
             if ($Ace.AceType -notmatch "AccessAllowed") { continue }
 
-            $Permissions = [Enum]::GetValues($script:FileAccessRightsEnum) | Where-Object {
-                ($Ace.AccessMask -band ($script:FileAccessRightsEnum::$_)) -eq ($script:FileAccessRightsEnum::$_)
+            $Permissions = [Enum]::GetValues($script:FileAccessRightEnum) | Where-Object {
+                ($Ace.AccessMask -band ($script:FileAccessRightEnum::$_)) -eq ($script:FileAccessRightEnum::$_)
             }
 
             if (Compare-Object -ReferenceObject $Permissions -DifferenceObject $PermissionReference -IncludeEqual -ExcludeDifferent) {
@@ -760,7 +760,7 @@ function Invoke-NamedPipePermissionsCheck {
                     $Result | Add-Member -MemberType "NoteProperty" -Name "Owner" -Value $NamedPipeDacl.Owner
                     # $Result | Add-Member -MemberType "NoteProperty" -Name "Group" -Value $NamedPipeDacl.Group
                     $Result | Add-Member -MemberType "NoteProperty" -Name "AceType" -Value ($Ace | Select-Object -ExpandProperty "AceType")
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "AccessRights" -Value ($Ace.AccessMask -as $script:FileAccessRightsEnum)
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "AccessRights" -Value ($Ace.AccessMask -as $script:FileAccessRightEnum)
                     $Result | Add-Member -MemberType "NoteProperty" -Name "SecurityIdentifier" -Value $IdentityReference
                     $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityName" -Value (Convert-SidToName -Sid $IdentityReference)
                     $Result
@@ -898,7 +898,7 @@ function Invoke-ExploitableLeakedHandlesCheck {
         # that we can duplicate the handle. Otherwise, the handle will not be exploitable. Whatever the
         # result, save it to a local hashtable for future use.
         if ($ProcessHandles.Keys -notcontains $HandleProcessId) {
-            $ProcHandle = $script:Kernel32::OpenProcess($script:ProcessAccessRightsEnum::DUP_HANDLE, $false, $HandleProcessId)
+            $ProcHandle = $script:Kernel32::OpenProcess($script:ProcessAccessRightEnum::DUP_HANDLE, $false, $HandleProcessId)
             $ProcessHandles += @{ $HandleProcessId = $ProcHandle }
         }
 
@@ -943,7 +943,7 @@ function Invoke-ExploitableLeakedHandlesCheck {
                         continue
                     }
 
-                    $Handle | Add-Member -MemberType "NoteProperty" -Name "HandleAccessRights" -Value ($Handle.GrantedAccess -as $script:ProcessAccessRightsEnum)
+                    $Handle | Add-Member -MemberType "NoteProperty" -Name "HandleAccessRights" -Value ($Handle.GrantedAccess -as $script:ProcessAccessRightEnum)
 
                     $KeepHandle = $true
                 }

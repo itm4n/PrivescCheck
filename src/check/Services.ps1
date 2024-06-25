@@ -391,15 +391,15 @@ function Invoke-SCMPermissionsCheck {
 
             $CurrentAce = $_
 
-            $Permissions = [Enum]::GetValues($script:ServiceControlManagerAccessRightsEnum) | Where-Object {
-                ($CurrentAce.AccessMask -band ($script:ServiceControlManagerAccessRightsEnum::$_)) -eq ($script:ServiceControlManagerAccessRightsEnum::$_)
+            $Permissions = [Enum]::GetValues($script:ServiceControlManagerAccessRightEnum) | Where-Object {
+                ($CurrentAce.AccessMask -band ($script:ServiceControlManagerAccessRightEnum::$_)) -eq ($script:ServiceControlManagerAccessRightEnum::$_)
             }
 
             $PermissionReference = @(
-                $script:ServiceControlManagerAccessRightsEnum::CreateService,
-                $script:ServiceControlManagerAccessRightsEnum::ModifyBootConfig,
-                $script:ServiceControlManagerAccessRightsEnum::AllAccess,
-                $script:ServiceControlManagerAccessRightsEnum::GenericWrite
+                $script:ServiceControlManagerAccessRightEnum::CreateService,
+                $script:ServiceControlManagerAccessRightEnum::ModifyBootConfig,
+                $script:ServiceControlManagerAccessRightEnum::AllAccess,
+                $script:ServiceControlManagerAccessRightEnum::GenericWrite
             )
 
             if (Compare-Object -ReferenceObject $Permissions -DifferenceObject $PermissionReference -IncludeEqual -ExcludeDifferent) {
