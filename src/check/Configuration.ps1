@@ -1054,8 +1054,14 @@ function Invoke-ComServerRegistryPermissionsCheck {
 
             foreach ($ModifiableRegPath in $ModifiableRegPaths) {
 
-                $ModifiableRegPath.Permissions = $ModifiableRegPath.Permissions -join ", "
-                $AllResults += $ModifiableRegPath
+                $Result = $RegisteredClass.PSObject.Copy()
+                $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $ModifiableRegPath.ModifiablePath
+                $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $ModifiableRegPath.IdentityReference
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value ($ModifiableRegPath.Permissions -join ", ")
+                $AllResults += $Result
+
+                # $ModifiableRegPath.Permissions = $ModifiableRegPath.Permissions -join ", "
+                # $AllResults += $ModifiableRegPath
             }
         }
 
