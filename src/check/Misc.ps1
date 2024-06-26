@@ -325,21 +325,17 @@ function Invoke-UsersHomeFolderCheck {
 
     $UsersHomeFolder = Join-Path -Path $((Get-Item $env:windir).Root) -ChildPath Users
 
-    Get-ChildItem -Path $UsersHomeFolder | ForEach-Object {
+    foreach ($HomeFolder in $(Get-ChildItem -Path $UsersHomeFolder)) {
 
-        $FolderPath = $_.FullName
+        $FolderPath = $HomeFolder.FullName
         $ReadAccess = $false
         $WriteAccess = $false
 
-        $null = Get-ChildItem -Path $FolderPath -ErrorAction SilentlyContinue -ErrorVariable ErrorGetChildItem
-        if (-not $ErrorGetChildItem) {
-
+        $ChildItems = Get-ChildItem -Path $FolderPath -ErrorAction SilentlyContinue
+        if ($ChildItems) {
             $ReadAccess = $true
-
-            $ModifiablePaths = $FolderPath | Get-ModifiablePath -LiteralPaths
-            if (([Object[]] $ModifiablePaths).Length -gt 0) {
-                $WriteAccess = $true
-            }
+            $ModifiablePaths = Get-ModifiablePath -Path $FolderPath | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
+            if ($ModifiablePaths) { $WriteAccess = $true }
         }
 
         $Result = New-Object -TypeName PSObject
@@ -977,7 +973,7 @@ function Invoke-ExploitableLeakedHandleCheck {
                     if ($TargetFilename -notmatch "^?:\\.*$") { continue }
                     # Check if we have any modification rights on the target file or folder, If so,
                     # the handle isn't interesting, so ignore it.
-                    $ModifiablePath = Get-ModifiablePath -LiteralPaths $TargetFilename
+                    $ModifiablePath = Get-ModifiablePath -Path $TargetFilename | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
                     if ($null -ne $ModifiablePath) { continue }
                     $CandidateHandle | Add-Member -MemberType "NoteProperty" -Name "TargetFileAccessRights" -Value ($CandidateHandle.GrantedAccess -as $script:FileAccessRightEnum)
                     $ExploitableHandles += $CandidateHandle

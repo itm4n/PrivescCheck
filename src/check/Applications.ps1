@@ -56,15 +56,15 @@ function Invoke-ModifiableProgramsCheck {
     }
 
     process {
-        $Items = Get-InstalledProgram -Filtered
+        $InstalledPrograms = Get-InstalledProgram -Filtered
 
-        foreach ($Item in $Items) {
+        foreach ($InstalledProgram in $InstalledPrograms) {
 
             # Ensure the path is not a known system folder, in which case it does not make
             # sense to check it. This also prevents the script from spending a considerable
             # amount of time and resources searching those paths recursively.
-            if (Test-IsSystemFolder -Path $Item.FullName) {
-                Write-Warning "System path detected, ignoring: $($Item.FullName)"
+            if (Test-IsSystemFolder -Path $InstalledProgram.FullName) {
+                Write-Warning "System path detected, ignoring: $($InstalledProgram.FullName)"
                 continue
             }
 
@@ -72,25 +72,19 @@ function Invoke-ModifiableProgramsCheck {
             # without using the 'Depth' option, which is only available in PSv5+. This
             # allows us to maintain compatibility with PSv2.
             $SearchPath = New-Object -TypeName System.Collections.ArrayList
-            [void] $SearchPath.Add([String] $(Join-Path -Path $Item.FullName -ChildPath "\*"))
-            [void] $SearchPath.Add([String] $(Join-Path -Path $Item.FullName -ChildPath "\*\*"))
+            [void] $SearchPath.Add([String] $(Join-Path -Path $InstalledProgram.FullName -ChildPath "\*"))
+            [void] $SearchPath.Add([String] $(Join-Path -Path $InstalledProgram.FullName -ChildPath "\*\*"))
 
-            Get-ChildItem -Path $SearchPath -ErrorAction SilentlyContinue | ForEach-Object {
+            $CandidateItems = Get-ChildItem -Path $SearchPath -ErrorAction SilentlyContinue
 
-                if ($_ -is [System.IO.DirectoryInfo]) {
-                    $ModifiablePaths = $_ | Get-ModifiablePath -LiteralPaths
-                }
-                else {
-                    if (Test-CommonApplicationFile -Path $_.FullName) {
-                        $ModifiablePaths = $_ | Get-ModifiablePath -LiteralPaths
-                    }
-                }
+            foreach ($CandidateItem in $CandidateItems) {
 
-                foreach ($Path in $ModifiablePaths) {
-                    if ($Path.ModifiablePath -eq $_.FullName) {
-                        $Path.Permissions = ($Path.Permissions -join ', ')
-                        $AllResults += $Path
-                    }
+                if (($CandidateItem -is [System.IO.FileInfo]) -and (-not (Test-CommonApplicationFile -Path $CandidateItem.FullName))) { continue }
+
+                $ModifiablePaths = Get-ModifiablePath -Path $CandidateItem.FullName | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
+                foreach ($ModifiablePath in $ModifiablePaths) {
+                    $ModifiablePath.Permissions = $ModifiablePath.Permissions -join ', '
+                    $AllResults += $ModifiablePath
                 }
             }
         }
@@ -142,17 +136,29 @@ function Invoke-ProgramDataCheck {
     #>
 
     [CmdletBinding()]
-    param()
+    param ()
 
-    $IgnoredProgramData = @("Microsoft", "Microsoft OneDrive", "Package Cache", "Packages", "SoftwareDistribution", "ssh", "USOPrivate", "USOShared", "")
+    begin {
+        $IgnoredProgramData = @("Microsoft", "Microsoft OneDrive", "Package Cache", "Packages", "SoftwareDistribution", "ssh", "USOPrivate", "USOShared")
+    }
 
-    Get-ChildItem -Path $env:ProgramData | ForEach-Object {
+    process {
+        $ProgramDataFolders = Get-ChildItem -Path $env:ProgramData -ErrorAction SilentlyContinue | Where-Object { ($_ -is [System.IO.DirectoryInfo]) -and (-not ($IgnoredProgramData -contains $_.Name)) }
 
-        if ($_ -is [System.IO.DirectoryInfo] -and (-not ($IgnoredProgramData -contains $_.Name))) {
+        foreach ($ProgramDataFolder in $ProgramDataFolders) {
 
-            $_ | Get-ChildItem -Recurse -Force -ErrorAction SilentlyContinue | ForEach-Object {
+            $ProgramDataFolderChildItems = Get-ChildItem -Path $ProgramDataFolder.FullName -Recurse -Force -ErrorAction SilentlyContinue
 
-                $_ | Get-ModifiablePath -LiteralPaths | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
+            foreach ($ProgramDataFolderChildItem in $ProgramDataFolderChildItems) {
+
+                # Ignore non-executable files
+                if (($ProgramDataFolderChildItem -is [System.IO.FileInfo]) -and (-not (Test-CommonApplicationFile -Path $ProgramDataFolderChildItem.FullName))) { continue }
+
+                $ModifiablePaths = Get-ModifiablePath -Path $ProgramDataFolderChildItem.FullName | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
+                foreach ($ModifiablePath in $ModifiablePaths) {
+                    $ModifiablePath.Permissions = $ModifiablePath.Permissions -join ", "
+                    $ModifiablePath
+                }
             }
         }
     }
@@ -207,16 +213,13 @@ function Invoke-ApplicationsOnStartupCheck {
 
                     $RegKeyValueName = $Value
                     $RegKeyValueData = $Item.GetValue($RegKeyValueName, "", "DoNotExpandEnvironmentNames")
-
                     if ([String]::IsNullOrEmpty($RegKeyValueData)) { continue }
 
-                    $ModifiablePaths = $RegKeyValueData | Get-ModifiablePath | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
-                    if (([Object[]] $ModifiablePaths).Length -gt 0) {
-                        $IsModifiable = $true
-                    }
-                    else {
-                        $IsModifiable = $false
-                    }
+                    $ExecutablePath = Get-CommandLineExecutable -CommandLine $RegKeyValueData
+                    if ($null -eq $ExecutablePath) { continue }
+
+                    $ModifiablePaths = Get-ModifiablePath -Path $ExecutablePath | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
+                    $IsModifiable = $($null -ne $ModifiablePaths)
 
                     $Result = New-Object -TypeName PSObject
                     $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $RegKeyValueName
@@ -247,17 +250,14 @@ function Invoke-ApplicationsOnStartupCheck {
                 if ($EntryPath -Like "*.lnk") {
 
                     try {
-
                         $Wsh = New-Object -ComObject WScript.Shell
                         $Shortcut = $Wsh.CreateShortcut((Resolve-Path -Path $EntryPath))
 
-                        $ModifiablePaths = $Shortcut.TargetPath | Get-ModifiablePath -LiteralPaths | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
-                        if (([Object[]] $ModifiablePaths).Length -gt 0) {
-                            $IsModifiable = $true
-                        }
-                        else {
-                            $IsModifiable = $false
-                        }
+                        $ExecutablePath = Get-CommandLineExecutable -CommandLine $Shortcut.TargetPath
+                        if ($null -eq $ExecutablePath) { continue }
+
+                        $ModifiablePaths = Get-ModifiablePath -Path $ExecutablePath | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
+                        $IsModifiable = $($null -ne $ModifiablePaths)
 
                         $Result = New-Object -TypeName PSObject
                         $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $EntryName

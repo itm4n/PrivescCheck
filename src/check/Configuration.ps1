@@ -601,12 +601,13 @@ function Invoke-DllHijackingCheck {
         $Paths = $RegData.Split(';') | ForEach-Object { $_.Trim() } | Where-Object { -not [String]::IsNullOrEmpty($_) }
 
         foreach ($Path in $Paths) {
-            $Path | Get-ModifiablePath -LiteralPaths | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) } | Foreach-Object {
+            $ModifiablePaths = Get-ModifiablePath -Path $Path | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
+            foreach ($ModifiablePath in $ModifiablePaths) {
                 $Result = New-Object -TypeName PSObject
                 $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $Path
-                $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $_.ModifiablePath
-                $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $_.IdentityReference
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value $_.Permissions
+                $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $ModifiablePath.ModifiablePath
+                $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $ModifiablePath.IdentityReference
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value ($ModifiablePath.Permissions -join ", ")
                 $AllResults += $Result
             }
         }
@@ -1140,16 +1141,15 @@ function Invoke-ComServerImagePermissionsCheck {
 
                 if ($AlreadyCheckedPaths -contains $CandidatePath) { continue }
 
-                $ModifiablePaths = $CandidatePath | Get-ModifiablePath -LiteralPaths
-
-                if ($null -eq $ModifiablePaths) { $AlreadyCheckedPaths += $CandidatePath; continue}
+                $ModifiablePaths = Get-ModifiablePath -Path $CandidatePath | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
+                if ($null -eq $ModifiablePaths) { $AlreadyCheckedPaths += $CandidatePath; continue }
 
                 foreach ($ModifiablePath in $ModifiablePaths) {
 
                     $Result = $RegisteredClass.PSObject.Copy()
                     $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $ModifiablePath.ModifiablePath
                     $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $ModifiablePath.IdentityReference
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value $($ModifiablePath.Permissions -join ", ")
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value ($ModifiablePath.Permissions -join ", ")
                     $AllResults += $Result
                 }
             }

@@ -172,16 +172,20 @@ function Invoke-ScheduledTasksImagePermissionsCheck {
     }
 
     process {
-        Get-ScheduledTaskList | Where-Object { -not $_.CurrentUserIsOwner } | ForEach-Object {
+        $ScheduledTasks = Get-ScheduledTaskList | Where-Object { (-not $_.CurrentUserIsOwner) -and (-not [String]::IsNullOrEmpty($_.Command)) }
 
-            $CurrentTask = $_
+        foreach ($ScheduledTask in $ScheduledTasks) {
 
-            $CurrentTask.Command | Get-ModifiablePath | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) } | ForEach-Object {
+            $ExecutablePath = Get-CommandLineExecutable -CommandLine $ScheduledTask.Command
+            if ($null -eq $ExecutablePath) { continue }
 
-                $Result = $CurrentTask.PsObject.Copy()
-                $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $_.ModifiablePath
-                $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $_.IdentityReference
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value $_.Permissions
+            $ModifiablePaths = Get-ModifiablePath -Path $ExecutablePath | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
+            foreach ($ModifiablePath in $ModifiablePaths) {
+
+                $Result = $ScheduledTask.PsObject.Copy()
+                $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $ModifiablePath.ModifiablePath
+                $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $ModifiablePath.IdentityReference
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value ($ModifiablePath.Permissions -join ", ")
                 $AllResults += $Result
             }
         }

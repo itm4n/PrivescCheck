@@ -580,14 +580,15 @@ function Get-AppLockerPolicyInternal {
                                                 $Description = "This rule allows files to be executed from a system folder, and could therefore be vulnerable."
                                             }
                                             else {
-                                                if (Get-ModifiablePath -LiteralPaths $CandidatePath) {
+                                                $ModifiablePaths = Get-ModifiablePath -Path $CandidatePath | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
+                                                if ($ModifiablePaths) {
                                                     $Level = 3
                                                     $Description = "This rule allows files to be executed from a location where the current user has write access."
                                                 }
                                             }
                                         }
                                         else {
-                                            $ModifiablePaths = Get-ModifiablePath -LiteralPaths $CandidatePath
+                                            $ModifiablePaths = Get-ModifiablePath -Path $CandidatePath | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
                                             if ($ModifiablePaths) {
                                                 $Level = 3
                                                 $Description = "This rule allows files to be executed from a location where the current user has write access."

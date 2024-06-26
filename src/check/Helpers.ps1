@@ -484,174 +484,69 @@ function Get-AclModificationRight {
 function Get-ModifiablePath {
     <#
     .SYNOPSIS
-    Parses a passed string containing multiple possible file/folder paths and returns the file paths where the current user has modification rights.
+    Helper - Get modification rights the current user has on a file or folder.
 
-    Author: @harmj0y
+    Author: @itm4n
     License: BSD 3-Clause
 
     .DESCRIPTION
-    Takes a complex path specification of an initial file/folder path with possible configuration files, 'tokenizes' the string in a number of possible ways, and enumerates the ACLs for each path that currently exists on the system. Any path that the current user has modification rights on is returned in a custom object that contains the modifiable path, associated permission set, and the IdentityReference with the specified rights. The SID of the current user and any group he/she are a part of are used as the comparison set against the parsed path DACLs.
-
-    @itm4n: I made some small changes to the original code in order to prevent false positives as much as possible.
+    This cmdlet takes the path of a file or folder as an input, and returns any modification right the current user has on the object. If the supplied path doesn't exist, this cmdlet attempts to find the first existing parent folder, and returns any modification right the current user has on it.
 
     .PARAMETER Path
-    The string path to parse for modifiable files. Required
-
-    .PARAMETER LiteralPaths
-    Switch. Treat all paths as literal (i.e. don't do 'tokenization').
-
-    .EXAMPLE
-    PS C:\> '"C:\Temp\blah.exe" -f "C:\Temp\config.ini"' | Get-ModifiablePath
-
-    Path                       Permissions                IdentityReference
-    ----                       -----------                -----------------
-    C:\Temp\blah.exe           {ReadAttributes, ReadCo... NT AUTHORITY\Authentic...
-    C:\Temp\config.ini         {ReadAttributes, ReadCo... NT AUTHORITY\Authentic...
-
-    .EXAMPLE
-    PS C:\> Get-ChildItem C:\Vuln\ -Recurse | Get-ModifiablePath
-
-    Path                       Permissions                IdentityReference
-    ----                       -----------                -----------------
-    C:\Vuln\blah.bat           {ReadAttributes, ReadCo... NT AUTHORITY\Authentic...
-    C:\Vuln\config.ini         {ReadAttributes, ReadCo... NT AUTHORITY\Authentic...
-    ...
+    The path of the file or folder to check.
     #>
 
     [CmdletBinding()]
-    param(
-        [Parameter(Mandatory=$true, ValueFromPipeline=$true, ValueFromPipelineByPropertyName=$true)]
-        [Alias('FullName')]
-        [String[]]
-        $Path,
-
-        [Switch]
-        $LiteralPaths
+    param (
+        [Parameter(Mandatory=$true)]
+        [String] $Path
     )
 
     begin {
-
-        function Get-FirstExistingParentFolder {
-
-            param(
-                [String] $Path
-            )
-
-            try {
-                $ParentPath = Split-Path $Path -Parent
-                if ($ParentPath -and $(Test-Path -Path $ParentPath -ErrorAction SilentlyContinue)) {
-                    Resolve-Path -Path $ParentPath | Select-Object -ExpandProperty "Path"
-                }
-                else {
-                    Get-FirstExistingParentFolder -Path $ParentPath
-                }
-            }
-            catch {
-                $null = $_
-            }
-        }
+        $CheckedPaths = @()
     }
 
     process {
+        $CandidatePaths = @()
 
-        foreach ($TargetPath in $Path) {
+        if (Test-Path -Path $Path -ErrorAction SilentlyContinue) {
+            $CandidatePaths += $Path
+            # If the path corresponds to a file, we want to check its parent directory as
+            # well. There are cases where the target file is configured with secure
+            # permissions but a user can still add files in the same folder. In such case,
+            # a DLL proxying attack is still possible.
+            if ($(Get-Item -Path $Path -Force) -is [System.IO.FileInfo]) {
+                $CandidatePaths += Get-FirstExistingParentFolderPath -Path $Path
+            }
+        }
+        else {
+            # If the path doesn't correspond to an existing file or directory, find the
+            # first existing parent directory (if such directory exists) and add it to
+            # the list of candidate paths.
+            $CandidatePaths += Get-FirstExistingParentFolderPath -Path $Path
+        }
 
-            $CandidatePaths = @()
+        foreach ($CandidatePath in $CandidatePaths) {
 
-            # possible separator character combinations
-            $SeparationCharacterSets = @('"', "'", ' ', "`"'", '" ', "' ", "`"' ")
+            if ($CheckedPaths -contains $CandidatePath) { continue }
 
-            if ($PSBoundParameters['LiteralPaths']) {
+            $CandidateItem = Get-Item -Path $CandidatePath -Force -ErrorAction SilentlyContinue
+            if (-not $CandidateItem) {
+                $CheckedPaths += $CandidatePath
+                continue
+            }
 
-                $TempPath = $([System.Environment]::ExpandEnvironmentVariables($TargetPath))
-
-                if (Test-Path -Path $TempPath -ErrorAction SilentlyContinue) {
-
-                    $ResolvedPath = Resolve-Path -Path $TempPath | Select-Object -ExpandProperty Path
-                    $CandidatePaths += $ResolvedPath
-
-                    # If the path corresponds to a file, we want to check its parent directory as well. There are cases
-                    # where the target file is configured with secure permissions but a user can still add files in the
-                    # same folder. In such case, a DLL proxying attack is still possible.
-                    if ($(Get-Item -Path $ResolvedPath -Force) -is [System.IO.FileInfo]) {
-                        $CandidatePaths += Get-FirstExistingParentFolder -Path $ResolvedPath
-                    }
-                }
-                else {
-
-                    # If the path doesn't correspond to an existing file or directory, find the first existing parent
-                    # directory (if such directory exists) and add it to the list of candidate paths.
-                    $CandidatePaths += Get-FirstExistingParentFolder -Path $TempPath
-                }
+            $ModifiablePath = $null
+            if ($CandidateItem -is [System.IO.DirectoryInfo]) {
+                $ModifiablePath = Get-AclModificationRight -Path $CandidateItem.FullName -Type Directory
             }
             else {
-
-                $TargetPath = $([System.Environment]::ExpandEnvironmentVariables($TargetPath)).Trim()
-
-                foreach ($SeparationCharacterSet in $SeparationCharacterSets) {
-
-                    $TargetPath.Split($SeparationCharacterSet) | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.trim())) } | ForEach-Object {
-
-                        if (-not ($_ -match "^[A-Z]:`$")) {
-
-                            if ($SeparationCharacterSet -notmatch ' ') {
-
-                                $TempPath = $([System.Environment]::ExpandEnvironmentVariables($_)).Trim()
-
-                                # If the candidate path is something like '/svc', skip it because it will be interpreted as
-                                # 'C:\svc'. It should filter out a lot of false postives. There is also a small chance that
-                                # it will exclude actual vulnerable paths in some very particular cases where a path such
-                                # as '/Temp/Something' is used as an argument. This seems very unlikely though.
-                                if ((-not ($TempPath -Like "/*")) -and (-not ($TempPath -match "^[A-Z]:`$"))) {
-
-                                    if (-not [String]::IsNullOrEmpty($TempPath)) {
-
-                                        # Does the object exist? Be it a file or a directory.
-                                        if (Test-Path -Path $TempPath -ErrorAction SilentlyContinue) {
-
-                                            $ResolvedPath = Resolve-Path -Path $TempPath | Select-Object -ExpandProperty Path
-                                            $CandidatePaths += $ResolvedPath
-
-                                            # If the path corresponds to a file, we want to check its parent directory as well. There are cases
-                                            # where the target file is configured with secure permissions but a user can still add files in the
-                                            # same folder. In such case, a DLL proxying attack is still possible.
-                                            if ($(Get-Item -Path $ResolvedPath -Force) -is [System.IO.FileInfo]) {
-                                                $CandidatePaths += Get-FirstExistingParentFolder -Path $ResolvedPath
-                                            }
-                                        }
-                                        else {
-
-                                            # If the path doesn't correspond to an existing file or directory, find the first existing parent
-                                            # directory (if such directory exists) and add it to the list of candidate paths.
-                                            $CandidatePaths += Get-FirstExistingParentFolder -Path $TempPath
-                                        }
-                                    }
-                                }
-                            }
-                            else {
-                                # if the separator contains a space
-                                $CandidatePaths += Resolve-Path -Path $([System.Environment]::ExpandEnvironmentVariables($_)) -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Path | ForEach-Object {$_.Trim()} | Where-Object { (-not [String]::IsNullOrEmpty($_)) -and (Test-Path -Path $_) }
-                            }
-                        }
-                        else {
-                            Write-Verbose "DEBUG: Got a drive letter as a path: $_"
-                        }
-                    }
-                }
+                $ModifiablePath = Get-AclModificationRight -Path $CandidateItem.FullName -Type File
             }
 
-            foreach ($CandidatePath in $($CandidatePaths | Sort-Object -Unique)) {
+            if ($ModifiablePath) { $ModifiablePath; break }
 
-                $CandidateItem = Get-Item -Path $CandidatePath -Force -ErrorAction SilentlyContinue
-                if (-not $CandidateItem) { continue }
-
-                if ($CandidateItem -is [System.IO.DirectoryInfo]) {
-                    Get-AclModificationRight -Path $CandidateItem.FullName -Type Directory
-                }
-                else {
-                    Get-AclModificationRight -Path $CandidateItem.FullName -Type File
-                }
-            }
+            $CheckedPaths += $CandidatePath
         }
     }
 }
@@ -741,7 +636,7 @@ function Get-ExploitableUnquotedPath {
             if ( -not (Test-Path -Path $BinFolder -ErrorAction SilentlyContinue) ) { continue }
 
             # The parent folder exists, check if it is modifiable.
-            $ModifiablePaths = $BinFolder | Get-ModifiablePath | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
+            $ModifiablePaths = Get-ModifiablePath -Path $BinFolder | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
 
             $CheckedPaths += $BinFolder
 
@@ -951,5 +846,52 @@ function Get-InstalledProgram {
         if (Test-IsSystemFolder -Path $InstalledProgram.FullName) { continue }
         if ($Filtered -and ($IgnoredPrograms -contains $InstalledProgram.Name)) { continue }
         $InstalledProgram | Select-Object -Property Name,FullName
+    }
+}
+
+function Get-CommandLineExecutable {
+
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory=$true, ValueFromPipeline=$true, ValueFromPipelineByPropertyName=$true)]
+        [String] $CommandLine
+    )
+
+    process {
+        $Arguments = [String[]] (ConvertTo-ArgumentList -CommandLine $CommandLine)
+        if ($null -eq $Arguments) { return }
+
+        $Executable = [System.Environment]::ExpandEnvironmentVariables($Arguments[0])
+        if (-not [System.IO.Path]::IsPathRooted($Executable)) {
+            $ExecutableResolved = Resolve-ModulePath -Name $Executable
+            if ($null -eq $ExecutableResolved) {
+                Write-Warning "Failed to resolve executable path: $($Executable)"
+                return
+            }
+            $Executable = $ExecutableResolved
+        }
+
+        $Executable
+    }
+}
+
+function Get-FirstExistingParentFolderPath {
+
+    [CmdletBinding()]
+    param (
+        [String] $Path
+    )
+
+    try {
+        $ParentPath = Split-Path $Path -Parent
+        if ($ParentPath -and $(Test-Path -Path $ParentPath -ErrorAction SilentlyContinue)) {
+            Resolve-Path -Path $ParentPath | Select-Object -ExpandProperty "Path"
+        }
+        else {
+            Get-FirstExistingParentFolderPath -Path $ParentPath
+        }
+    }
+    catch {
+        $null = $_
     }
 }

@@ -1,5 +1,11 @@
 # Changelog
 
+## 2024-06-26
+
+### Changed
+
+- Complete refactoring of the helper function Get-ModifiablePath.
+
 ## 2024-06-25
 
 ### Added

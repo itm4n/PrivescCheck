@@ -236,41 +236,36 @@ function Invoke-ServicesImagePermissionsCheck {
         Write-Verbose "Enumerating $($Services.Count) services..."
         foreach ($Service in $Services) {
 
-            $Arguments = [String[]] (ConvertTo-ArgumentList -CommandLine $Service.ImagePath)
+            $ExecutablePath = Get-CommandLineExecutable -CommandLine $Service.ImagePath
+            if ($null -eq $ExecutablePath) { continue }
 
-            foreach ($Argument in $Arguments) {
+            $ModifiablePaths = Get-ModifiablePath -Path $ExecutablePath | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
+            foreach ($ModifiablePath in $ModifiablePaths) {
 
-                # If an argument is of the form "/something", it is most probably an option
-                # name, and will most probably result in a false positive because it will
-                # be interpreted as "C:\something". So, ignore it.
-                if ($Argument -match "^\/.+`$") { continue }
+                $Status = "Unknown"
+                $UserCanStart = $false
+                $UserCanStop = $false
 
-                $Argument | Get-ModifiablePath -LiteralPaths | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) } | Foreach-Object {
-
-                    $Status = "Unknown"
-                    $UserCanStart = $false
-                    $UserCanStop = $false
-                    $ServiceObject = Get-Service -Name $Service.Name -ErrorAction SilentlyContinue
-                    if ($ServiceObject) {
-                        $Status = $ServiceObject | Select-Object -ExpandProperty "Status"
-                        $ServiceCanStart = Test-ServiceDaclPermission -Name $Service.Name -Permissions 'Start'
-                        if ($ServiceCanStart) { $UserCanStart = $true } else { $UserCanStart = $false }
-                        $ServiceCanStop = Test-ServiceDaclPermission -Name $Service.Name -Permissions 'Stop'
-                        if ($ServiceCanStop) { $UserCanStop = $true } else { $UserCanStop = $false }
-                    }
-
-                    $Result = New-Object -TypeName PSObject
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $Service.Name
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "ImagePath" -Value $Service.ImagePath
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "User" -Value $Service.User
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $_.ModifiablePath
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $_.IdentityReference
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value ($_.Permissions -join ", ")
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $Status
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStart" -Value $UserCanStart
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStop" -Value $UserCanStop
-                    $AllResults += $Result
+                $ServiceObject = Get-Service -Name $Service.Name -ErrorAction SilentlyContinue
+                if ($ServiceObject) {
+                    $Status = $ServiceObject | Select-Object -ExpandProperty "Status"
+                    $ServiceCanStart = Test-ServiceDaclPermission -Name $Service.Name -Permissions 'Start'
+                    if ($ServiceCanStart) { $UserCanStart = $true } else { $UserCanStart = $false }
+                    $ServiceCanStop = Test-ServiceDaclPermission -Name $Service.Name -Permissions 'Stop'
+                    if ($ServiceCanStop) { $UserCanStop = $true } else { $UserCanStop = $false }
                 }
+
+                $Result = New-Object -TypeName PSObject
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $Service.Name
+                $Result | Add-Member -MemberType "NoteProperty" -Name "ImagePath" -Value $Service.ImagePath
+                $Result | Add-Member -MemberType "NoteProperty" -Name "User" -Value $Service.User
+                $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $ModifiablePath.ModifiablePath
+                $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $ModifiablePath.IdentityReference
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value ($ModifiablePath.Permissions -join ", ")
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $Status
+                $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStart" -Value $UserCanStart
+                $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStop" -Value $UserCanStop
+                $AllResults += $Result
             }
         }
 
