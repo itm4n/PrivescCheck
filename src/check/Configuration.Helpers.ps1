@@ -86,17 +86,7 @@ function Get-SccmCacheFile {
                 continue
             }
 
-            try {
-                # Determine file path relative to the cache folder path.
-                Push-Location -Path $Path
-                $RelativePath = Resolve-Path -Path $FileItem.FullName -Relative
-            }
-            catch [Exception] {
-                Write-Warning $_.Exception.Message
-            }
-            finally {
-                Pop-Location
-            }
+            $RelativePath = Resolve-PathRelativeTo -From $Path -To $FileItem.FullName
 
             $Result = New-Object -TypeName PSObject
             $Result | Add-Member -MemberType "NoteProperty" -Name "Type" -Value $FileType
