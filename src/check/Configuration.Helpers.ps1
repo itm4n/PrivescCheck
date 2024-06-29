@@ -382,7 +382,7 @@ function Get-RegisteredComFromRegistry {
                         # containing double quotes within it. This should match quoted paths such as
                         # "C:\windows\system32\combase.dll"
                         if ($ServerData -match "^`"[^`"]+`"`$") {
-                            $PathToAnalyze = $ServerData.Trim('"')
+                            $PathToAnalyze = $PathToAnalyze.Trim('"')
                         }
                         if ([System.IO.Path]::IsPathRooted($PathToAnalyze)) {
                             $ServerDataType = "FilePath"
