@@ -136,14 +136,17 @@ function Invoke-ProgramDataCheck {
     #>
 
     [CmdletBinding()]
-    param ()
+    param (
+        [UInt32] $BaseSeverity
+    )
 
     begin {
         $IgnoredProgramData = @("Microsoft", "Microsoft OneDrive", "Package Cache", "Packages", "SoftwareDistribution", "ssh", "USOPrivate", "USOShared")
+        $AllResults = @()
     }
 
     process {
-        $ProgramDataFolders = Get-ChildItem -Path $env:ProgramData -ErrorAction SilentlyContinue | Where-Object { ($_ -is [System.IO.DirectoryInfo]) -and (-not ($IgnoredProgramData -contains $_.Name)) }
+        $ProgramDataFolders = Get-ChildItem -Path $env:ProgramData -Force -ErrorAction SilentlyContinue | Where-Object { ($_ -is [System.IO.DirectoryInfo]) -and (-not ($IgnoredProgramData -contains $_.Name)) }
 
         foreach ($ProgramDataFolder in $ProgramDataFolders) {
 
@@ -152,15 +155,25 @@ function Invoke-ProgramDataCheck {
             foreach ($ProgramDataFolderChildItem in $ProgramDataFolderChildItems) {
 
                 # Ignore non-executable files
+                if ($ProgramDataFolderChildItem -is [System.IO.DirectoryInfo]) { continue }
                 if (($ProgramDataFolderChildItem -is [System.IO.FileInfo]) -and (-not (Test-CommonApplicationFile -Path $ProgramDataFolderChildItem.FullName))) { continue }
 
                 $ModifiablePaths = Get-ModifiablePath -Path $ProgramDataFolderChildItem.FullName | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
                 foreach ($ModifiablePath in $ModifiablePaths) {
-                    $ModifiablePath.Permissions = $ModifiablePath.Permissions -join ", "
-                    $ModifiablePath
+                    $Result = New-Object -TypeName PSObject
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $ProgramDataFolderChildItem.FullName
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $ModifiablePath.ModifiablePath
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $ModifiablePath.IdentityReference
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value ($ModifiablePath.Permissions -join ", ")
+                    $AllResults += $Result
                 }
             }
         }
+
+        $CheckResult = New-Object -TypeName PSObject
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AllResults) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult
     }
 }
 
