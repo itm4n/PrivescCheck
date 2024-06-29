@@ -58,6 +58,7 @@ $FunctionDefinitions = @(
     (New-Function shell32 CommandLineToArgvW ([IntPtr]) @([String], [Int32].MakeByRefType()) -SetLastError -EntryPoint CommandLineToArgvW -Charset Unicode),
 
     (New-Function shlwapi AssocQueryStringW ([Int32]) @($script:ASSOCF, $script:ASSOCSTR, [String], [IntPtr], [System.Text.StringBuilder], [UInt32].MakeByRefType()) -Charset Unicode -EntryPoint AssocQueryStringW),
+    (New-Function shlwapi PathRelativePathTo ([Bool]) @([System.Text.StringBuilder], [String], [UInt32], [String], [UInt32]) -Charset Unicode -EntryPoint PathRelativePathToW),
 
     (New-Function vaultcli VaultEnumerateVaults ([UInt32]) @([UInt32], [UInt32].MakeByRefType(), [IntPtr].MakeByRefType()) -EntryPoint VaultEnumerateVaults),
     (New-Function vaultcli VaultOpenVault ([UInt32]) @([IntPtr], [UInt32], [IntPtr].MakeByRefType()) -Entrypoint VaultOpenVault),

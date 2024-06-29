@@ -1455,3 +1455,54 @@ function Resolve-ModulePath {
         }
     }
 }
+
+function Resolve-PathRelativeTo {
+    <#
+    .SYNOPSIS
+    Determine a file or folder path relative to another path.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet uses the Windows API PathRelativePathToW to determine the path of a file or folder relative to another path. For example, the path of 'C:\Windows\System32', relative to 'C:\Windows', is '.\System32'.
+
+    .PARAMETER From
+    The base path (e.g. 'C:\Windows').
+
+    .PARAMETER To
+    The target path (e.g. 'C:\Windows\System32').
+
+    .EXAMPLE
+    C:\> Resolve-PathRelativeTo -From 'C:\windows' -To 'C:\Windows\system32'
+    .\system32
+    #>
+
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory=$true)]
+        [String] $From,
+        [Parameter(Mandatory=$true)]
+        [String] $To
+    )
+
+    begin {
+        $FILE_ATTRIBUTE_DIRECTORY = 16
+        $FILE_ATTRIBUTE_NORMAL = 128
+        $MAX_PATH = 260
+    }
+
+    process {
+        $PathOut = New-Object -TypeName System.Text.StringBuilder
+        $PathOut.EnsureCapacity($MAX_PATH) | Out-Null
+
+        $Result = $script:Shlwapi::PathRelativePathTo($PathOut, $From, $FILE_ATTRIBUTE_DIRECTORY, $To, $FILE_ATTRIBUTE_NORMAL)
+        if (-not $Result) {
+            $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+            Write-Warning "PathRelativePathTo(`"$($From)`", `"$($To)`") error - $([ComponentModel.Win32Exception] $LastError)"
+            return
+        }
+
+        $PathOut.ToString()
+    }
+}
