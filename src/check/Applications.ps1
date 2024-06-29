@@ -399,3 +399,93 @@ function Invoke-RunningProcessCheck {
         }
     }
 }
+
+function Invoke-RootFolderPermissionCheck {
+
+    [CmdletBinding()]
+    param (
+        [UInt32] $BaseSeverity
+    )
+
+    begin {
+        # $IgnoredRootFolders = @( "Windows", "Users", "Program Files", "Program Files (x86)", "PerfLogs")
+        $IgnoredRootFolders = @( "`$Recycle.Bin", "`$WinREAgent", "Documents and Settings", "PerfLogs", "Program Files", "Program Files (x86)", "ProgramData", "Recovery", "System Volume Information", "Users", "Windows" )
+        $MaxFileCount = 8
+        $AllResults = @()
+    }
+
+    process {
+        # List all "fixed" drives.
+        # From: https://superuser.com/a/787643
+        $FixedDrives = [System.IO.DriveInfo]::GetDrives() | Where-Object { $_.DriveType -eq 'Fixed' }
+        foreach ($FixedDrive in $FixedDrives) {
+
+            # For each fixed drive, list the root folders. Here, we also use the option
+            # -Force to specify that we want to include hidden ones. The resulting list
+            # is then filtered to exclude known folders such as "C:\Windows".
+            $RootFolders = Get-ChildItem -Path $FixedDrive -Directory -Force -ErrorAction SilentlyContinue | Where-Object { $IgnoredRootFolders -notcontains $_.Name }
+            foreach ($RootFolder in $RootFolders) {
+
+                $Vulnerable = $false
+
+                # Check whether the current user has any modification right on the root folder.
+                $RootFolderModifiablePaths = Get-ModifiablePath -Path $RootFolder.FullName
+                if ($RootFolderModifiablePaths) {
+                    $Description = "The current user has modification rights on this root folder."
+                }
+                else {
+                    $Description = "The current user does not have modification rights on this root folder."
+                }
+
+                # Check whether the current user has any modification right on a common app
+                # file within this root folder.
+                $ApplicationFileModifiablePaths = @()
+                $ApplicationFiles = Get-ChildItem -Path $RootFolder.FullName -Force -Recurse -ErrorAction SilentlyContinue -File | Where-Object { Test-CommonApplicationFile -Path $_.FullName }
+                foreach ($ApplicationFile in $ApplicationFiles) {
+                    if ($ApplicationFileModifiablePaths.Count -gt $MaxFileCount) { break }
+                    $ModifiablePaths = Get-ModifiablePath -Path $ApplicationFile.FullName | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
+                    if ($ModifiablePaths) { $ApplicationFileModifiablePaths += $ApplicationFile.FullName }
+                }
+
+                # If at least one modifiable application file is found, consider the folder as
+                # 'vulnerable'. Even if application files are not modifiable, consider the folder
+                # as 'vulnerable' if the current user has any modification right on it.
+                if ($ApplicationFileModifiablePaths) { $Vulnerable = $true }
+                if ($ApplicationFiles.Count -gt 0 -and $RootFolderModifiablePaths) { $Vulnerable = $true }
+
+                if ($ApplicationFiles.Count -gt 0) {
+                    if ($ApplicationFileModifiablePaths) {
+                        $Description = "$($Description) A total of $($ApplicationFiles.Count) common application files were found. The current user has modification rights on some, or all of them."
+                    }
+                    else {
+                        $Description = "$($Description) A total of $($ApplicationFiles.Count) common application files were found. The current user does not have any modification right on them."
+                    }
+                }
+                else {
+                    $Description = "$($Description) This folder does not seem to contain any common application file."
+                }
+
+                if (($null -ne $RootFolderFiles) -or ($null -ne $RootFolderModifiablePaths)) {
+
+                    $ModifiableChildPathResult = ($ApplicationFileModifiablePaths | ForEach-Object { Resolve-PathRelativeTo -From $RootFolder.FullName -To $_ } | Select-Object -First $MaxFileCount) -join "; "
+                    if ($ApplicationFileModifiablePaths.Count -gt $MaxFileCount) { $ModifiableChildPathResult += "; ..." }
+
+                    $Result = New-Object -TypeName PSObject
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $RootFolder.FullName
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "Modifiable" -Value ($null -ne $RootFolderModifiablePaths)
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePaths" -Value $ModifiableChildPathResult
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "Vulnerable" -Value $Vulnerable
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+                    $AllResults += $Result
+                }
+            }
+        }
+
+        $Vulnerable = ($AllResults | Where-Object { $_.Vulnerable }).Count -gt 0
+
+        $CheckResult = New-Object -TypeName PSObject
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult
+    }
+}
