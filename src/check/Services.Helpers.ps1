@@ -293,7 +293,7 @@ function Add-ServiceDacl {
     .EXAMPLE
     PS C:\> Get-Service | Add-ServiceDacl
 
-    Add Dacls for every service the current user can read.
+    Add DACLs for every service the current user can read.
 
     .EXAMPLE
     PS C:\> Get-Service -Name VMTools | Add-ServiceDacl

@@ -148,7 +148,7 @@ function Get-WindowsDefenderExclusion {
     The location to search for exclusions.
 
     .NOTES
-    Source 1 - Registry: This technique is based on a tweet by @splinter_code, mentioning that exclusions can be listed as an unpriv user through the registry. This was fixed my Microsoft.
+    Source 1 - Registry: This technique is based on a tweet by @splinter_code, mentioning that exclusions can be listed as a low-privileged user through the registry. This was fixed my Microsoft.
     Source 2 - EventLog: This technique is based in a tweet by @VakninHai, mentioning that exclusions can be extracted from the message of event logs with the ID 5007.
 
     .LINK
@@ -248,22 +248,7 @@ function Get-SmbConfiguration {
     AnnounceComment                        :
     AnnounceServer                         : False
     AsynchronousCredits                    : 64
-    AuditClientCertificateAccess           : False
-    AuditSmb1Access                        : False
-    AutoDisconnectTimeout                  : 15
-    AutoShareServer                        : True
-    AutoShareWorkstation                   : True
-    CachedOpenLimit                        : 10
-    DisableCompression                     : False
-    DisableSmbEncryptionOnSecureConnection : True
-    DurableHandleV2TimeoutInSeconds        : 180
-    EnableAuthenticateUserSharing          : False
-    EnableDirectoryHandleLeasing           : True
-    EnableDownlevelTimewarp                : False
-    EnableForcedLogoff                     : True
-    EnableLeasing                          : True
-    EnableMultiChannel                     : True
-    EnableOplocks                          : True
+    ...
     EnableSecuritySignature                : False
     EnableSMB1Protocol                     : False
     ...
@@ -325,12 +310,6 @@ function Get-RegisteredComFromRegistry {
     PS C:\> Get-RegisteredComFromRegistry
 
     ...
-
-    Id       : {0429EC6E-1144-4bed-B88B-2FB9899A4A3D}
-    Path     : HKLM\SOFTWARE\Classes\CLSID\{0429EC6E-1144-4bed-B88B-2FB9899A4A3D}
-    Value    : InprocServer32
-    Data     : C:\Windows\System32\msvidctl.dll
-    DataType : FilePath
 
     Id       : {046AEAD9-5A27-4D3C-8A67-F82552E0A91B}
     Path     : HKLM\SOFTWARE\Classes\CLSID\{046AEAD9-5A27-4D3C-8A67-F82552E0A91B}

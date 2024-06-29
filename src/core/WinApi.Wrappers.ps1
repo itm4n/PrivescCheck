@@ -118,7 +118,7 @@ function Get-TokenInformationGroup {
 
     Name                                   Type           SID                                           Attributes
     ----                                   ----           ---                                           ----------
-    DESKTOP-E1BRKMO\None                   Group          S-1-5-21-3539966466-3447975095-3309057754-513 Mandatory, Enabled, EnabledByDefault
+    DESKTOP-AAAAAAA\None                   Group          S-1-5-21-3539966466-3447975095-3309057754-513 Mandatory, Enabled, EnabledByDefault
     Everyone                               WellKnownGroup S-1-1-0                                       Mandatory, Enabled, EnabledByDefault
     BUILTIN\Users                          Alias          S-1-5-32-545                                  Mandatory, Enabled, EnabledByDefault
     BUILTIN\Performance Log Users          Alias          S-1-5-32-559                                  Mandatory, Enabled, EnabledByDefault
@@ -591,7 +591,7 @@ function Get-TokenInformationUser {
 
     DisplayName              SID                                            Type
     -----------              ---                                            ----
-    DESKTOP-E1BRKMO\Lab-User S-1-5-21-3539966466-3447975095-3309057754-1002 User
+    DESKTOP-AAAAAAA\Lab-User S-1-5-21-3539966466-3447975095-3309057754-1002 User
     #>
 
     [CmdletBinding()]
@@ -632,7 +632,7 @@ function Get-ObjectName {
     This function leverages the NtQueryObject syscall to get the name of a Kernel object based on its handle.
 
     .PARAMETER ObjectHandle
-    The handle of an object for wchich we should retrieve the name.
+    The handle of an object for which we should retrieve the name.
     #>
 
     [OutputType([String])]
@@ -1006,8 +1006,7 @@ function Get-FileDacl {
     OwnerSid : S-1-5-18
     Group    : NT AUTHORITY\SYSTEM
     GroupSid : S-1-5-18
-    Access   : {System.Security.AccessControl.CommonAce, System.Security.AccessControl.CommonAce, System.Security.AccessCon
-            trol.CommonAce, System.Security.AccessControl.CommonAce...}
+    Access   : {System.Security.AccessControl.CommonAce, System.Security.AccessControl.CommonAce, System.Security.AccessControl.CommonAce, System.Security.AccessControl.CommonAce...}
     SDDL     : O:SYG:SYD:AI(A;ID;FA;;;SY)(A;ID;FA;;;BA)(A;ID;0x1200a9;;;BU)(A;ID;0x1200a9;;;AC)(A;ID;0x1200a9;;;S-1-15-2-2)
 
     .EXAMPLE
@@ -1275,7 +1274,7 @@ function Get-NetWkstaInfo {
     PS C:\> Get-NetWkstaGetInfo -Level 102
 
     PlatformId    : 500
-    ComputerName  : DESKTOP-GSHP79S
+    ComputerName  : DESKTOP-AAAAAAA
     LanGroup      : WORKGROUP
     VerMajor      : 10
     VerMinor      : 0

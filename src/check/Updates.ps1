@@ -7,7 +7,7 @@ function Invoke-WindowsUpdateCheck {
     License: BSD 3-Clause
 
     .DESCRIPTION
-    The Windows Update status can be queried thanks to the Microsoft.Update.AutoUpdate COM object. It gives the last successful search time and the last successfull update installation time.
+    The Windows Update status can be queried thanks to the Microsoft.Update.AutoUpdate COM object. It gives the last successful search time and the last successful update installation time.
 
     .EXAMPLE
     PS C:\> Invoke-WindowsUpdateCheck
@@ -55,7 +55,6 @@ function Invoke-HotFixCheck {
     KB4570334 Security Update NT AUTHORITY\SYSTEM   2020-08-13 17:45:34
     KB4566785 Security Update NT AUTHORITY\SYSTEM   2020-07-16 13:08:14
     KB4561600 Security Update NT AUTHORITY\SYSTEM   2020-06-22 13:00:50
-    KB4560366 Security Update DESKTOP-7A0AKQI\admin 2020-06-22 12:40:39
     KB4537759 Security Update                       2020-05-11 07:44:14
     KB4557968 Security Update                       2020-05-11 07:37:09
 

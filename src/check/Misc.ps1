@@ -180,7 +180,7 @@ function Invoke-SystemStartupHistoryCheck {
         $SystemStartupHistoryResult | Select-Object -First 10
     }
     catch {
-        # We might get an "acces denied"
+        # We might get an "access denied"
         Write-Verbose "Error while querying the Event Log."
     }
 }
@@ -392,20 +392,7 @@ function Invoke-EndpointProtectionCheck {
     AMSI             Loaded DLL            FileName=C:\Windows\SYSTEM32\amsi.dll
     AMSI             Loaded DLL            InternalName=amsi.dll
     AMSI             Loaded DLL            OriginalFilename=amsi.dll
-    Windows Defender Loaded DLL            FileName=C:\ProgramData\Microsoft\Windows Defender\platform\4.18.2008.9-0\MpOav.dll
-    Windows Defender Loaded DLL            FileName=C:\ProgramData\Microsoft\Windows Defender\platform\4.18.2008.9-0\MPCLIENT.DLL
-    Windows Defender Running process       ProcessName=MsMpEng
-    Windows Defender Running process       Name=MsMpEng
-    Windows Defender Running process       ProcessName=NisSrv
-    Windows Defender Running process       Name=NisSrv
-    Windows Defender Running process       ProcessName=SecurityHealthService
-    Windows Defender Running process       Name=SecurityHealthService
-    Windows Defender Running process       Description=Windows Defender SmartScreen
-    Windows Defender Installed application Name=Windows Defender
-    Windows Defender Installed application Name=Windows Defender
-    Windows Defender Installed application Name=Windows Defender Advanced Threat Protection
-    Windows Defender Service               Name=SecurityHealthService
-    Windows Defender Service               ImagePath=C:\Windows\system32\SecurityHealthService.exe
+    ...
     Windows Defender Service               RegistryKey=HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\SecurityHealthService
     Windows Defender Service               RegistryPath=Microsoft.PowerShell.Core\Registry::HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\SecurityHealthService
     Windows Defender Service               DisplayName=@C:\Program Files\Windows Defender Advanced Threat Protection\MsSense.exe,-1001
@@ -488,7 +475,7 @@ function Invoke-EndpointProtectionCheck {
         }
     }
 
-    # Need to store all the results into one arraylist so we can sort them on the product name.
+    # Need to store all the results into one ArrayList so we can sort them on the product name.
     $Results = New-Object System.Collections.ArrayList
 
     # Check DLLs loaded in the current process
@@ -946,7 +933,7 @@ function Invoke-ExploitableLeakedHandleCheck {
                         continue
                     }
                     $CandidateHandle | Add-Member -MemberType "NoteProperty" -Name "TargetThreadId" -Value $TargetThreadId
-                    # Chec if we can open the thread with the same access rights directly. If so,
+                    # Check if we can open the thread with the same access rights directly. If so,
                     # the handle isn't interesting, so ignore it.
                     $TargetThreadHandle = $script:Kernel32::OpenThread($CandidateHandle.GrantedAccess, $false, $TargetThreadId)
                     if ($TargetThreadHandle -ne [IntPtr]::Zero) {
@@ -1020,9 +1007,7 @@ function Invoke-MsiCustomActionsCheck {
 
     .EXAMPLE
     PS C:\> Invoke-MsiCustomActionsCheck
-
-    [snip]
-
+    ...
     Path              : C:\Windows\Installer\38896.msi
     IdentifyingNumber : 180E1C56-3A53-44D2-B300-ADC28A080515
     Name              : Online Plug-in
@@ -1030,24 +1015,11 @@ function Invoke-MsiCustomActionsCheck {
     Version           : 23.11.0.197
     AllUsers          : 1
     CandidateCount    : 15
-    Candidates        : CA_FixCachedIcaWebWrapper; BackupAFDWindowSize; BackupAFDWindowSize_RB; BackupTCPIPWindowSize; BackupTCPIPWindowSize_RB; CallCtxCreatePFNRegKeyIfUpg; CtxModRegForceLAA; FixIniFile; HideCancelButton;
-                        GiveUsersLicensingAccess; LogInstallTime; RestoreAFDWindowSize; RestorePassThroughKey; RestoreTCPIPWindowSize; SetTimestamps
+    Candidates        : CA_FixCachedIcaWebWrapper; BackupAFDWindowSize; BackupAFDWindowSize_RB; BackupTcpIPWindowSize; BackupTcpIPWindowSize_RB; CallCtxCreatePFNRegKeyIfUpg; CtxModRegForceLAA; FixIniFile; HideCancelButton;
+                        GiveUsersLicensingAccess; LogInstallTime; RestoreAFDWindowSize; RestorePassThroughKey; RestoreTcpIPWindowSize; SetTimestamps
     AnalyzeCommand    : Get-MsiFileItem -FilePath "C:\Windows\Installer\38896.msi" | Select-Object -ExpandProperty CustomActions | Where-Object { $_.Candidate }
     RepairCommand     : Start-Process -FilePath "msiexec.exe" -ArgumentList "/fa C:\Windows\Installer\38896.msi"
-
-    Path              : C:\Windows\Installer\3889e.msi
-    IdentifyingNumber : 65B2E2B3-0DF5-4920-9C60-F6E5138D443B
-    Name              : Citrix Workspace(USB)
-    Vendor            : Citrix Systems, Inc.
-    Version           : 23.11.0.197
-    AllUsers          : 1
-    CandidateCount    : 15
-    Candidates        : CA_LoadFilter; CA_UnLoadFilter; RB_LoadFilter; RB_UnLoadFilter; CA_Install_Ctxusbm; CA_Uninstall_Ctxusbm; RB_Install_Ctxusbm; RB_Uninstall_Ctxusbm; CA_DeleteDevices; CA_DriverInstall; CA_DriverUninstall;
-                        RB_DriverInstall; RB_DriverUninstall; CA_CleanupDriverStore; CA_DeleteOldDriver
-    AnalyzeCommand    : Get-MsiFileItem -FilePath "C:\Windows\Installer\3889e.msi" | Select-Object -ExpandProperty CustomActions | Where-Object { $_.Candidate }
-    RepairCommand     : Start-Process -FilePath "msiexec.exe" -ArgumentList "/fa C:\Windows\Installer\3889e.msi"
-
-    [snip]
+    ...
     #>
 
     [CmdletBinding()]
@@ -1072,7 +1044,7 @@ function Invoke-MsiCustomActionsCheck {
 
             $CandidateCustomActions = [object[]] ($MsiItem.CustomActions | Where-Object { $_.Candidate -eq $true })
 
-            # No interersting Custom Action found, ignore it.
+            # No interesting Custom Action found, ignore it.
             if ($CandidateCustomActions.Count -eq 0) { continue }
 
             $CandidateCount += 1

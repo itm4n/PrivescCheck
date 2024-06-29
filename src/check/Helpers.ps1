@@ -462,7 +462,7 @@ function Get-AclModificationRight {
                     $IdentityReferenceSid = Convert-NameToSid -Name $AllowAce.IdentityReference
                     if ($CurrentUserSids -notcontains $IdentityReferenceSid) { continue }
 
-                    # We compare the list of permissions (minus the potential restrictions) againts a list of
+                    # We compare the list of permissions (minus the potential restrictions) against a list of
                     # predefined modification rights. If there is no match, we ignore the ACE.
                     $Comparison = Compare-Object -ReferenceObject $Permissions -DifferenceObject $TypeModificationRights -IncludeEqual -ExcludeDifferent
                     if (-not $Comparison) { continue }

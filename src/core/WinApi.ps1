@@ -33,11 +33,6 @@ $FunctionDefinitions = @(
     (New-Function kernel32 GetFirmwareType ([Bool]) @([UInt32].MakeByRefType()) -SetLastError),
     (New-Function kernel32 LocalFree ([IntPtr]) @([IntPtr])),
     (New-Function kernel32 QueryDosDevice ([UInt32]) @([String], [IntPtr], [UInt32]) -SetLastError -EntryPoint QueryDosDeviceW),
-    # (New-Function kernel32 CreateToolhelp32Snapshot ([IntPtr]) @([UInt32], [UInt32]) -SetLastError -EntryPoint CreateToolhelp32Snapshot),
-    # (New-Function kernel32 Process32First ([Bool]) @([IntPtr], [IntPtr]) -SetLastError -EntryPoint Process32First),
-    # (New-Function kernel32 Process32Next ([Bool]) @([IntPtr], [IntPtr]) -SetLastError -EntryPoint Process32Next),
-    # (New-Function kernel32 Thread32First ([Bool]) @([IntPtr], [IntPtr]) -SetLastError -EntryPoint Thread32First),
-    # (New-Function kernel32 Thread32Next ([Bool]) @([IntPtr], [IntPtr]) -SetLastError -EntryPoint Thread32Next),
     (New-Function kernel32 Wow64DisableWow64FsRedirection ([Bool]) @([IntPtr].MakeByRefType()) ([Runtime.InteropServices.CallingConvention]::Winapi) -SetLastError -EntryPoint Wow64DisableWow64FsRedirection),
     (New-Function kernel32 Wow64RevertWow64FsRedirection ([Bool]) @([IntPtr]) -SetLastError -EntryPoint Wow64RevertWow64FsRedirection),
     (New-Function kernel32 LoadLibrary ([IntPtr]) @([String]) ([Runtime.InteropServices.CallingConvention]::Winapi) ([Runtime.InteropServices.CharSet]::Unicode) -EntryPoint LoadLibraryW -SetLastError),
@@ -53,7 +48,6 @@ $FunctionDefinitions = @(
     (New-Function ntdll NtOpenDirectoryObject ([Int32]) @([IntPtr].MakeByRefType(), [UInt32], $script:OBJECT_ATTRIBUTES.MakeByRefType()) -EntryPoint NtOpenDirectoryObject),
     (New-Function ntdll NtQueryDirectoryObject ([Int32]) @([IntPtr], [IntPtr], [UInt32], [Bool], [Bool], [UInt32].MakeByRefType(), [UInt32].MakeByRefType()) -EntryPoint NtQueryDirectoryObject),
     (New-Function ntdll NtQuerySystemInformation ([Int32]) @([UInt32], [IntPtr], [UInt32], [UInt32].MakeByRefType()) -EntryPoint NtQuerySystemInformation),
-    # (New-Function ntdll NtQueryInformationProcess ([Int32]) @([IntPtr], [UInt32], [IntPtr], [UInt32], [UInt32].MakeByRefType()) -EntryPoint NtQueryInformationProcess),
 
     (New-Function shell32 CommandLineToArgvW ([IntPtr]) @([String], [Int32].MakeByRefType()) -SetLastError -EntryPoint CommandLineToArgvW -Charset Unicode),
 

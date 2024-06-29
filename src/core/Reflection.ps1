@@ -70,8 +70,8 @@ function New-Enum {
     .PARAMETER EnumElements
     A hashtable of enum elements.
 
-    .PARAMETER Bitfield
-    Specifies that the enum should be treated as a bitfield.
+    .PARAMETER BitField
+    Specifies that the enum should be treated as a bit field.
 
     .EXAMPLE
     $Mod = New-InMemoryModule -ModuleName Win32
@@ -114,7 +114,7 @@ function New-Enum {
         $EnumElements,
 
         [Switch]
-        $Bitfield
+        $BitField
     )
 
     if ($Module -is [Reflection.Assembly]) {
@@ -125,7 +125,7 @@ function New-Enum {
 
     $EnumBuilder = $Module.DefineEnum($FullName, 'Public', $EnumType)
 
-    if ($Bitfield) {
+    if ($BitField) {
         $FlagsConstructor = [FlagsAttribute].GetConstructor(@())
         $FlagsCustomAttribute = New-Object Reflection.Emit.CustomAttributeBuilder($FlagsConstructor, @())
         $EnumBuilder.SetCustomAttribute($FlagsCustomAttribute)
@@ -177,7 +177,7 @@ function New-Structure {
     Optional Dependencies: field
 
     .DESCRIPTION
-    The 'New-Structure' function facilitates the creation of structs entirely in memory using as close to a "C style" as PowerShell will allow. Struct fields are specified using a hashtable where each field of the struct is comprosed of the order in which it should be defined, its .NET type, and optionally, its offset and special marshaling attributes. One of the features of 'struct' is that after your struct is defined, it will come with a built-in GetSize method as well as an explicit converter so that you can easily cast an IntPtr to the struct without relying upon calling SizeOf and/or PtrToStructure in the Marshal class.
+    The 'New-Structure' function facilitates the creation of structures entirely in memory using as close to a "C style" as PowerShell will allow. Struct fields are specified using a hashtable where each field of the struct is composed of the order in which it should be defined, its .NET type, and optionally, its offset and special marshaling attributes. One of the features of 'struct' is that after your struct is defined, it will come with a built-in GetSize method as well as an explicit converter so that you can easily cast an IntPtr to the struct without relying upon calling SizeOf and/or PtrToStructure in the Marshal class.
 
     .PARAMETER Module
     The in-memory module that will host the struct. Use New-InMemoryModule to define an in-memory module.
@@ -445,15 +445,15 @@ function Add-Win32Type {
     $Mod = New-InMemoryModule -ModuleName Win32
     $FunctionDefinitions = @(
     (func kernel32 GetProcAddress ([IntPtr]) @([IntPtr], [String]) -Charset Ansi -SetLastError),
-    (func kernel32 GetModuleHandle ([Intptr]) @([String]) -SetLastError),
+    (func kernel32 GetModuleHandle ([IntPtr]) @([String]) -SetLastError),
     (func ntdll RtlGetCurrentPeb ([IntPtr]) @())
     )
     $Types = $FunctionDefinitions | Add-Win32Type -Module $Mod -Namespace 'Win32'
     $Kernel32 = $Types['kernel32']
     $Ntdll = $Types['ntdll']
     $Ntdll::RtlGetCurrentPeb()
-    $ntdllbase = $Kernel32::GetModuleHandle('ntdll')
-    $Kernel32::GetProcAddress($ntdllbase, 'RtlGetCurrentPeb')
+    $NtdllBase = $Kernel32::GetModuleHandle('ntdll')
+    $Kernel32::GetProcAddress($NtdllBase, 'RtlGetCurrentPeb')
 
     .NOTES
     Inspired by Lee Holmes' Invoke-WindowsApi http://poshcode.org/2189 When defining multiple function prototypes, it is ideal to provide Add-Win32Type with an array of function signatures. That way, they are all incorporated into the same in-memory module.
@@ -528,7 +528,7 @@ function Add-Win32Type {
 
             $Method = $TypeHash[$DllName].DefineMethod(
                 $FunctionName,
-                'Public,Static,PinvokeImpl',
+                'Public,Static,PInvokeImpl',
                 $ReturnType,
                 $ParameterTypes)
 

@@ -184,7 +184,7 @@ function Get-VaultCredential {
     Type       : 1 - GENERIC
     Persist    : 2 - LOCAL_MACHINE
     Flags      : 0
-    Credential : dBa2F06TTsrvSeLbyoW8
+    Credential : ***
     #>
 
     [CmdletBinding()]

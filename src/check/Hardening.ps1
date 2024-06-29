@@ -383,7 +383,7 @@ function Invoke-BitLockerCheck {
     When BitLocker is enabled on the system drive, the value "BootStatus" is set to 1 in the following registry key: 'HKLM\SYSTEM\CurrentControlSet\Control\BitLockerStatus'.
 
     .EXAMPLE
-    PS C:\> Invoke-BitlockerCheck
+    PS C:\> Invoke-BitLockerCheck
 
     MachineRole        : Workstation
     UseAdvancedStartup : 0 - Do not require additional authentication at startup (default)

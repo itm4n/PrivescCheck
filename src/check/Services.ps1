@@ -210,7 +210,7 @@ function Invoke-ServicesImagePermissionsCheck {
     .EXAMPLE
     PS C:\> Invoke-ServicesImagePermissionsCheck
 
-    Name              : VulneService
+    Name              : VulnService
     ImagePath         : C:\APPS\service.exe
     User              : LocalSystem
     ModifiablePath    : C:\APPS\service.exe
@@ -316,7 +316,7 @@ function Invoke-ServicesPermissionsCheck {
 
     process {
         # Get-ServiceList returns a list of custom Service objects. The properties of a custom Service
-        # object are: Name, DisplayName, User, ImagePath, StartMode, Type, RegsitryKey, RegistryPath.
+        # object are: Name, DisplayName, User, ImagePath, StartMode, Type, RegistryKey, RegistryPath.
         # We also apply the FilterLevel 1 to filter out services which have an empty ImagePath
         $Services = Get-ServiceList -FilterLevel 1
         Write-Verbose "Enumerating $($Services.Count) services..."
@@ -440,33 +440,6 @@ function Invoke-ThirdPartyDriversCheck {
 
     .DESCRIPTION
     For each service registered as a driver, the properties of the driver file are queried. If the file does not originate from Microsoft, the service object is reported. In addition, the file's metadata is appended to the object.
-
-    .EXAMPLE
-    PS C:\> Invoke-ThirdPartyDriversCheck
-
-    Name        : 3ware
-    ImagePath   : System32\drivers\3ware.sys
-    StartMode   : Boot
-    Type        : KernelDriver
-    Status      : Stopped
-    ProductName : LSI 3ware RAID Controller
-    Company     : LSI
-    Description : LSI 3ware SCSI Storport Driver
-    Version     : 5.01.00.051
-    Copyright   : Copyright (c) 2011 LSI
-
-    Name        : ADP80XX
-    ImagePath   : System32\drivers\ADP80XX.SYS
-    StartMode   : Boot
-    Type        : KernelDriver
-    Status      : Stopped
-    ProductName : PMC-Sierra HBA Controller
-    Company     : PMC-Sierra
-    Description : PMC-Sierra Storport  Driver For SPC8x6G SAS/SATA controller
-    Version     : 1.3.0.10769 (NT.150223-1854)
-    Copyright   : Copyright (C) PMC-Sierra 2001-2014
-
-    [...]
     #>
 
     [CmdletBinding()]
@@ -516,7 +489,7 @@ function Invoke-VulnerableDriverCheck {
     License: BSD 3-Clause
 
     .DESCRIPTION
-    This check relies on the list of known vulnerable drivers provided by loldrivers.io to find vulnerable drivers installed on the host. For each installed driver, it computes its hash and chech whether it is in the list of vulnerable drivers.
+    This check relies on the list of known vulnerable drivers provided by loldrivers.io to find vulnerable drivers installed on the host. For each installed driver, it computes its hash and check whether it is in the list of vulnerable drivers.
 
     .EXAMPLE
     PS C:\> Invoke-VulnerableDriverCheck

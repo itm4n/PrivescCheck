@@ -372,7 +372,7 @@ function Invoke-AirstrikeAttackCheck {
     Check whether the 'Do not display network selection UI' policy is enforced.
 
     .DESCRIPTION
-    This cmdlet first checks whether the tested machined is a workstation with a version of Windows that supports the policy 'Do not display network selection UI'. If so, it checks wheter it was enforced by reading the corresponding registry key/value. If the value is not set to 1, the result is not compliant.
+    This cmdlet first checks whether the tested machined is a workstation with a version of Windows that supports the policy 'Do not display network selection UI'. If so, it checks whether it was enforced by reading the corresponding registry key/value. If the value is not set to 1, the result is not compliant.
 
     .EXAMPLE
     PS C:\> Invoke-AirstrikeAttackCheck
@@ -440,7 +440,7 @@ function Convert-SocketAddressToObject {
 
     [CmdletBinding()]
     param(
-        # SOCKET_ADDRESS struct
+        # SOCKET_ADDRESS structure
         [object] $SocketAddress
     )
 
@@ -494,7 +494,7 @@ function Convert-SocketAddressToObject {
 function Get-NetworkAdaptersList {
     <#
     .SYNOPSIS
-    List network adpaters.
+    List network adapters.
 
     Author: @itm4n
     License: BSD 3-Clause
@@ -583,7 +583,7 @@ function Get-NetworkAdaptersList {
 
     $Family = 0 # AF_UNSPEC
     $Flags = $GAA_FLAG_INCLUDE_PREFIX -bor $GAA_FLAG_INCLUDE_WINS_INFO -bor $GAA_FLAG_INCLUDE_GATEWAYS
-    if ($All) { $Flags = $Flgas -bor $GAA_FLAG_INCLUDE_ALL_INTERFACES }
+    if ($All) { $Flags = $Flags -bor $GAA_FLAG_INCLUDE_ALL_INTERFACES }
     $AdaptersSize = 0
     $Result = $script:Iphlpapi::GetAdaptersAddresses($Family, $Flags, [IntPtr]::Zero, [IntPtr]::Zero, [ref] $AdaptersSize)
 

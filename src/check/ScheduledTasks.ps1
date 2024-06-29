@@ -10,28 +10,15 @@ function Get-ScheduledTaskList {
     Connect to the task scheduler service and retrieve a list of all the scheduled tasks that are visible to the current user.
 
     .EXAMPLE
-    PS C:\> Get-ScheduledTaskList | Select-Object -last 3
-
-    TaskName           : UpdateLibrary
-    TaskPath           : \Microsoft\Windows\Windows Media Sharing\UpdateLibrary
-    TaskFile           : C:\Windows\System32\Tasks\Microsoft\Windows\Windows Media Sharing\UpdateLibrary
-    RunAs              : NT AUTHORITY\Authenticated Users
-    Command            : "%ProgramFiles%\Windows Media Player\wmpnscfg.exe"
-    CurrentUserIsOwner : False
-
-    TaskName           : Scheduled Start
-    TaskPath           : \Microsoft\Windows\WindowsUpdate\Scheduled Start
-    TaskFile           : C:\Windows\System32\Tasks\Microsoft\Windows\WindowsUpdate\Scheduled Start
-    RunAs              : NT AUTHORITY\SYSTEM
-    Command            : C:\Windows\system32\sc.exe start wuauserv
-    CurrentUserIsOwner : False
-
+    PS C:\> Get-ScheduledTaskList
+    ...
     TaskName           : XblGameSaveTask
     TaskPath           : \Microsoft\XblGameSave\XblGameSaveTask
     TaskFile           : C:\Windows\System32\Tasks\Microsoft\XblGameSave\XblGameSaveTask
     RunAs              : NT AUTHORITY\SYSTEM
     Command            : %windir%\System32\XblGameSaveTask.exe standby
     CurrentUserIsOwner : False
+    ...
     #>
 
     [CmdletBinding()]
@@ -139,7 +126,7 @@ function Get-ScheduledTaskList {
 function Invoke-ScheduledTasksImagePermissionsCheck {
     <#
     .SYNOPSIS
-    Enumrates scheduled tasks with a modifiable path
+    Enumerates scheduled tasks with a modifiable path
 
     Author: @itm4n
     License: BSD 3-Clause

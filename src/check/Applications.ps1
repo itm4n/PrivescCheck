@@ -8,14 +8,6 @@ function Invoke-InstalledProgramsCheck {
 
     .DESCRIPTION
     Uses the custom "Get-InstalledProgram" function to get a filtered list of installed programs and then returns each result as a simplified PS object, indicating the name and the path of the application.
-
-    .EXAMPLE
-    PS C:\> Invoke-InstalledProgramsCheck | ft
-
-    Name            FullPath
-    ----            --------
-    Npcap           C:\Program Files\Npcap
-    Wireshark       C:\Program Files\Wireshark
     #>
 
     [CmdletBinding()]
@@ -34,15 +26,6 @@ function Invoke-ModifiableProgramsCheck {
 
     .DESCRIPTION
     For each non-default application, enumerates the .exe and .dll files that the current user has modify permissions on.
-
-    .EXAMPLE
-    PS C:\> Invoke-ModifiableProgramsCheck | ft
-
-    ModifiablePath                      IdentityReference    Permissions
-    --------------                      -----------------    -----------
-    C:\Program Files\VulnApp\Packages   DESKTOP-FEOHNOM\user {WriteOwner, Delete, WriteAttributes, Synchronize...}
-    C:\Program Files\VulnApp\app.exe    DESKTOP-FEOHNOM\user {WriteOwner, Delete, WriteAttributes, Synchronize...}
-    C:\Program Files\VulnApp\foobar.dll DESKTOP-FEOHNOM\user {WriteOwner, Delete, WriteAttributes, Synchronize...}
     #>
 
     [CmdletBinding()]
@@ -114,22 +97,6 @@ function Invoke-ProgramDataCheck {
     .EXAMPLE
     PS C:\> Invoke-ProgramDataCheck
 
-    ModifiablePath    : C:\ProgramData\chocolatey\logs
-    IdentityReference : BUILTIN\Users
-    Permissions       : {WriteAttributes, Synchronize, AppendData/AddSubdirectory, WriteExtendedAttributes...}
-
-    ModifiablePath    : C:\ProgramData\chocolatey\logs\choco.summary.log
-    IdentityReference : BUILTIN\Users
-    Permissions       : {WriteAttributes, Synchronize, AppendData/AddSubdirectory, WriteExtendedAttributes...}
-
-    ModifiablePath    : C:\ProgramData\chocolatey\logs\chocolatey.log
-    IdentityReference : BUILTIN\Users
-    Permissions       : {WriteAttributes, Synchronize, AppendData/AddSubdirectory, WriteExtendedAttributes...}
-
-    ModifiablePath    : C:\ProgramData\shimgen\generatedfiles
-    IdentityReference : BUILTIN\Users
-    Permissions       : {WriteAttributes, AppendData/AddSubdirectory, WriteExtendedAttributes, WriteData/AddFile}
-
     ModifiablePath    : C:\ProgramData\VMware\logs
     IdentityReference : BUILTIN\Users
     Permissions       : {WriteAttributes, AppendData/AddSubdirectory, WriteExtendedAttributes, WriteData/AddFile}
@@ -187,19 +154,6 @@ function Invoke-ApplicationsOnStartupCheck {
 
     .DESCRIPTION
     Applications can be run on startup or whenever a user logs on. They can be either configured in the registry or by adding an shortcut file (.LNK) in a Start Menu folder.
-
-    .EXAMPLE
-    PS C:\> Invoke-ApplicationsOnStartupCheck
-
-    Name         : SecurityHealth
-    Path         : HKLM\Software\Microsoft\Windows\CurrentVersion\Run\SecurityHealth
-    Data         : %windir%\system32\SecurityHealthSystray.exe
-    IsModifiable : False
-
-    Name         : VMware User Process
-    Path         : HKLM\Software\Microsoft\Windows\CurrentVersion\Run\VMware User Process
-    Data         : "C:\Program Files\VMware\VMware Tools\vmtoolsd.exe" -n vmusr
-    IsModifiable : False
     #>
 
     [CmdletBinding()]
@@ -312,34 +266,6 @@ function Invoke-RunningProcessCheck {
 
     .PARAMETER Self
     Use this flag to get a list of all the process owned by the current user
-
-    .EXAMPLE
-    PS C:\> Invoke-RunningProcessCheck | ft
-
-    Name                   PID User Path SessionId
-    ----                   --- ---- ---- ---------
-    cmd                   4224 N/A               1
-    conhost               5336 N/A               1
-    ctfmon                7436 N/A               1
-    dllhost               3584 N/A               0
-    dllhost               4172 N/A               1
-    fontdrvhost            860 N/A               0
-    fontdrvhost            928 N/A               1
-    lsass                  732 N/A               0
-    MsMpEng               3524 N/A               0
-    MsMpEngCP             1132 N/A               0
-    NisSrv                4256 N/A               0
-    regedit               8744 N/A               1
-    SearchFilterHost      9360 N/A               0
-    SearchIndexer          596 N/A               0
-    SearchProtocolHost      32 N/A               0
-    SecurityHealthService 7980 N/A               0
-    SgrmBroker            9512 N/A               0
-    spoolsv               2416 N/A               0
-    TabTip                7456 N/A               1
-    wininit                564 N/A               0
-    winlogon               676 N/A               1
-    WmiPrvSE              3972 N/A               0
     #>
 
     [CmdletBinding()]
@@ -348,12 +274,6 @@ function Invoke-RunningProcessCheck {
     )
 
     $CurrentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
-
-    # csrss -> Client/Server Runtime Subsystem
-    # dwm -> Desktop Window Manager
-    # msdtc -> Microsoft Distributed Transaction Coordinator
-    # smss -> Session Manager Subsystem
-    # svchost -> Service Host
     $IgnoredProcessNames = @("Idle", "services", "Memory Compression", "TrustedInstaller", "PresentationFontCache", "Registry", "ServiceShell", "System", "csrss", "dwm", "msdtc", "smss", "svchost")
 
     $AllProcess = Get-Process

@@ -605,7 +605,7 @@
 
 - Fixed a false positive: 'C:' resolves to the current directory
 - Fixed a false positive: scheduled tasks running as the current user
-- Hardening > Invoke-BitlockerCheck
+- Hardening > Invoke-BitLockerCheck
 
 ## 2020-07-17
 

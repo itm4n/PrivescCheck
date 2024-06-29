@@ -339,7 +339,7 @@ function Invoke-WsusConfigCheck {
     DisableWindowsUpdateAccess         : (null)
 
     .NOTES
-    "Beginning with the September 2020 cumulative update, HTTP-based intranet servers will be secure by default. [...] we are no longer allowing HTTP-based intranet servers to leverage user proxy by default to detect updates." The SetProxyBehaviorForUpdateDetection value determines whether this default behavior can be overriden. The default value is 0. If it is set to 1, WSUS can use user proxy settings as a fallback if detection using system proxy fails. See links 1 and 2 below for more details.
+    "Beginning with the September 2020 cumulative update, HTTP-based intranet servers will be secure by default. [...] we are no longer allowing HTTP-based intranet servers to leverage user proxy by default to detect updates." The SetProxyBehaviorForUpdateDetection value determines whether this default behavior can be overridden. The default value is 0. If it is set to 1, WSUS can use user proxy settings as a fallback if detection using system proxy fails. See links 1 and 2 below for more details.
 
     .LINK
     https://techcommunity.microsoft.com/t5/windows-it-pro-blog/changes-to-improve-security-for-windows-devices-scanning-wsus/ba-p/1645547
@@ -428,9 +428,9 @@ function Invoke-HardenedUNCPathCheck {
     .DESCRIPTION
     If a UNC path to a file share is not hardened, Windows does not check the SMB server's identity when establishing the connection. This allows privilege escalation if the path to SYSVOL is not hardened, because a man-in-the-middle can inject malicious GPOs when group policies are updated.
 
-    A group policy update can be triggered with 'gpupdate /force'. Exploits exist; check Impacket's karmaSMB server. A legit DC must be available at the same time.
+    A group policy update can be triggered with 'gpupdate /force'. Exploits exist; check Impacket karmaSMB server. A legit DC must be available at the same time.
 
-    On Windows >= 10, UNC paths are hardened by default for SYSVOL and NETLOGON so, in this case, we just ensure that mutual authentication and integrity mode were not disabled. On Windows < 10 on the other hand, SYSVOL and NETLOGON UNC paths must be explicitely hardened. Note that this only applies to domain-joined machines.
+    On Windows >= 10, UNC paths are hardened by default for SYSVOL and NETLOGON so, in this case, we just ensure that mutual authentication and integrity mode were not disabled. On Windows < 10 on the other hand, SYSVOL and NETLOGON UNC paths must be explicitly hardened. Note that this only applies to domain-joined machines.
 
     .EXAMPLE
     PS C:\> Invoke-HardenedUNCPathCheck
@@ -488,7 +488,7 @@ function Invoke-HardenedUNCPathCheck {
 
                 # If Windows >= 10, paths are "hardened" by default. Therefore, the "HardenedPaths" registry
                 # key should not contain any value. If it contain values, ensure that protections were not
-                # explicitely disabled.
+                # explicitly disabled.
 
                 Get-Item -Path "Registry::$RegKey" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty property | ForEach-Object {
 
@@ -899,7 +899,7 @@ function Invoke-DefenderExclusionsCheck {
     License: BSD 3-Clause
 
     .DESCRIPTION
-    This check was inspired by a tweet from @splinter_code (see notes), mentioning the fact that Defender's exclusions can be listed as an unpriv user through the registry. This information is indeed stored in two registry keys (local and GPO) that are configured with a DACL that allows "Everyone" to read them. However, in some versions of Windows 10/11, the DACL is reportedly configured differently and would thus not grant read access for low-priv users. This check was then extended with a technique from @VakninHai, which consists in reading event log messages (with ID 5007) to identify modifications in the exclusions.
+    This check was inspired by a tweet from @splinter_code (see notes), mentioning the fact that Defender's exclusions can be listed as a low privileged user through the registry. This information is indeed stored in two registry keys (local and GPO) that are configured with a DACL that allows "Everyone" to read them. However, in some versions of Windows 10/11, the DACL is reportedly configured differently and would thus not grant read access for low-priv users. This check was then extended with a technique from @VakninHai, which consists in reading event log messages (with ID 5007) to identify modifications in the exclusions.
 
     .EXAMPLE
     PS C:\> Invoke-DefenderExclusionsCheck

@@ -137,7 +137,7 @@ function Invoke-WinlogonCheck {
             }
         }
         else {
-            $RegKey = "HKLM\SOFTWARE\Microsoft\Windows NT\Currentversion\Winlogon"
+            $RegKey = "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon"
             $RegItem = Get-ItemProperty -Path "Registry::$($RegKey)" -ErrorAction SilentlyContinue
 
             if (-not [String]::IsNullOrEmpty($RegItem.DefaultPassword)) {
@@ -173,7 +173,7 @@ function Invoke-CredentialFilesCheck {
     License: BSD 3-Clause
 
     .DESCRIPTION
-    Credentials stored in the Credential Manager are actually saved as files in the current user's home folder. The sensitive information is saved in an ecnrypted format which differs depending on the credential type.
+    Credentials stored in the Credential Manager are actually saved as files in the current user's home folder. The sensitive information is saved in an encrypted format which differs depending on the credential type.
 
     .EXAMPLE
     PS C:\> Invoke-CredentialFilesCheck
@@ -251,7 +251,7 @@ function Invoke-VaultCredCheck {
     Type       : Generic
     Persist    : LocalMachine
     Flags      : 0
-    Credential : dBa2F06TTsrvSeLbyoW8
+    Credential : ***
 
     #>
 
@@ -308,38 +308,10 @@ function Invoke-GPPPasswordCheck {
 
     .EXAMPLE
     PS C:\> Invoke-GPPPasswordCheck
-
-    Type     : Mapped Drive
-    UserName : shareuser
-    Password : S3cur3Shar3
-    Content  : Path: \\evilcorp.lab\SecureShare
-    Changed  : 2020-02-09 14:03:57
-    FilePath : C:\ProgramData\Microsoft\Group Policy\History\{3A61470B-FD38-462A-A2E2-FC279A2754AE}\S-1-5-21-2135246055-3766984803-592010092-1103\Preferences\Drives\Drives.xml
-
-    Type     : Data Source
-    UserName : datasource
-    Password : S0urce0fThePr0blem
-    Content  : DSN: source
-    Changed  : 2020-02-09 12:23:43
-    FilePath : C:\ProgramData\Microsoft\Group Policy\History\{3FC99437-7C06-491A-8EBC-786CDA055862}\S-1-5-21-2135246055-3766984803-592010092-1103\Preferences\DataSources\DataSources.xml
-
-    Type     : Service
-    UserName : EVILCORP\SvcControl
-    Password : S3cr3tS3rvic3
-    Content  : Name: CustomService
-    Changed  : 2020-02-09 12:16:18
-    FilePath : C:\ProgramData\Microsoft\Group Policy\History\{66E11622-15A4-40B7-938C-FAD43AF1F572}\Machine\Preferences\Services\Services.xml
-
-    Type     : Scheduled Task
-    UserName : EVILCORP\SvcCustomTask
-    Password : T4skM4ster
-    Content  : App: C:\windows\system32\cmd.exe
-    Changed  : 2020-02-09 12:20:50
-    FilePath : C:\ProgramData\Microsoft\Group Policy\History\{6E9805DA-4CFC-47AC-BFC4-216FED08D39E}\Machine\Preferences\ScheduledTasks\ScheduledTasks.xml
-
+    ...
     Type     : User/Group
     UserName : LocalAdmin
-    Password : $uper$ecureP4ss
+    Password : ***
     Content  : Description: Super secure local admin account
     Changed  : 2020-02-09 12:09:59
     FilePath : C:\ProgramData\Microsoft\Group Policy\History\{8B95814A-23A2-4FB7-8BBA-53745EA1F11C}\Machine\Preferences\Groups\Groups.xml
@@ -415,7 +387,7 @@ function Invoke-GPPPasswordCheck {
 
         if (Test-Path -Path $GppPath -ErrorAction SilentlyContinue) {
 
-            $CachedGPPFiles = Get-ChildItem -Path $GppPath -Recurse -Include 'Groups.xml','Services.xml','Scheduledtasks.xml','DataSources.xml','Drives.xml','Printers.xml' -Force -ErrorAction SilentlyContinue
+            $CachedGPPFiles = Get-ChildItem -Path $GppPath -Recurse -Include 'Groups.xml','Services.xml','ScheduledTasks.xml','DataSources.xml','Drives.xml','Printers.xml' -Force -ErrorAction SilentlyContinue
 
             foreach ($File in $CachedGPPFiles) {
 
@@ -440,42 +412,42 @@ function Invoke-GPPPasswordCheck {
 
                     switch ($File.BaseName) {
 
-                        Groups {
+                        "Groups" {
                             $Type = "User/Group"
                             $UserName = $Properties.userName
                             $Cpassword = $Properties.cpassword
                             $Content = "Description: $($Properties.description)"
                         }
 
-                        Scheduledtasks {
+                        "ScheduledTasks" {
                             $Type = "Scheduled Task"
                             $UserName = $Properties.runAs
                             $Cpassword = $Properties.cpassword
                             $Content = "App: $($Properties.appName) $($Properties.args)"
                         }
 
-                        DataSources {
+                        "DataSources" {
                             $Type = "Data Source"
                             $UserName = $Properties.username
                             $Cpassword = $Properties.cpassword
                             $Content = "DSN: $($Properties.dsn)"
                         }
 
-                        Drives {
+                        "Drives" {
                             $Type = "Mapped Drive"
                             $UserName = $Properties.userName
                             $Cpassword = $Properties.cpassword
                             $Content = "Path: $($Properties.path)"
                         }
 
-                        Services {
+                        "Services" {
                             $Type = "Service"
                             $UserName = $Properties.accountName
                             $Cpassword = $Properties.cpassword
                             $Content = "Name: $($Properties.serviceName)"
                         }
 
-                        Printers {
+                        "Printers" {
                             $Type = "Printer"
                             $UserName = $Properties.username
                             $Cpassword = $Properties.cpassword

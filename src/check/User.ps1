@@ -12,7 +12,7 @@ function Invoke-UserCheck {
     .EXAMPLE
     PS C:\> Invoke-UserCheck
 
-    Name             : DESKTOP-E1BRKMO\Lab-User
+    Name             : DESKTOP-AAAAAAAA\Lab-User
     SID              : S-1-5-21-3539966466-3447975095-3309057754-1002
     Integrity        : Medium Mandatory Level (S-1-16-8192)
     SessionId        : 1
@@ -64,7 +64,7 @@ function Invoke-UserGroupsCheck {
 
     Name                                   Type           SID
     ----                                   ----           ---
-    DESKTOP-E1BRKMO\None                   Group          S-1-5-21-3539966466-3447975095-3309057754-513
+    DESKTOP-AAAAAAA\None                   Group          S-1-5-21-3539966466-3447975095-3309057754-513
     Everyone                               WellKnownGroup S-1-1-0
     BUILTIN\Users                          Alias          S-1-5-32-545
     BUILTIN\Performance Log Users          Alias          S-1-5-32-559
