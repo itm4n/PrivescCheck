@@ -1,5 +1,11 @@
 # Changelog
 
+## 2024-06-29
+
+### Added
+
+- Check for permissions of folders located at the root of a 'fixed' drive.
+
 ## 2024-06-26
 
 ### Changed
