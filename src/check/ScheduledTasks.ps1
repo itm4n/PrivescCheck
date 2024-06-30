@@ -123,7 +123,7 @@ function Get-ScheduledTaskList {
     }
 }
 
-function Invoke-ScheduledTasksImagePermissionsCheck {
+function Invoke-ScheduledTaskImagePermissionCheck {
     <#
     .SYNOPSIS
     Enumerates scheduled tasks with a modifiable path
@@ -135,7 +135,7 @@ function Invoke-ScheduledTasksImagePermissionsCheck {
     This function enumerates all the scheduled tasks which are visible by the current user but are not owned by the current user. For each task, it extracts the command line and checks whether it contains a path pointing to a modifiable file. If a task is run as the current user, it is filtered out.
 
     .EXAMPLE
-    PS C:\> Invoke-ScheduledTasksImagePermissionsCheck
+    PS C:\> Invoke-ScheduledTaskImagePermissionCheck
 
     TaskName           : DummyTask
     TaskPath           : \CustomTasks\DummyTask
@@ -188,7 +188,7 @@ function Invoke-ScheduledTasksImagePermissionsCheck {
     }
 }
 
-function Invoke-ScheduledTasksUnquotedPathCheck {
+function Invoke-ScheduledTaskUnquotedPathCheck {
     <#
     .SYNOPSIS
 
@@ -203,7 +203,7 @@ function Invoke-ScheduledTasksUnquotedPathCheck {
 
     .EXAMPLE
 
-    PS C:\> Invoke-ScheduledTasksUnquotedPathCheck
+    PS C:\> Invoke-ScheduledTaskUnquotedPathCheck
 
     TaskName           : VulnTask
     TaskPath           : \CustomTasks\VulnTask

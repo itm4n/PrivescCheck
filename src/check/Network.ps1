@@ -7,7 +7,7 @@ function Get-RpcRange {
     License: BSD 3-Clause
 
     .DESCRIPTION
-    This function is a helper for the Invoke-TcpEndpointsCheck function. Windows uses a set of RPC ports that are randomly allocated in the range 49152-65535 by default. If we want to filter out these listening ports we must first figure out this set of ports. The aim of this function is to guess this range using basic statistics on a given array of port numbers. We can quite reliably identify the RPC port set because they are concentrated in a very small range. It's not 100% reliable but it will do the job most of the time.
+    This function is a helper for the Invoke-TcpEndpointCheck function. Windows uses a set of RPC ports that are randomly allocated in the range 49152-65535 by default. If we want to filter out these listening ports we must first figure out this set of ports. The aim of this function is to guess this range using basic statistics on a given array of port numbers. We can quite reliably identify the RPC port set because they are concentrated in a very small range. It's not 100% reliable but it will do the job most of the time.
 
     .PARAMETER Ports
     An array of port numbers
@@ -85,7 +85,7 @@ function Get-RpcRange {
     $Result
 }
 
-function Invoke-NetworkAdaptersCheck {
+function Invoke-NetworkAdapterCheck {
     <#
     .SYNOPSIS
     Collect detailed information about all Ethernet and Wi-Fi network adapters.
@@ -97,7 +97,7 @@ function Invoke-NetworkAdaptersCheck {
     Collect detailed information about all active Ethernet adapters.
 
     .EXAMPLE
-    PS C:\> Invoke-NetworkAdaptersCheck
+    PS C:\> Invoke-NetworkAdapterCheck
 
     Name            : {B52615AE-995C-415B-9925-0C0815A81598}
     FriendlyName    : Ethernet0
@@ -122,7 +122,7 @@ function Invoke-NetworkAdaptersCheck {
     Get-NetworkAdaptersList | Where-Object { $_.Type -eq "Ethernet" -or $_.Type -eq "IEEE80211" } | Select-Object -Property Name,FriendlyName,Type,Status,DnsSuffix,Description,PhysicalAddress,Flags,IPv6,IPv4,Gateway,DHCPv4Server,DHCPv6Server,DnsServers,DNSSuffixList
 }
 
-function Invoke-TcpEndpointsCheck {
+function Invoke-TcpEndpointCheck {
     <#
     .SYNOPSIS
     Enumerates all TCP endpoints on the local machine (IPv4 and IPv6)
@@ -137,7 +137,7 @@ function Invoke-TcpEndpointsCheck {
     Use this switch to filter out the list of endpoints returned by this function. The filter excludes all the standard ports such as 445 or 139 and all the random RPC ports. The RPC port range is dynamically guessed using the helper function "Get-RpcRange".
 
     .EXAMPLE
-    PS C:\> Invoke-TcpEndpointsCheck | ft
+    PS C:\> Invoke-TcpEndpointCheck | ft
 
     IP   Proto LocalAddress       State      PID Name
     --   ----- ------------       -----      --- ----
@@ -208,7 +208,7 @@ function Invoke-TcpEndpointsCheck {
     }
 }
 
-function Invoke-UdpEndpointsCheck {
+function Invoke-UdpEndpointCheck {
     <#
     .SYNOPSIS
     Enumerates all UDP endpoints on the local machine (IPv4 and IPv6)
@@ -223,7 +223,7 @@ function Invoke-UdpEndpointsCheck {
     Use this switch to filter out the list of endpoints returned by this function. The filter excludes all the standard ports such as 139 or 500.
 
     .EXAMPLE
-    PS C:\> Invoke-UdpEndpointsCheck | ft
+    PS C:\> Invoke-UdpEndpointCheck | ft
 
     IP   Proto LocalAddress                       State  PID Name
     --   ----- ------------                       -----  --- ----
@@ -282,7 +282,7 @@ function Invoke-UdpEndpointsCheck {
     }
 }
 
-function Invoke-WlanProfilesCheck {
+function Invoke-WlanProfileCheck {
     <#
     .SYNOPSIS
     List saved WLAN profiles and try to determine if they are vulnerable.

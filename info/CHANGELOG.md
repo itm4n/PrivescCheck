@@ -274,7 +274,7 @@
 
 ### Fixed
 
-- Fixed a regression causing false negatives in `Invoke-ServicesUnquotedPathCheck` (see issue #48).
+- Fixed a regression causing false negatives in `Invoke-ServiceUnquotedPathCheck` (see issue #48).
 
 ## 2023-07-10
 
@@ -329,7 +329,7 @@
 
 ### Added
 
-- Services > Invoke-ThirdPartyDriversCheck, for enumerating third-party drivers.
+- Services > Invoke-ThirdPartyDriverCheck, for enumerating third-party drivers.
 
 ## 2023-02-18
 
@@ -433,7 +433,7 @@
 
 ### Changed
 
-- Network > Invoke-WlanProfilesCheck, this check now detects potential issues in 802.1x Wi-Fi profiles
+- Network > Invoke-WlanProfileCheck, this check now detects potential issues in 802.1x Wi-Fi profiles
 
 ## 2022-03-10
 
@@ -452,7 +452,7 @@
 
 ### Added
 
-- Misc > Invoke-UserSessionListCheck
+- Misc > Invoke-UserSessionCheck
 
 ## 2022-02-13
 
@@ -464,19 +464,19 @@
 
 ### Added
 
-- Misc > Invoke-DefenderExclusionsCheck
+- Misc > Invoke-DefenderExclusionCheck
 
 ## 2021-09-13
 
 ### Added
 
-- Config > Invoke-DriverCoInstallersCheck (@SAERXCIT)
+- Config > Invoke-DriverCoInstallerCheck (@SAERXCIT)
 
 ## 2021-08-17
 
 ### Added
 
-- Creds > Invoke-SensitiveHiveShadowCopyCheck (@SAERXCIT)
+- Creds > Invoke-HiveFileShadowCopyPermissionCheck (@SAERXCIT)
 
 ## 2021-07-23
 
@@ -494,13 +494,13 @@
 
 ### Added
 
-- Misc > Invoke-NamedPipePermissionsCheck (experimental)
+- Misc > Invoke-NamedPipePermissionCheck (experimental)
 
 ## 2021-06-18
 
 ### Added
 
-- Network > Invoke-NetworkAdaptersCheck
+- Network > Invoke-NetworkAdapterCheck
 
 ## 2021-06-16
 
@@ -512,7 +512,7 @@
 
 ### Added
 
-- User > Invoke-UserRestrictedSidsCheck in case of WRITE RESTRICTED Tokens
+- User > Invoke-UserRestrictedSidCheck in case of WRITE RESTRICTED Tokens
 
 ### Changed
 
@@ -546,13 +546,13 @@
 
 ### Added
 
-- Services > Invoke-SCMPermissionsCheck
+- Services > Invoke-ServiceControlManagerPermissionCheck
 
 ## 2020-10-29
 
 ### Added
 
-- Scheduled Tasks > Invoke-ScheduledTasksUnquotedPathCheck
+- Scheduled Tasks > Invoke-ScheduledTaskUnquotedPathCheck
 
 ### Changed
 
@@ -625,52 +625,52 @@
 
 - Helper > Convert-SidToName
 - Misc > Invoke-HotfixCheck
-- Applications > Invoke-ProgramDataCheck
+- Applications > Invoke-ProgramDataPermissionCheck
 
 ## 2020-04-09
 
 ### Added
 
-- DLL Hijacking > Invoke-HijackableDllsCheck
+- DLL Hijacking > Invoke-HijackableDllCheck
 - Applications > Invoke-ScheduledTasksCheck
 
 ## 2020-04-08
 
 ### Added
 
-- Misc > Invoke-UsersHomeFolderCheck
-- Programs > Invoke-ApplicationsOnStartupCheck
-- Registry > Invoke-WsusConfigCheck
-- User > Invoke-UserEnvCheck
-- Updated Credentials > Invoke-CredentialFilesCheck
+- Misc > Invoke-UserHomeFolderCheck
+- Programs > Invoke-StartupApplicationPermissionCheck
+- Registry > Invoke-WsusConfigurationCheck
+- User > Invoke-UserEnvironmentCheck
+- Updated Credentials > Invoke-CredentialFileCheck
 
 ## 2020-03-21
 
 ### Added
 
-- Handled exception in "Network > Invoke-WlanProfilesCheck" when dealing with servers
+- Handled exception in "Network > Invoke-WlanProfileCheck" when dealing with servers
 
 ## 2020-03-12
 
 ### Added
 
-- Network > Invoke-WlanProfilesCheck
+- Network > Invoke-WlanProfileCheck
 
 ## 2020-02-14
 
 ### Added
 
-- Credentials > Invoke-VaultListCheck
+- Credentials > Invoke-VaultListCredentialCheck
 
 ### Changed
 
-- Renamed Credentials > Invoke-CredentialManagerCheck -> Invoke-VaultCredCheck
+- Renamed Credentials > Invoke-CredentialManagerCheck -> Invoke-VaultCredentialCheck
 
 ## 2020-02-09
 
 ### Added
 
-- Credentials > Invoke-GPPPasswordCheck
+- Credentials > Invoke-GPPCredentialCheck
 
 ## 2020-01-30
 
@@ -688,7 +688,7 @@
 
 ### Added
 
-- Fixed bug User > Invoke-UserGroupsCheck (don't translate SIDs like "S-1-5.*")
+- Fixed bug User > Invoke-UserGroupCheck (don't translate SIDs like "S-1-5.*")
 
 ## 2020-01-17
 
@@ -700,7 +700,7 @@
 - Helper > Get-LsaRunAsPPLStatus
 - Registry > Invoke-LsaProtectionsCheck
 - Helper > Get-UnattendSensitiveData
-- Credentials > Invoke-UnattendFilesCheck
+- Credentials > Invoke-UnattendFileCredentialCheck
 
 ### Changed
 
@@ -712,30 +712,30 @@
 
 - Moved "Invoke-PrivescCheck.ps1" from "Pentest-Tools" to a dedicated repo.
 - User > Invoke-UserCheck
-- User > Invoke-UserGroupsCheck
-- User > Invoke-UserPrivilegesCheck
-- Services > Invoke-InstalledServicesCheck
-- Services > Invoke-ServicesPermissionsCheck
-- Services > Invoke-ServicesPermissionsRegistryCheck
-- Services > Invoke-ServicesImagePermissionsCheck
-- Services > Invoke-ServicesUnquotedPathCheck
+- User > Invoke-UserGroupCheck
+- User > Invoke-UserPrivilegeCheck
+- Services > Invoke-InstalledServiceCheck
+- Services > Invoke-ServicePermissionCheck
+- Services > Invoke-ServiceRegistryPermissionCheck
+- Services > Invoke-ServiceImagePermissionCheck
+- Services > Invoke-ServiceUnquotedPathCheck
 - Dll Hijacking > Invoke-DllHijackingCheck
 - Sensitive Files > Invoke-SamBackupFilesCheck
-- Programs > Invoke-InstalledProgramsCheck
-- Programs > Invoke-ModifiableProgramsCheck
+- Programs > Invoke-InstalledApplicationCheck
+- Programs > Invoke-InstalledApplicationPermissionCheck
 - Programs > Invoke-RunningProcessCheck
-- Credentials > Invoke-WinlogonCheck
-- Credentials > Invoke-CredentialFilesCheck
-- Registry > Invoke-UacCheck
+- Credentials > Invoke-WinLogonCredentialCheck
+- Credentials > Invoke-CredentialFileCheck
+- Registry > Invoke-UserAccountControlCheck
 - Registry > Invoke-LapsCheck
 - Registry > Invoke-PowershellTranscriptionCheck
 - Registry > Invoke-RegistryAlwaysInstallElevatedCheck
-- Network > Invoke-TcpEndpointsCheck
-- Network > Invoke-UdpEndpointsCheck
+- Network > Invoke-TcpEndpointCheck
+- Network > Invoke-UdpEndpointCheck
 - Misc > Invoke-WindowsUpdateCheck
-- Misc > Invoke-SystemInfoCheck
+- Misc > Invoke-SystemInformationCheck
 - Misc > Invoke-LocalAdminGroupCheck
 - Misc > Invoke-MachineRoleCheck
 - Misc > Invoke-SystemStartupHistoryCheck
 - Misc > Invoke-SystemStartupCheck
-- Misc > Invoke-SystemDrivesCheck
+- Misc > Invoke-SystemDriveCheck

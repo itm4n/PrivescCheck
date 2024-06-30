@@ -85,7 +85,7 @@ function Invoke-RegistryAlwaysInstallElevatedCheck {
     $CheckResult
 }
 
-function Invoke-WsusConfigCheck {
+function Invoke-WsusConfigurationCheck {
     <#
     .SYNOPSIS
     Checks whether the WSUS is enabled and vulnerable to MitM attacks.
@@ -97,7 +97,7 @@ function Invoke-WsusConfigCheck {
     A system can be compromised if the updates are not requested using HTTPS but HTTP. If the URL of the update server (WUServer) starts with HTTP and UseWUServer=1, then the update requests are vulnerable to MITM attacks.
 
     .EXAMPLE
-    PS C:\> Invoke-WsusConfigCheck
+    PS C:\> Invoke-WsusConfigurationCheck
 
     WUServer                           : http://acme-upd01.corp.internal.com:8535
     UseWUServer                        : 1
@@ -389,7 +389,7 @@ function Invoke-DllHijackingCheck {
     }
 }
 
-function Invoke-PointAndPrintConfigCheck {
+function Invoke-PointAndPrintConfigurationCheck {
     <#
     .SYNOPSIS
     Checks for configurations that are vulnerable to the PrintNightmare LPE exploit(s).
@@ -401,7 +401,7 @@ function Invoke-PointAndPrintConfigCheck {
     Fully up-to-date machines are still vulnerable to the PrintNightmare LPE exploit if the "Point and Print Restrictions" Group policy is configured to allow users to install printer drivers or add print servers without administrator privileges. More precisely, if "NoWarningNoElevationOnInstall" or "UpdatePromptSettings" is set to a value greater or equal to 1, and the installation of printer drivers is not restricted to administrators only, the system is vulnerable.
 
     .EXAMPLE
-    PS C:\> Invoke-PointAndPrintConfigCheck
+    PS C:\> Invoke-PointAndPrintConfigurationCheck
 
     Policy      : Limits print driver installation to Administrators
     Default     : 1
@@ -546,7 +546,7 @@ function Invoke-PointAndPrintConfigCheck {
     }
 }
 
-function Invoke-DriverCoInstallersCheck {
+function Invoke-DriverCoInstallerCheck {
     <#
     .SYNOPSIS
     Checks whether the DisableCoInstallers key is set in the registry.
@@ -558,7 +558,7 @@ function Invoke-DriverCoInstallersCheck {
     The automatic installation as SYSTEM of additional software alongside device drivers can be a vector for privesc, if this software can be manipulated into executing arbitrary code. This can be prevented by setting the DisableCoInstallers key in HKLM. Credit to @wdormann https://twitter.com/wdormann/status/1432703702079508480.
 
     .EXAMPLE
-    Ps C:\> Invoke-DriverCoInstallersCheck
+    Ps C:\> Invoke-DriverCoInstallerCheck
 
     Key         : HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Device Installer
     Value       : DisableCoInstallers
@@ -590,7 +590,7 @@ function Invoke-DriverCoInstallersCheck {
     $CheckResult
 }
 
-function Invoke-SccmCacheFoldersCheck {
+function Invoke-SccmCacheFolderCheck {
     <#
     .SYNOPSIS
     Get information about SCCM cache folders (incl. number and list of binary, script, and text files).
@@ -634,7 +634,7 @@ function Invoke-SccmCacheFoldersCheck {
     }
 }
 
-function Invoke-ProxyAutoConfigUrlCheck {
+function Invoke-ProxyAutoConfigurationUrlCheck {
 
     [CmdletBinding()]
     param(
@@ -656,7 +656,7 @@ function Invoke-ProxyAutoConfigUrlCheck {
     }
 }
 
-function Invoke-DefenderExclusionsCheck {
+function Invoke-DefenderExclusionCheck {
     <#
     .SYNOPSIS
     List Microsoft Defender exclusions.
@@ -668,7 +668,7 @@ function Invoke-DefenderExclusionsCheck {
     This check was inspired by a tweet from @splinter_code (see notes), mentioning the fact that Defender's exclusions can be listed as a low privileged user through the registry. This information is indeed stored in two registry keys (local and GPO) that are configured with a DACL that allows "Everyone" to read them. However, in some versions of Windows 10/11, the DACL is reportedly configured differently and would thus not grant read access for low-priv users. This check was then extended with a technique from @VakninHai, which consists in reading event log messages (with ID 5007) to identify modifications in the exclusions.
 
     .EXAMPLE
-    PS C:\> Invoke-DefenderExclusionsCheck
+    PS C:\> Invoke-DefenderExclusionCheck
 
     Source   Type      Value
     ------   ----      -----
@@ -787,7 +787,7 @@ function Invoke-SmbConfigurationCheck {
     }
 }
 
-function Invoke-ComServerRegistryPermissionsCheck {
+function Invoke-ComServerRegistryPermissionCheck {
     <#
     .SYNOPSIS
     Check whether the current user has any modification rights on a COM class in the registry.
@@ -836,7 +836,7 @@ function Invoke-ComServerRegistryPermissionsCheck {
     }
 }
 
-function Invoke-ComServerImagePermissionsCheck {
+function Invoke-ComServerImagePermissionCheck {
     <#
     .SYNOPSIS
     Check whether the current user has any modification rights on a COM server module file.
@@ -1011,7 +1011,7 @@ function Invoke-ComServerMissingModuleFileCheck {
     License: BSD 3-Clause
 
     .DESCRIPTION
-    This cmdlet enumerates registered COM servers and checks whether their module file path points to an existing file. It should be noted that it does not check for file permissions. Such issue is already reported by 'Invoke-ComServerImagePermissionsCheck', which checks the permissions of parent folders in case the target file doesn't exist.
+    This cmdlet enumerates registered COM servers and checks whether their module file path points to an existing file. It should be noted that it does not check for file permissions. Such issue is already reported by 'Invoke-ComServerImagePermissionCheck', which checks the permissions of parent folders in case the target file doesn't exist.
     #>
 
     [CmdletBinding()]

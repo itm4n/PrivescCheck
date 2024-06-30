@@ -1,4 +1,4 @@
-function Invoke-UacCheck {
+function Invoke-UserAccountControlCheck {
     <#
     .SYNOPSIS
     Checks whether UAC (User Access Control) is enabled
@@ -13,7 +13,7 @@ function Invoke-UacCheck {
     1 = Enabled
 
     .EXAMPLE
-    PS C:\> Invoke-UacCheck | fl
+    PS C:\> Invoke-UserAccountControlCheck | fl
 
     Key         : HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\System
     Value       : EnableLUA
@@ -808,7 +808,7 @@ function Invoke-AppLockerPolicyCheck {
     }
 }
 
-function Invoke-FileExtensionAssociationsCheck {
+function Invoke-FileExtensionAssociationCheck {
     <#
     .SYNOPSIS
     Check whether dangerous default file extensions such as '.bat' or '.wsh' are associated to a text editor such as 'notepad.exe'.
@@ -820,7 +820,7 @@ function Invoke-FileExtensionAssociationsCheck {
     This cmdlet aims at listing default file associations that could be abused by an attacker to gain initial access to a user's computer by tricking them into double clicking a file.
 
     .EXAMPLE
-    PS C:\> Invoke-FileExtensionAssociationsCheck
+    PS C:\> Invoke-FileExtensionAssociationCheck
 
     Extension           Command
     ---------           -------
@@ -865,7 +865,7 @@ function Invoke-FileExtensionAssociationsCheck {
     }
 }
 
-function Invoke-HiddenFilenameExtensionsCheck {
+function Invoke-HiddenFilenameExtensionCheck {
     <#
     .SYNOPSIS
     Check whether extensions of known file types are shown in the Explorer.

@@ -1,4 +1,4 @@
-function Invoke-InstalledProgramsCheck {
+function Invoke-InstalledApplicationCheck {
     <#
     .SYNOPSIS
     Enumerates the applications that are not installed by default
@@ -16,7 +16,7 @@ function Invoke-InstalledProgramsCheck {
     Get-InstalledProgram -Filtered | Select-Object -Property Name,FullName
 }
 
-function Invoke-ModifiableProgramsCheck {
+function Invoke-InstalledApplicationPermissionCheck {
     <#
     .SYNOPSIS
     Identifies applications which have a modifiable EXE of DLL file
@@ -83,7 +83,7 @@ function Invoke-ModifiableProgramsCheck {
     }
 }
 
-function Invoke-ProgramDataCheck {
+function Invoke-ProgramDataPermissionCheck {
     <#
     .SYNOPSIS
     Checks for modifiable files and folders under non default ProgramData folders.
@@ -95,7 +95,7 @@ function Invoke-ProgramDataCheck {
     This script first lists all the subfolders under 'C:\ProgramData\'. For each folder that is not a "known" default Windows folder, it lists all the files and folders it contains. If a modifiable file or folder is found, it is reported by the script.
 
     .EXAMPLE
-    PS C:\> Invoke-ProgramDataCheck
+    PS C:\> Invoke-ProgramDataPermissionCheck
 
     ModifiablePath    : C:\ProgramData\VMware\logs
     IdentityReference : BUILTIN\Users
@@ -144,7 +144,7 @@ function Invoke-ProgramDataCheck {
     }
 }
 
-function Invoke-ApplicationsOnStartupCheck {
+function Invoke-StartupApplicationPermissionCheck {
     <#
     .SYNOPSIS
     Enumerates the applications which are run on startup

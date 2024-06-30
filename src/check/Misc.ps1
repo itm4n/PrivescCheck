@@ -66,7 +66,7 @@ function Get-RemoteDesktopUserSessionList {
     }
 }
 
-function Invoke-SystemInfoCheck {
+function Invoke-SystemInformationCheck {
     <#
     .SYNOPSIS
     Gets the name of the operating system and the full version string.
@@ -78,7 +78,7 @@ function Invoke-SystemInfoCheck {
     Reads the "Product Name" from the registry and gets the full version string based on the operating system.
 
     .EXAMPLE
-    Invoke-SystemInfoCheck | fl
+    Invoke-SystemInformationCheck | fl
 
     Name    : Windows 10 Home
     Version : 10.0.18363 Version 1909 (18363.535)
@@ -185,7 +185,7 @@ function Invoke-SystemStartupHistoryCheck {
     }
 }
 
-function Invoke-SystemDrivesCheck {
+function Invoke-SystemDriveCheck {
     <#
     .SYNOPSIS
     Gets a list of local drives and network shares that are currently mapped
@@ -197,7 +197,7 @@ function Invoke-SystemDrivesCheck {
     This function is a wrapper for the "Get-PSDrive" standard cmdlet. For each result returned by "Get-PSDrive", a custom PS object is returned, indicating the drive letter (if applicable), the display name (if applicable) and the description.
 
     .EXAMPLE
-    PS C:\> Invoke-SystemDrivesCheck
+    PS C:\> Invoke-SystemDriveCheck
 
     Root DisplayRoot Description
     ---- ----------- -----------
@@ -299,7 +299,7 @@ function Invoke-LocalAdminGroupCheck {
     }
 }
 
-function Invoke-UsersHomeFolderCheck {
+function Invoke-UserHomeFolderCheck {
     <#
     .SYNOPSIS
     Enumerates the local user home folders.
@@ -311,7 +311,7 @@ function Invoke-UsersHomeFolderCheck {
     Enumerates the folders located in C:\Users\. For each one, this function checks whether the folder is readable and/or writable by the current user.
 
     .EXAMPLE
-    PS C:\> Invoke-UsersHomeFolderCheck
+    PS C:\> Invoke-UserHomeFolderCheck
 
     HomeFolderPath         Read Write
     --------------         ---- -----
@@ -537,7 +537,7 @@ function Invoke-EndpointProtectionCheck {
     $Results | Sort-Object -Property ProductName,Source
 }
 
-function Invoke-HijackableDllsCheck {
+function Invoke-HijackableDllCheck {
     <#
     .SYNOPSIS
     Lists hijackable DLLs depending on the version of the OS
@@ -549,7 +549,7 @@ function Invoke-HijackableDllsCheck {
     On Windows, some services load DLLs without using a "secure" search path. Therefore, they try to load them from the folders listing in the %PATH% environment variable. If one of these folders is configured with weak permissions, a local attacker may plant a malicious version of a DLL in order to execute arbitrary code in the context of the service.
 
     .EXAMPLE
-    PS C:\> Invoke-HijackableDllsCheck
+    PS C:\> Invoke-HijackableDllCheck
 
     Name           : cdpsgshims.dll
     Description    : Loaded by CDPSvc upon service startup
@@ -557,7 +557,7 @@ function Invoke-HijackableDllsCheck {
     RebootRequired : True
 
     .EXAMPLE
-    PS C:\> Invoke-HijackableDllsCheck
+    PS C:\> Invoke-HijackableDllCheck
 
     Name           : windowsperformancerecordercontrol.dll
     Description    : Loaded by DiagTrack upon service startup or shutdown
@@ -673,7 +673,7 @@ function Invoke-HijackableDllsCheck {
     }
 }
 
-function Invoke-NamedPipePermissionsCheck {
+function Invoke-NamedPipePermissionCheck {
     <#
     .SYNOPSIS
     List modifiable named pipes that are not owned by the current user.
@@ -753,7 +753,7 @@ function Invoke-NamedPipePermissionsCheck {
     }
 }
 
-function Invoke-UserSessionListCheck {
+function Invoke-UserSessionCheck {
     <#
     .SYNOPSIS
     List the the sessions of the currently logged-on users (similar to the command 'query session').
@@ -765,7 +765,7 @@ function Invoke-UserSessionListCheck {
     This check is essentially a wrapper for the helper function Get-RemoteDesktopUserSessionList.
 
     .EXAMPLE
-    PS C:\> Invoke-UserSessionListCheck
+    PS C:\> Invoke-UserSessionCheck
 
     SessionName UserName              Id        State
     ----------- --------              --        -----
@@ -994,7 +994,7 @@ function Invoke-ExploitableLeakedHandleCheck {
     }
 }
 
-function Invoke-MsiCustomActionsCheck {
+function Invoke-MsiCustomActionCheck {
     <#
     .SYNOPSIS
     Search for MSI files that run Custom Actions as SYSTEM.
@@ -1006,7 +1006,7 @@ function Invoke-MsiCustomActionsCheck {
     This cmdlet retrieves a list of cached MSI files and analyzes them to find potentially unsafe Custom Actions.
 
     .EXAMPLE
-    PS C:\> Invoke-MsiCustomActionsCheck
+    PS C:\> Invoke-MsiCustomActionCheck
     ...
     Path              : C:\Windows\Installer\38896.msi
     IdentifyingNumber : 180E1C56-3A53-44D2-B300-ADC28A080515

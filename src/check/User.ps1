@@ -48,7 +48,7 @@ function Invoke-UserCheck {
     $Result
 }
 
-function Invoke-UserGroupsCheck {
+function Invoke-UserGroupCheck {
     <#
     .SYNOPSIS
     Enumerates groups the current user belongs to
@@ -60,7 +60,7 @@ function Invoke-UserGroupsCheck {
     Enumerates groups the current user belongs to.
 
     .EXAMPLE
-    PS C:\> Invoke-UserGroupsCheck
+    PS C:\> Invoke-UserGroupCheck
 
     Name                                   Type           SID
     ----                                   ----           ---
@@ -85,7 +85,7 @@ function Invoke-UserGroupsCheck {
     Get-TokenInformationGroup -InformationClass Groups | Select-Object Name,Type,SID
 }
 
-function Invoke-UserRestrictedSidsCheck {
+function Invoke-UserRestrictedSidCheck {
     <#
     .SYNOPSIS
     Enumerates restricted SIDs associated to the current user's token if any.
@@ -97,7 +97,7 @@ function Invoke-UserRestrictedSidsCheck {
     This check leverages the Get-TokenInformationGroup helper function to list the restricted SIDs that are associated to the current user's Token. This may provide some useful information in case the current token is WRITE RESTRICTED.
 
     .EXAMPLE
-    PS C:\> Invoke-UserRestrictedSidsCheck
+    PS C:\> Invoke-UserRestrictedSidCheck
 
     Name                                Type           SID
     ----                                ----           ---
@@ -116,7 +116,7 @@ function Invoke-UserRestrictedSidsCheck {
     Get-TokenInformationGroup -InformationClass RestrictedSids | Select-Object Name,Type,SID
 }
 
-function Invoke-UserPrivilegesCheck {
+function Invoke-UserPrivilegeCheck {
     <#
     .SYNOPSIS
     Enumerates privileges and identifies the ones that can be used for privilege escalation.
@@ -154,7 +154,7 @@ function Invoke-UserPrivilegesCheck {
     $CheckResult
 }
 
-function Invoke-UserPrivilegesGpoCheck {
+function Invoke-UserPrivilegeGpoCheck {
     <#
     .SYNOPSIS
     Check whether the current user is granted privileges, through a group policy, that can be leveraged for local privilege escalation.
@@ -166,7 +166,7 @@ function Invoke-UserPrivilegesGpoCheck {
     This cmdlet enumerates cached group policy files that define rules for granting users specific privileges. When UAC is enabled, those privileges might not be present in the current user's token. In that case, opening a privileged process is required. The aim of this check is to detect such privileges.
 
     .EXAMPLE
-    PS C:\> Invoke-UserPrivilegesGpoCheck
+    PS C:\> Invoke-UserPrivilegeGpoCheck
 
     Privilege   : SeRelabelPrivilege
     IdentitySid : S-1-5-21-1765376299-219387937-761915811-513
@@ -240,7 +240,7 @@ function Invoke-UserPrivilegesGpoCheck {
     }
 }
 
-function Invoke-UserEnvCheck {
+function Invoke-UserEnvironmentCheck {
     <#
     .SYNOPSIS
     Checks for sensitive data in environment variables

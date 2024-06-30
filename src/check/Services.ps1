@@ -1,4 +1,4 @@
-function Invoke-InstalledServicesCheck {
+function Invoke-InstalledServiceCheck {
     <#
     .SYNOPSIS
     Enumerates non-default services
@@ -10,7 +10,7 @@ function Invoke-InstalledServicesCheck {
     It uses the custom "Get-ServiceList" function to get a filtered list of services that are configured on the local machine. Then it returns each result in a custom PS object, indicating the name, display name, binary path, user and start mode of the service.
 
     .EXAMPLE
-    PS C:\> Invoke-InstalledServicesCheck | ft
+    PS C:\> Invoke-InstalledServiceCheck | ft
 
     Name    DisplayName  ImagePath                                           User        StartMode
     ----    -----------  ---------                                           ----        ---------
@@ -23,7 +23,7 @@ function Invoke-InstalledServicesCheck {
     Get-ServiceList -FilterLevel 3 | Select-Object -Property Name,DisplayName,ImagePath,User,StartMode
 }
 
-function Invoke-ServicesPermissionsRegistryCheck {
+function Invoke-ServiceRegistryPermissionCheck {
     <#
     .SYNOPSIS
     Checks the permissions of the service settings in the registry
@@ -35,7 +35,7 @@ function Invoke-ServicesPermissionsRegistryCheck {
     The configuration of the services is maintained in the registry. Being able to modify these registry keys means being able to change the settings of a service. In addition, a complete machine reboot isn't necessary for these settings to be taken into account. Only the affected service needs to be restarted.
 
     .EXAMPLE
-    PS C:\> Invoke-ServicesPermissionsRegistryCheck
+    PS C:\> Invoke-ServiceRegistryPermissionCheck
 
     Name              : DVWS
     ImagePath         : C:\DVWS\Vuln Service\service.exe
@@ -100,7 +100,7 @@ function Invoke-ServicesPermissionsRegistryCheck {
     }
 }
 
-function Invoke-ServicesUnquotedPathCheck {
+function Invoke-ServiceUnquotedPathCheck {
     <#
     .SYNOPSIS
     Enumerates all the services with an unquoted path. For each one of them, enumerates paths that the current user can modify. Based on the original "Get-ServiceUnquoted" function from PowerUp.
@@ -112,7 +112,7 @@ function Invoke-ServicesUnquotedPathCheck {
     In my version of this function, I tried to eliminate as much false positives as possible. PowerUp tends to report "C:\" as exploitable whenever a program located in "C:\Program Files" is identified. The problem is that we cannot write "C:\program.exe" so the service wouldn't be exploitable. We can only create folders in "C:\" by default.
 
     .EXAMPLE
-    PS C:\> Invoke-ServicesUnquotedPathCheck
+    PS C:\> Invoke-ServiceUnquotedPathCheck
 
     Name              : VulnService
     ImagePath         : C:\APPS\My App\service.exe
@@ -196,7 +196,7 @@ function Invoke-ServicesUnquotedPathCheck {
     }
 }
 
-function Invoke-ServicesImagePermissionsCheck {
+function Invoke-ServiceImagePermissionCheck {
     <#
     .SYNOPSIS
     Enumerates all the services that have a modifiable binary (or argument)
@@ -208,7 +208,7 @@ function Invoke-ServicesImagePermissionsCheck {
     FIrst, it enumerates the services thanks to the custom "Get-ServiceList" function. For each result, it checks the permissions of the ImagePath setting thanks to the "Get-ModifiablePath" function. Each result is returned in a custom PS object.
 
     .EXAMPLE
-    PS C:\> Invoke-ServicesImagePermissionsCheck
+    PS C:\> Invoke-ServiceImagePermissionCheck
 
     Name              : VulnService
     ImagePath         : C:\APPS\service.exe
@@ -280,7 +280,7 @@ function Invoke-ServicesImagePermissionsCheck {
     }
 }
 
-function Invoke-ServicesPermissionsCheck {
+function Invoke-ServicePermissionCheck {
     <#
     .SYNOPSIS
     Enumerates the services the current can modify through the service manager. In addition, it shows whether the service can be started/restarted.
@@ -292,7 +292,7 @@ function Invoke-ServicesPermissionsCheck {
     This is based on the original "Get-ModifiableService" from PowerUp.
 
     .EXAMPLE
-    PS C:\> Invoke-ServicesPermissionsCheck
+    PS C:\> Invoke-ServicePermissionCheck
 
     Name           : DVWS
     ImagePath      : C:\DVWS\Vuln Service\service.exe
@@ -364,7 +364,7 @@ function Invoke-ServicesPermissionsCheck {
     }
 }
 
-function Invoke-SCMPermissionsCheck {
+function Invoke-ServiceControlManagerPermissionCheck {
     <#
     .SYNOPSIS
     Checks whether the permissions of the SCM allows the current user to perform privileged actions.
@@ -373,7 +373,7 @@ function Invoke-SCMPermissionsCheck {
     The SCM (Service Control Manager) has its own DACL, which is defined by the system. Though, it is possible to apply a custom one using the built-in "sc.exe" command line tool and a modified SDDL string for example. However, such manipulation is dangerous and is prone to errors. Therefore, the objective of this function is to check whether the current user as any modification rights on the SCM itself.
 
     .EXAMPLE
-    PS C:\> Invoke-SCMPermissionsCheck
+    PS C:\> Invoke-ServiceControlManagerPermissionCheck
 
     AceType      : AccessAllowed
     AccessRights : AllAccess
@@ -430,7 +430,7 @@ function Invoke-SCMPermissionsCheck {
     }
 }
 
-function Invoke-ThirdPartyDriversCheck {
+function Invoke-ThirdPartyDriverCheck {
     <#
     .SYNOPSIS
     Lists non-Microsoft drivers.
