@@ -190,10 +190,11 @@ function Invoke-UserPrivilegeGpoCheck {
     }
 
     process {
-        $PolicyFiles = Get-ChildItem -Path $PolicyCacheFolderPath -Recurse -Filter "GptTmpl.inf" -ErrorAction SilentlyContinue
+        $PolicyFiles = [object[]](Get-ChildItem -Path $PolicyCacheFolderPath -Recurse -Filter "GptTmpl.inf" -ErrorAction SilentlyContinue)
 
         foreach ($PolicyFile in $PolicyFiles) {
 
+            if ([String]::IsNullOrEmpty($PolicyFile.FullName)) { continue }
             $Candidates = Select-String -Path $PolicyFile.FullName -Pattern "Privilege = " -AllMatches
 
             foreach ($Candidate in $Candidates) {

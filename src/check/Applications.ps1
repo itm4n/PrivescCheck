@@ -59,12 +59,15 @@ function Invoke-InstalledApplicationPermissionCheck {
             [void] $SearchPath.Add([String] $(Join-Path -Path $InstalledProgram.FullName -ChildPath "\*\*"))
 
             $CandidateItems = Get-ChildItem -Path $SearchPath -ErrorAction SilentlyContinue
+            if ($null -eq $CandidateItems) { continue }
 
             foreach ($CandidateItem in $CandidateItems) {
 
                 if (($CandidateItem -is [System.IO.FileInfo]) -and (-not (Test-CommonApplicationFile -Path $CandidateItem.FullName))) { continue }
+                if ([String]::IsNullOrEmpty($CandidateItem.FullName)) { continue }
 
                 $ModifiablePaths = Get-ModifiablePath -Path $CandidateItem.FullName | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
+                if ($null -eq $ModifiablePaths) { continue }
                 foreach ($ModifiablePath in $ModifiablePaths) {
                     $ModifiablePath.Permissions = $ModifiablePath.Permissions -join ', '
                     $AllResults += $ModifiablePath
@@ -118,14 +121,17 @@ function Invoke-ProgramDataPermissionCheck {
         foreach ($ProgramDataFolder in $ProgramDataFolders) {
 
             $ProgramDataFolderChildItems = Get-ChildItem -Path $ProgramDataFolder.FullName -Recurse -Force -ErrorAction SilentlyContinue
+            if ($null -eq $ProgramDataFolderChildItems) {continue }
 
             foreach ($ProgramDataFolderChildItem in $ProgramDataFolderChildItems) {
 
                 # Ignore non-executable files
+                if ([String]::IsNullOrEmpty($ProgramDataFolderChildItem.FullName)) { continue }
                 if ($ProgramDataFolderChildItem -is [System.IO.DirectoryInfo]) { continue }
                 if (($ProgramDataFolderChildItem -is [System.IO.FileInfo]) -and (-not (Test-CommonApplicationFile -Path $ProgramDataFolderChildItem.FullName))) { continue }
 
                 $ModifiablePaths = Get-ModifiablePath -Path $ProgramDataFolderChildItem.FullName | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
+                if ($null -eq $ModifiablePaths) { continue }
                 foreach ($ModifiablePath in $ModifiablePaths) {
                     $Result = New-Object -TypeName PSObject
                     $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $ProgramDataFolderChildItem.FullName
@@ -175,7 +181,7 @@ function Invoke-StartupApplicationPermissionCheck {
             $Item = Get-Item -Path "Registry::$($RegKeyPath)" -ErrorAction SilentlyContinue -ErrorVariable ErrorGetItem
             if (-not $ErrorGetItem) {
 
-                $Values = $Item | Select-Object -ExpandProperty Property
+                $Values = [string[]] ($Item | Select-Object -ExpandProperty Property)
                 foreach ($Value in $Values) {
 
                     $RegKeyValueName = $Value
@@ -183,7 +189,7 @@ function Invoke-StartupApplicationPermissionCheck {
                     if ([String]::IsNullOrEmpty($RegKeyValueData)) { continue }
 
                     $ExecutablePath = Get-CommandLineExecutable -CommandLine $RegKeyValueData
-                    if ($null -eq $ExecutablePath) { continue }
+                    if ([String]::IsNullOrEmpty($ExecutablePath)) { continue }
 
                     $ModifiablePaths = Get-ModifiablePath -Path $ExecutablePath | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
                     $IsModifiable = $($null -ne $ModifiablePaths)
@@ -221,7 +227,7 @@ function Invoke-StartupApplicationPermissionCheck {
                         $Shortcut = $Wsh.CreateShortcut((Resolve-Path -Path $EntryPath))
 
                         $ExecutablePath = Get-CommandLineExecutable -CommandLine $Shortcut.TargetPath
-                        if ($null -eq $ExecutablePath) { continue }
+                        if ([String]::IsNullOrEmpty($ExecutablePath)) { continue }
 
                         $ModifiablePaths = Get-ModifiablePath -Path $ExecutablePath | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
                         $IsModifiable = $($null -ne $ModifiablePaths)
@@ -277,6 +283,7 @@ function Invoke-RunningProcessCheck {
     $IgnoredProcessNames = @("Idle", "services", "Memory Compression", "TrustedInstaller", "PresentationFontCache", "Registry", "ServiceShell", "System", "csrss", "dwm", "msdtc", "smss", "svchost")
 
     $AllProcess = Get-Process
+    if ($null -eq $AllProcess) { return }
 
     foreach ($Process in $AllProcess) {
 
@@ -343,13 +350,14 @@ function Invoke-RootFolderPermissionCheck {
             # For each fixed drive, list the root folders. Here, we also use the option
             # -Force to specify that we want to include hidden ones. The resulting list
             # is then filtered to exclude known folders such as "C:\Windows".
-            $RootFolders = Get-ChildItem -Path $FixedDrive -Directory -Force -ErrorAction SilentlyContinue | Where-Object { $IgnoredRootFolders -notcontains $_.Name }
+            $RootFolders = Get-ChildItem -Path $FixedDrive -Force -ErrorAction SilentlyContinue | Where-Object { ($_ -is [System.IO.DirectoryInfo]) -and ($IgnoredRootFolders -notcontains $_.Name) }
+            if ($null -eq $RootFolders) { continue }
             foreach ($RootFolder in $RootFolders) {
 
                 $Vulnerable = $false
 
                 # Check whether the current user has any modification right on the root folder.
-                $RootFolderModifiablePaths = Get-ModifiablePath -Path $RootFolder.FullName
+                $RootFolderModifiablePaths = Get-ModifiablePath -Path $RootFolder.FullName | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
                 if ($RootFolderModifiablePaths) {
                     $Description = "The current user has modification rights on this root folder."
                 }
@@ -360,9 +368,10 @@ function Invoke-RootFolderPermissionCheck {
                 # Check whether the current user has any modification right on a common app
                 # file within this root folder.
                 $ApplicationFileModifiablePaths = @()
-                $ApplicationFiles = Get-ChildItem -Path $RootFolder.FullName -Force -Recurse -ErrorAction SilentlyContinue -File | Where-Object { Test-CommonApplicationFile -Path $_.FullName }
+                $ApplicationFiles = Get-ChildItem -Path $RootFolder.FullName -Force -Recurse -ErrorAction SilentlyContinue | Where-Object { ($_ -is [System.IO.FileInfo]) -and (Test-CommonApplicationFile -Path $_.FullName) }
                 foreach ($ApplicationFile in $ApplicationFiles) {
                     if ($ApplicationFileModifiablePaths.Count -gt $MaxFileCount) { break }
+                    if ([String]::IsNullOrEmpty($ApplicationFile.FullName)) { continue }
                     $ModifiablePaths = Get-ModifiablePath -Path $ApplicationFile.FullName | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
                     if ($ModifiablePaths) { $ApplicationFileModifiablePaths += $ApplicationFile.FullName }
                 }

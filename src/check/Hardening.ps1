@@ -737,7 +737,7 @@ function Invoke-AppLockerCheck {
     )
 
     process {
-        $AppLockerPolicy = [object[]] (Get-AppLockerPolicyInternal -FilterLevel 0)
+        $AppLockerPolicy = Get-AppLockerPolicyInternal -FilterLevel 0
 
         if ($null -eq $AppLockerPolicy) {
             $RuleCount = 0

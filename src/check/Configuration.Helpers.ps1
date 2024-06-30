@@ -575,16 +575,16 @@ function Get-RegisteredComFromRegistry {
 
         if ($script:CachedRegisteredComList.Count -eq 0) {
 
-            $ClassIds = [object[]] (Get-ChildItem -Path "Registry::$($RootKey)" -ErrorAction SilentlyContinue)
+            $ClassIds = Get-ChildItem -Path "Registry::$($RootKey)" -ErrorAction SilentlyContinue
             Write-Verbose "CLSID count: $($ClassIds.Count)"
 
             foreach ($ClassId in $ClassIds) {
-                $ServerProperties = [object[]] (Get-ChildItem -Path "Registry::$($ClassId.Name)" -ErrorAction SilentlyContinue | Where-Object { $ComTypes -contains $_.PSChildName })
+                $ServerProperties = Get-ChildItem -Path "Registry::$($ClassId.Name)" -ErrorAction SilentlyContinue | Where-Object { $ComTypes -contains $_.PSChildName }
+                if ($null -eq $ServerProperties) { continue }
 
                 foreach ($ServerProperty in $ServerProperties) {
 
                     $ServerData = $ServerProperty.GetValue($null, $null, "DoNotExpandEnvironmentNames")
-                    # $ServerData = (Get-ItemProperty -Path "Registry::$($ServerProperty.Name)")."(Default)"
                     $ServerDataType = $null
 
                     if ($ServerProperty.PSChildName -like "Inproc*") {

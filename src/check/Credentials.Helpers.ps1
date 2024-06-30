@@ -681,13 +681,13 @@ function Find-SccmCacheFileCredential {
 
     process {
 
-        $SccmCacheFolders = [object[]] (Get-SccmCacheFoldersFromRegistry)
+        $SccmCacheFolders = Get-SccmCacheFoldersFromRegistry
 
         foreach ($SccmCacheFolder in $SccmCacheFolders) {
 
             if ([string]::IsNullOrEmpty($SccmCacheFolder.Path)) { continue }
 
-            $SccmCacheFiles = [object[]] (Get-SccmCacheFile -Path $SccmCacheFolder.Path)
+            $SccmCacheFiles = Get-SccmCacheFile -Path $SccmCacheFolder.Path
 
             foreach ($SccmCacheFile in $SccmCacheFiles) {
 

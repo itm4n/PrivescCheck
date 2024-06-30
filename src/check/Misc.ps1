@@ -334,6 +334,7 @@ function Invoke-UserHomeFolderCheck {
         $ChildItems = Get-ChildItem -Path $FolderPath -ErrorAction SilentlyContinue
         if ($ChildItems) {
             $ReadAccess = $true
+            if ([String]::IsNullOrEmpty($FolderPath)) { continue }
             $ModifiablePaths = Get-ModifiablePath -Path $FolderPath | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
             if ($ModifiablePaths) { $WriteAccess = $true }
         }
@@ -960,8 +961,8 @@ function Invoke-ExploitableLeakedHandleCheck {
                     if ($TargetFilename -notmatch "^?:\\.*$") { continue }
                     # Check if we have any modification rights on the target file or folder, If so,
                     # the handle isn't interesting, so ignore it.
-                    $ModifiablePath = Get-ModifiablePath -Path $TargetFilename | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
-                    if ($null -ne $ModifiablePath) { continue }
+                    $ModifiablePaths = Get-ModifiablePath -Path $TargetFilename | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
+                    if ($null -ne $ModifiablePaths) { continue }
                     $CandidateHandle | Add-Member -MemberType "NoteProperty" -Name "TargetFileAccessRights" -Value ($CandidateHandle.GrantedAccess -as $script:FileAccessRightEnum)
                     $ExploitableHandles += $CandidateHandle
                 }

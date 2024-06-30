@@ -569,6 +569,7 @@ function Get-AppLockerPolicyInternal {
                                 else {
                                     $CandidatePaths = [string[]] (Convert-AppLockerPath -Path $Condition.Path)
                                     foreach ($CandidatePath in $CandidatePaths) {
+                                        if ([String]::IsNullOrEmpty($CandidatePath)) { continue }
                                         $CandidatePath = $([System.Environment]::ExpandEnvironmentVariables($CandidatePath))
                                         if ($CandidatePath.StartsWith("*")) {
                                             $Level = 3

@@ -164,9 +164,10 @@ function Invoke-ScheduledTaskImagePermissionCheck {
         foreach ($ScheduledTask in $ScheduledTasks) {
 
             $ExecutablePath = Get-CommandLineExecutable -CommandLine $ScheduledTask.Command
-            if ($null -eq $ExecutablePath) { continue }
+            if ([String]::IsNullOrEmpty($ExecutablePath)) { continue }
 
             $ModifiablePaths = Get-ModifiablePath -Path $ExecutablePath | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
+            if ($null -eq $ModifiablePaths) { continue }
             foreach ($ModifiablePath in $ModifiablePaths) {
 
                 $Result = $ScheduledTask.PsObject.Copy()

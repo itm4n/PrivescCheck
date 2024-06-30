@@ -237,9 +237,10 @@ function Invoke-ServiceImagePermissionCheck {
         foreach ($Service in $Services) {
 
             $ExecutablePath = Get-CommandLineExecutable -CommandLine $Service.ImagePath
-            if ($null -eq $ExecutablePath) { continue }
+            if ([String]::IsNullOrEmpty($ExecutablePath)) { continue }
 
             $ModifiablePaths = Get-ModifiablePath -Path $ExecutablePath | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
+            if ($null -eq $ModifiablePaths) { continue }
             foreach ($ModifiablePath in $ModifiablePaths) {
 
                 $Status = "Unknown"

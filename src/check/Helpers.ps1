@@ -528,6 +528,7 @@ function Get-ModifiablePath {
 
         foreach ($CandidatePath in $CandidatePaths) {
 
+            if ([String]::IsNullOrEmpty($CandidatePath)) { continue }
             if ($CheckedPaths -contains $CandidatePath) { continue }
 
             $CandidateItem = Get-Item -Path $CandidatePath -Force -ErrorAction SilentlyContinue
@@ -627,7 +628,7 @@ function Get-ExploitableUnquotedPath {
             try { $BinFolder = Split-Path -Path $ConcatPath -Parent -ErrorAction SilentlyContinue } catch { continue }
 
             # Split-Path failed without throwing an exception, so ignore and continue.
-            if ( $null -eq $BinFolder) { continue }
+            if ([String]::IsNullOrEmpty($BinFolder)) { continue }
 
             # If the current path was already checked, ignore it and continue.
             if ($CheckedPaths -contains $BinFolder) { continue }
@@ -640,6 +641,7 @@ function Get-ExploitableUnquotedPath {
 
             $CheckedPaths += $BinFolder
 
+            if ($null -eq $ModifiablePaths) { continue }
             foreach ($ModifiablePath in $ModifiablePaths) {
 
                 # To exploit an unquoted path we need to create a file, so make sure that the

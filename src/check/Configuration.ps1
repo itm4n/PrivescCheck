@@ -368,6 +368,7 @@ function Invoke-DllHijackingCheck {
 
         foreach ($Path in $Paths) {
             $ModifiablePaths = Get-ModifiablePath -Path $Path | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
+            if ($null -eq $ModifiablePaths) { continue }
             foreach ($ModifiablePath in $ModifiablePaths) {
                 $Result = New-Object -TypeName PSObject
                 $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $Path
@@ -606,13 +607,13 @@ function Invoke-SccmCacheFolderCheck {
     param()
 
     process {
-        $SccmCacheFolders = [object[]] (Get-SccmCacheFoldersFromRegistry)
+        $SccmCacheFolders = Get-SccmCacheFoldersFromRegistry
 
         foreach ($SccmCacheFolder in $SccmCacheFolders) {
 
             if ([string]::IsNullOrEmpty($SccmCacheFolder.Path)) { continue }
 
-            $SccmCacheFiles = [object[]] (Get-SccmCacheFile -Path $SccmCacheFolder.Path)
+            $SccmCacheFiles = Get-SccmCacheFile -Path $SccmCacheFolder.Path
 
             $BinaryFiles = [object[]] ($SccmCacheFiles | Where-Object { $_.Type -eq "Binary" })
             $ScriptFiles = [object[]] ($SccmCacheFiles | Where-Object { $_.Type -eq "Script" })
@@ -813,11 +814,11 @@ function Invoke-ComServerRegistryPermissionCheck {
 
     process {
         $RegisteredClasses = Get-RegisteredComFromRegistry | Where-Object { ($_.Value -like "*server*") -and ($null -ne $_.Path) }
-
         foreach ($RegisteredClass in $RegisteredClasses) {
 
             $RegPath = Join-Path -Path $RegisteredClass.Path -ChildPath $RegisteredClass.Value
             $ModifiableRegPaths = Get-ModifiableRegistryPath -Path $RegPath | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
+            if ($null -eq $ModifiableRegPaths) { continue }
 
             foreach ($ModifiableRegPath in $ModifiableRegPaths) {
 
@@ -905,6 +906,7 @@ function Invoke-ComServerImagePermissionCheck {
 
             foreach ($CandidatePath in $CandidatePaths) {
 
+                if ([String]::IsNullOrEmpty($CandidatePath)) { continue }
                 if ($AlreadyCheckedPaths -contains $CandidatePath) { continue }
 
                 $ModifiablePaths = Get-ModifiablePath -Path $CandidatePath | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
