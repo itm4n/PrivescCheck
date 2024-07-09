@@ -875,28 +875,18 @@ function Invoke-ComServerImagePermissionCheck {
                     $CandidatePaths += [System.Environment]::ExpandEnvironmentVariables($RegisteredClass.Data).Trim('"')
                 }
                 "CommandLine" {
-                    $CommandLine = [System.Environment]::ExpandEnvironmentVariables($RegisteredClass.Data)
-                    if (Test-Path -Path $CommandLine -ErrorAction SilentlyContinue) {
-                        # The command line is actually a file path
-                        $CandidatePaths += $CommandLine.Trim('"')
-                    }
-                    else {
-                        # Extract the executable path.
-                        $Arguments = [String[]] (ConvertTo-ArgumentList -CommandLine $CommandLine)
-                        if ($null -eq $Arguments) { continue }
-                        $CandidatePaths += $Arguments[0]
+                    $CommandLineResolved = [string[]] (Resolve-CommandLine -CommandLine $RegisteredClass.Data)
+                    if ($null -eq $CommandLineResolved) { continue }
 
-                        # If the executable is rundll32, try to extract a DLL path from the first
-                        # argument, and add its path to the candidate path list.
-                        if (($Arguments[0] -match ".*rundll32(\.exe)?`$") -and ($Arguments.Count -gt 1) -and ($Arguments[1] -like "*.dll,*")) {
-                            $PathToAnalyze = $Arguments[1].Split(',')[0]
-                            if ([System.IO.Path]::IsPathRooted($Arguments[0])) {
-                                $CandidatePaths += $PathToAnalyze
-                            }
-                            else {
-                                Resolve-ModulePath -Name $PathToAnalyze | ForEach-Object { $CandidatePaths += $_ }
-                            }
-                            $CandidatePaths += $Arguments[1].Split(',')[0]
+                    $CandidatePaths += $CommandLineResolved[0]
+
+                    if (($CommandLineResolved[0] -match ".*rundll32(\.exe)?`$") -and ($CommandLineResolved.Count -gt 1) -and ($CommandLineResolved[1] -like "*.dll,*")) {
+                        $PathToAnalyze = $CommandLineResolved[1].Split(',')[0]
+                        if ([System.IO.Path]::IsPathRooted($PathToAnalyze)) {
+                            $CandidatePaths += $PathToAnalyze
+                        }
+                        else {
+                            Resolve-ModulePath -Name $PathToAnalyze | ForEach-Object { $CandidatePaths += $_ }
                         }
                     }
                 }
@@ -964,48 +954,38 @@ function Invoke-ComServerGhostDllHijackingCheck {
 
         foreach ($RegisteredClass in $RegisteredClasses) {
 
-            $Candidates = @()
+            $CandidatePaths = @()
 
             switch ($RegisteredClass.DataType) {
                 "FileName" {
-                    $Candidates += [System.Environment]::ExpandEnvironmentVariables($RegisteredClass.Data).Trim('"')
+                    $CandidatePaths += [System.Environment]::ExpandEnvironmentVariables($RegisteredClass.Data).Trim('"')
                 }
                 "CommandLine" {
-                    $CommandLine = [System.Environment]::ExpandEnvironmentVariables($RegisteredClass.Data)
-                    if (Test-Path -Path $CommandLine -ErrorAction SilentlyContinue) {
-                        # The command line is actually a file path
-                        $CandidatePaths += $CommandLine.Trim('"')
-                    }
-                    else {
-                        # Extract the executable path.
-                        $Arguments = [String[]] (ConvertTo-ArgumentList -CommandLine $CommandLine)
-                        if ($null -eq $Arguments) { continue }
-                        $CandidatePaths += $Arguments[0]
+                    $CommandLineResolved = [string[]] (Resolve-CommandLine -CommandLine $RegisteredClass.Data)
+                    if ($null -eq $CommandLineResolved) { continue }
 
-                        # If the executable is rundll32, try to extract a DLL path from the first
-                        # argument, and add its path to the candidate path list.
-                        if (($Arguments[0] -match ".*rundll32(\.exe)?`$") -and ($Arguments.Count -gt 1) -and ($Arguments[1] -like "*.dll,*")) {
-                            $PathToAnalyze = $Arguments[1].Split(',')[0]
-                            if ([System.IO.Path]::IsPathRooted($Arguments[0])) {
-                                $CandidatePaths += $PathToAnalyze
-                            }
-                            else {
-                                Resolve-ModulePath -Name $PathToAnalyze | ForEach-Object { $CandidatePaths += $_ }
-                            }
-                            $CandidatePaths += $Arguments[1].Split(',')[0]
+                    $CandidatePaths += $CommandLineResolved[0]
+
+                    if (($CommandLineResolved[0] -match ".*rundll32(\.exe)?`$") -and ($CommandLineResolved.Count -gt 1) -and ($CommandLineResolved[1] -like "*.dll,*")) {
+                        $PathToAnalyze = $CommandLineResolved[1].Split(',')[0]
+                        if ([System.IO.Path]::IsPathRooted($PathToAnalyze)) {
+                            $CandidatePaths += $PathToAnalyze
+                        }
+                        else {
+                            Resolve-ModulePath -Name $PathToAnalyze | ForEach-Object { $CandidatePaths += $_ }
                         }
                     }
                 }
             }
 
-            foreach ($Candidate in $Candidates) {
+            foreach ($CandidatePath in $CandidatePaths) {
 
-                if ($AlreadyChecked -contains $Candidate) { continue }
-                if ([System.IO.Path]::IsPathRooted($Candidate)) { $AlreadyChecked += $Candidate; continue }
+                if ($AlreadyChecked -contains $CandidatePath) { continue }
+                if ([System.IO.Path]::IsPathRooted($CandidatePath)) { $AlreadyChecked += $CandidatePath; continue }
 
-                $ResolvedPath = Resolve-ModulePath -Name $Candidate
+                $ResolvedPath = Resolve-ModulePath -Name $CandidatePath
 
-                if ($null -ne $ResolvedPath) { $AlreadyChecked += $Candidate; continue }
+                if ($null -ne $ResolvedPath) { $AlreadyChecked += $CandidatePath; continue }
 
                 $AllResults += $RegisteredClass
             }
@@ -1057,28 +1037,18 @@ function Invoke-ComServerMissingModuleFileCheck {
                     $CandidatePaths += [System.Environment]::ExpandEnvironmentVariables($RegisteredClass.Data).Trim('"')
                 }
                 "CommandLine" {
-                    $CommandLine = [System.Environment]::ExpandEnvironmentVariables($RegisteredClass.Data)
-                    if (Test-Path -Path $CommandLine -ErrorAction SilentlyContinue) {
-                        # The command line is actually a file path
-                        $CandidatePaths += $CommandLine.Trim('"')
-                    }
-                    else {
-                        # Extract the executable path.
-                        $Arguments = [String[]] (ConvertTo-ArgumentList -CommandLine $CommandLine)
-                        if ($null -eq $Arguments) { continue }
-                        $CandidatePaths += $Arguments[0]
+                    $CommandLineResolved = [string[]] (Resolve-CommandLine -CommandLine $RegisteredClass.Data)
+                    if ($null -eq $CommandLineResolved) { continue }
 
-                        # If the executable is rundll32, try to extract a DLL path from the first
-                        # argument, and add its path to the candidate path list.
-                        if (($Arguments[0] -match ".*rundll32(\.exe)?`$") -and ($Arguments.Count -gt 1) -and ($Arguments[1] -like "*.dll,*")) {
-                            $PathToAnalyze = $Arguments[1].Split(',')[0]
-                            if ([System.IO.Path]::IsPathRooted($Arguments[0])) {
-                                $CandidatePaths += $PathToAnalyze
-                            }
-                            else {
-                                Resolve-ModulePath -Name $PathToAnalyze | ForEach-Object { $CandidatePaths += $_ }
-                            }
-                            $CandidatePaths += $Arguments[1].Split(',')[0]
+                    $CandidatePaths += $CommandLineResolved[0]
+
+                    if (($CommandLineResolved[0] -match ".*rundll32(\.exe)?`$") -and ($CommandLineResolved.Count -gt 1) -and ($CommandLineResolved[1] -like "*.dll,*")) {
+                        $PathToAnalyze = $CommandLineResolved[1].Split(',')[0]
+                        if ([System.IO.Path]::IsPathRooted($PathToAnalyze)) {
+                            $CandidatePaths += $PathToAnalyze
+                        }
+                        else {
+                            Resolve-ModulePath -Name $PathToAnalyze | ForEach-Object { $CandidatePaths += $_ }
                         }
                     }
                 }

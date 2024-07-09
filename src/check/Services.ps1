@@ -236,8 +236,11 @@ function Invoke-ServiceImagePermissionCheck {
         Write-Verbose "Enumerating $($Services.Count) services..."
         foreach ($Service in $Services) {
 
-            $ExecutablePath = Get-CommandLineExecutable -CommandLine $Service.ImagePath
-            if ([String]::IsNullOrEmpty($ExecutablePath)) { continue }
+            if ([String]::IsNullOrEmpty($Service.ImagePath)) { continue }
+
+            $CommandLineResolved = [string[]] (Resolve-CommandLine -CommandLine $Service.ImagePath)
+            if ($null -eq $CommandLineResolved) { continue }
+            $ExecutablePath = $CommandLineResolved[0]
 
             $ModifiablePaths = Get-ModifiablePath -Path $ExecutablePath | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
             if ($null -eq $ModifiablePaths) { continue }

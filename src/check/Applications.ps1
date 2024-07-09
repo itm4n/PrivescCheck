@@ -188,8 +188,9 @@ function Invoke-StartupApplicationPermissionCheck {
                     $RegKeyValueData = $Item.GetValue($RegKeyValueName, "", "DoNotExpandEnvironmentNames")
                     if ([String]::IsNullOrEmpty($RegKeyValueData)) { continue }
 
-                    $ExecutablePath = Get-CommandLineExecutable -CommandLine $RegKeyValueData
-                    if ([String]::IsNullOrEmpty($ExecutablePath)) { continue }
+                    $CommandLineResolved = [string[]] (Resolve-CommandLine -CommandLine $RegKeyValueData)
+                    if ($null -eq $CommandLineResolved) { continue }
+                    $ExecutablePath = $CommandLineResolved[0]
 
                     $ModifiablePaths = Get-ModifiablePath -Path $ExecutablePath | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
                     $IsModifiable = $($null -ne $ModifiablePaths)
@@ -225,9 +226,11 @@ function Invoke-StartupApplicationPermissionCheck {
                     try {
                         $Wsh = New-Object -ComObject WScript.Shell
                         $Shortcut = $Wsh.CreateShortcut((Resolve-Path -Path $EntryPath))
+                        if ([String]::IsNullOrEmpty($Shortcut.TargetPath)) { continue }
 
-                        $ExecutablePath = Get-CommandLineExecutable -CommandLine $Shortcut.TargetPath
-                        if ([String]::IsNullOrEmpty($ExecutablePath)) { continue }
+                        $CommandLineResolved = [String[]] (Resolve-CommandLine -CommandLine $Shortcut.TargetPath)
+                        if ($nul -eq $CommandLineResolved) { continue }
+                        $ExecutablePath = $CommandLineResolved[0]
 
                         $ModifiablePaths = Get-ModifiablePath -Path $ExecutablePath | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
                         $IsModifiable = $($null -ne $ModifiablePaths)

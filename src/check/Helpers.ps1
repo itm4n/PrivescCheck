@@ -851,29 +851,67 @@ function Get-InstalledProgram {
     }
 }
 
-function Get-CommandLineExecutable {
+function Resolve-CommandLine {
 
+    [OutputType([String[]])]
     [CmdletBinding()]
     param (
-        [Parameter(Mandatory=$true, ValueFromPipeline=$true, ValueFromPipelineByPropertyName=$true)]
+        [Parameter(Mandatory=$true)]
         [String] $CommandLine
     )
 
     process {
-        $Arguments = [String[]] (ConvertTo-ArgumentList -CommandLine $CommandLine)
-        if ($null -eq $Arguments) { return }
+        $CommandLineResolved = [System.Environment]::ExpandEnvironmentVariables($CommandLine)
 
-        $Executable = [System.Environment]::ExpandEnvironmentVariables($Arguments[0])
-        if (-not [System.IO.Path]::IsPathRooted($Executable)) {
-            $ExecutableResolved = Resolve-ModulePath -Name $Executable
-            if ($null -eq $ExecutableResolved) {
-                Write-Warning "Failed to resolve executable path: $($Executable)"
-                return
-            }
-            $Executable = $ExecutableResolved
+        # Is it a quoted path, i.e. a string surrounded by quotes, without quotes inside?
+        # -> regex = ^"([^"])+"$
+        if ($CommandLineResolved -match "^`"([^`"])+`"`$") {
+            # This is a file path, return input after trimming double quotes
+            return [String[]] $CommandLineResolved.Trim('"')
         }
 
-        $Executable
+        # Is it an unquoted path, without spaces?
+        # -> regex = ^[^",^ ,^\t]+$
+        if ($CommandLineResolved -match "^[^`",^ ,^\t]+`$") {
+            # This a file path, return input as is.
+            return [String[]] $CommandLineResolved
+        }
+
+        # Is it a command line in which the path of the executable is quoted?
+        # -> regex = ^".+[ ,\t].*$
+        if ($CommandLineResolved -match "^`".+\s.+" -and $CommandLineResolved) {
+            return [String[]] (ConvertTo-ArgumentList -CommandLine $CommandLineResolved)
+        }
+
+        $Arguments = [String[]] (ConvertTo-ArgumentList -CommandLine $CommandLineResolved)
+        if ($Arguments.Length -eq 0) {
+            Write-Warning "Resolve-CommandLine failed for input: $($CommandLine)"
+            return $null
+        }
+
+        if (-not [System.IO.Path]::IsPathRooted($Arguments[0])) {
+            $PathResolved = Resolve-ModulePath -Name $Arguments[0]
+            if (-not [String]::IsNullOrEmpty($PathResolved)) { $Arguments[0] = $PathResolved }
+        }
+
+        if (Test-Path -Path $Arguments[0] -ErrorAction SilentlyContinue) {
+            # If arg0 is a valid file path, command line parsing worked, we can stop there.
+            return $Arguments
+        }
+
+        for ($i = $Arguments.Length - 1; $i -ge 0; $i--) {
+            $PathToAnalyze = $Arguments[0..$i] -join " "
+            if (Test-Path -Path $PathToAnalyze -ErrorAction SilentlyContinue) {
+                $Result = @()
+                $Result += $PathToAnalyze
+                if ($i -lt ($Arguments.Length - 1)) {
+                    $Result += $Arguments[$($i + 1)..$($Arguments.Length - 1)]
+                }
+                return [String[]] $Result
+            }
+        }
+
+        Write-Warning "Resolve-CommandLine failed for input: $($CommandLine)"
     }
 }
 
