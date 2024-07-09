@@ -87,10 +87,10 @@ function Get-ScheduledTaskList {
                         $TaskArguments = $_ | Select-Object -ExpandProperty "Arguments" -ErrorAction SilentlyContinue
 
                         if ($TaskArguments) {
-                            $TaskCommandLine = "$($TaskProgram) $($TaskArguments)"
+                            $TaskCommandLine = "`"$($TaskProgram)`" $($TaskArguments)"
                         }
                         else {
-                            $TaskCommandLine = "$($TaskProgram)"
+                            $TaskCommandLine = "`"$($TaskProgram)`""
                         }
 
                         if ($TaskCommandLine.Length -gt 0) {
@@ -100,7 +100,9 @@ function Get-ScheduledTaskList {
                             $Result | Add-Member -MemberType "NoteProperty" -Name "TaskPath" -Value $TaskPath
                             $Result | Add-Member -MemberType "NoteProperty" -Name "TaskFile" -Value $TaskFile
                             $Result | Add-Member -MemberType "NoteProperty" -Name "RunAs" -Value $PrincipalName
-                            $Result | Add-Member -MemberType "NoteProperty" -Name "Command" -Value $TaskCommandLine
+                            $Result | Add-Member -MemberType "NoteProperty" -Name "Program" -Value $TaskProgram
+                            $Result | Add-Member -MemberType "NoteProperty" -Name "Arguments" -Value $TaskArguments
+                            $Result | Add-Member -MemberType "NoteProperty" -Name "CommandLine" -Value $TaskCommandLine
                             $Result | Add-Member -MemberType "NoteProperty" -Name "CurrentUserIsOwner" -Value $CurrentUserIsOwner
 
                             [void] $script:CachedScheduledTaskList.Add($Result)
@@ -159,14 +161,16 @@ function Invoke-ScheduledTaskImagePermissionCheck {
     }
 
     process {
-        $ScheduledTasks = Get-ScheduledTaskList | Where-Object { (-not $_.CurrentUserIsOwner) -and (-not [String]::IsNullOrEmpty($_.Command)) }
+        $ScheduledTasks = Get-ScheduledTaskList | Where-Object { (-not $_.CurrentUserIsOwner) -and (-not [String]::IsNullOrEmpty($_.Program)) }
 
         foreach ($ScheduledTask in $ScheduledTasks) {
 
-            $ExecutablePath = Get-CommandLineExecutable -CommandLine $ScheduledTask.Command
-            if ([String]::IsNullOrEmpty($ExecutablePath)) { continue }
+            # $ExecutablePath = Get-CommandLineExecutable -CommandLine $ScheduledTask.Command
+            # if ([String]::IsNullOrEmpty($ExecutablePath)) { continue }
 
-            $ModifiablePaths = Get-ModifiablePath -Path $ExecutablePath | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
+            if ([String]::IsNullOrEmpty($ScheduledTask.Program)) { continue }
+
+            $ModifiablePaths = Get-ModifiablePath -Path $ScheduledTask.Program | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
             if ($null -eq $ModifiablePaths) { continue }
             foreach ($ModifiablePath in $ModifiablePaths) {
 
