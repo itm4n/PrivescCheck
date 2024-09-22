@@ -1,5 +1,11 @@
 # Changelog
 
+## 2024-09-22
+
+### Added
+
+- Check for 'DisableLUAInRepair' registry value which disables the UAC prompt for Windows Installer repair actions.
+
 ## 2024-06-29
 
 ### Added

@@ -1092,3 +1092,49 @@ function Invoke-ComServerMissingModuleFileCheck {
         Restore-Wow64FileSystemRedirection -OldValue $FsRedirectionValue
     }
 }
+
+function Invoke-MsiAutomaticRepairUacPromptCheck {
+    <#
+    .SYNOPSIS
+    Check whether the UAC prompt displayed when attempting an application repair through the Windows Installer was disabled.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    Starting from September, 2024, Windows Installer prompts for elevation when attempting a repair of an application by default. This behavior can be disabled by setting the registry value 'DisableLUAInRepair', under 'HKLM\SOFTWARE\Policies\Microsoft\Windows\Installer' to '1', in which case the legacy behavior would be restored, and the system potentially made vulnerable to local privilege escalation because of unsafe MSI Custom Actions for instance.
+
+    .LINK
+    https://support.microsoft.com/en-au/topic/september-10-2024-kb5043080-os-build-26100-1742-407666c8-6b6d-4561-a982-abce4e7c2efb
+    https://sec-consult.com/blog/detail/msi-installer-repair-to-system-a-detailed-journey/
+    #>
+
+    [CmdletBinding()]
+    param (
+        [UInt32] $BaseSeverity
+    )
+
+    begin {
+        $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows\Installer"
+        $RegValue = "DisableLUAInRepair"
+        $Vulnerable = $False
+    }
+
+    process {
+        $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+
+        if (($null -ne $RegData) -and ($RegData -gt 0)) {
+            $Vulnerable = $True
+        }
+
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
+
+        $CheckResult = New-Object -TypeName PSObject
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Result
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult
+    }
+}
