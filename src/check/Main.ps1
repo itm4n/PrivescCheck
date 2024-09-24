@@ -382,19 +382,25 @@ function Write-HtmlReport {
     $JavaScript = @"
 var cells = document.getElementsByTagName('td');
 
-for (var i=0; i<cells.length; i++) {
+for (var i = 0; i < cells.length; i++) {
     var bg_color = null;
+    var bg_color_row = null;
     if (cells[i].innerHTML == "Low") {
         bg_color = "bg_blue";
+        bg_color_row = "bg_blue_light";
     } else if (cells[i].innerHTML == "Medium") {
         bg_color = "bg_orange";
+        bg_color_row = "bg_orange_light";
     } else if (cells[i].innerHTML == "High") {
         bg_color = "bg_red";
+        bg_color_row = "bg_red_light";
     } else if (cells[i].innerHTML == "None") {
         bg_color = "bg_grey";
+        bg_color_row = "bg_grey_light";
     }
 
     if (bg_color) {
+        if (bg_color_row) { cells[i].parentElement.classList.add(bg_color_row); }
         cells[i].innerHTML = "<span class=\"label " + bg_color + "\">" + cells[i].innerHTML + "</span>";
     }
 
@@ -413,7 +419,6 @@ body {
 table {
     border-collapse: collapse;
     width: 100%;
-    border: 2px solid grey;
 }
 
 th {
@@ -421,6 +426,10 @@ th {
     background: grey;
     text-align: center;
     padding: 5px 0;
+}
+
+tr {
+    border: 6px solid white;
 }
 
 td {
@@ -443,10 +452,6 @@ tbody td:nth-child(5) {
     text-align: left;
 }
 
-tbody tr:nth-child(odd) {
-    background: whitesmoke;
-}
-
 .scroll {
     max-height: 200px;
     max-width: 800px;
@@ -459,7 +464,8 @@ tbody tr:nth-child(odd) {
     padding: 6px;
     display: block;
     width: 60px;
-    border-radius: 5px;
+    border-radius: 4px;
+    font-weight: bold;
 }
 
 .bg_green { background-color: green; }
@@ -467,6 +473,10 @@ tbody tr:nth-child(odd) {
 .bg_orange { background-color: orange; }
 .bg_red { background-color: red; }
 .bg_grey { background-color: grey; }
+.bg_blue_light { background-color: #eaf7ff; }
+.bg_orange_light { background-color: #fff7ea; }
+.bg_red_light { background-color: #ffeaea; }
+.bg_grey_light { background-color: #f8f8f8; }
 "@
 
     $Html = @"
