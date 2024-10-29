@@ -49,3 +49,4 @@ $script:VulnerableDrivers = @"
 VULNERABLE_DRIVERS
 "@
 $script:CheckCsvBlob = "CHECK_CSV_BLOB"
+$script:EndpointProtectionSignatureBlob = "ENDPOINT_PROTECTION_SIGNATURE_CSV_BLOB"

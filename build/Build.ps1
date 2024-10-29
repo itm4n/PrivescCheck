@@ -70,10 +70,14 @@ function Invoke-Build {
 
             $LolDrivers = Get-LolDriverList
 
-            $CheckCsvFilePath = Split-Path -Path $PSCommandPath -Parent
-            $CheckCsvFilePath = Join-Path -Path $CheckCsvFilePath -ChildPath "Checks.csv"
-            $CheckCsv = Get-Content -Path $CheckCsvFilePath -Encoding Ascii | Out-String
-            $CheckCsvBlob = ConvertTo-EmbeddedTextBlob -Text $CheckCsv
+            $CheckCsvBlob = Get-FileContentAsEmbeddedTextBlob -FileName "Checks.csv"
+            $EndpointProtectionSignatureCsvBlob = Get-FileContentAsEmbeddedTextBlob -FileName "EndpointProtectionSignatures.csv"
+
+            # TODO: Remove after testing
+            # $CheckCsvFilePath = Split-Path -Path $PSCommandPath -Parent
+            # $CheckCsvFilePath = Join-Path -Path $CheckCsvFilePath -ChildPath "Checks.csv"
+            # $CheckCsv = Get-Content -Path $CheckCsvFilePath -Encoding Ascii | Out-String
+            # $CheckCsvBlob = ConvertTo-EmbeddedTextBlob -Text $CheckCsv
         }
     }
 
@@ -144,6 +148,15 @@ function Invoke-Build {
                     }
                     else {
                         Write-Message -Type Warning "Check CSV text blob is null."
+                    }
+
+                    if ($null -ne $EndpointProtectionSignatureCsvBlob) {
+                        # Populate list of endpoint protection software signature list
+                        $ScriptBlock = $ScriptBlock -replace "ENDPOINT_PROTECTION_SIGNATURE_CSV_BLOB",$EndpointProtectionSignatureCsvBlob
+                        Write-Message "Endpoint protection signature list written to '$($ModuleFilename)'."
+                    }
+                    else {
+                        Write-Message -Type Warning "Endpoint protection signature CSV text blob is null."
                     }
                 }
 
@@ -227,6 +240,15 @@ function ConvertTo-EmbeddedTextBlob {
     param([String] $Text)
     $Compressed = ConvertTo-Gzip -InputText $Text
     [System.Convert]::ToBase64String($Compressed)
+}
+
+function Get-FileContentAsEmbeddedTextBlob {
+    param ([String] $FileName)
+
+    $FilePath = Split-Path -Path $PSCommandPath -Parent
+    $FilePath = Join-Path -Path $FilePath -ChildPath $FileName
+    $FileContent = Get-Content -Path $FilePath -Encoding Ascii | Out-String
+    ConvertTo-EmbeddedTextBlob -Text $FileContent
 }
 
 function Get-AssetFileContent {

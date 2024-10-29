@@ -413,129 +413,101 @@ function Invoke-EndpointProtectionCheck {
     [CmdletBinding()]
     param()
 
-    $Signatures = @{
-        "AMSI"                          = "amsi.dll"
-        "AppSense"                      = "emcoreservice,emsystem,watchdogagent"
-        "Avast"                         = "avast"
-        "Avecto Defendpoint"            = "avecto,defendpoint,pgeposervice,pgsystemtray,privilegeguard"
-        "Carbon Black"                  = "carbon,cb.exe,logrhythm"
-        "Cisco AMP"                     = "ciscoamp"
-        "CounterTack"                   = "countertack"
-        "CrowdStrike"                   = "crowdstrike,csagent,csfalcon,csshell,windowssensor"
-        "Cybereason"                    = "activeconsole,cramtray,crssvc,cybereason"
-        "Cylance"                       = "cylance,cyoptics,cyupdate"
-        "Endgame"                       = "endgame"
-        "ESET Endpoint Inspector"       = "inspector"
-        "eTrust EZ AV"                  = "groundling"
-        "FireEye"                       = "fireeye,mandiant,xagt"
-        "ForeScout"                     = "forescout,secureconnector"
-        "IBM QRadar"                    = "qradar,wincollect"
-        "Ivanti"                        = "ivanti"
-        "Kaspersky"                     = "kaspersky"
-        "Lacuna"                        = "lacuna"
-        "McAfee"                        = "mcafee"
-        "Morphisec"                     = "morphisec"
-        "Program Protector"             = "protectorservice"
-        "Red Canary"                    = "canary"
-        "Red Cloak"                     = "procwall,redcloak,cyclorama"
-        "SentinelOne"                   = "sentinel"
-        "Sophos"                        = "sophos"
-        "Symantec Endpoint Protection"  = "eectrl,semlaunchsvc,sepliveupdate,sisidsservice,sisipsservice,sisipsutil,smc.exe,smcgui,snac64,srtsp,symantec,symcorpui,symefasi"
-        "Sysinternals Antivirus"        = "sysinternal"
-        "Sysinternals Sysmon"           = "sysmon"
-        "Tanium Enforce"                = "tanium,tpython"
-        "Traps"                         = "cyvera,cyserver,cytray,PaloAltoNetworks,tda.exe,tdawork"
-        "Trend Micro"                   = "ntrtscan,tmlisten,tmbmsrv,tmssclient,tmccsf,trend"
-        "Windows Defender"              = "defender,msascuil,msmpeng,nissrv,securityhealthservice"
-    }
+    begin {
+        $Signatures = @{}
 
-    function Find-ProtectionSoftware {
+        ConvertFrom-EmbeddedTextBlob -TextBlob $script:EndpointProtectionSignatureBlob | ConvertFrom-Csv | ForEach-Object {
+            $Signatures.Add($_.Name, $_.Signature)
+        }
 
-        param(
-            [Object] $Object
-        )
+        function Find-ProtectionSoftware {
 
-        $Signatures.Keys | ForEach-Object {
+            param([Object] $Object)
 
-            $ProductName = $_
-            $ProductSignatures = $Signatures.Item($_).Split(",")
+            $Signatures.Keys | ForEach-Object {
 
-            $Object | Select-String -Pattern $ProductSignatures -AllMatches | ForEach-Object {
+                $ProductName = $_
+                $ProductSignatures = $Signatures.Item($_).Split(",")
 
-                $($_ -Replace "@{").Trim("}").Split(";") | ForEach-Object {
+                $Object | Select-String -Pattern $ProductSignatures -AllMatches | ForEach-Object {
 
-                    $_.Trim() | Select-String -Pattern $ProductSignatures -AllMatches | ForEach-Object {
+                    $($_ -Replace "@{").Trim("}").Split(";") | ForEach-Object {
 
-                        $Result = New-Object -TypeName PSObject
-                        $Result | Add-Member -MemberType "NoteProperty" -Name "ProductName" -Value "$ProductName"
-                        $Result | Add-Member -MemberType "NoteProperty" -Name "Pattern" -Value "$($_)"
-                        $Result
+                        $_.Trim() | Select-String -Pattern $ProductSignatures -AllMatches | ForEach-Object {
+
+                            $Result = New-Object -TypeName PSObject
+                            $Result | Add-Member -MemberType "NoteProperty" -Name "ProductName" -Value "$ProductName"
+                            $Result | Add-Member -MemberType "NoteProperty" -Name "Pattern" -Value "$($_)"
+                            $Result
+                        }
                     }
                 }
             }
         }
     }
 
-    # Need to store all the results into one ArrayList so we can sort them on the product name.
-    $Results = New-Object System.Collections.ArrayList
+    process {
+        # Need to store all the results into one ArrayList so we can sort them on the product name.
+        $Results = New-Object System.Collections.ArrayList
 
-    # Check DLLs loaded in the current process
-    Get-Process -Id $PID -Module | ForEach-Object {
+        # Check DLLs loaded in the current process
+        Get-Process -Id $PID -Module | ForEach-Object {
 
-        if (Test-Path -Path $_.FileName) {
+            if (Test-Path -Path $_.FileName) {
 
-            $DllDetails = (Get-Item $_.FileName).VersionInfo | Select-Object -Property CompanyName,FileDescription,FileName,InternalName,LegalCopyright,OriginalFileName,ProductName
-            Find-ProtectionSoftware -Object $DllDetails | ForEach-Object {
+                $DllDetails = (Get-Item $_.FileName).VersionInfo | Select-Object -Property CompanyName,FileDescription,FileName,InternalName,LegalCopyright,OriginalFileName,ProductName
+                Find-ProtectionSoftware -Object $DllDetails | ForEach-Object {
+
+                    $Result = New-Object -TypeName PSObject
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "ProductName" -Value "$($_.ProductName)"
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "Source" -Value "Loaded DLL"
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "Pattern" -Value "$($_.Pattern)"
+                    [void] $Results.Add($Result)
+                }
+            }
+        }
+
+        # Check running processes
+        Get-Process | Select-Object -Property ProcessName,Name,Path,Company,Product,Description | ForEach-Object {
+
+            Find-ProtectionSoftware -Object $_ | ForEach-Object {
 
                 $Result = New-Object -TypeName PSObject
                 $Result | Add-Member -MemberType "NoteProperty" -Name "ProductName" -Value "$($_.ProductName)"
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Source" -Value "Loaded DLL"
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Source" -Value "Running process"
                 $Result | Add-Member -MemberType "NoteProperty" -Name "Pattern" -Value "$($_.Pattern)"
                 [void] $Results.Add($Result)
             }
         }
-    }
 
-    # Check running processes
-    Get-Process | Select-Object -Property ProcessName,Name,Path,Company,Product,Description | ForEach-Object {
+        # Check installed applications
+        Get-InstalledProgram | Select-Object -Property Name | ForEach-Object {
 
-        Find-ProtectionSoftware -Object $_ | ForEach-Object {
+            Find-ProtectionSoftware -Object $_ | ForEach-Object {
 
-            $Result = New-Object -TypeName PSObject
-            $Result | Add-Member -MemberType "NoteProperty" -Name "ProductName" -Value "$($_.ProductName)"
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Source" -Value "Running process"
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Pattern" -Value "$($_.Pattern)"
-            [void] $Results.Add($Result)
+                $Result = New-Object -TypeName PSObject
+                $Result | Add-Member -MemberType "NoteProperty" -Name "ProductName" -Value "$($_.ProductName)"
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Source" -Value "Installed application"
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Pattern" -Value "$($_.Pattern)"
+                [void] $Results.Add($Result)
+            }
         }
-    }
 
-    # Check installed applications
-    Get-InstalledProgram | Select-Object -Property Name | ForEach-Object {
+        # Check installed services
+        Get-ServiceList -FilterLevel 1 | ForEach-Object {
 
-        Find-ProtectionSoftware -Object $_ | ForEach-Object {
+            Find-ProtectionSoftware -Object $_ | ForEach-Object {
 
-            $Result = New-Object -TypeName PSObject
-            $Result | Add-Member -MemberType "NoteProperty" -Name "ProductName" -Value "$($_.ProductName)"
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Source" -Value "Installed application"
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Pattern" -Value "$($_.Pattern)"
-            [void] $Results.Add($Result)
+                $Result = New-Object -TypeName PSObject
+                $Result | Add-Member -MemberType "NoteProperty" -Name "ProductName" -Value "$($_.ProductName)"
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Source" -Value "Service"
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Pattern" -Value "$($_.Pattern)"
+                [void] $Results.Add($Result)
+            }
         }
+
+        $Results | Sort-Object -Property ProductName,Source
     }
-
-    # Check installed services
-    Get-ServiceList -FilterLevel 1 | ForEach-Object {
-
-        Find-ProtectionSoftware -Object $_ | ForEach-Object {
-
-            $Result = New-Object -TypeName PSObject
-            $Result | Add-Member -MemberType "NoteProperty" -Name "ProductName" -Value "$($_.ProductName)"
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Source" -Value "Service"
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Pattern" -Value "$($_.Pattern)"
-            [void] $Results.Add($Result)
-        }
-    }
-
-    $Results | Sort-Object -Property ProductName,Source
 }
 
 function Invoke-HijackableDllCheck {
