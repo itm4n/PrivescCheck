@@ -276,13 +276,15 @@ function Get-AssetFileContent {
         $DownloadFile = $true
         $CachedFile = Get-Item -Path $FilePath -ErrorAction SilentlyContinue
         if ($null -ne $CachedFile) {
-            $TimeSpan = New-TimeSpan -Start $CachedFile.CreationTime -End $(Get-Date)
+            $TimeSpan = New-TimeSpan -Start $CachedFile.LastWriteTime -End $(Get-Date)
             if ($TimeSpan.TotalDays -gt $ExpirationDelayInDays) {
                 # Cached file expired, so delete it.
+                Write-Message "File '$($Filename)' expired, deleting it..." -Type Warning
                 Remove-Item -Path $FilePath -Force
             }
             else {
                 # Cached file has not expired yet, use it.
+                Write-Message "File '$($Filename)' is less than $($ExpirationDelayInDays) days old."
                 $DownloadFile = $false
             }
         }
@@ -301,7 +303,6 @@ function Get-AssetFileContent {
             }
         }
 
-        Write-Message "Retrieved file '$($Filename)' from local cache."
         Get-Content -LiteralPath $FilePath | Out-String
     }
 }
