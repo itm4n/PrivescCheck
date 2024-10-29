@@ -274,7 +274,7 @@ function Get-ServiceList {
     }
 }
 
-function Add-ServiceDacl {
+function Add-ServiceDiscretionaryAccessControlList {
     <#
     .SYNOPSIS
     Helper - Adds a Dacl field to a service object returned by Get-Service.
@@ -291,12 +291,12 @@ function Add-ServiceDacl {
     An array of one or more service names to add a service Dacl for. Passable on the pipeline.
 
     .EXAMPLE
-    PS C:\> Get-Service | Add-ServiceDacl
+    PS C:\> Get-Service | Add-ServiceDiscretionaryAccessControlList
 
     Add DACLs for every service the current user can read.
 
     .EXAMPLE
-    PS C:\> Get-Service -Name VMTools | Add-ServiceDacl
+    PS C:\> Get-Service -Name VMTools | Add-ServiceDiscretionaryAccessControlList
 
     Add the Dacl to the VMTools service object.
 
@@ -390,7 +390,7 @@ function Add-ServiceDacl {
     }
 }
 
-function Test-ServiceDaclPermission {
+function Test-ServiceDiscretionaryAccessControlList {
     <#
     .SYNOPSIS
     Tests one or more passed services or service names against a given permission set, returning the service objects where the current user have the specified permissions.
@@ -399,7 +399,7 @@ function Test-ServiceDaclPermission {
     License: BSD 3-Clause
 
     .DESCRIPTION
-    Takes a service Name or a ServiceProcess.ServiceController on the pipeline, and first adds a service Dacl to the service object with Add-ServiceDacl. All group SIDs for the current user are enumerated services where the user has some type of permission are filtered. The services are then filtered against a specified set of permissions, and services where the current user have the specified permissions are returned.
+    Takes a service Name or a ServiceProcess.ServiceController on the pipeline, and first adds a service Dacl to the service object with Add-ServiceDiscretionaryAccessControlList. All group SIDs for the current user are enumerated services where the user has some type of permission are filtered. The services are then filtered against a specified set of permissions, and services where the current user have the specified permissions are returned.
 
     .PARAMETER Name
     An array of one or more service names to test against the specified permission set.
@@ -414,17 +414,17 @@ function Test-ServiceDaclPermission {
     ServiceProcess.ServiceController
 
     .EXAMPLE
-    PS C:\> Get-Service | Test-ServiceDaclPermission
+    PS C:\> Get-Service | Test-ServiceDiscretionaryAccessControlList
 
     Return all service objects where the current user can modify the service configuration.
 
     .EXAMPLE
-    PS C:\> Get-Service | Test-ServiceDaclPermission -PermissionSet 'Restart'
+    PS C:\> Get-Service | Test-ServiceDiscretionaryAccessControlList -PermissionSet 'Restart'
 
     Return all service objects that the current user can restart.
 
     .EXAMPLE
-    PS C:\> Test-ServiceDaclPermission -Permissions 'Start' -Name 'VulnSVC'
+    PS C:\> Test-ServiceDiscretionaryAccessControlList -Permissions 'Start' -Name 'VulnSVC'
 
     Return the VulnSVC object if the current user has start permissions.
 
@@ -496,9 +496,9 @@ function Test-ServiceDaclPermission {
 
         foreach ($IndividualService in $Name) {
 
-            $TargetService = $IndividualService | Add-ServiceDacl
+            $TargetService = $IndividualService | Add-ServiceDiscretionaryAccessControlList
 
-            # We might not be able to access the Service at all so we must check whether Add-ServiceDacl
+            # We might not be able to access the Service at all so we must check whether Add-ServiceDiscretionaryAccessControlList
             # returned something.
             if ($TargetService -and $TargetService.Dacl) {
 

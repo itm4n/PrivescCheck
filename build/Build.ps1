@@ -72,12 +72,6 @@ function Invoke-Build {
 
             $CheckCsvBlob = Get-FileContentAsEmbeddedTextBlob -FileName "Checks.csv"
             $EndpointProtectionSignatureCsvBlob = Get-FileContentAsEmbeddedTextBlob -FileName "EndpointProtectionSignatures.csv"
-
-            # TODO: Remove after testing
-            # $CheckCsvFilePath = Split-Path -Path $PSCommandPath -Parent
-            # $CheckCsvFilePath = Join-Path -Path $CheckCsvFilePath -ChildPath "Checks.csv"
-            # $CheckCsv = Get-Content -Path $CheckCsvFilePath -Encoding Ascii | Out-String
-            # $CheckCsvBlob = ConvertTo-EmbeddedTextBlob -Text $CheckCsv
         }
     }
 

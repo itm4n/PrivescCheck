@@ -73,9 +73,9 @@ function Invoke-ServiceRegistryPermissionCheck {
                 $ServiceObject = Get-Service -Name $Service.Name -ErrorAction SilentlyContinue
                 if ($ServiceObject) {
                     $Status = $ServiceObject | Select-Object -ExpandProperty "Status"
-                    $ServiceCanStart = Test-ServiceDaclPermission -Name $Service.Name -Permissions 'Start'
+                    $ServiceCanStart = Test-ServiceDiscretionaryAccessControlList -Name $Service.Name -Permissions 'Start'
                     if ($ServiceCanStart) { $UserCanStart = $true } else { $UserCanStart = $false }
-                    $ServiceCanStop = Test-ServiceDaclPermission -Name $Service.Name -Permissions 'Stop'
+                    $ServiceCanStop = Test-ServiceDiscretionaryAccessControlList -Name $Service.Name -Permissions 'Stop'
                     if ($ServiceCanStop) { $UserCanStop = $true } else { $UserCanStop = $false }
                 }
 
@@ -162,9 +162,9 @@ function Invoke-ServiceUnquotedPathCheck {
             $ServiceObject = Get-Service -Name $Service.Name -ErrorAction SilentlyContinue
             if ($ServiceObject) {
                 $Status = $ServiceObject | Select-Object -ExpandProperty "Status"
-                $ServiceCanStart = Test-ServiceDaclPermission -Name $Service.Name -Permissions 'Start'
+                $ServiceCanStart = Test-ServiceDiscretionaryAccessControlList -Name $Service.Name -Permissions 'Start'
                 if ($ServiceCanStart) { $UserCanStart = $true } else { $UserCanStart = $false }
-                $ServiceCanStop = Test-ServiceDaclPermission -Name $Service.Name -Permissions 'Stop'
+                $ServiceCanStop = Test-ServiceDiscretionaryAccessControlList -Name $Service.Name -Permissions 'Stop'
                 if ($ServiceCanStop) { $UserCanStop = $true } else { $UserCanStop = $false }
             }
 
@@ -253,9 +253,9 @@ function Invoke-ServiceImagePermissionCheck {
                 $ServiceObject = Get-Service -Name $Service.Name -ErrorAction SilentlyContinue
                 if ($ServiceObject) {
                     $Status = $ServiceObject | Select-Object -ExpandProperty "Status"
-                    $ServiceCanStart = Test-ServiceDaclPermission -Name $Service.Name -Permissions 'Start'
+                    $ServiceCanStart = Test-ServiceDiscretionaryAccessControlList -Name $Service.Name -Permissions 'Start'
                     if ($ServiceCanStart) { $UserCanStart = $true } else { $UserCanStart = $false }
-                    $ServiceCanStop = Test-ServiceDaclPermission -Name $Service.Name -Permissions 'Stop'
+                    $ServiceCanStop = Test-ServiceDiscretionaryAccessControlList -Name $Service.Name -Permissions 'Stop'
                     if ($ServiceCanStop) { $UserCanStop = $true } else { $UserCanStop = $false }
                 }
 
@@ -331,7 +331,7 @@ function Invoke-ServicePermissionCheck {
         foreach ($Service in $Services) {
 
             # Get a 'real' Service object and the associated DACL, based on its name
-            $TargetService = Test-ServiceDaclPermission -Name $Service.Name -PermissionSet 'ChangeConfig'
+            $TargetService = Test-ServiceDiscretionaryAccessControlList -Name $Service.Name -PermissionSet 'ChangeConfig'
 
             if ($TargetService) {
 
@@ -342,9 +342,9 @@ function Invoke-ServicePermissionCheck {
                 $ServiceObject = Get-Service -Name $Service.Name -ErrorAction SilentlyContinue
                 if ($ServiceObject) {
                     $Status = $ServiceObject | Select-Object -ExpandProperty "Status"
-                    $ServiceCanStart = Test-ServiceDaclPermission -Name $Service.Name -Permissions 'Start'
+                    $ServiceCanStart = Test-ServiceDiscretionaryAccessControlList -Name $Service.Name -Permissions 'Start'
                     if ($ServiceCanStart) { $UserCanStart = $true } else { $UserCanStart = $false }
-                    $ServiceCanStop = Test-ServiceDaclPermission -Name $Service.Name -Permissions 'Stop'
+                    $ServiceCanStop = Test-ServiceDiscretionaryAccessControlList -Name $Service.Name -Permissions 'Stop'
                     if ($ServiceCanStop) { $UserCanStop = $true } else { $UserCanStop = $false }
                 }
 
