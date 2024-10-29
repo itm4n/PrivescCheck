@@ -583,7 +583,7 @@ function Find-WmiCcmNaaCredential {
             $Path = Join-Path -Path $env:windir -ChildPath "System32\wbem\Repository\OBJECTS.DATA"
         }
 
-        if (-not (Test-Path -Path $Path)) {
+        if (-not (Test-Path -Path $Path -ErrorAction SilentlyContinue)) {
             Write-Warning "File not found: $($Path)"
             $SanityCheck = $false
         }

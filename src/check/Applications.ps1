@@ -312,7 +312,7 @@ function Invoke-RunningProcessCheck {
                     $PotentialImagePath = Join-Path -Path $PotentialImagePath -ChildPath "$($Process.name).exe"
 
                     # If we can't find it in System32, add it to the list
-                    if (-not (Test-Path -Path $PotentialImagePath)) {
+                    if (-not (Test-Path -Path $PotentialImagePath -ErrorAction SilentlyContinue)) {
                         $ReturnProcess = $true
                     }
                     $ReturnProcess = $true

@@ -597,7 +597,7 @@ function Get-DriverList {
         foreach ($Service in $Services) {
 
             $ImagePath = Resolve-DriverImagePath -Service $Service
-            if (-not (Test-Path -Path $ImagePath)) { Write-Warning "Service: $($Service.Name) | Path not found: $($ImagePath)"; continue }
+            if (-not (Test-Path -Path $ImagePath -ErrorAction SilentlyContinue)) { Write-Warning "Service: $($Service.Name) | Path not found: $($ImagePath)"; continue }
 
             $Service | Add-Member -MemberType "NoteProperty" -Name "ImagePathResolved" -Value $ImagePath
 

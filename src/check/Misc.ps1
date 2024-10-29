@@ -453,7 +453,7 @@ function Invoke-EndpointProtectionCheck {
         # Check DLLs loaded in the current process
         Get-Process -Id $PID -Module | ForEach-Object {
 
-            if (Test-Path -Path $_.FileName) {
+            if (Test-Path -Path $_.FileName -ErrorAction SilentlyContinue) {
 
                 $DllDetails = (Get-Item $_.FileName).VersionInfo | Select-Object -Property CompanyName,FileDescription,FileName,InternalName,LegalCopyright,OriginalFileName,ProductName
                 Find-ProtectionSoftware -Object $DllDetails | ForEach-Object {
