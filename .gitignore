@@ -3,4 +3,4 @@
 *.txt
 *.xml
 
-!/build/Checks.csv
+!/build/*.csv
