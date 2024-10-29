@@ -225,7 +225,7 @@ function Invoke-StartupApplicationPermissionCheck {
 
                     try {
                         $Wsh = New-Object -ComObject WScript.Shell
-                        $Shortcut = $Wsh.CreateShortcut((Resolve-Path -Path $EntryPath))
+                        $Shortcut = $Wsh.CreateShortcut($(Resolve-Path -Path $EntryPath | Convert-Path))
                         if ([String]::IsNullOrEmpty($Shortcut.TargetPath)) { continue }
 
                         $CommandLineResolved = [String[]] (Resolve-CommandLine -CommandLine $Shortcut.TargetPath)

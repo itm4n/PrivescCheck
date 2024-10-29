@@ -159,6 +159,7 @@ function Test-IsKnownService {
 
             $TempPathResolved = Resolve-Path -Path $TempPath -ErrorAction SilentlyContinue -ErrorVariable ErrorResolvePath
             if ($ErrorResolvePath) { continue }
+            $TempPathResolved = $TempPathResolved | Convert-Path
 
             $File = Get-Item -Path $TempPathResolved -ErrorAction SilentlyContinue -ErrorVariable ErrorGetItem
             if ($ErrorGetItem) { continue }
