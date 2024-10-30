@@ -380,7 +380,7 @@ function Get-PointAndPrintConfiguration {
         $Item | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $RegData
         $Item | Add-Member -MemberType "NoteProperty" -Name "Default" -Value "(null)"
         $Item | Add-Member -MemberType "NoteProperty" -Name "Expected" -Value "N/A"
-        $Item | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $(if ([string]::IsNullOrEmpty($RegData)) { "A list of approved Point and Print servers is not defined." } else { "A list of approved Point and Print servers is defined." })
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $(if ([string]::IsNullOrEmpty($RegData)) { "A list of approved Point and Print servers is not defined (default)." } else { "A list of approved Point and Print servers is defined." })
         $Result | Add-Member -MemberType "NoteProperty" -Name "ServerList" -Value $Item
 
         # Policy: Limits print driver installation to Administrators
@@ -419,7 +419,7 @@ function Get-PointAndPrintConfiguration {
         $Item | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
         $Item | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $RegData
         $Item | Add-Member -MemberType "NoteProperty" -Name "Default" -Value $RegDataDefault
-        $Item | Add-Member -MemberType "NoteProperty" -Name "Expected" -Value "<null|1>"
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Expected" -Value "N/A"
         $Item | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $PackagePointAndPrintOnlyDescriptions[$DescriptionIndex]
         $Result | Add-Member -MemberType "NoteProperty" -Name "PackagePointAndPrintOnly" -Value $Item
 
@@ -439,7 +439,7 @@ function Get-PointAndPrintConfiguration {
         $Item | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
         $Item | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $RegData
         $Item | Add-Member -MemberType "NoteProperty" -Name "Default" -Value $RegDataDefault
-        $Item | Add-Member -MemberType "NoteProperty" -Name "Expected" -Value "<null|1>"
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Expected" -Value "N/A"
         $Item | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $PackagePointAndPrintServerListDescriptions[$DescriptionIndex]
         $Result | Add-Member -MemberType "NoteProperty" -Name "PackagePointAndPrintServerListEnabled" -Value $Item
 
@@ -454,8 +454,8 @@ function Get-PointAndPrintConfiguration {
         $Item | Add-Member -MemberType "NoteProperty" -Name "Value" -Value "N/A"
         $Item | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if (-not [string]::IsNullOrEmpty($RegData)) { $RegData -join "; " })
         $Item | Add-Member -MemberType "NoteProperty" -Name "Default" -Value "(null)"
-        $Item | Add-Member -MemberType "NoteProperty" -Name "Expected" -Value "<null|SERVER_LIST>"
-        $Item | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $(if ([string]::IsNullOrEmpty($RegData)) { "A list of approved Package Point and Print servers is not defined." } else { "A list of approved Package Point and Print servers is defined." })
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Expected" -Value "N/A"
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $(if ([string]::IsNullOrEmpty($RegData)) { "A list of approved Package Point and Print servers is not defined (default)." } else { "A list of approved Package Point and Print servers is defined." })
         $Result | Add-Member -MemberType "NoteProperty" -Name "PackagePointAndPrintServerList" -Value $Item
 
         $Result

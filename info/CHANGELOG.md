@@ -1,5 +1,11 @@
 # Changelog
 
+## 2024-10-30
+
+### Changed
+
+- Update Point and Print configuration check to be more accurate.
+
 ## 2024-09-22
 
 ### Added
