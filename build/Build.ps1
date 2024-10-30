@@ -277,14 +277,15 @@ function Get-AssetFileContent {
         $CachedFile = Get-Item -Path $FilePath -ErrorAction SilentlyContinue
         if ($null -ne $CachedFile) {
             $TimeSpan = New-TimeSpan -Start $CachedFile.LastWriteTime -End $(Get-Date)
-            if ($TimeSpan.TotalDays -gt $ExpirationDelayInDays) {
+            $TimeSpanTotalDays = [MAth]::Round($TimeSpan.TotalDays)
+            if ($TimeSpanTotalDays -gt $ExpirationDelayInDays) {
                 # Cached file expired, so delete it.
                 Write-Message "File '$($Filename)' expired, deleting it..." -Type Warning
                 Remove-Item -Path $FilePath -Force
             }
             else {
                 # Cached file has not expired yet, use it.
-                Write-Message "File '$($Filename)' is less than $($ExpirationDelayInDays) days old."
+                Write-Message "File '$($Filename)' is $($TimeSpanTotalDays) day$(if ($TimeSpanTotalDays -gt 1) { "s" }) old."
                 $DownloadFile = $false
             }
         }
