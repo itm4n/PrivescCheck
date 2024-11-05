@@ -402,6 +402,7 @@ function Get-ScriptLoader {
 
 function Remove-CommentsFromScriptBlock {
 
+    [OutputType([String])]
     [CmdletBinding()]
     param(
         [String] $ScriptBlock
