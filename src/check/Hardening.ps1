@@ -403,8 +403,19 @@ function Invoke-BitLockerCheck {
 
     begin {
         $MachineRole = Get-MachineRole
+        $TpmDeviceInformation = Get-TpmDeviceInformation
+
         $Config = New-Object -TypeName PSObject
         $Config | Add-Member -MemberType "NoteProperty" -Name "MachineRole" -Value $MachineRole.Role
+
+        if ($null -ne $TpmDeviceInformation) {
+            $TpmType = Get-TpmDeviceType -ManufacturerId $TpmDeviceInformation.ManufacturerId
+            $Config | Add-Member -MemberType "NoteProperty" -Name "TpmPresent" -Value $TpmDeviceInformation.TpmPresent
+            $Config | Add-Member -MemberType "NoteProperty" -Name "TpmVersion" -Value $TpmDeviceInformation.TpmVersion
+            $Config | Add-Member -MemberType "NoteProperty" -Name "TpmVendorId" -Value $TpmDeviceInformation.ManufacturerId
+            $Config | Add-Member -MemberType "NoteProperty" -Name "TpmVendorName" -Value $TpmDeviceInformation.ManufacturerDisplayName
+            $Config | Add-Member -MemberType "NoteProperty" -Name "TpmType" -Value $TpmType
+        }
 
         $Vulnerable = $false
         $Severity = $BaseSeverity
@@ -421,12 +432,27 @@ function Invoke-BitLockerCheck {
 
             if ($BitLockerConfig.Status.Value -ne 1) {
                 # BitLocker is not enabled.
-                $Description = "BitLocker is not enabled."
                 $Vulnerable = $true
-                # Increase the severity level.
                 $Severity = $script:SeverityLevelEnum::High
+                $Description = "BitLocker is not enabled."
+
+                if ($null -ne $TpmDeviceInformation) {
+                    if ($TpmDeviceInformation.TpmPresent) {
+                        # BitLocker not enabled + TPM present -> Is it a virtual machine?
+                        if (($TpmType -band $script:TPM_DEVICE_TYPE::Virtual) -gt 0) {
+                            $Description = "$($Description) The installed TPM seems to be a virtual one, this check is probably irrelevant."
+                            $Severity = $script:SeverityLevelEnum::Low
+                        }
+                    }
+                    else {
+                        # BitLocker not enabled + TPM not present -> Most probably a virtual machine?!
+                        $Description = "$($Description) No TPM found on this machine, this check is probably irrelevant."
+                        $Severity = $script:SeverityLevelEnum::Low
+                    }
+                }
             }
             else {
+                # BitLocker is enabled
                 $Config | Add-Member -MemberType "NoteProperty" -Name "UseAdvancedStartup" -Value "$($BitLockerConfig.UseAdvancedStartup.Value) - $($BitLockerConfig.UseAdvancedStartup.Description)"
                 $Config | Add-Member -MemberType "NoteProperty" -Name "EnableBDEWithNoTPM" -Value "$($BitLockerConfig.EnableBDEWithNoTPM.Value) - $($BitLockerConfig.EnableBDEWithNoTPM.Description)"
                 $Config | Add-Member -MemberType "NoteProperty" -Name "UseTPM" -Value "$($BitLockerConfig.UseTPM.Value) - $($BitLockerConfig.UseTPM.Description)"
@@ -437,21 +463,46 @@ function Invoke-BitLockerCheck {
                 if ($BitLockerConfig.UseAdvancedStartup.Value -ne 1) {
                     # Advanced startup is not enabled. This means that a second factor of authentication
                     # cannot be configured. We can report this and return.
+                    $Vulnerable = $true
+                    $Severity = $script:SeverityLevelEnum::Medium
                     $Description = "$($Description) Additional authentication is not required at startup."
+
                     if ($BitLockerConfig.UseTPM.Value -eq 1) {
                         $Description = "$($Description) Authentication mode is 'TPM only'."
+                        if ($null -ne $TpmDeviceInformation) {
+                            if ($TpmDeviceInformation.TpmPresent) {
+                                # BitLocker TPM only + TPM present -> Is the TPM a discrete TPM?
+                                if (($TpmType -band $script:TPM_DEVICE_TYPE::Discrete) -gt 0) {
+                                    # BitLocker TPM only + dTPM -> TPM sniffing attack possible, max severity.
+                                    $Description = "$($Description) A discrete TPM (dTPM) seems to be installed on this machine, a TPM sniffing attack is more likely to be performed."
+                                    $Severity = $script:SeverityLevelEnum::High
+                                }
+                                else {
+                                    # BitLocker TPM only + vTPM, iTPM, or fTPM -> TPM sniffing attack not possible,
+                                    # lower the severity.
+                                    $Description = "$($Description) The installed TPM does not seem to be a discrete one, a TPM sniffing attack is therefore less likely to be performed."
+                                    $Severity = $script:SeverityLevelEnum::Medium
+                                }
+                            }
+                            else {
+                                # BitLocker enabled without TPM
+                                $Description = "$($Description) No TPM found on this machine, this check is probably irrelevant."
+                                $Severity = $script:SeverityLevelEnum::Low
+                            }
+                        }
                     }
-                    $Vulnerable = $true
                 }
                 else {
                     # Advanced startup is enabled, but is a second factor of authentication enforced?
                     if (($BitLockerConfig.UseTPMPIN.Value -ne 1) -and ($BitLockerConfig.UseTPMKey.Value -ne 1) -and ($BitLockerConfig.UseTPMKeyPIN -ne 1)) {
                         # A second factor of authentication is not explicitly enforced.
+                        $Vulnerable = $true
+                        $Severity = $script:SeverityLevelEnum::Medium
                         $Description = "$($Description) A second factor of authentication (PIN, startup key) is not explicitly required."
+
                         if ($BitLockerConfig.EnableBDEWithNoTPM.Value -eq 1) {
                             $Description = "$($Description) BitLocker without a compatible TPM is allowed."
                         }
-                        $Vulnerable = $true
                     }
                 }
             }
