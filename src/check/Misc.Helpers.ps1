@@ -144,7 +144,7 @@ function Get-TpmDeviceInformation {
         $TpmDeviceInformation.TpmFirmwareVulnerability = 1
         $Result | Add-Member -MemberType "NoteProperty" -Name "TpmVersion" -Value $TpmDeviceInformationTpmVersion
         $Result | Add-Member -MemberType "NoteProperty" -Name "ManufacturerId" -Value $TpmDeviceInformation.ManufacturerId
-        $Result | Add-Member -MemberType "NoteProperty" -Name "ManufacturerDisplayName" -Value $TpmDeviceInformation.ManufacturerDisplayName
+        $Result | Add-Member -MemberType "NoteProperty" -Name "ManufacturerDisplayName" -Value $TpmDeviceInformation.ManufacturerName
         $Result | Add-Member -MemberType "NoteProperty" -Name "ManufacturerVersion" -Value $TpmDeviceInformationManufacturerVersion
         $Result | Add-Member -MemberType "NoteProperty" -Name "PpiSpecVersion" -Value $TpmDeviceInformation.PpiSpecVersion
         $Result | Add-Member -MemberType "NoteProperty" -Name "IsInitialized" -Value $($TpmDeviceInformation.IsInitialized -as [Bool])
