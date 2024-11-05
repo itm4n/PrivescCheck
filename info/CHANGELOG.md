@@ -1,5 +1,11 @@
 # Changelog
 
+## 2024-10-31
+
+### Added
+
+- Check for TPM device information. The aim is to provide the same information as the output of the command 'TpmTool.exe GetDeviceInformation' in the form of a PowerShell object.
+
 ## 2024-10-30
 
 ### Changed

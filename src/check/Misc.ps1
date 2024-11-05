@@ -1073,3 +1073,23 @@ function Invoke-MsiExtractBinaryData {
         $null = [System.Runtime.InteropServices.Marshal]::ReleaseComObject($Installer)
     }
 }
+
+function Invoke-TpmDeviceInformationCheck {
+    <#
+    .SYNOPSIS
+    Get information a TPM (if present).
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet is a wrapper for the custom 'Get-TpmDeviceInformation' command. It returns all the information cOllected about the TPM as is.
+    #>
+
+    [CmdletBinding()]
+    param ()
+
+    process {
+        Get-TpmDeviceInformation
+    }
+}

@@ -54,6 +54,11 @@ $FunctionDefinitions = @(
     (New-Function shlwapi AssocQueryStringW ([Int32]) @($script:ASSOCF, $script:ASSOCSTR, [String], [IntPtr], [System.Text.StringBuilder], [UInt32].MakeByRefType()) -Charset Unicode -EntryPoint AssocQueryStringW),
     (New-Function shlwapi PathRelativePathTo ([Bool]) @([System.Text.StringBuilder], [String], [UInt32], [String], [UInt32]) -Charset Unicode -EntryPoint PathRelativePathToW),
 
+    (New-Function TpmCoreProvisioning TpmGetDeviceInformation ([Int32]) @($script:TPM_DEVICE_INFORMATION.MakeByRefType()) -EntryPoint TpmGetDeviceInformation),
+    (New-Function TpmCoreProvisioning TpmGetCapLockoutInfo ([Int32]) @([UInt32].MakeByRefType(), [UInt32].MakeByRefType()) -EntryPoint TpmGetCapLockoutInfo),
+    (New-Function TpmCoreProvisioning TpmIsLockedOut ([Int32]) @([Byte].MakeByRefType()) -EntryPoint TpmIsLockedOut),
+    (New-Function TpmCoreProvisioning TpmGetDictionaryAttackParameters ([Int32]) @([UInt32].MakeByRefType(), [UInt32].MakeByRefType(), [UInt32].MakeByRefType()) -EntryPoint TpmGetDictionaryAttackParameters),
+
     (New-Function vaultcli VaultEnumerateVaults ([UInt32]) @([UInt32], [UInt32].MakeByRefType(), [IntPtr].MakeByRefType()) -EntryPoint VaultEnumerateVaults),
     (New-Function vaultcli VaultOpenVault ([UInt32]) @([IntPtr], [UInt32], [IntPtr].MakeByRefType()) -Entrypoint VaultOpenVault),
     (New-Function vaultcli VaultEnumerateItems ([UInt32]) @([IntPtr], [UInt32], [UInt32].MakeByRefType(), [IntPtr].MakeByRefType()) -EntryPoint VaultEnumerateItems),
@@ -89,6 +94,7 @@ $script:Netapi32 = $Types['netapi32']
 $script:Ntdll    = $Types['ntdll']
 $script:Shell32  = $Types['shell32']
 $script:Shlwapi  = $Types['shlwapi']
+$script:TpmCoreProvisioning = $Types['TpmCoreProvisioning']
 $script:Vaultcli = $Types['vaultcli']
 $script:Winspool = $Types['winspool.drv']
 $script:Wlanapi  = $Types['wlanapi']

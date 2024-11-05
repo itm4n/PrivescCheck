@@ -33,6 +33,7 @@ function Invoke-Build {
             "src\check\Updates.ps1",
             "src\check\Credentials.Helpers.ps1",
             "src\check\Credentials.ps1",
+            "src\check\Misc.Helpers.ps1",
             "src\check\Misc.ps1",
             "src\check\Msi.Helpers.ps1"
         )
