@@ -532,27 +532,6 @@ function Invoke-PointAndPrintConfigurationCheck {
                     # drivers was not restricted to administrators.
                     $Severity = [Math]::Max([UInt32] $Severity, [UInt32] $script:SeverityLevelEnum::Low) -as $script:SeverityLevelEnum
                 }
-
-                # TODO: Remove after testing
-                # if ($Config.PackagePointAndPrintOnly.Data -ne 1) {
-
-                #     # If the settings "NoWarningNoElevationOnInstall" and "UpdatePromptSettings" have
-                #     # non-zero values, the device is vulnerable to CVE-2021-34527 (PrintNightmare), even
-                #     # if the setting "TrustedServers" is set or "InForest" is enabled.
-                #     if (($Config.NoWarningNoElevationOnInstall.Data -gt 0) -or ($Config.UpdatePromptSettings.Data -gt 0)) {
-
-                #         $ConfigVulnerable = $true
-                #         $Severity = [Math]::Max([UInt32] $Severity, [UInt32] $script:SeverityLevelEnum::High) -as $script:SeverityLevelEnum
-                #     }
-                # }
-
-                # If a list of approved "Package Point and Print" servers is not defined (default),
-                # the configuration is vulnerable. The exploitation requires the use of a fake
-                # printer server with a vulnerable signed printer driver though.
-                # if ($Config.PackagePointAndPrintServerListEnabled.Data -ne 1) {
-                #     $ConfigVulnerable = $true
-                #     $Severity = [Math]::Max([UInt32] $Severity, [UInt32] $script:SeverityLevelEnum::Medium) -as $script:SeverityLevelEnum
-                # }
             }
 
             $AllResults = @(
