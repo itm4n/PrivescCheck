@@ -6,7 +6,9 @@ $script:SeverityLevelEnum = New-Enum $Module WinApiModule.SeverityLevel UInt32 @
 }
 
 $script:SystemErrorCodeEnum = New-Enum $Module WinApiModule.SystemErrorCode UInt32 @{
+    ERROR_INVALID_FUNCTION              = 1
     ERROR_INSUFFICIENT_BUFFER           = 122
+    ERROR_ENVVAR_NOT_FOUND              = 203
 }
 
 $script:FileAccessRightEnum = New-Enum $Module WinApiModule.FileAccessRight UInt32 @{
@@ -416,3 +418,10 @@ $script:TPM_DEVICE_TYPE = New-Enum $Module WinApiModule.TPM_DEVICE_TYPE UInt32 @
     Virtual                             = '0x00000010'
     Unknown                             = '0x00100000'
 } -BitField
+
+$script:FIRMWARE_TYPE = New-Enum $Module WinApiModule.FIRMWARE_TYPE UInt32 @{
+    Unknown                             = '0x00000000'
+    Bios                                = '0x00000001'
+    Uefi                                = '0x00000002'
+    Max                                 = '0x00000003'
+}

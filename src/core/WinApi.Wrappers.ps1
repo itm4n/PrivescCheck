@@ -1505,3 +1505,43 @@ function Resolve-PathRelativeTo {
         $PathOut.ToString()
     }
 }
+
+function Get-FirmwareType {
+    <#
+    .SYNOPSIS
+    Wrapper for the Win32 function GetFirmwareType
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet is a wrapper for the Win32 API function GetFirmwareType. If successful, it returns a value in the enum FIRMWARE_TYPE. Otherwise, it returns it returns null.
+
+    .EXAMPLE
+    C:\> Get-FirmwareType
+    Uefi
+    #>
+
+    [CmdletBinding()]
+    param ()
+
+    process {
+        [UInt32] $FirmwareType = 0
+        $Result = $script:Kernel32::GetFirmwareType([ref] $FirmwareType)
+        $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+
+        if ($Result -eq 0) {
+            Write-Warning "GetFirmwareType error - $([ComponentModel.Win32Exception] $LastError)"
+            return
+        }
+
+        $FirmwareTypeAsEnum = $FirmwareType -as $script:FIRMWARE_TYPE
+
+        if ($null -eq $FirmwareTypeAsEnum) {
+            Write-Warning "Unknown firmware type: $($FirmwareType)"
+            return
+        }
+
+        $FirmwareTypeAsEnum
+    }
+}
