@@ -22,6 +22,7 @@ function Invoke-SystemInformationCheck {
     param()
 
     $OsVersion = Get-WindowsVersion
+    $SystemInformation = Get-SystemInformation
 
     if ($null -eq $OsVersion) { return }
 
@@ -41,8 +42,19 @@ function Invoke-SystemInformationCheck {
     }
 
     $Result = New-Object -TypeName PSObject
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $ProductName
+    $Result | Add-Member -MemberType "NoteProperty" -Name "ProductName" -Value $ProductName
     $Result | Add-Member -MemberType "NoteProperty" -Name "Version" -Value $OsVersionStr
+    $Result | Add-Member -MemberType "NoteProperty" -Name "BuildString" -Value $SystemInformation.BuildString
+    $Result | Add-Member -MemberType "NoteProperty" -Name "BaseBoardManufacturer" -Value $SystemInformation.BaseBoardManufacturer
+    $Result | Add-Member -MemberType "NoteProperty" -Name "BaseBoardProduct" -Value $SystemInformation.BaseBoardProduct
+    $Result | Add-Member -MemberType "NoteProperty" -Name "BiosMode" -Value $SystemInformation.BiosMode
+    $Result | Add-Member -MemberType "NoteProperty" -Name "BIOSReleaseDate" -Value $SystemInformation.BIOSReleaseDate
+    $Result | Add-Member -MemberType "NoteProperty" -Name "BIOSVendor" -Value $SystemInformation.BIOSVendor
+    $Result | Add-Member -MemberType "NoteProperty" -Name "BIOSVersion" -Value $SystemInformation.BIOSVersion
+    $Result | Add-Member -MemberType "NoteProperty" -Name "SystemFamily" -Value $SystemInformation.SystemFamily
+    $Result | Add-Member -MemberType "NoteProperty" -Name "SystemManufacturer" -Value $SystemInformation.SystemManufacturer
+    $Result | Add-Member -MemberType "NoteProperty" -Name "SystemProductName" -Value $SystemInformation.SystemProductName
+    $Result | Add-Member -MemberType "NoteProperty" -Name "SystemSKU" -Value $SystemInformation.SystemSKU
     $Result
 }
 
