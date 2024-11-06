@@ -1,5 +1,17 @@
 # Changelog
 
+## 2024-11-06
+
+### Added
+
+- New wrapper cmdlet for the GetFirmwareType API.
+- New helper cmdlet "Get-SystemInformation" for collecting system information.
+
+### Changed
+
+- The system information check is now enriched with the data returned by the new "Get-SystemInformation" helper function.
+- The cmdlet "Get-UEFIStatus" now uses the new "Get-FirmwareType" helper function.
+
 ## 2024-10-31
 
 ### Added
