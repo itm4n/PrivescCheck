@@ -27,41 +27,32 @@ function Get-UEFIStatus {
 
     $OsVersion = Get-WindowsVersion
 
-    # Windows >= 8/2012
     if (($OsVersion.Major -ge 10) -or (($OsVersion.Major -ge 6) -and ($OsVersion.Minor -ge 2))) {
 
-        [UInt32] $FirmwareType = 0
-        $Result = $script:Kernel32::GetFirmwareType([ref] $FirmwareType)
-        $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+        # Windows >= 8/2012
 
-        if ($Result -gt 0) {
-            if ($FirmwareType -eq 1) {
-                # FirmwareTypeBios = 1
-                $Status = $false
-                $Description = "BIOS mode is Legacy."
-            }
-            elseif ($FirmwareType -eq 2) {
-                # FirmwareTypeUefi = 2
-                $Status = $true
-                $Description = "BIOS mode is UEFI."
-            }
-            else {
-                $Description = "BIOS mode is unknown."
-            }
+        $FirmwareType = Get-FirmwareType
+
+        if ($FirmwareType -eq $script:FIRMWARE_TYPE::Bios) {
+            $Status = $false
+            $Description = "BIOS mode is Legacy."
+        }
+        elseif ($FirmwareType -eq $script:FIRMWARE_TYPE::Uefi) {
+            $Status = $true
+            $Description = "BIOS mode is UEFI."
         }
         else {
-            Write-Verbose ([ComponentModel.Win32Exception] $LastError)
+            $Description = "BIOS mode is unknown."
         }
-
-    # Windows = 7/2008 R2
     }
     elseif (($OsVersion.Major -eq 6) -and ($OsVersion.Minor -eq 1)) {
+
+        # Windows = 7/2008 R2
 
         $null = $script:Kernel32::GetFirmwareEnvironmentVariable("", "{00000000-0000-0000-0000-000000000000}", [IntPtr]::Zero, 0)
         $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
 
-        $ERROR_INVALID_FUNCTION = 1
-        if ($LastError -eq $ERROR_INVALID_FUNCTION) {
+        if ($LastError -eq $script:SystemErrorCodeEnum::ERROR_INVALID_FUNCTION) {
             $Status = $false
             $Description = "BIOS mode is Legacy."
             Write-Verbose ([ComponentModel.Win32Exception] $LastError)
@@ -71,7 +62,6 @@ function Get-UEFIStatus {
             $Description = "BIOS mode is UEFI."
             Write-Verbose ([ComponentModel.Win32Exception] $LastError)
         }
-
     }
     else {
         $Description = "Cannot check BIOS mode."
