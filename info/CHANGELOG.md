@@ -6,6 +6,10 @@
 
 - Check for TPM device information. The aim is to provide the same information as the output of the command 'TpmTool.exe GetDeviceInformation' in the form of a PowerShell object.
 
+### Changed
+
+- Update BitLocker check to adapt severity and description based on the presence of a TPM (and its type).
+
 ## 2024-10-30
 
 ### Changed
