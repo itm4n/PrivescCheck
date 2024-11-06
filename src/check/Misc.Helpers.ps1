@@ -238,3 +238,89 @@ function Get-TpmDeviceType {
         $TpmType -as $script:TPM_DEVICE_TYPE
     }
 }
+
+function Get-SystemInformation {
+    <#
+    .SYNOPSIS
+    Get basic software and hardware system information
+
+    .DESCRIPTION
+    This cmdlet collects system information similarly to what the internal function "WriteSystemInformation" in "TpmCoreProvisioning" does.
+
+    .EXAMPLE
+    C:\> Get-SystemInformation
+
+    ProductName           : Windows 10 Pro
+    BuildString           : 22621.1.amd64fre.ni_release.220506-1250
+    BaseBoardManufacturer :
+    BaseBoardProduct      :
+    BiosMode              : Uefi
+    BIOSReleaseDate       : 08/13/2024
+    BIOSVendor            : EDK II
+    BIOSVersion           : edk2-20240813-1.fc40
+    SystemFamily          :
+    SystemManufacturer    : QEMU
+    SystemProductName     : Standard PC (Q35 + ICH9, 2009)
+    SystemSKU             :
+    #>
+
+    [CmdletBinding()]
+    param ()
+
+    begin {
+        $SoftwareRegKey = "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion"
+        $HardwareRegKey = "HKLM\HARDWARE\DESCRIPTION\System\BIOS"
+    }
+
+    process {
+        $RegValue = "ProductName"
+        $ProductName = (Get-ItemProperty -Path "Registry::$($SoftwareRegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+
+        $RegValue = "BuildLabEx"
+        $BuildString = (Get-ItemProperty -Path "Registry::$($SoftwareRegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+
+        $RegValue = "BaseBoardManufacturer"
+        $BaseBoardManufacturer = (Get-ItemProperty -Path "Registry::$($HardwareRegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+
+        $RegValue = "BaseBoardProduct"
+        $BaseBoardProduct = (Get-ItemProperty -Path "Registry::$($HardwareRegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+
+        $BiosMode = Get-FirmwareType
+
+        $RegValue = "BIOSReleaseDate"
+        $BIOSReleaseDate = (Get-ItemProperty -Path "Registry::$($HardwareRegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+
+        $RegValue = "BIOSVendor"
+        $BIOSVendor = (Get-ItemProperty -Path "Registry::$($HardwareRegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+
+        $RegValue = "BIOSVersion"
+        $BIOSVersion = (Get-ItemProperty -Path "Registry::$($HardwareRegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+
+        $RegValue = "SystemFamily"
+        $SystemFamily = (Get-ItemProperty -Path "Registry::$($HardwareRegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+
+        $RegValue = "SystemManufacturer"
+        $SystemManufacturer = (Get-ItemProperty -Path "Registry::$($HardwareRegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+
+        $RegValue = "SystemProductName"
+        $SystemProductName = (Get-ItemProperty -Path "Registry::$($HardwareRegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+
+        $RegValue = "SystemSKU"
+        $SystemSKU = (Get-ItemProperty -Path "Registry::$($HardwareRegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "ProductName" -Value $ProductName
+        $Result | Add-Member -MemberType "NoteProperty" -Name "BuildString" -Value $BuildString
+        $Result | Add-Member -MemberType "NoteProperty" -Name "BaseBoardManufacturer" -Value $BaseBoardManufacturer
+        $Result | Add-Member -MemberType "NoteProperty" -Name "BaseBoardProduct" -Value $BaseBoardProduct
+        $Result | Add-Member -MemberType "NoteProperty" -Name "BiosMode" -Value $BiosMode
+        $Result | Add-Member -MemberType "NoteProperty" -Name "BIOSReleaseDate" -Value ([DateTime] $BIOSReleaseDate)
+        $Result | Add-Member -MemberType "NoteProperty" -Name "BIOSVendor" -Value $BIOSVendor
+        $Result | Add-Member -MemberType "NoteProperty" -Name "BIOSVersion" -Value $BIOSVersion
+        $Result | Add-Member -MemberType "NoteProperty" -Name "SystemFamily" -Value $SystemFamily
+        $Result | Add-Member -MemberType "NoteProperty" -Name "SystemManufacturer" -Value $SystemManufacturer
+        $Result | Add-Member -MemberType "NoteProperty" -Name "SystemProductName" -Value $SystemProductName
+        $Result | Add-Member -MemberType "NoteProperty" -Name "SystemSKU" -Value $SystemSKU
+        $Result
+    }
+}
