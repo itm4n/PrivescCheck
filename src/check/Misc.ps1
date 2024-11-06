@@ -48,9 +48,9 @@ function Invoke-SystemInformationCheck {
     $Result | Add-Member -MemberType "NoteProperty" -Name "BaseBoardManufacturer" -Value $SystemInformation.BaseBoardManufacturer
     $Result | Add-Member -MemberType "NoteProperty" -Name "BaseBoardProduct" -Value $SystemInformation.BaseBoardProduct
     $Result | Add-Member -MemberType "NoteProperty" -Name "BiosMode" -Value $SystemInformation.BiosMode
-    $Result | Add-Member -MemberType "NoteProperty" -Name "BIOSReleaseDate" -Value $SystemInformation.BIOSReleaseDate
-    $Result | Add-Member -MemberType "NoteProperty" -Name "BIOSVendor" -Value $SystemInformation.BIOSVendor
-    $Result | Add-Member -MemberType "NoteProperty" -Name "BIOSVersion" -Value $SystemInformation.BIOSVersion
+    $Result | Add-Member -MemberType "NoteProperty" -Name "BiosReleaseDate" -Value $SystemInformation.BiosReleaseDate
+    $Result | Add-Member -MemberType "NoteProperty" -Name "BiosVendor" -Value $SystemInformation.BiosVendor
+    $Result | Add-Member -MemberType "NoteProperty" -Name "BiosVersion" -Value $SystemInformation.BiosVersion
     $Result | Add-Member -MemberType "NoteProperty" -Name "SystemFamily" -Value $SystemInformation.SystemFamily
     $Result | Add-Member -MemberType "NoteProperty" -Name "SystemManufacturer" -Value $SystemInformation.SystemManufacturer
     $Result | Add-Member -MemberType "NoteProperty" -Name "SystemProductName" -Value $SystemInformation.SystemProductName

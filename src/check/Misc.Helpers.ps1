@@ -288,13 +288,13 @@ function Get-SystemInformation {
         $BiosMode = Get-FirmwareType
 
         $RegValue = "BIOSReleaseDate"
-        $BIOSReleaseDate = (Get-ItemProperty -Path "Registry::$($HardwareRegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+        $BiosReleaseDate = (Get-ItemProperty -Path "Registry::$($HardwareRegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
 
         $RegValue = "BIOSVendor"
-        $BIOSVendor = (Get-ItemProperty -Path "Registry::$($HardwareRegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+        $BiosVendor = (Get-ItemProperty -Path "Registry::$($HardwareRegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
 
         $RegValue = "BIOSVersion"
-        $BIOSVersion = (Get-ItemProperty -Path "Registry::$($HardwareRegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+        $BiosVersion = (Get-ItemProperty -Path "Registry::$($HardwareRegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
 
         $RegValue = "SystemFamily"
         $SystemFamily = (Get-ItemProperty -Path "Registry::$($HardwareRegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
@@ -314,9 +314,9 @@ function Get-SystemInformation {
         $Result | Add-Member -MemberType "NoteProperty" -Name "BaseBoardManufacturer" -Value $BaseBoardManufacturer
         $Result | Add-Member -MemberType "NoteProperty" -Name "BaseBoardProduct" -Value $BaseBoardProduct
         $Result | Add-Member -MemberType "NoteProperty" -Name "BiosMode" -Value $BiosMode
-        $Result | Add-Member -MemberType "NoteProperty" -Name "BIOSReleaseDate" -Value ([DateTime] $BIOSReleaseDate)
-        $Result | Add-Member -MemberType "NoteProperty" -Name "BIOSVendor" -Value $BIOSVendor
-        $Result | Add-Member -MemberType "NoteProperty" -Name "BIOSVersion" -Value $BIOSVersion
+        $Result | Add-Member -MemberType "NoteProperty" -Name "BiosReleaseDate" -Value ([DateTime] $BiosReleaseDate)
+        $Result | Add-Member -MemberType "NoteProperty" -Name "BiosVendor" -Value $BiosVendor
+        $Result | Add-Member -MemberType "NoteProperty" -Name "BiosVersion" -Value $BiosVersion
         $Result | Add-Member -MemberType "NoteProperty" -Name "SystemFamily" -Value $SystemFamily
         $Result | Add-Member -MemberType "NoteProperty" -Name "SystemManufacturer" -Value $SystemManufacturer
         $Result | Add-Member -MemberType "NoteProperty" -Name "SystemProductName" -Value $SystemProductName
