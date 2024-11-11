@@ -211,7 +211,6 @@ function Get-TpmDeviceType {
 
     [CmdletBinding()]
     param (
-        [Parameter(Mandatory=$true)]
         [string] $ManufacturerId
     )
 
@@ -220,21 +219,24 @@ function Get-TpmDeviceType {
         $IntegratedTpmVendorIds = @("BRCM","INTC","ROCC","SMSC","TXN")
         $FirmwareTpmVendorIds = @("AMD","HISI","HPE","INTC","LEN","QCOM","SECE","SMSN")
         $VirtualTpmVendorIds = @("IBM","GOOG","MSFT")
+        $TpmType = $script:TPM_DEVICE_TYPE::Unknown
     }
 
     process {
-        $TpmType = 0
+        if (-not [String]::IsNullOrEmpty($ManufacturerId)) {
+            $TpmType = 0
+            # Note: we need to check all the vendor ID lists because multiple TPM types
+            # can be associated to a vendor ID. For example, a TPM with the vendor ID
+            # 'INTC' (Intel) can be either an integrated TPM or a firmware TPM.
+            if ($DiscreteTpmVendorIds -contains $ManufacturerId) { $TpmType += $script:TPM_DEVICE_TYPE::Discrete }
+            if ($IntegratedTpmVendorIds -contains $ManufacturerId) { $TpmType += $script:TPM_DEVICE_TYPE::Integrated }
+            if ($FirmwareTpmVendorIds -contains $ManufacturerId) { $TpmType += $script:TPM_DEVICE_TYPE::Firmware }
+            if ($VirtualTpmVendorIds -contains $ManufacturerId) { $TpmType += $script:TPM_DEVICE_TYPE::Virtual }
+            if ($TpmType -eq 0) { $script:TPM_DEVICE_TYPE::Unknown }
+        }
+    }
 
-        # Note: we need to check all the vendor ID lists because multiple TPM types
-        # can be associated to a vendor ID. For example, a TPM with the vendor ID
-        # 'INTC' (Intel) can be either an integrated TPM or a firmware TPM.
-        if ($DiscreteTpmVendorIds -contains $ManufacturerId) { $TpmType += $script:TPM_DEVICE_TYPE::Discrete }
-        if ($IntegratedTpmVendorIds -contains $ManufacturerId) { $TpmType += $script:TPM_DEVICE_TYPE::Integrated }
-        if ($FirmwareTpmVendorIds -contains $ManufacturerId) { $TpmType += $script:TPM_DEVICE_TYPE::Firmware }
-        if ($VirtualTpmVendorIds -contains $ManufacturerId) { $TpmType += $script:TPM_DEVICE_TYPE::Virtual }
-
-        if ($TpmType -eq 0) { $TpmType += $script:TPM_DEVICE_TYPE::Unknown }
-
+    end {
         $TpmType -as $script:TPM_DEVICE_TYPE
     }
 }

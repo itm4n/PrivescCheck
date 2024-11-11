@@ -409,12 +409,18 @@ function Invoke-BitLockerCheck {
         $Config | Add-Member -MemberType "NoteProperty" -Name "MachineRole" -Value $MachineRole.Role
 
         if ($null -ne $TpmDeviceInformation) {
-            $TpmType = Get-TpmDeviceType -ManufacturerId $TpmDeviceInformation.ManufacturerId
             $Config | Add-Member -MemberType "NoteProperty" -Name "TpmPresent" -Value $TpmDeviceInformation.TpmPresent
-            $Config | Add-Member -MemberType "NoteProperty" -Name "TpmVersion" -Value $TpmDeviceInformation.TpmVersion
-            $Config | Add-Member -MemberType "NoteProperty" -Name "TpmVendorId" -Value $TpmDeviceInformation.ManufacturerId
-            $Config | Add-Member -MemberType "NoteProperty" -Name "TpmVendorName" -Value $TpmDeviceInformation.ManufacturerDisplayName
-            $Config | Add-Member -MemberType "NoteProperty" -Name "TpmType" -Value $TpmType
+            if ($TpmDeviceInformation.TpmPresent) {
+                # Add TPM information only if one is present.
+                $TpmType = Get-TpmDeviceType -ManufacturerId $TpmDeviceInformation.ManufacturerId
+                $Config | Add-Member -MemberType "NoteProperty" -Name "TpmVersion" -Value $TpmDeviceInformation.TpmVersion
+                $Config | Add-Member -MemberType "NoteProperty" -Name "TpmVendorId" -Value $TpmDeviceInformation.ManufacturerId
+                $Config | Add-Member -MemberType "NoteProperty" -Name "TpmVendorName" -Value $TpmDeviceInformation.ManufacturerDisplayName
+                $Config | Add-Member -MemberType "NoteProperty" -Name "TpmType" -Value $TpmType
+            }
+        }
+        else {
+            $Config | Add-Member -MemberType "NoteProperty" -Name "TpmPresent" -Value "(null)"
         }
 
         $Vulnerable = $false
