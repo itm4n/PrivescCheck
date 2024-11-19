@@ -716,6 +716,8 @@ function Invoke-SmbConfigurationCheck {
     .LINK
     https://learn.microsoft.com/en-us/troubleshoot/windows-server/networking/overview-server-message-block-signing
     https://learn.microsoft.com/en-us/windows-server/storage/file-server/troubleshoot/detect-enable-and-disable-smbv1-v2-v3?tabs=server
+    https://medium.com/tenable-techblog/smb-access-is-denied-caused-by-anti-ntlm-relay-protection-659c60089895
+    https://learn.microsoft.com/en-us/previous-versions/windows/it-pro/windows-10/security/threat-protection/security-policy-settings/microsoft-network-server-server-spn-target-name-validation-level
     #>
 
     [CmdletBinding()]
@@ -725,72 +727,80 @@ function Invoke-SmbConfigurationCheck {
 
     begin {
         $AllResults = @()
+
+        $EnableSMB1ProtocolDescriptions = @(
+            "The SMB1 protocol is disabled.",
+            "The SMB1 protocol is enabled."
+        )
+
+        $RequireSecuritySignatureDescriptions = @(
+            "Security signature (SMB signing) is not required.",
+            "Security signature (SMB signing) is required."
+        )
+
+        $SmbServerNameHardeningLevelDescriptions = @(
+            "Off (default). An SPN does not need to be sent by the SMB client. It is not required or validated by the SMB server.",
+            "Accept if provided by client. If an SPN name is sent by the SMB client, it must match the SMB server's list of SPNs, otherwise the access is denied."
+            "Required from client. An SPN must be sent by the SMB client in session setup, and it must match the SMB server's list of SPNs, otherwise the access is denied."
+        )
+
+        $ServerConfiguration = Get-SmbConfiguration -Role "Server"
+        $ClientConfiguration = Get-SmbConfiguration -Role "Client"
     }
 
     process {
-        $ServerConfiguration = Get-SmbConfiguration -Role "Server"
-        $ClientConfiguration = Get-SmbConfiguration -Role "Client"
 
-        # Server - SMBv1 must be disabled
+        $Vulnerable = $false
 
-        if ($ServerConfiguration.EnableSMB1Protocol -eq $true) {
-            $Vulnerable = $true
-            $Description = "SMBv1 is enabled."
-        }
-        else {
-            $Vulnerable = $false
-            $Description = "SMBv1 is disabled."
-        }
+        # Server - SMBv1 should not be enabled
+
+        if ($ServerConfiguration.EnableSMB1Protocol -ne $false) { $Vulnerable = $true }
 
         $ServerVersion = New-Object -TypeName PSObject
         $ServerVersion | Add-Member -MemberType "NoteProperty" -Name "Role" -Value "Server"
         $ServerVersion | Add-Member -MemberType "NoteProperty" -Name "Parameter" -Value "EnableSMB1Protocol"
         $ServerVersion | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $ServerConfiguration.EnableSMB1Protocol
-        $ServerVersion | Add-Member -MemberType "NoteProperty" -Name "Vulnerable" -Value $Vulnerable
-        $ServerVersion | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+        $ServerVersion | Add-Member -MemberType "NoteProperty" -Name "Expected" -Value "<False>"
+        $ServerVersion | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $($EnableSMB1ProtocolDescriptions[$($ServerConfiguration.EnableSMB1Protocol -as [UInt32])])
         $AllResults += $ServerVersion
 
-        # Server - SMB signing must be set to 'required'
+        # Server - SMB signing should be set to 'required'
 
-        if ($ServerConfiguration.RequireSecuritySignature -eq $false) {
-            $Vulnerable = $true
-            $Description = "SMB signing is not required."
-        }
-        else {
-            $Vulnerable = $false
-            $Description = "SMB signing is required."
-        }
+        if ($ServerConfiguration.RequireSecuritySignature -ne $true) { $Vulnerable = $true }
 
         $ServerSigning = New-Object -TypeName PSObject
         $ServerSigning | Add-Member -MemberType "NoteProperty" -Name "Role" -Value "Server"
         $ServerSigning | Add-Member -MemberType "NoteProperty" -Name "Parameter" -Value "RequireSecuritySignature"
         $ServerSigning | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $ServerConfiguration.RequireSecuritySignature
-        $ServerSigning | Add-Member -MemberType "NoteProperty" -Name "Vulnerable" -Value $Vulnerable
-        $ServerSigning | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+        $ServerSigning | Add-Member -MemberType "NoteProperty" -Name "Expected" -Value "<True>"
+        $ServerSigning | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $($RequireSecuritySignatureDescriptions[$($ServerConfiguration.RequireSecuritySignature -as [UInt32])])
         $AllResults += $ServerSigning
 
-        # Client - SMB signing must be set to 'required'
+        # Server - Server SPN target name validation should be enabled
 
-        if ($ClientConfiguration.RequireSecuritySignature -eq $false) {
-            $Vulnerable = $true
-            $Description = "SMB signing is not required."
-        }
-        else {
-            $Vulnerable = $false
-            $Description = "SMB signing is required."
-        }
+        if ($ServerConfiguration.SmbServerNameHardeningLevel -eq 0) { $Vulnerable = $true }
+
+        $ServerNameHardeningLevel = New-Object -TypeName PSObject
+        $ServerNameHardeningLevel | Add-Member -MemberType "NoteProperty" -Name "Role" -Value "Server"
+        $ServerNameHardeningLevel | Add-Member -MemberType "NoteProperty" -Name "Parameter" -Value "SmbServerNameHardeningLevel"
+        $ServerNameHardeningLevel | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $ServerConfiguration.SmbServerNameHardeningLevel
+        $ServerNameHardeningLevel | Add-Member -MemberType "NoteProperty" -Name "Expected" -Value "<1|2>"
+        $ServerNameHardeningLevel | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $SmbServerNameHardeningLevelDescriptions[$ServerConfiguration.SmbServerNameHardeningLevel]
+        $AllResults += $ServerNameHardeningLevel
+
+        # Client - SMB signing should be set to 'required'
+
+        if ($ClientConfiguration.RequireSecuritySignature -ne $true) { $Vulnerable = $true }
 
         $ClientSigning = New-Object -TypeName PSObject
         $ClientSigning | Add-Member -MemberType "NoteProperty" -Name "Role" -Value "Client"
         $ClientSigning | Add-Member -MemberType "NoteProperty" -Name "Parameter" -Value "RequireSecuritySignature"
-        $ClientSigning | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $ClientConfiguration.RequireSecuritySignature
-        $ClientSigning | Add-Member -MemberType "NoteProperty" -Name "Vulnerable" -Value $Vulnerable
-        $ClientSigning | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+        $ClientSigning | Add-Member -MemberType "NoteProperty" -Name "Value" -Value  $ClientConfiguration.RequireSecuritySignature
+        $ClientSigning | Add-Member -MemberType "NoteProperty" -Name "Expected" -Value "<True>"
+        $ClientSigning | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $($RequireSecuritySignatureDescriptions[$($ClientConfiguration.RequireSecuritySignature -as [UInt32])])
         $AllResults += $ClientSigning
 
         # Final result
-
-        $Vulnerable = ([object[]] ($AllResults | Where-Object { $_.Vulnerable -eq $true })).Count
 
         $CheckResult = New-Object -TypeName PSObject
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults

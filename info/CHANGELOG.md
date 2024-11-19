@@ -1,5 +1,11 @@
 # Changelog
 
+## 2024-11-19
+
+### Added
+
+- The "Server SPN target name validation level" is now reported in the SMB configuration check.
+
 ## 2024-11-06
 
 ### Added
