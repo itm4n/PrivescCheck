@@ -1245,20 +1245,20 @@ function Get-WlanProfileList {
         [UInt32] $ClientVersion = 2 # Client version for Windows Vista and Windows Server 2008
         $Result = $script:Wlanapi::WlanOpenHandle($ClientVersion, [IntPtr]::Zero, [ref] $NegotiatedVersion, [ref] $ClientHandle)
         if ($Result -ne 0) {
-            Write-Warning "$($MyInvocation.MyCommand.Name) | WlanOpenHandle() failed (Err: $($Result))"
+            Write-Warning "WlanOpenHandle - $([ComponentModel.Win32Exception] $Result)"
             return
         }
 
         [IntPtr] $InterfaceListPtr = [IntPtr]::Zero
         $Result = $script:Wlanapi::WlanEnumInterfaces($ClientHandle, [IntPtr]::Zero, [ref] $InterfaceListPtr)
         if ($Result -ne 0) {
-            Write-Warning "$($MyInvocation.MyCommand.Name) | WlanEnumInterfaces() failed (Err: $($Result))"
+            Write-Warning "WlanEnumInterfaces - $([ComponentModel.Win32Exception] $Result)"
             $script:Wlanapi::WlanCloseHandle($ClientHandle, [IntPtr]::Zero)
             return
         }
 
         $NumberOfInterfaces = [Runtime.InteropServices.Marshal]::ReadInt32($InterfaceListPtr)
-        Write-Verbose "$($MyInvocation.MyCommand.Name) | Number of WLAN interfaces: $($NumberOfInterfaces)"
+        Write-Verbose "Number of WLAN interfaces: $($NumberOfInterfaces)"
 
         $WlanInterfaceInfoPtr = [IntPtr] ($InterfaceListPtr.ToInt64() + 8) # dwNumberOfItems + dwIndex
 
@@ -1271,7 +1271,7 @@ function Get-WlanProfileList {
             if ($Result -eq 0) {
 
                 $NumberOfProfiles = [Runtime.InteropServices.Marshal]::ReadInt32($ProfileListPtr)
-                Write-Verbose "$($MyInvocation.MyCommand.Name) | Number of WLAN profiles: $($NumberOfProfiles)"
+                Write-Verbose "Number of WLAN profiles: $($NumberOfProfiles)"
 
                 $WlanProfileInfoPtr = [IntPtr] ($ProfileListPtr.ToInt64() + 8) # dwNumberOfItems + dwIndex
 
@@ -1287,7 +1287,7 @@ function Get-WlanProfileList {
                         Convert-WlanXmlProfile -WlanProfile $ProfileXml
                     }
                     else {
-                        Write-Warning "$($MyInvocation.MyCommand.Name) | WlanGetProfile() failed (Err: $($Result))"
+                        Write-Warning "WlanGetProfile - $([ComponentModel.Win32Exception] $Result)"
                     }
 
                     $WlanProfileInfoPtr = [IntPtr] ($WlanProfileInfoPtr.ToInt64() + [System.Runtime.InteropServices.Marshal]::SizeOf($WlanProfileInfo))
@@ -1296,7 +1296,7 @@ function Get-WlanProfileList {
                 $script:Wlanapi::WlanFreeMemory($ProfileListPtr)
             }
             else {
-                Write-Warning "$($MyInvocation.MyCommand.Name) | WlanGetProfileList() failed (Err: $($Result))"
+                Write-Warning "WlanGetProfileList - $([ComponentModel.Win32Exception] $Result)"
             }
 
             $WlanInterfaceInfoPtr = [IntPtr] ($WlanInterfaceInfoPtr.ToInt64() + [System.Runtime.InteropServices.Marshal]::SizeOf($WlanInterfaceInfo))
