@@ -1256,63 +1256,83 @@ function Get-FileExtensionAssociation {
     }
 }
 
-function Get-NetWkstaInfo {
-    <#
-    .SYNOPSIS
-    Wrapper for the API NetWkstaGetInfo
-
-    Author: @itm4n
-    License: BSD 3-Clause
-
-    .DESCRIPTION
-    This cmdlet is a wrapper for the Windows API NetWkstaGetInfo.
-
-    .PARAMETER Level
-    Specifies the information level of the data.
-
-    .EXAMPLE
-    PS C:\> Get-NetWkstaGetInfo -Level 102
-
-    PlatformId    : 500
-    ComputerName  : DESKTOP-AAAAAAA
-    LanGroup      : WORKGROUP
-    VerMajor      : 10
-    VerMinor      : 0
-    LanRoot       :
-    LoggedOnUsers : 2
-
-    .LINK
-    https://learn.microsoft.com/en-us/windows/win32/api/lmwksta/nf-lmwksta-netwkstagetinfo
-    #>
+function Get-DomainInformation {
 
     [CmdletBinding()]
     param (
-        [ValidateSet(100, 101, 102)]
-        [UInt32] $Level = 100
+        [switch] $Azure = $false
     )
 
-    begin {
-        switch ($Level) {
-            100 { $InfoType = $script:WKSTA_INFO_100 }
-            101 { $InfoType = $script:WKSTA_INFO_101 }
-            102 { $InfoType = $script:WKSTA_INFO_102 }
-        }
-    }
-
     process {
-        $BufferPtr = [IntPtr]::Zero
-        $RetVal = $Netapi32::NetWkstaGetInfo([IntPtr]::Zero, $Level, [ref] $BufferPtr)
-        if ($RetVal -ne 0) {
-            Write-Warning "NetWkstaGetInfo - $([ComponentModel.Win32Exception] $RetVal)"
-            return
+        if ($Azure) {
+            $WindowsVersion = Get-WindowsVersion
+
+            if ($WindowsVersion.Major -lt 10) {
+                Write-Warning "NetGetAadJoinInformation is not supported on this version of Windows."
+                return
+            }
+
+            $JoinInfoPtr = [IntPtr]::Zero
+            $RetVal = $script:Netapi32::NetGetAadJoinInformation($null, [ref] $JoinInfoPtr)
+            if ($RetVal -ne 0) {
+                if ($RetVal -eq 1) {
+                    # This return code is expected on machines which are not joined to an Azure AD
+                    # domain.
+                    Write-Verbose "No Azure Active Directory configuration found on this machine."
+                }
+                else {
+                    Write-Warning "NetGetAadJoinInformation - $([ComponentModel.Win32Exception] $RetVal)"
+                }
+                return
+            }
+
+            if ($JoinInfoPtr -eq [IntPtr]::Zero) { return }
+
+            $JoinInfo = [Runtime.InteropServices.Marshal]::PtrToStructure($JoinInfoPtr, [type] $script:DSREG_JOIN_INFO)
+
+            $Result = New-Object -TypeName PSObject
+            $Result | Add-Member -MemberType "NoteProperty" -Name "JoinType" -Value $JoinInfo.JoinType
+            $Result | Add-Member -MemberType "NoteProperty" -Name "DeviceId" -Value $JoinInfo.DeviceId
+            $Result | Add-Member -MemberType "NoteProperty" -Name "IdpDomain" -Value $JoinInfo.IdpDomain
+            $Result | Add-Member -MemberType "NoteProperty" -Name "TenantId" -Value $JoinInfo.TenantId
+            $Result | Add-Member -MemberType "NoteProperty" -Name "JoinUserEmail" -Value $JoinInfo.JoinUserEmail
+            $Result | Add-Member -MemberType "NoteProperty" -Name "TenantDisplayName" -Value $JoinInfo.TenantDisplayName
+            $Result | Add-Member -MemberType "NoteProperty" -Name "MdmEnrollmentUrl" -Value $JoinInfo.MdmEnrollmentUrl
+            $Result | Add-Member -MemberType "NoteProperty" -Name "MdmTermsOfUseUrl" -Value $JoinInfo.MdmTermsOfUseUrl
+            $Result | Add-Member -MemberType "NoteProperty" -Name "MdmComplianceUrl" -Value $JoinInfo.MdmComplianceUrl
+            $Result | Add-Member -MemberType "NoteProperty" -Name "UserSettingSyncUrl" -Value $JoinInfo.UserSettingSyncUrl
+
+            if ($JoinInfo.UserInfo -ne [IntPtr]::Zero) {
+                $UserInfo = [Runtime.InteropServices.Marshal]::PtrToStructure($JoinInfo.UserInfo, [type] $script:DSREG_USER_INFO)
+                $Result | Add-Member -MemberType "NoteProperty" -Name "UserEmail" -Value $UserInfo.UserEmail
+                $Result | Add-Member -MemberType "NoteProperty" -Name "UserKeyId" -Value $UserInfo.UserKeyId
+                $Result | Add-Member -MemberType "NoteProperty" -Name "UserKeyName" -Value $UserInfo.UserKeyName
+            }
+
+            $Result
+
+            # NetFreeAadJoinInformation does not return any status code.
+            $Netapi32::NetFreeAadJoinInformation($JoinInfoPtr)
         }
+        else {
+            $NameBufferPtr = [IntPtr]::Zero
+            $BufferType = 0
+            $RetVal = $script:Netapi32::NetGetJoinInformation([IntPtr]::Zero, [ref] $NameBufferPtr, [ref] $BufferType)
+            if ($RetVal -ne 0) {
+                Write-Warning "NetGetJoinInformation - $([ComponentModel.Win32Exception] $RetVal)"
+                return
+            }
 
-        [System.Runtime.InteropServices.Marshal]::PtrToStructure($BufferPtr, [type] $InfoType)
+            $Result = New-Object -TypeName PSObject
+            $Result | Add-Member -MemberType "NoteProperty" -Name "NameBuffer" -Value $([Runtime.InteropServices.Marshal]::PtrToStringUni($NameBufferPtr))
+            $Result | Add-Member -MemberType "NoteProperty" -Name "BufferType" -Value $BufferType
+            $Result
 
-        $RetVal = $Netapi32::NetApiBufferFree($BufferPtr)
-        if ($RetVal -ne 0) {
-            Write-Warning "NetApiBufferFree - $([ComponentModel.Win32Exception] $RetVal)"
-            return
+            $RetVal = $Netapi32::NetApiBufferFree($NameBufferPtr)
+            if ($RetVal -ne 0) {
+                Write-Warning "NetApiBufferFree - $([ComponentModel.Win32Exception] $RetVal)"
+                return
+            }
         }
     }
 }

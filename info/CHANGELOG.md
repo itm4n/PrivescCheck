@@ -1,5 +1,19 @@
 # Changelog
 
+## 2024-11-21
+
+### Added
+
+- New wrapper cmdlets for obtaining (Azure) domain information.
+
+### Changed
+
+- The "Test-IsDomainJoined" cmdlet was modified so that it now relies on (Azure) domain information, which is more reliable than "NetWkstaGetInfo".
+
+### Removed
+
+- The wrapper cmdlet for "NetWkstaGetInfo" was removed since it's no longer used.
+
 ## 2024-11-19
 
 ### Added

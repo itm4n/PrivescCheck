@@ -39,8 +39,10 @@ $FunctionDefinitions = @(
     (New-Function kernel32 FreeLibrary ([Bool]) @([IntPtr]) -EntryPoint FreeLibrary -SetLastError),
     (New-Function kernel32 GetModuleFileName ([UInt32]) @([IntPtr], [System.Text.StringBuilder], [UInt32]) ([Runtime.InteropServices.CallingConvention]::Winapi) ([Runtime.InteropServices.CharSet]::Unicode) -EntryPoint GetModuleFileNameW -SetLastError),
 
-    (New-Function netapi32 NetWkstaGetInfo ([UInt32]) @([IntPtr], [UInt32], [IntPtr].MakeByRefType()) -EntryPoint NetWkstaGetInfo -Charset Unicode),
-    (New-Function netapi32 NetApiBufferFree ([uint32]) @([IntPtr]) -EntryPoint NetApiBufferFree),
+    (New-Function netapi32 NetGetJoinInformation ([UInt32]) @([IntPtr], [IntPtr].MakeByRefType(), $script:NETSETUP_JOIN_STATUS.MakeByRefType()) -EntryPoint NetGetJoinInformation -Charset Unicode),
+    (New-Function netapi32 NetGetAadJoinInformation ([Int32]) @([String], [IntPtr].MakeByRefType()) -EntryPoint NetGetAadJoinInformation -Charset Unicode),
+    (New-Function netapi32 NetApiBufferFree ([UInt32]) @([IntPtr]) -EntryPoint NetApiBufferFree),
+    (New-Function netapi32 NetFreeAadJoinInformation ([Void]) @([IntPtr]) -EntryPoint NetFreeAadJoinInformation),
 
     (New-Function ntdll RtlNtStatusToDosError ([UInt32]) @([UInt32]) -EntryPoint RtlNtStatusToDosError),
     (New-Function ntdll RtlInitUnicodeString ([IntPtr]) @($script:UNICODE_STRING.MakeByRefType(), [String]) -EntryPoint RtlInitUnicodeString),

@@ -425,3 +425,16 @@ $script:FIRMWARE_TYPE = New-Enum $Module WinApiModule.FIRMWARE_TYPE UInt32 @{
     Uefi                                = '0x00000002'
     Max                                 = '0x00000003'
 }
+
+$script:NETSETUP_JOIN_STATUS = New-Enum $Module WinApiModule.NETSETUP_JOIN_STATUS UInt32 @{
+    NetSetupUnknownStatus               = '0x00000000'
+    NetSetupUnjoined                    = '0x00000001'
+    NetSetupWorkgroupName               = '0x00000002'
+    NetSetupDomainName                  = '0x00000003'
+}
+
+$script:DSREG_JOIN_TYPE = New-Enum $Module WinApiModule.DSREG_JOIN_TYPE UInt32 @{
+    DSREG_UNKNOWN_JOIN                  = '0x00000000'
+    DSREG_DEVICE_JOIN                   = '0x00000001'
+    DSREG_WORKPLACE_JOIN                = '0x00000002'
+}

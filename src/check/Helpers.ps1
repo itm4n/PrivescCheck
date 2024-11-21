@@ -704,20 +704,19 @@ function Test-IsDomainJoined {
     [CmdletBinding()]
     param()
 
-    $WorkstationInfo = Get-NetWkstaInfo
-    if ($null -eq $WorkstationInfo) {
-        Write-Warning "Test-IsDomainJoined - Failed to get workstation information."
-        return $false
+    $DomainInfo = Get-DomainInformation
+
+    if ($DomainInfo.BufferType -eq $script:NETSETUP_JOIN_STATUS::NetSetupDomainName) {
+        return $true
     }
 
-    if ([string]::IsNullOrEmpty($WorkstationInfo.LanGroup)) {
-        Write-Warning "Test-IsDomainJoined - Attribute 'LanGroup' is null."
-        return $false
+    $DomainInfo = Get-DomainInformation -Azure
+
+    if ($DomainInfo.JoinType -eq $script:DSREG_JOIN_TYPE::DSREG_DEVICE_JOIN) {
+        return $true
     }
 
-    Write-Verbose "Test-IsDomainJoined - LAN group: $($WorkstationInfo.LanGroup)"
-
-    return $WorkstationInfo.LanGroup -ne "WORKGROUP"
+    return $false
 }
 
 function Get-FileHashHex {
