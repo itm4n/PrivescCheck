@@ -316,7 +316,7 @@ function Get-SystemInformation {
         $Result | Add-Member -MemberType "NoteProperty" -Name "BaseBoardManufacturer" -Value $BaseBoardManufacturer
         $Result | Add-Member -MemberType "NoteProperty" -Name "BaseBoardProduct" -Value $BaseBoardProduct
         $Result | Add-Member -MemberType "NoteProperty" -Name "BiosMode" -Value $BiosMode
-        $Result | Add-Member -MemberType "NoteProperty" -Name "BiosReleaseDate" -Value ([DateTime] $BiosReleaseDate)
+        $Result | Add-Member -MemberType "NoteProperty" -Name "BiosReleaseDate" -Value $(Convert-DateToString -Date $BiosReleaseDate)
         $Result | Add-Member -MemberType "NoteProperty" -Name "BiosVendor" -Value $BiosVendor
         $Result | Add-Member -MemberType "NoteProperty" -Name "BiosVersion" -Value $BiosVersion
         $Result | Add-Member -MemberType "NoteProperty" -Name "SystemFamily" -Value $SystemFamily

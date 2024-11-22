@@ -91,13 +91,34 @@ function Convert-DateToString {
     [OutputType([String])]
     [CmdletBinding()]
     param(
-        [System.DateTime] $Date
+        [Object] $Date,
+        [String] $DateString,
+        [Switch] $IncludeTime
     )
 
-    if ($null -ne $Date) {
-        $OutString = ""
-        $OutString += $Date.ToString('yyyy-MM-dd - HH:mm:ss')
-        $OutString
+    begin {
+        if ($IncludeTime) {
+            $DateFormat = "yyyy-MM-dd - HH:mm:ss"
+        }
+        else {
+            $DateFormat = "yyyy-MM-dd"
+        }
+    }
+
+    process {
+        if (($null -eq $Date) -and ([string]::IsNullOrEmpty($DateString))) {
+            Write-Warning "Cannot convert date, input object is null."
+            return
+        }
+
+        if ([string]::IsNullOrEmpty($DateString)) {
+            $Date = [DateTime] $Date
+        }
+        else {
+            $Date = [DateTime] $DateString
+        }
+
+        $Date.ToString($DateFormat)
     }
 }
 

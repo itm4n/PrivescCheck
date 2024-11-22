@@ -25,7 +25,7 @@ function Invoke-WindowsUpdateCheck {
 
         if ($WindowsUpdate.LastInstallationSuccessDate) {
             $WindowsUpdateResult = New-Object -TypeName PSObject
-            $WindowsUpdateResult | Add-Member -MemberType "NoteProperty" -Name "Time" -Value $(Convert-DateToString -Date $WindowsUpdate.LastInstallationSuccessDate)
+            $WindowsUpdateResult | Add-Member -MemberType "NoteProperty" -Name "Time" -Value $(Convert-DateToString -Date $WindowsUpdate.LastInstallationSuccessDate -IncludeTime)
             $WindowsUpdateResult | Add-Member -MemberType "NoteProperty" -Name "TimeRaw" -Value $WindowsUpdate.LastInstallationSuccessDate
             $WindowsUpdateResult
         }
