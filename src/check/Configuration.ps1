@@ -777,8 +777,10 @@ function Invoke-SmbConfigurationCheck {
         $AllResults += $ServerSigning
 
         # Server - Server SPN target name validation should be enabled
+        # This setting is recommended only as a workaround for cases where SMB signing
+        # cannot be enforced. If SMB signing in enforced, this setting is irrelevant.
 
-        if ($ServerConfiguration.SmbServerNameHardeningLevel -eq 0) { $Vulnerable = $true }
+        if (($ServerConfiguration.SmbServerNameHardeningLevel -eq 0) -and ($ServerConfiguration.RequireSecuritySignature -ne $true)) { $Vulnerable = $true }
 
         $ServerNameHardeningLevel = New-Object -TypeName PSObject
         $ServerNameHardeningLevel | Add-Member -MemberType "NoteProperty" -Name "Role" -Value "Server"
