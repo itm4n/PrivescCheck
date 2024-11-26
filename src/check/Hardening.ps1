@@ -552,6 +552,12 @@ function Invoke-LsaProtectionCheck {
         $RegKey = "HKLM\SYSTEM\CurrentControlSet\Control\Lsa"
         $RegValue = "RunAsPPL"
         $OsVersion = Get-WindowsVersion
+
+        $RunAsPplDescriptions = @(
+            "LSA Protection is not enabled."
+            "LSA Protection is enabled with UEFI lock (i.e. the feature is backed by a UEFI variable)."
+            "LSA Protection is enabled without UEFI lock (i.e. the feature is not backed by a UEFI variable)."
+        )
     }
 
     process {
@@ -564,11 +570,12 @@ function Invoke-LsaProtectionCheck {
         else {
             $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
 
-            if ($RegData -ge 1) {
-                $Description = "LSA protection is enabled."
+            if ($null -ne $RegData) {
+                $Description = $RunAsPplDescriptions[$RegData]
+                if ($RegData -eq 0) { $Vulnerable = $true }
             }
             else {
-                $Description = "LSA protection is not enabled."
+                $Description = $RunAsPplDescriptions[0]
                 $Vulnerable = $true
             }
         }
