@@ -164,7 +164,7 @@ function Get-UnattendSensitiveData {
     }
 }
 
-function Get-VaultCredential {
+function Get-CredentialItem {
     <#
     .SYNOPSIS
     Helper - Enumerates Windows Credentials
@@ -176,7 +176,7 @@ function Get-VaultCredential {
     If True, only entries with a readable (i.e. non-empty) password are returned.
 
     .EXAMPLE
-    PS C:\> Get-VaultCredential -Filtered
+    PS C:\> Get-CredentialItem -Filtered
 
     TargetName : LegacyGeneric:target=https://github.com/
     UserName   : user@example.com
@@ -237,7 +237,7 @@ function Get-VaultCredential {
     }
 }
 
-function Get-VaultList {
+function Get-VaultItem {
 
     [CmdletBinding()]
     param(
