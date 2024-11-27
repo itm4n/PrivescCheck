@@ -1,5 +1,11 @@
 # Changelog
 
+## 2024-11-27
+
+### Changed
+
+- The web proxy auto-configuration check was refactored to include WPAD settings.
+
 ## 2024-11-21
 
 ### Added
