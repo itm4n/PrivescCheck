@@ -226,6 +226,7 @@
         "Wlanapi",
         "wlanhlp",
         "wlbsctrl",
+        "WPAD",
         "Wpts",
         "Wtsapi"
     ]

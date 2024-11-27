@@ -654,15 +654,101 @@ function Invoke-ProxyAutoConfigurationUrlCheck {
     )
 
     begin {
-        $AllResults = @()
+        $HostFilePath = Join-Path -Path $env:windir -ChildPath "System32\drivers\etc\hosts"
+
+        $WinHttpAutoProxyServiceEnabledDescriptions = @(
+            "The WinHTTP Web Proxy Auto-Discovery service is disabled.",
+            "The WinHTTP Web Proxy Auto-Discovery service is not disabled."
+        )
+
+        $WpadHostEntryExistsDescriptions = @(
+            "No 'wpad' entry was found in the 'hosts' file.",
+            "A 'wpad' entry was found in the 'hosts' file."
+        )
+
+        $DisableWpadDescriptions = @(
+            "WPAD is not disabled in the registry (HKLM).",
+            "WPAD is disabled in the registry (HKLM)."
+        )
+
+        $AutoDetectDisabledDescriptions = @(
+            "Proxy auto detection is not disabled in the registry (HKCU).",
+            "Proxy auto detection is disabled in the registry (HKCU)."
+        )
     }
 
     process {
-        $AllResults = Get-ProxyAutoConfigURl | Where-Object { $_.ProxyEnable -ne 0 }
-        $Vulnerable = $null -ne ($AllResults | Where-Object { $_.AutoConfigURL -like "http://*" })
+        # Assume the configuration is vulnerable. We will check the different
+        # remediation measures, and mark the configuration as "not vulnerable" as soon
+        # as we find one implemented.
+        $WpadVulnerable = $true
+        $PacUrlVulnerable = $false
+
+        # Is the service 'WinHttpAutoProxySvc' disabled?
+        $WinHttpAutoProxyService = Get-ServiceList -FilterLevel 2 | Where-Object { $_.Name -eq "WinHttpAutoProxySvc" }
+        $WinHttpAutoProxyServiceEnabled = $WinHttpAutoProxyService.StartMode -ne "Disabled"
+        if ($WpadVulnerable -and (-not $WinHttpAutoProxyServiceEnabled)) { $WpadVulnerable = $false }
+
+        # Is there a "WPAD" entry in the "hosts" file, we don't care about the value,
+        # but we should ensure the entry is not commented if one exists.
+        $WpadHostEntries = Select-String -Pattern "wpad" -Path $HostFilePath | Where-Object { $_.Line -notmatch "^\s*#.*$" }
+        $WpadHostEntryExists = $null -ne $WpadHostEntries
+        if ($WpadVulnerable -and ($WpadHostEntryExists)) { $WpadVulnerable = $false }
+
+        # Check if the following registry values are configured.
+        $DisableWpadRegKey = "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Internet Settings\WinHttp"
+        $DisableWpadRegValue = "DisableWpad"
+        $DisableWpadRegData = (Get-ItemProperty -Path "Registry::$($DisableWpadRegKey)" -Name $DisableWpadRegValue -ErrorAction SilentlyContinue).$DisableWpadRegValue
+        $WpadDisabled = $DisableWpadRegData -eq 1
+
+        $AutoDetectRegKey = "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Internet Settings"
+        $AutoDetectRegValue = "AutoDetect"
+        $AutoDetectRegData = (Get-ItemProperty -Path "Registry::$($AutoDetectRegKey)" -Name $AutoDetectRegValue -ErrorAction SilentlyContinue).$AutoDetectRegValue
+        $AutoDetectDisabled = $AutoDetectRegData -eq 0
+        if ($WpadVulnerable -and ($WpadDisabled -and $AutoDetectDisabled)) { $WpadVulnerable = $false }
+
+        # Check if an PAC URL is configure in the machine
+        $MachineAutoConfigUrlRegKey = "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Internet Settings"
+        $MachineAutoConfigUrlRegValue = "AutoConfigURL"
+        $MachineAutoConfigUrlRegData = (Get-ItemProperty -Path "Registry::$($MachineAutoConfigUrlRegKey)" -Name $MachineAutoConfigUrlRegValue -ErrorAction SilentlyContinue).$MachineAutoConfigUrlRegValue
+        if ((-not $PacUrlVulnerable) -and ($MachineAutoConfigUrlRegData -like "http://*")) { $PacUrlVulnerable = $true }
+
+        $UserAutoConfigUrlRegKey = "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Internet Settings"
+        $UserAutoConfigUrlRegValue = "AutoConfigURL"
+        $UserAutoConfigUrlRegData = (Get-ItemProperty -Path "Registry::$($UserAutoConfigUrlRegKey)" -Name $UserAutoConfigUrlRegValue -ErrorAction SilentlyContinue).$UserAutoConfigUrlRegValue
+        if ((-not $PacUrlVulnerable) -and ($UserAutoConfigUrlRegData -like "http://*")) { $PacUrlVulnerable = $true }
+
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "WinHttpAutoProxyServiceStartMode" -Value $WinHttpAutoProxyService.StartMode
+        $Result | Add-Member -MemberType "NoteProperty" -Name "WinHttpAutoProxyServiceEnabled" -Value $WinHttpAutoProxyServiceEnabled
+        $Result | Add-Member -MemberType "NoteProperty" -Name "WinHttpAutoProxyServiceDescription" -Value $WinHttpAutoProxyServiceEnabledDescriptions[[UInt32]$WinHttpAutoProxyServiceEnabled]
+
+        $Result | Add-Member -MemberType "NoteProperty" -Name "WpadHostEntry" -Value $(if ($WpadHostEntryExists) { $WpadHostEntries[0].Line } else { "(null)" })
+        $Result | Add-Member -MemberType "NoteProperty" -Name "WpadHostEntryExists" -Value $WpadHostEntryExists
+        $Result | Add-Member -MemberType "NoteProperty" -Name "WpadHostEntryDescription" -Value $WpadHostEntryExistsDescriptions[[UInt32]$WpadHostEntryExists]
+
+        $Result | Add-Member -MemberType "NoteProperty" -Name "DisableWpadKey" -Value $DisableWpadRegKey
+        $Result | Add-Member -MemberType "NoteProperty" -Name "DisableWpadValue" -Value $DisableWpadRegValue
+        $Result | Add-Member -MemberType "NoteProperty" -Name "DisableWpadData" -Value $(if ($null -ne $DisableWpadRegData) { $DisableWpadRegData } else { "(null)" })
+        $Result | Add-Member -MemberType "NoteProperty" -Name "DisableWpadDescription" -Value $DisableWpadDescriptions[[UInt32]$WpadDisabled]
+
+        $Result | Add-Member -MemberType "NoteProperty" -Name "AutoDetectKey" -Value $AutoDetectRegKey
+        $Result | Add-Member -MemberType "NoteProperty" -Name "AutoDetectValue" -Value $AutoDetectRegValue
+        $Result | Add-Member -MemberType "NoteProperty" -Name "AutoDetectData" -Value $(if ($null -ne $AutoDetectRegData) { $AutoDetectRegData } else { "(null)" })
+        $Result | Add-Member -MemberType "NoteProperty" -Name "AutoDetectDescription" -Value $AutoDetectDisabledDescriptions[[UInt32]$AutoDetectDisabled]
+
+        $Result | Add-Member -MemberType "NoteProperty" -Name "AutoConfigUrlMachineKey" -Value $MachineAutoConfigUrlRegKey
+        $Result | Add-Member -MemberType "NoteProperty" -Name "AutoConfigUrlMachineValue" -Value $MachineAutoConfigUrlRegValue
+        $Result | Add-Member -MemberType "NoteProperty" -Name "AutoConfigUrlMachineData" -Value $(if ($null -ne $MachineAutoConfigUrlRegData) { $MachineAutoConfigUrlRegData } else { "(null)" })
+
+        $Result | Add-Member -MemberType "NoteProperty" -Name "AutoConfigUrlUserKey" -Value $UserAutoConfigUrlRegKey
+        $Result | Add-Member -MemberType "NoteProperty" -Name "AutoConfigUrlUserValue" -Value $UserAutoConfigUrlRegValue
+        $Result | Add-Member -MemberType "NoteProperty" -Name "AutoConfigUrlUserData" -Value $(if ($null -ne $UserAutoConfigUrlRegData) { $UserAutoConfigUrlRegData } else { "(null)" })
+
+        $Vulnerable = $WpadVulnerable -or $PacUrlVulnerable
 
         $CheckResult = New-Object -TypeName PSObject
-        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Result
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
         $CheckResult
     }

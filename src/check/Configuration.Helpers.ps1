@@ -97,42 +97,6 @@ function Get-SccmCacheFile {
     }
 }
 
-function Get-ProxyAutoConfigURl {
-
-    [CmdletBinding()]
-    param()
-
-    begin {
-        $RegKeys = @(
-            "HKLM\Software\Microsoft\Windows\CurrentVersion\Internet Settings",
-            "HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings"
-        )
-    }
-
-    process {
-
-        foreach ($RegKey in $RegKeys) {
-
-            $RegValue = "ProxyEnable"
-            $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
-            if ($null -eq $RegData) { continue }
-
-            $ProxyEnable = [UInt32] $RegData
-
-            $RegValue = "AutoConfigURL"
-            $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
-
-            $ProxyAutoConfigUrl = $RegData
-
-            $Result = New-Object -TypeName PSObject
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
-            $Result | Add-Member -MemberType "NoteProperty" -Name "ProxyEnable" -Value $ProxyEnable
-            $Result | Add-Member -MemberType "NoteProperty" -Name "AutoConfigURL" -Value $ProxyAutoConfigUrl
-            $Result
-        }
-    }
-}
-
 function Get-WindowsDefenderExclusion {
     <#
     .SYNOPSIS
