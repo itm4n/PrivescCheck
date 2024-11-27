@@ -646,7 +646,21 @@ function Invoke-SccmCacheFolderCheck {
     }
 }
 
-function Invoke-ProxyAutoConfigurationUrlCheck {
+function Invoke-ProxyAutoConfigurationCheck {
+    <#
+    .SYNOPSIS
+    Check whether Web Proxy Auto-Discovery (WPAD) is enabled, and whether a Proxy Auto-Configuration (PAC) file is distributed over HTTPS.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet checks various mitigation measures that allow the disabling of WPAD. It also enumerates PAC URLs to check whether they use the HTTPS protocol.
+
+    .LINK
+    https://projectblack.io/blog/disable-wpad-via-gpo/
+    https://learn.microsoft.com/en-us/troubleshoot/windows-server/networking/disable-http-proxy-auth-features#how-to-disable-wpad
+    #>
 
     [CmdletBinding()]
     param(
