@@ -215,7 +215,12 @@ function Get-TpmDeviceType {
     )
 
     begin {
-        $DiscreteTpmVendorIds = @("ATML","CSCO","FLYS","IFX","NSG","NSM","NTC","NTZ","SNS","STM")
+        # Note: vendor IDs are represented by 4 bytes, or rather 4 ASCII chars.
+        # IDs made of 3 characters are generally padded with a null byte, except
+        # for 'NSM' and 'STM', which are padded with a space! Interestingly enough,
+        # this is not defined by the TCG, but rather by the ID requestor (ie the
+        # vendor).
+        $DiscreteTpmVendorIds = @("ATML","CSCO","FLYS","IFX","NSG","NSM ","NTC","NTZ","SNS","STM ")
         $IntegratedTpmVendorIds = @("BRCM","INTC","ROCC","SMSC","TXN")
         $FirmwareTpmVendorIds = @("AMD","HISI","HPE","INTC","LEN","QCOM","SECE","SMSN")
         $VirtualTpmVendorIds = @("IBM","GOOG","MSFT")
