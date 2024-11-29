@@ -505,7 +505,7 @@ function Invoke-PointAndPrintConfigurationCheck {
                 # setting that constrains where drivers can be installed from."
 
                 # ATTACK: Install a printer driver using an arbitrary DLL
-                if ($Config.PackagePointAndPrintOnly.Data -eq 0) {
+                if (($null -eq $Config.PackagePointAndPrintOnly.Data) -or ($Config.PackagePointAndPrintOnly.Data -eq 0)) {
                     # Non-package aware printer drivers can be installed, we should check the configuration
                     # of the install and update warning prompts.
                     if (($Config.NoWarningNoElevationOnInstall.Data -gt 0) -or ($Config.UpdatePromptSettings.Data -gt 0)) {
@@ -516,7 +516,7 @@ function Invoke-PointAndPrintConfigurationCheck {
                 }
 
                 # ATTACK: Install and exploit a known vulnerable printer driver
-                if ($Config.PackagePointAndPrintServerListEnabled.Data -eq 0) {
+                if (($null -eq $Config.PackagePointAndPrintServerListEnabled.Data) -or ($Config.PackagePointAndPrintServerListEnabled.Data -eq 0)) {
                     # A list of approved servers is not configured, we can exploit the configuration by
                     # setting up a print server hosting a known vulnerable printer driver.
                     $Severity = [Math]::Max([UInt32] $Severity, [UInt32] $script:SeverityLevelEnum::Medium) -as $script:SeverityLevelEnum
