@@ -438,7 +438,7 @@ function Invoke-EndpointProtectionCheck {
         }
 
         # Check installed services
-        Get-ServiceList -FilterLevel 1 | ForEach-Object {
+        Get-ServiceFromRegistry -FilterLevel 1 | ForEach-Object {
 
             Find-ProtectionSoftware -Object $_ | ForEach-Object {
 
@@ -538,19 +538,18 @@ function Invoke-HijackableDllCheck {
             [String] $Link
         )
 
-        $Service = Get-ServiceFromRegistry -Name $ServiceName
-        if ($Service -and ($Service.StartMode -ne "Disabled")) {
+        $Service = Get-ServiceFromRegistry -FilterLevel 2 | Where-Object { $_.Name -eq $ServiceName }
+        if (($null -eq $Service) -or ($Service.StartMode -eq "Disabled")) { return }
 
-            if (-not (Test-DllExistence -Name $DllName)) {
+        if (-not (Test-DllExistence -Name $DllName)) {
 
-                $Result = New-Object -TypeName PSObject
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $DllName
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
-                $Result | Add-Member -MemberType "NoteProperty" -Name "RunAs" -Value $Service.User
-                $Result | Add-Member -MemberType "NoteProperty" -Name "RebootRequired" -Value $RebootRequired
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Link" -Value $Link
-                $Result
-            }
+            $Result = New-Object -TypeName PSObject
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $DllName
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+            $Result | Add-Member -MemberType "NoteProperty" -Name "RunAs" -Value $Service.User
+            $Result | Add-Member -MemberType "NoteProperty" -Name "RebootRequired" -Value $RebootRequired
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Link" -Value $Link
+            $Result
         }
     }
 

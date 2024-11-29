@@ -472,8 +472,8 @@ function Invoke-PointAndPrintConfigurationCheck {
 
     process {
         # If the Print Spooler is not installed or is disabled, return immediately
-        $Service = Get-ServiceList -FilterLevel 2 | Where-Object { $_.Name -eq "Spooler" }
-        if (-not $Service -or ($Service.StartMode -eq "Disabled")) {
+        $Service = Get-ServiceFromRegistry -FilterLevel 2 | Where-Object { $_.Name -eq "Spooler" }
+        if (($null -eq $Service) -or ($Service.StartMode -eq "Disabled")) {
             Write-Verbose "The Print Spooler service is not installed or is disabled."
 
             $Result = New-Object -TypeName PSObject
@@ -699,7 +699,7 @@ function Invoke-ProxyAutoConfigurationCheck {
         $PacUrlVulnerable = $false
 
         # Is the service 'WinHttpAutoProxySvc' disabled?
-        $WinHttpAutoProxyService = Get-ServiceList -FilterLevel 2 | Where-Object { $_.Name -eq "WinHttpAutoProxySvc" }
+        $WinHttpAutoProxyService = Get-ServiceFromRegistry -FilterLevel 2 | Where-Object { $_.Name -eq "WinHttpAutoProxySvc" }
         $WinHttpAutoProxyServiceEnabled = $WinHttpAutoProxyService.StartMode -ne "Disabled"
         if ($WpadVulnerable -and (-not $WinHttpAutoProxyServiceEnabled)) { $WpadVulnerable = $false }
 

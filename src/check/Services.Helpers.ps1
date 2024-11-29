@@ -87,57 +87,6 @@ function Get-ServiceControlManagerDacl {
     }
 }
 
-function Get-ServiceFromRegistry {
-    <#
-    .SYNOPSIS
-    Extract the configuration of a service from the registry.
-
-    Author: @itm4n
-    License: BSD 3-Clause
-
-    .DESCRIPTION
-    Services' configuration is stored in teh registry under "HKLM\SYSTEM\CurrentControlSet\Services". For each service, a subkey is created and contains all the information we need. So we can just query this key to get a service's configuration.
-
-    .PARAMETER Name
-    Name of a service.
-
-    .EXAMPLE
-    PS C:\> Get-ServiceFromRegistry -Name Spooler
-
-    Name         : Spooler
-    DisplayName  : @C:\WINDOWS\system32\spoolsv.exe,-1
-    User         : LocalSystem
-    ImagePath    : C:\WINDOWS\System32\spoolsv.exe
-    StartMode    : Automatic
-    Type         : Win32OwnProcess, InteractiveProcess
-    RegistryKey  : HKLM\SYSTEM\CurrentControlSet\Services
-    RegistryPath : HKLM\SYSTEM\CurrentControlSet\Services\Spooler
-    #>
-
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory=$true)]
-        [ValidateNotNullOrEmpty()]
-        [String] $Name
-    )
-
-    $RegKeyServices = "HKLM\SYSTEM\CurrentControlSet\Services"
-    $RegKey = Join-Path -Path $RegKeyServices -ChildPath $Name
-    $RegItem = Get-ItemProperty -Path "Registry::$($RegKey)" -ErrorAction SilentlyContinue
-    if ($null -eq $RegItem) { return }
-
-    $Result = New-Object -TypeName PSObject
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $RegItem.PSChildName
-    $Result | Add-Member -MemberType "NoteProperty" -Name "DisplayName" -Value ([System.Environment]::ExpandEnvironmentVariables($RegItem.DisplayName))
-    $Result | Add-Member -MemberType "NoteProperty" -Name "User" -Value $RegItem.ObjectName
-    $Result | Add-Member -MemberType "NoteProperty" -Name "ImagePath" -Value $RegItem.ImagePath
-    $Result | Add-Member -MemberType "NoteProperty" -Name "StartMode" -Value ($RegItem.Start -as $script:ServiceStartTypeEnum)
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Type" -Value ($RegItem.Type -as $script:ServiceTypeEnum)
-    $Result | Add-Member -MemberType "NoteProperty" -Name "RegistryKey" -Value $RegKeyServices
-    $Result | Add-Member -MemberType "NoteProperty" -Name "RegistryPath" -Value $RegKey
-    $Result
-}
-
 function Test-IsKnownService {
 
     [OutputType([Boolean])]
@@ -173,7 +122,7 @@ function Test-IsKnownService {
     return $false
 }
 
-function Get-ServiceList {
+function Get-ServiceFromRegistry {
     <#
     .SYNOPSIS
     Helper - Enumerates services (based on the registry)
@@ -193,7 +142,7 @@ function Get-ServiceList {
         FilterLevel = 3 - Exclude 'Services with empty ImagePath' + 'Drivers' + 'Known services'
 
     .EXAMPLE
-    PS C:\> Get-ServiceList -FilterLevel 3
+    PS C:\> Get-ServiceFromRegistry -FilterLevel 3
 
     Name         : VMTools
     DisplayName  : VMware Tools
@@ -224,6 +173,30 @@ function Get-ServiceList {
 
     begin {
         $FsRedirectionValue = Disable-Wow64FileSystemRedirection
+
+        function Get-ServiceFromRegistryHelper {
+            param (
+                [Parameter(Mandatory=$true)]
+                [ValidateNotNullOrEmpty()]
+                [String] $Name
+            )
+
+            $RegKeyServices = "HKLM\SYSTEM\CurrentControlSet\Services"
+            $RegKey = Join-Path -Path $RegKeyServices -ChildPath $Name
+            $RegItem = Get-ItemProperty -Path "Registry::$($RegKey)" -ErrorAction SilentlyContinue
+            if ($null -eq $RegItem) { return }
+
+            $Result = New-Object -TypeName PSObject
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $RegItem.PSChildName
+            $Result | Add-Member -MemberType "NoteProperty" -Name "DisplayName" -Value ([System.Environment]::ExpandEnvironmentVariables($RegItem.DisplayName))
+            $Result | Add-Member -MemberType "NoteProperty" -Name "User" -Value $RegItem.ObjectName
+            $Result | Add-Member -MemberType "NoteProperty" -Name "ImagePath" -Value $RegItem.ImagePath
+            $Result | Add-Member -MemberType "NoteProperty" -Name "StartMode" -Value ($RegItem.Start -as $script:ServiceStartTypeEnum)
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Type" -Value ($RegItem.Type -as $script:ServiceTypeEnum)
+            $Result | Add-Member -MemberType "NoteProperty" -Name "RegistryKey" -Value $RegKeyServices
+            $Result | Add-Member -MemberType "NoteProperty" -Name "RegistryPath" -Value $RegKey
+            $Result
+        }
     }
 
     process {
@@ -235,7 +208,7 @@ function Get-ServiceList {
             $ServicesRegPath = "HKLM\SYSTEM\CurrentControlSet\Services"
             $RegAllServices = Get-ChildItem -Path "Registry::$($ServicesRegPath)" -ErrorAction SilentlyContinue
 
-            $RegAllServices | ForEach-Object { [void] $script:CachedServiceList.Add((Get-ServiceFromRegistry -Name $_.PSChildName)) }
+            $RegAllServices | ForEach-Object { [void] $script:CachedServiceList.Add((Get-ServiceFromRegistryHelper -Name $_.PSChildName)) }
         }
 
         foreach ($ServiceItem in $script:CachedServiceList) {
@@ -593,7 +566,7 @@ function Get-DriverList {
 
         Write-Verbose "Populating driver list cache..."
 
-        $Services = Get-ServiceList -FilterLevel 1 | Where-Object { @('KernelDriver','FileSystemDriver','RecognizerDriver') -contains $_.Type }
+        $Services = Get-ServiceFromRegistry -FilterLevel 1 | Where-Object { @('KernelDriver','FileSystemDriver','RecognizerDriver') -contains $_.Type }
 
         foreach ($Service in $Services) {
 

@@ -7,7 +7,7 @@ function Invoke-InstalledServiceCheck {
     License: BSD 3-Clause
 
     .DESCRIPTION
-    It uses the custom "Get-ServiceList" function to get a filtered list of services that are configured on the local machine. Then it returns each result in a custom PS object, indicating the name, display name, binary path, user and start mode of the service.
+    It uses the custom "Get-ServiceFromRegistry" function to get a filtered list of services that are configured on the local machine. Then it returns each result in a custom PS object, indicating the name, display name, binary path, user and start mode of the service.
 
     .EXAMPLE
     PS C:\> Invoke-InstalledServiceCheck | ft
@@ -20,7 +20,7 @@ function Invoke-InstalledServiceCheck {
     [CmdletBinding()]
     param()
 
-    Get-ServiceList -FilterLevel 3 | Select-Object -Property Name,DisplayName,ImagePath,User,StartMode
+    Get-ServiceFromRegistry -FilterLevel 3 | Select-Object -Property Name,DisplayName,ImagePath,User,StartMode
 }
 
 function Invoke-ServiceRegistryPermissionCheck {
@@ -59,7 +59,7 @@ function Invoke-ServiceRegistryPermissionCheck {
 
     process {
         # Get all services except the ones with an empty ImagePath or Drivers
-        $AllServices = Get-ServiceList -FilterLevel 2
+        $AllServices = Get-ServiceFromRegistry -FilterLevel 2
         Write-Verbose "Enumerating $($AllServices.Count) services..."
 
         foreach ($Service in $AllServices) {
@@ -132,7 +132,7 @@ function Invoke-ServiceUnquotedPathCheck {
 
     begin {
         # Get all services which have a non-empty ImagePath (exclude drivers as well)
-        $Services = Get-ServiceList -FilterLevel 2
+        $Services = Get-ServiceFromRegistry -FilterLevel 2
         $AllResults = @()
         $FsRedirectionValue = Disable-Wow64FileSystemRedirection
     }
@@ -205,7 +205,7 @@ function Invoke-ServiceImagePermissionCheck {
     License: BSD 3-Clause
 
     .DESCRIPTION
-    FIrst, it enumerates the services thanks to the custom "Get-ServiceList" function. For each result, it checks the permissions of the ImagePath setting thanks to the "Get-ModifiablePath" function. Each result is returned in a custom PS object.
+    FIrst, it enumerates the services thanks to the custom "Get-ServiceFromRegistry" function. For each result, it checks the permissions of the ImagePath setting thanks to the "Get-ModifiablePath" function. Each result is returned in a custom PS object.
 
     .EXAMPLE
     PS C:\> Invoke-ServiceImagePermissionCheck
@@ -227,7 +227,7 @@ function Invoke-ServiceImagePermissionCheck {
     )
 
     begin {
-        $Services = Get-ServiceList -FilterLevel 2
+        $Services = Get-ServiceFromRegistry -FilterLevel 2
         $AllResults = @()
         $FsRedirectionValue = Disable-Wow64FileSystemRedirection
     }
@@ -319,13 +319,11 @@ function Invoke-ServicePermissionCheck {
     }
 
     process {
-        # Get-ServiceList returns a list of custom Service objects. The properties of a custom Service
+        # Get-ServiceFromRegistry returns a list of custom Service objects. The properties of a custom Service
         # object are: Name, DisplayName, User, ImagePath, StartMode, Type, RegistryKey, RegistryPath.
         # We also apply the FilterLevel 1 to filter out services which have an empty ImagePath
-        $Services = Get-ServiceList -FilterLevel 1
+        $Services = Get-ServiceFromRegistry -FilterLevel 1
         Write-Verbose "Enumerating $($Services.Count) services..."
-
-
 
         # For each custom Service object in the list
         foreach ($Service in $Services) {
