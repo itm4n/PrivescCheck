@@ -566,7 +566,7 @@ function Get-ModifiablePath {
                 $ModifiablePath = Get-AclModificationRight -Path $CandidateItem.FullName -Type File
             }
 
-            if ($ModifiablePath) { $ModifiablePath; break }
+            if ($ModifiablePath) { $ModifiablePath }
 
             $CheckedPaths += $CandidatePath
         }
