@@ -1224,20 +1224,22 @@ function Invoke-MsiAutomaticRepairUacPromptCheck {
     begin {
         $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows\Installer"
         $RegValue = "DisableLUAInRepair"
-        $Vulnerable = $False
+
+        $DisableLUAInRepairDescriptions = @(
+            "The User Account Control (UAC) prompts for credentials before initiating an application repair.",
+            "The User Account Control (UAC) does not prompt for credentials before initiating an application repair."
+        )
     }
 
     process {
         $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
-
-        if (($null -ne $RegData) -and ($RegData -gt 0)) {
-            $Vulnerable = $True
-        }
+        $Vulnerable = $RegData -ge 1
 
         $Result = New-Object -TypeName PSObject
         $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
         $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
         $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $DisableLUAInRepairDescriptions[[UInt32]$Vulnerable]
 
         $CheckResult = New-Object -TypeName PSObject
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Result
