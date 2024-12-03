@@ -7,13 +7,13 @@ function Invoke-InstalledApplicationCheck {
     License: BSD 3-Clause
 
     .DESCRIPTION
-    Uses the custom "Get-InstalledProgram" function to get a filtered list of installed programs and then returns each result as a simplified PS object, indicating the name and the path of the application.
+    Uses the custom "Get-InstalledApplication" function to get a filtered list of installed programs and then returns each result as a simplified PS object, indicating the name and the path of the application.
     #>
 
     [CmdletBinding()]
     param()
 
-    Get-InstalledProgram -Filtered | Select-Object -Property Name,FullName
+    Get-InstalledApplication -Filtered | Select-Object -Property Name,FullName
 }
 
 function Invoke-InstalledApplicationPermissionCheck {
@@ -39,7 +39,7 @@ function Invoke-InstalledApplicationPermissionCheck {
     }
 
     process {
-        $InstalledPrograms = Get-InstalledProgram -Filtered
+        $InstalledPrograms = Get-InstalledApplication -Filtered
 
         foreach ($InstalledProgram in $InstalledPrograms) {
 
@@ -63,7 +63,7 @@ function Invoke-InstalledApplicationPermissionCheck {
 
             foreach ($CandidateItem in $CandidateItems) {
 
-                if (($CandidateItem -is [System.IO.FileInfo]) -and (-not (Test-CommonApplicationFile -Path $CandidateItem.FullName))) { continue }
+                if (($CandidateItem -is [System.IO.FileInfo]) -and (-not (Test-IsCommonApplicationFile -Path $CandidateItem.FullName))) { continue }
                 if ([String]::IsNullOrEmpty($CandidateItem.FullName)) { continue }
 
                 $ModifiablePaths = Get-ModifiablePath -Path $CandidateItem.FullName | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
@@ -128,7 +128,7 @@ function Invoke-ProgramDataPermissionCheck {
                 # Ignore non-executable files
                 if ([String]::IsNullOrEmpty($ProgramDataFolderChildItem.FullName)) { continue }
                 if ($ProgramDataFolderChildItem -is [System.IO.DirectoryInfo]) { continue }
-                if (($ProgramDataFolderChildItem -is [System.IO.FileInfo]) -and (-not (Test-CommonApplicationFile -Path $ProgramDataFolderChildItem.FullName))) { continue }
+                if (($ProgramDataFolderChildItem -is [System.IO.FileInfo]) -and (-not (Test-IsCommonApplicationFile -Path $ProgramDataFolderChildItem.FullName))) { continue }
 
                 $ModifiablePaths = Get-ModifiablePath -Path $ProgramDataFolderChildItem.FullName | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
                 if ($null -eq $ModifiablePaths) { continue }
@@ -371,7 +371,7 @@ function Invoke-RootFolderPermissionCheck {
                 # Check whether the current user has any modification right on a common app
                 # file within this root folder.
                 $ApplicationFileModifiablePaths = @()
-                $ApplicationFiles = Get-ChildItem -Path $RootFolder.FullName -Force -Recurse -ErrorAction SilentlyContinue | Where-Object { ($_ -is [System.IO.FileInfo]) -and (Test-CommonApplicationFile -Path $_.FullName) }
+                $ApplicationFiles = Get-ChildItem -Path $RootFolder.FullName -Force -Recurse -ErrorAction SilentlyContinue | Where-Object { ($_ -is [System.IO.FileInfo]) -and (Test-IsCommonApplicationFile -Path $_.FullName) }
                 foreach ($ApplicationFile in $ApplicationFiles) {
                     if ($ApplicationFileModifiablePaths.Count -gt $MaxFileCount) { break }
                     if ([String]::IsNullOrEmpty($ApplicationFile.FullName)) { continue }

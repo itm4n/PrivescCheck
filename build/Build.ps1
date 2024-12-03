@@ -8,38 +8,37 @@ function Invoke-Build {
 
     begin {
         $BuildProfileCore = @(
-            "src\core\Compression.ps1",
-            "src\core\Reflection.ps1",
-            "src\core\WinApi.Enum.ps1",
-            "src\core\WinApi.Struct.ps1",
-            "src\core\WinApi.Wrappers.ps1",
-            "src\core\WinApi.ps1"
+            ".\src\core\Compression.ps1",
+            ".\src\core\Reflection.ps1",
+            ".\src\core\WinApi.Enum.ps1",
+            ".\src\core\WinApi.Struct.ps1",
+            ".\src\core\WinApi.Wrappers.ps1",
+            ".\src\core\WinApi.ps1"
         )
 
         $BuildProfilePrivescCheck = $BuildProfileCore + @(
-            "src\check\Helpers.ps1",
-            "src\check\Globals.ps1",
-            "src\check\Main.ps1",
-            "src\check\User.ps1",
-            "src\check\Services.Helpers.ps1",
-            "src\check\Services.ps1",
-            "src\check\Applications.ps1",
-            "src\check\ScheduledTasks.ps1",
-            "src\check\Hardening.Helpers.ps1",
-            "src\check\Hardening.ps1",
-            "src\check\Configuration.Helpers.ps1",
-            "src\check\Configuration.ps1",
-            "src\check\Network.ps1",
-            "src\check\Updates.ps1",
-            "src\check\Credentials.Helpers.ps1",
-            "src\check\Credentials.ps1",
-            "src\check\Misc.Helpers.ps1",
-            "src\check\Misc.ps1",
-            "src\check\Msi.Helpers.ps1"
+            ".\src\helper\AccessControl.ps1",
+            ".\src\helper\Environment.ps1",
+            ".\src\helper\Msi.ps1",
+            ".\src\helper\SystemConfiguration.ps1",
+            ".\src\helper\SystemInformation.ps1",
+            ".\src\helper\Utility.ps1"
+            ".\src\check\Globals.ps1",
+            ".\src\check\Main.ps1",
+            ".\src\check\User.ps1",
+            ".\src\check\Services.ps1",
+            ".\src\check\Applications.ps1",
+            ".\src\check\ScheduledTasks.ps1",
+            ".\src\check\Hardening.ps1",
+            ".\src\check\Configuration.ps1",
+            ".\src\check\Network.ps1",
+            ".\src\check\Updates.ps1",
+            ".\src\check\Credentials.ps1",
+            ".\src\check\Misc.ps1"
         )
 
         $BuildProfilePointAndPrint = $BuildProfileCore + @(
-            "src\exploit\PointAndPrint.ps1"
+            ".\src\exploit\PointAndPrint.ps1"
         )
 
         $SanityCheck = $true

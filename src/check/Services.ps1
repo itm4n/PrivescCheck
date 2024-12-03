@@ -394,7 +394,7 @@ function Invoke-ServiceControlManagerPermissionCheck {
     }
 
     process {
-        Get-ServiceControlManagerDacl | Where-Object { $($_ | Select-Object -ExpandProperty "AceType") -match "AccessAllowed" } | ForEach-Object {
+        Get-ServiceControlManagerDiscretionaryAccessControlList | Where-Object { $($_ | Select-Object -ExpandProperty "AceType") -match "AccessAllowed" } | ForEach-Object {
 
             $CurrentAce = $_
 
@@ -453,7 +453,7 @@ function Invoke-ThirdPartyDriverCheck {
 
     process {
 
-        foreach ($Driver in (Get-DriverList)) {
+        foreach ($Driver in (Get-KernelDriver)) {
 
             $ImageFile = Get-Item -Path $Driver.ImagePathResolved -ErrorAction SilentlyContinue
 
@@ -519,7 +519,7 @@ function Invoke-VulnerableDriverCheck {
     }
 
     process {
-        Get-DriverList | Find-VulnerableDriver | ForEach-Object {
+        Get-KernelDriver | Get-KnownVulnerableKernelDriver | ForEach-Object {
 
             $ServiceObject = Get-Service -Name $_.Name -ErrorAction SilentlyContinue
             if ($null -eq $ServiceObject) { Write-Warning "Failed to query service $($_.Name)" }

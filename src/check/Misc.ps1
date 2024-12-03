@@ -21,7 +21,7 @@ function Invoke-SystemInformationCheck {
     [CmdletBinding()]
     param()
 
-    $OsVersion = Get-WindowsVersion
+    $OsVersion = Get-WindowsVersionFromRegistry
     $SystemInformation = Get-SystemInformation
 
     if ($null -eq $OsVersion) { return }
@@ -425,7 +425,7 @@ function Invoke-EndpointProtectionCheck {
         }
 
         # Check installed applications
-        Get-InstalledProgram | Select-Object -Property Name | ForEach-Object {
+        Get-InstalledApplication | Select-Object -Property Name | ForEach-Object {
 
             Find-ProtectionSoftware -Object $_ | ForEach-Object {
 
@@ -553,7 +553,7 @@ function Invoke-HijackableDllCheck {
         }
     }
 
-    $OsVersion = Get-WindowsVersion
+    $OsVersion = Get-WindowsVersionFromRegistry
 
     # Windows 10, 11, ?
     if ($OsVersion.Major -ge 10) {
@@ -678,7 +678,7 @@ function Invoke-UserSessionCheck {
     License: BSD 3-Clause
 
     .DESCRIPTION
-    This check is essentially a wrapper for the helper function Get-RemoteDesktopUserSessionList.
+    This check is essentially a wrapper for the helper function Get-RemoteDesktopUserSession.
 
     .EXAMPLE
     PS C:\> Invoke-UserSessionCheck
@@ -693,7 +693,7 @@ function Invoke-UserSessionCheck {
     [CmdletBinding()]
     param()
 
-    foreach ($Session in (Get-RemoteDesktopUserSessionList)) {
+    foreach ($Session in (Get-RemoteDesktopUserSession)) {
 
         if ([String]::IsNullOrEmpty($Session.UserName)) {
             $UserName = ""

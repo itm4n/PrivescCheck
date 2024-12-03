@@ -675,7 +675,7 @@ function Invoke-HiveFileShadowCopyPermissionCheck {
     }
 
     process {
-        foreach($ShadowCopy in $(Get-ShadowCopy)) {
+        foreach($ShadowCopy in $(Get-VolumeShadowCopyInformation)) {
 
             $ConfigPath = $(Join-Path -Path $ShadowCopy.Path -ChildPath "Windows\System32\config")
 
@@ -802,7 +802,7 @@ function Invoke-SccmNaaCredentialCheck {
     License: BSD 3-Clause
 
     .DESCRIPTION
-    The cmdlet simply invokes the Find-WmiCcmNaaCredential command to get a list of locally stored SCCM NAA credentials.
+    The cmdlet simply invokes the Get-SccmNetworkAccessAccountCredential command to get a list of locally stored SCCM NAA credentials.
     #>
 
     [CmdletBinding()]
@@ -811,7 +811,7 @@ function Invoke-SccmNaaCredentialCheck {
     )
 
     process {
-        $Entries = Find-WmiCcmNaaCredential | Sort-Object -Property NetworkAccessUsername,NetworkAccessPassword -Unique
+        $Entries = Get-SccmNetworkAccessAccountCredential | Sort-Object -Property NetworkAccessUsername,NetworkAccessPassword -Unique
 
         $CheckResult = New-Object -TypeName PSObject
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Entries
@@ -829,7 +829,7 @@ function Invoke-SccmCacheFolderCredentialCheck {
     License: BSD 3-Clause
 
     .DESCRIPTION
-    This cmdlet simply invokes the Find-SccmCacheFileCredential command to get a list of files that potentially contain hard coded credentials.
+    This cmdlet simply invokes the Get-SccmCacheFileCredential command to get a list of files that potentially contain hard coded credentials.
     #>
 
     [CmdletBinding()]
@@ -838,7 +838,7 @@ function Invoke-SccmCacheFolderCredentialCheck {
     )
 
     process {
-        $AllResults = Find-SccmCacheFileCredential
+        $AllResults = Get-SccmCacheFileCredential
 
         $CheckResult = New-Object -TypeName PSObject
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults

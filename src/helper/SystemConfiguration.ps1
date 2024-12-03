@@ -1,147 +1,396 @@
-function Get-UEFIStatus {
+function Get-WindowsDefenderExclusion {
     <#
     .SYNOPSIS
-    Helper - Gets the BIOS mode of the machine (Legacy / UEFI)
+    Helper - Enumerate Windows Defender exclusions from various locations
 
     Author: @itm4n
     License: BSD 3-Clause
 
     .DESCRIPTION
-    Invokes the "GetFirmwareEnvironmentVariable()" function from the Windows API with dummy parameters. Indeed, the queried value doesn't matter, what matters is the last error code, which you can get by invoking "GetLastError()". If the return code is ERROR_INVALID_FUNCTION, this means that the function is not supported by the BIOS so it's LEGACY. Otherwise, the error code will indicate that it cannot find the requested variable, which means that the function is supported by the BIOS so it's UEFI.
+    This cmdlet attempts to find Windows Defender exclusions from various locations, such as the Registry, or the Event Logs.
 
-    .EXAMPLE
-    PS C:\> Get-UEFIStatus
-
-    Name Status Description
-    ---- ------ -----------
-    UEFI   True BIOS mode is UEFI
+    .PARAMETER Source
+    The location to search for exclusions.
 
     .NOTES
-    https://github.com/xcat2/xcat-core/blob/master/xCAT-server/share/xcat/netboot/windows/detectefi.cpp
-    https://docs.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-getfirmwareenvironmentvariablea
-    https://github.com/ChrisWarwick/GetUEFI/blob/master/GetFirmwareBIOSorUEFI.psm1
+    Source 1 - Registry: This technique is based on a tweet by @splinter_code, mentioning that exclusions can be listed as a low-privileged user through the registry. This was fixed my Microsoft.
+    Source 2 - EventLog: This technique is based in a tweet by @VakninHai, mentioning that exclusions can be extracted from the message of event logs with the ID 5007.
+
+    .LINK
+    https://twitter.com/splinter_code/status/1481073265380581381
+    https://x.com/VakninHai/status/1796628601535652289
     #>
 
     [CmdletBinding()]
-    param()
+    param(
+        [ValidateSet("Registry", "EventLog")]
+        [string] $Source = "Registry"
+    )
 
-    $OsVersion = Get-WindowsVersion
+    begin {
+        $ExclusionsRegKeys = @(
+            "HKLM\SOFTWARE\Microsoft\Windows Defender\Exclusions",
+            "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Exclusions"
+        )
 
-    if (($OsVersion.Major -ge 10) -or (($OsVersion.Major -ge 6) -and ($OsVersion.Minor -ge 2))) {
+        $LogName = "Microsoft-Windows-Windows Defender/Operational"
+        $EventId = 5007
 
-        # Windows >= 8/2012
-
-        $FirmwareType = Get-FirmwareType
-
-        if ($FirmwareType -eq $script:FIRMWARE_TYPE::Bios) {
-            $Status = $false
-            $Description = "BIOS mode is Legacy."
-        }
-        elseif ($FirmwareType -eq $script:FIRMWARE_TYPE::Uefi) {
-            $Status = $true
-            $Description = "BIOS mode is UEFI."
-        }
-        else {
-            $Description = "BIOS mode is unknown."
+        $ExclusionNames = @{
+            "Paths" = "Path"
+            "Extensions" = "Extension"
+            "Processes" = "Process"
         }
     }
-    elseif (($OsVersion.Major -eq 6) -and ($OsVersion.Minor -eq 1)) {
 
-        # Windows = 7/2008 R2
+    process {
 
-        $null = $script:Kernel32::GetFirmwareEnvironmentVariable("", "{00000000-0000-0000-0000-000000000000}", [IntPtr]::Zero, 0)
-        $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+        switch ($Source) {
 
-        if ($LastError -eq $script:SystemErrorCodeEnum::ERROR_INVALID_FUNCTION) {
-            $Status = $false
-            $Description = "BIOS mode is Legacy."
-            Write-Verbose ([ComponentModel.Win32Exception] $LastError)
-        }
-        else {
-            $Status = $true
-            $Description = "BIOS mode is UEFI."
-            Write-Verbose ([ComponentModel.Win32Exception] $LastError)
+            "Registry" {
+
+                foreach ($ExclusionsRegKey in $ExclusionsRegKeys) {
+
+                    Get-ChildItem -Path "Registry::$($ExclusionsRegKey)" -ErrorAction SilentlyContinue | ForEach-Object {
+
+                        $Type = $ExclusionNames[$_.PSChildName]
+                        $_ | Get-Item | Select-Object -ExpandProperty property | ForEach-Object {
+
+                            $Exclusion = New-Object -TypeName PSObject
+                            $Exclusion | Add-Member -MemberType "NoteProperty" -Name "Source" -Value $Source
+                            $Exclusion | Add-Member -MemberType "NoteProperty" -Name "Type" -Value $Type
+                            $Exclusion | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $_
+                            $Exclusion
+                        }
+                    }
+                }
+            }
+
+            "EventLog" {
+
+                $RegKeyExclusionPattern = "HKLM\\SOFTWARE\\(Policies\\)?Microsoft\\Windows Defender\\Exclusions\\(Processes|Extensions|Paths)\\(.+)"
+                $Events = Get-WinEvent -LogName $LogName | Where-Object { $_.Id -eq $EventId }
+
+                foreach ($Event in $Events) {
+
+                    if ($Event.Message -match $RegKeyExclusionPattern) {
+                        $Type = $ExclusionNames[$Matches[2]]
+                        $Value = $Matches[3] -replace ' = .*'
+
+                        $Exclusion = New-Object -TypeName PSObject
+                        $Exclusion | Add-Member -MemberType "NoteProperty" -Name "Source" -Value $Source
+                        $Exclusion | Add-Member -MemberType "NoteProperty" -Name "Type" -Value $Type
+                        $Exclusion | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $Value
+                        $Exclusion
+                    }
+                }
+            }
+
+            default {
+                throw "Unhandled source: $($Source)"
+            }
         }
     }
-    else {
-        $Description = "Cannot check BIOS mode."
-    }
-
-    $Result = New-Object -TypeName PSObject
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value "UEFI"
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $Status
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
-    $Result
 }
 
-function Get-SecureBootStatus {
+function Get-PointAndPrintConfiguration {
     <#
     .SYNOPSIS
-    Helper - Get the status of Secure Boot (enabled/disabled/unsupported)
+    Get the Point and Print configuration.
 
     Author: @itm4n
     License: BSD 3-Clause
 
     .DESCRIPTION
-    In case of a UEFI BIOS, you can check whether 'Secure Boot' is enabled by looking at the 'UEFISecureBootEnabled' value of the following registry key: 'HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\SecureBoot\State'.
-
-    .EXAMPLE
-    PS C:\> Get-SecureBootStatus
-
-    Key         : HKLM\SYSTEM\CurrentControlSet\Control\SecureBoot\State
-    Value       : UEFISecureBootEnabled
-    Data        : 0
-    Description : Secure Boot is disabled
+    This cmdlet retrieves information about the Point and Print configuration, and checks whether each setting is considered as compliant depending on its value.
     #>
-
-    [CmdletBinding()]
-    param()
-
-    $RegKey = "HKLM\SYSTEM\CurrentControlSet\Control\SecureBoot\State"
-    $RegValue = "UEFISecureBootEnabled"
-    $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
-
-    if ($null -ne $RegData) {
-        if ($null -eq $RegData) {
-            $Description = "Secure Boot is not supported."
-        }
-        else {
-            $Description = "Secure Boot is $(if ($RegData -ne 1) { "not "})enabled."
-        }
-    }
-
-    Write-Verbose "$($RegValue): $($Description)"
-
-    $Result = New-Object -TypeName PSObject
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
-    $Result
-}
-
-function Get-MachineRole {
 
     [CmdletBinding()]
     param()
 
     begin {
-        $FriendlyNames = @{
-            "WinNT"     = "Workstation";
-            "LanmanNT"  = "Domain Controller";
-            "ServerNT"  = "Server";
+        $NoWarningNoElevationOnInstallDescriptions = @(
+            "Show warning and elevation prompt (default).",
+            "Do not show warning or elevation prompt. Note: this setting reintroduces the PrintNightmare LPE vulnerability, even if the settings 'InForest' and/or 'TrustedServers' are configured."
+        )
+
+        $UpdatePromptSettingsDescriptions = @(
+            "Show warning and elevation prompt (default).",
+            "Show warning only.",
+            "Do not show warning or elevation prompt."
+        )
+
+        $TrustedServersDescriptions = @(
+            "Users can point and print to any server (default).",
+            "Users can only point and print to a predefined list of servers. Note: this setting has no effect if elevation prompts are disabled."
+        )
+
+        $InForestDescriptions = @(
+            "Users can point and print to any machine (default).",
+            "Users can only point and print to machines in their forest. Note: this setting has no effect if elevation prompts are disabled."
+        )
+
+        $RestrictDriverInstallationToAdministratorsDescriptions = @(
+            "Installing printer drivers does not require administrator privileges.",
+            "Installing printer drivers when using Point and Print requires administrator privileges (default). Note: this setting supersedes any other (Package) Point and Print setting."
+        )
+
+        $PackagePointAndPrintOnlyDescriptions = @(
+            "Users will not be restricted to package-aware point and print only (default).",
+            "Users will only be able to point and print to printers that use package-aware drivers."
+        )
+
+        $PackagePointAndPrintServerListDescriptions = @(
+            "Package point and print will not be restricted to specific print servers (default).",
+            "Users will only be able to package point and print to print servers approved by the network administrator."
+        )
+    }
+
+    process {
+        $Result = New-Object -TypeName PSObject
+
+        # Policy: Computer Configuration > Administrative Templates > Printers > Point and Print Restrictions
+        # https://admx.help/?Category=Windows_10_2016&Policy=Microsoft.Policies.Printing::PointAndPrint_Restrictions
+        # - 0 = Show warning and elevation prompt (default)
+        # - 1 = Do not show warning or elevation prompt
+        $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PointAndPrint"
+        $RegValue = "NoWarningNoElevationOnInstall"
+        $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+        $RegDataDefault = 0
+        $DescriptionIndex = $(if ($null -eq $RegData) { $RegDataDefault } else { $RegData })
+
+        $Item = New-Object -TypeName PSObject
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Policy" -Value "Point and Print Restrictions > NoWarningNoElevationOnInstall"
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $RegData
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Default" -Value $RegDataDefault
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Expected" -Value "<null|0>"
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $NoWarningNoElevationOnInstallDescriptions[$DescriptionIndex]
+        $Result | Add-Member -MemberType "NoteProperty" -Name "NoWarningNoElevationOnInstall" -Value $Item
+
+        # Policy: Computer Configuration > Administrative Templates > Printers > Point and Print Restrictions
+        # https://admx.help/?Category=Windows_10_2016&Policy=Microsoft.Policies.Printing::PointAndPrint_Restrictions
+        # - 0 = Show warning and elevation prompt (default)
+        # - 1 = Show warning only
+        # - 2 = Do not show warning or elevation prompt
+        $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PointAndPrint"
+        $RegValue = "UpdatePromptSettings"
+        $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+        $RegDataDefault = 0
+        $DescriptionIndex = $(if ($null -eq $RegData) { $RegDataDefault } else { $RegData })
+
+        $Item = New-Object -TypeName PSObject
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Policy" -Value "Point and Print Restrictions > UpdatePromptSettings"
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $RegData
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Default" -Value $RegDataDefault
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Expected" -Value "<null|0>"
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $UpdatePromptSettingsDescriptions[$DescriptionIndex]
+        $Result | Add-Member -MemberType "NoteProperty" -Name "UpdatePromptSettings" -Value $Item
+
+        # Policy: Computer Configuration > Administrative Templates > Printers > Point and Print Restrictions
+        # https://admx.help/?Category=Windows_10_2016&Policy=Microsoft.Policies.Printing::PointAndPrint_Restrictions
+        # - 0 = Users can point and print to any server (default)
+        # - 1 = Users can only point and print to a predefined list of servers
+        $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PointAndPrint"
+        $RegValue = "TrustedServers"
+        $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+        $RegDataDefault = 0
+        $DescriptionIndex = $(if ($null -eq $RegData) { $RegDataDefault } else { $RegData })
+
+        $Item = New-Object -TypeName PSObject
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Policy" -Value "Point and Print Restrictions > TrustedServers"
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $RegData
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Default" -Value $RegDataDefault
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Expected" -Value "N/A"
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $TrustedServersDescriptions[$DescriptionIndex]
+        $Result | Add-Member -MemberType "NoteProperty" -Name "TrustedServers" -Value $Item
+
+        # Policy: Computer Configuration > Administrative Templates > Printers > Point and Print Restrictions
+        # https://admx.help/?Category=Windows_10_2016&Policy=Microsoft.Policies.Printing::PointAndPrint_Restrictions
+        # - 0 = Users can point and print to any machine (default)
+        # - 1 = Users can only point and print to machines in their forest
+        $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PointAndPrint"
+        $RegValue = "InForest"
+        $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+        $RegDataDefault = 0
+        $DescriptionIndex = $(if ($null -eq $RegData) { $RegDataDefault } else { $RegData })
+
+        $Item = New-Object -TypeName PSObject
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Policy" -Value "Point and Print Restrictions > InForest"
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $RegData
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Default" -Value $RegDataDefault
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Expected" -Value "N/A"
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $InForestDescriptions[$DescriptionIndex]
+        $Result | Add-Member -MemberType "NoteProperty" -Name "InForest" -Value $Item
+
+        # Policy: Computer Configuration > Administrative Templates > Printers > Point and Print Restrictions
+        # https://admx.help/?Category=Windows_10_2016&Policy=Microsoft.Policies.Printing::PointAndPrint_Restrictions
+        # - "" = Empty or undefined (default)
+        # - "foo;bar" = List of servers
+        $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PointAndPrint"
+        $RegValue = "ServerList"
+        $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+
+        $Item = New-Object -TypeName PSObject
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Policy" -Value "Point and Print Restrictions > ServerList"
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $RegData
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Default" -Value "(null)"
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Expected" -Value "N/A"
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $(if ([string]::IsNullOrEmpty($RegData)) { "A list of approved Point and Print servers is not defined (default)." } else { "A list of approved Point and Print servers is defined." })
+        $Result | Add-Member -MemberType "NoteProperty" -Name "ServerList" -Value $Item
+
+        # Policy: Limits print driver installation to Administrators
+        # https://admx.help/?Category=Windows_10_2016&Policy=Microsoft.Policies.Printing::RestrictDriverInstallationToAdministrators
+        # - 0 - Installing printer drivers does not require administrator privileges.
+        # - 1 = Installing printer drivers when using Point and Print requires administrator privileges (default).
+        $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PointAndPrint"
+        $RegValue = "RestrictDriverInstallationToAdministrators"
+        $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+        $RegDataDefault = 1
+        $DescriptionIndex = $(if ($null -eq $RegData) { $RegDataDefault } else { $RegData })
+
+        $Item = New-Object -TypeName PSObject
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Policy" -Value "Limits print driver installation to Administrators"
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $RegData
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Default" -Value $RegDataDefault
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Expected" -Value "<null|1>"
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $RestrictDriverInstallationToAdministratorsDescriptions[$DescriptionIndex]
+        $Result | Add-Member -MemberType "NoteProperty" -Name "RestrictDriverInstallationToAdministrators" -Value $Item
+
+        # Policy: Only use Package Point and Print
+        # https://admx.help/?Category=Windows_10_2016&Policy=Microsoft.Policies.Printing::PackagePointAndPrintOnly
+        # - 0 = "Users will not be restricted to package-aware point and print only (default)."
+        # - 1 = "Users will only be able to point and print to printers that use package-aware drivers."
+        $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PackagePointAndPrint"
+        $RegValue = "PackagePointAndPrintOnly"
+        $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+        $RegDataDefault = 0
+        $DescriptionIndex = $(if ($null -eq $RegData) { $RegDataDefault } else { $RegData })
+
+        $Item = New-Object -TypeName PSObject
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Policy" -Value "Package Point and print - Only use Package Point and Print"
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $RegData
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Default" -Value $RegDataDefault
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Expected" -Value "N/A"
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $PackagePointAndPrintOnlyDescriptions[$DescriptionIndex]
+        $Result | Add-Member -MemberType "NoteProperty" -Name "PackagePointAndPrintOnly" -Value $Item
+
+        # Policy: Package Point and print - Approved servers
+        # https://admx.help/?Category=Windows_10_2016&Policy=Microsoft.Policies.Printing::PackagePointAndPrintServerList
+        # - 0 = Package point and print will not be restricted to specific print servers (default).
+        # - 1 = Users will only be able to package point and print to print servers approved by the network administrator.
+        $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PackagePointAndPrint"
+        $RegValue = "PackagePointAndPrintServerList"
+        $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+        $RegDataDefault = 0
+        $DescriptionIndex = $(if ($null -eq $RegData) { $RegDataDefault } else { $RegData })
+
+        $Item = New-Object -TypeName PSObject
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Policy" -Value "Package Point and print - Approved servers > PackagePointAndPrintServerList"
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $RegData
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Default" -Value $RegDataDefault
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Expected" -Value "N/A"
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $PackagePointAndPrintServerListDescriptions[$DescriptionIndex]
+        $Result | Add-Member -MemberType "NoteProperty" -Name "PackagePointAndPrintServerListEnabled" -Value $Item
+
+        # Policy: Package Point and print - Approved servers
+        # https://admx.help/?Category=Windows_10_2016&Policy=Microsoft.Policies.Printing::PackagePointAndPrintServerList
+        $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PackagePointAndPrint\ListOfServers"
+        $RegData = Get-Item -Path ($RegKey -replace "HKLM\\","HKLM:\") -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Property
+
+        $Item = New-Object -TypeName PSObject
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Policy" -Value "Package Point and print - Approved servers > PackagePointAndPrintServerList"
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Value" -Value "N/A"
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if (-not [string]::IsNullOrEmpty($RegData)) { $RegData -join "; " })
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Default" -Value "(null)"
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Expected" -Value "N/A"
+        $Item | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $(if ([string]::IsNullOrEmpty($RegData)) { "A list of approved Package Point and Print servers is not defined (default)." } else { "A list of approved Package Point and Print servers is defined." })
+        $Result | Add-Member -MemberType "NoteProperty" -Name "PackagePointAndPrintServerList" -Value $Item
+
+        $Result
+    }
+}
+
+function Get-SmbConfiguration {
+    <#
+    .SYNOPSIS
+    Helper - Get the SMB server or client configuration
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet retrieves the SMB server or client configuration using the WMI/CIM classes MSFT_SmbServerConfiguration and MSFT_SmbClientConfiguration.
+
+    .PARAMETER Role
+    Either "Server" or "Client".
+
+    .EXAMPLE
+    PS C:\Temp> Get-SmbConfiguration -Role "Server"
+
+    AnnounceComment                        :
+    AnnounceServer                         : False
+    AsynchronousCredits                    : 64
+    ...
+    EnableSecuritySignature                : False
+    EnableSMB1Protocol                     : False
+    ...
+
+    .LINK
+    https://techcommunity.microsoft.com/t5/storage-at-microsoft/smb-signing-required-by-default-in-windows-insider/ba-p/3831704
+    https://learn.microsoft.com/en-us/powershell/module/smbshare/get-smbserverconfiguration?view=windowsserver2022-ps
+    https://learn.microsoft.com/en-us/powershell/module/smbshare/get-smbclientconfiguration?view=windowsserver2022-ps
+    #>
+
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory=$true)]
+        [ValidateSet("Server", "Client")]
+        [string] $Role
+    )
+
+    begin {
+        $Namespace = "ROOT/Microsoft/Windows/SMB"
+
+        switch ($Role) {
+            "Server" { $ClassName = "MSFT_SmbServerConfiguration" }
+            "Client" { $ClassName = "MSFT_SmbClientConfiguration" }
+            default  { throw "Unknown role: $($Role)" }
         }
     }
 
     process {
-        $RegKey = "HKLM\SYSTEM\CurrentControlSet\Control\ProductOptions"
-        $RegValue = "ProductType"
-        $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -ErrorAction SilentlyContinue).$RegValue
-
-        $Result = New-Object -TypeName PSObject
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $RegData
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Role" -Value $(try { $FriendlyNames[$RegData] } catch { "" })
-        $Result
+        try {
+            if ($PSVersionTable.PSVersion.Major -gt 2) {
+                $CimClass = Get-CimClass -ClassName $ClassName -Namespace $Namespace
+                $Invocation = Invoke-CimMethod -CimClass $CimClass -MethodName "GetConfiguration"
+                $Invocation.Output | Select-Object -Property * -ExcludeProperty "CimClass","CimInstanceProperties","CimSystemProperties","PSComputerName"
+            }
+            else {
+                $WmiObject = Get-WmiObject -Class $ClassName -Namespace $Namespace -List
+                $Invocation = $WmiObject.GetConfiguration()
+                $Invocation.Output | Select-Object -Property * -ExcludeProperty "__Genus","__Class","__Superclass","__Dynasty","__Relpath","__Property_Count","__Derivation","__Server","__Namespace","__Path","Properties","SystemProperties","Qualifiers","ClassPath","Site","Container"
+            }
+        }
+        catch {
+            Write-Warning "$($_.Exception)"
+        }
     }
 }
 
@@ -302,7 +551,7 @@ function Get-BitLockerConfiguration {
     }
 }
 
-function Get-AppLockerPolicyFromRegistry {
+function Get-AppLockerRuleFromRegistry {
     <#
     .SYNOPSIS
     Get the AppLocker policy from the registry, as an XML document.
@@ -375,7 +624,7 @@ function Get-AppLockerPolicyFromRegistry {
     }
 }
 
-function Get-AppLockerPolicyInternal {
+function Get-AppLockerRule {
     <#
     .SYNOPSIS
     Identify vulnerable AppLocker rules
@@ -454,7 +703,7 @@ function Get-AppLockerPolicyInternal {
         }
         else {
             Write-Warning "Incompatible PowerShell version detected, retrieving AppLocker policy from registry instead of using 'Get-AppLockerPolicy'..."
-            $AppLockerPolicyXml = [xml] (Get-AppLockerPolicyFromRegistry)
+            $AppLockerPolicyXml = [xml] (Get-AppLockerRuleFromRegistry)
         }
 
         foreach ($RuleCollection in $AppLockerPolicyXml.AppLockerPolicy.GetElementsByTagName("RuleCollection")) {
@@ -613,7 +862,7 @@ function Get-AppLockerPolicyInternal {
     }
 }
 
-function Get-EnforcedPowerShellExecutionPolicy {
+function Get-PowerShellExecutionPolicyFromRegistry {
     <#
     .SYNOPSIS
     Helper - Get the enforced PowerShell execution policy (when configured with a GPO)
@@ -625,7 +874,7 @@ function Get-EnforcedPowerShellExecutionPolicy {
     This cmdlet retrieves the configuration of the PowerShell execution, when it is enforced with a GPO. If first checks the computer configuration, and returns it if found. Otherwise, it checks the the user configuration. If no execution policy is defined, this cmdlet returns null.
 
     .EXAMPLE
-    PS C:\> Get-EnforcedPowerShellExecutionPolicy
+    PS C:\> Get-PowerShellExecutionPolicyFromRegistry
 
     Policy          : Turn on Script Execution
     Key             : HKLM\SOFTWARE\Policies\Microsoft\Windows\PowerShell
@@ -690,7 +939,7 @@ function Get-EnforcedPowerShellExecutionPolicy {
     }
 }
 
-function Get-AttackSurfaceReductionRule {
+function Get-AttackSurfaceReductionRuleFromRegistry {
     <#
     .SYNOPSIS
     Helper - Get the ASR rules and their values
@@ -702,7 +951,7 @@ function Get-AttackSurfaceReductionRule {
     This cmdlet returns a list of all existing ASR rules, along with their values in the registry. If a rule is not defined, the 'Data' value is null.
 
     .EXAMPLE
-    PS C:\> Get-AttackSurfaceReductionRule
+    PS C:\> Get-AttackSurfaceReductionRuleFromRegistry
 
     Rule        : Block executable files from running unless they meet a prevalence, age, or trusted list criterion
     Id          : 01443614-cd74-433a-b99e-2ecdc07bfc25

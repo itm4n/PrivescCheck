@@ -551,7 +551,7 @@ function Invoke-LsaProtectionCheck {
     begin {
         $RegKey = "HKLM\SYSTEM\CurrentControlSet\Control\Lsa"
         $RegValue = "RunAsPPL"
-        $OsVersion = Get-WindowsVersion
+        $OsVersion = Get-WindowsVersionFromRegistry
 
         $RunAsPplDescriptions = @(
             "LSA Protection is not enabled."
@@ -801,7 +801,7 @@ function Invoke-AppLockerCheck {
     )
 
     process {
-        $AppLockerPolicy = Get-AppLockerPolicyInternal -FilterLevel 0
+        $AppLockerPolicy = Get-AppLockerRule -FilterLevel 0
 
         if ($null -eq $AppLockerPolicy) {
             $RuleCount = 0
@@ -834,7 +834,7 @@ function Invoke-AppLockerPolicyCheck {
     License: BSD 3-Clause
 
     .DESCRIPTION
-    This cmdlet first retrieves potentially vulnerable AppLocker rules thanks to the cmdlet "Get-AppLockerPolicyInternal". It then sorts them by their likelihood of exploitation, and excludes this information from the output. Only the human-readable "risk" level is returned for each item.
+    This cmdlet first retrieves potentially vulnerable AppLocker rules thanks to the cmdlet "Get-AppLockerRule". It then sorts them by their likelihood of exploitation, and excludes this information from the output. Only the human-readable "risk" level is returned for each item.
 
     .EXAMPLE
     PS C:\> Invoke-AppLockerPolicyCheck
@@ -863,7 +863,7 @@ function Invoke-AppLockerPolicyCheck {
     process {
         # Find AppLocker rules that can be bypassed, with a likelihood of
         # exploitation from low to high.
-        $AppLockerPolicy = Get-AppLockerPolicyInternal -FilterLevel 1 | Sort-Object -Property "Level" -Descending | Select-Object -Property "*" -ExcludeProperty "Level"
+        $AppLockerPolicy = Get-AppLockerRule -FilterLevel 1 | Sort-Object -Property "Level" -Descending | Select-Object -Property "*" -ExcludeProperty "Level"
 
         $CheckResult = New-Object -TypeName PSObject
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AppLockerPolicy
@@ -1007,7 +1007,7 @@ function Invoke-PowerShellExecutionPolicyCheck {
             $PolicyResult | Add-Member -MemberType "NoteProperty" -Name "Description" -Value "The machine is not domain-joined, this check is irrelevant."
         }
         else {
-            $PolicyResult = Get-EnforcedPowerShellExecutionPolicy
+            $PolicyResult = Get-PowerShellExecutionPolicyFromRegistry
 
             if ($null -eq $PolicyResult) {
                 $Vulnerable = $true
@@ -1057,6 +1057,6 @@ function Invoke-AttackSurfaceReductionRuleCheck {
     param()
 
     process {
-        Get-AttackSurfaceReductionRule | Where-Object { ($null -ne $_.State) -and ($_.State -ne 0) }
+        Get-AttackSurfaceReductionRuleFromRegistry | Where-Object { ($null -ne $_.State) -and ($_.State -ne 0) }
     }
 }

@@ -1265,7 +1265,7 @@ function Get-DomainInformation {
 
     process {
         if ($Azure) {
-            $WindowsVersion = Get-WindowsVersion
+            $WindowsVersion = Get-WindowsVersionFromRegistry
 
             if ($WindowsVersion.Major -lt 10) {
                 Write-Warning "NetGetAadJoinInformation is not supported on this version of Windows."

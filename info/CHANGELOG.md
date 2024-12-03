@@ -447,14 +447,14 @@
 
 ### Changed
 
-- Second try to supporting deny-only SIDs when checking DACLs (Get-AclModificationRight).
+- Second try to supporting deny-only SIDs when checking DACLs (Get-ModificationRight).
 
 ## 2022-08-07
 
 ### Changed
 
-- DACL checking is now done in a dedicated cmdlet (Get-AclModificationRight) which can currently handle objects of types "File", "Directory" and "Registry Key".
-- The Get-ModifiablePath and Get-ModifiableRegistryPath cmdlets now use the generic Get-AclModificationRight cmdlet.
+- DACL checking is now done in a dedicated cmdlet (Get-ModificationRight) which can currently handle objects of types "File", "Directory" and "Registry Key".
+- The Get-ModifiablePath and Get-ModifiableRegistryPath cmdlets now use the generic Get-ModificationRight cmdlet.
 - Deny ACEs are now taken into account when checking DACLs.
 
 ## 2022-06-08

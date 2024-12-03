@@ -1,19 +1,3 @@
-function Get-SccmCacheFolder {
-    <#
-    .SYNOPSIS
-    Helper - Get the SCCM cache folder as a PowerShell object if it exists.
-
-    Author: @itm4n
-    License: BSD 3-Clause
-    #>
-
-    [CmdletBinding()]
-    param()
-
-    $CcmCachePath = Join-Path -Path $env:windir -ChildPath "CCMCache"
-    Get-Item -Path $CcmCachePath -ErrorAction SilentlyContinue | Select-Object -Property FullName,Attributes,Exists
-}
-
 function Invoke-RegistryAlwaysInstallElevatedCheck {
     <#
     .SYNOPSIS
@@ -246,7 +230,7 @@ function Invoke-HardenedUNCPathCheck {
             $Results | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
         }
         else {
-            $OsVersionMajor = (Get-WindowsVersion).Major
+            $OsVersionMajor = (Get-WindowsVersionFromRegistry).Major
 
             $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows\NetworkProvider\HardenedPaths"
 
@@ -618,7 +602,7 @@ function Invoke-SccmCacheFolderCheck {
     param()
 
     process {
-        $SccmCacheFolders = Get-SccmCacheFoldersFromRegistry
+        $SccmCacheFolders = Get-SccmCacheFolderFromRegistry
 
         foreach ($SccmCacheFolder in $SccmCacheFolders) {
 
@@ -936,7 +920,7 @@ function Invoke-ComServerRegistryPermissionCheck {
     }
 
     process {
-        $RegisteredClasses = Get-RegisteredComFromRegistry | Where-Object { ($_.Value -like "*server*") -and ($null -ne $_.Path) }
+        $RegisteredClasses = Get-ComClassFromRegistry | Where-Object { ($_.Value -like "*server*") -and ($null -ne $_.Path) }
         foreach ($RegisteredClass in $RegisteredClasses) {
 
             $RegPath = Join-Path -Path $RegisteredClass.Path -ChildPath $RegisteredClass.Value
@@ -984,7 +968,7 @@ function Invoke-ComServerImagePermissionCheck {
     }
 
     process {
-        $RegisteredClasses = Get-RegisteredComFromRegistry | Where-Object { ($_.Value -like "*server*") -and ($null -ne $_.Path) -and ($null -ne $_.Data) }
+        $RegisteredClasses = Get-ComClassFromRegistry | Where-Object { ($_.Value -like "*server*") -and ($null -ne $_.Path) -and ($null -ne $_.Data) }
 
         foreach ($RegisteredClass in $RegisteredClasses) {
 
@@ -1073,7 +1057,7 @@ function Invoke-ComServerGhostDllHijackingCheck {
     }
 
     process {
-        $RegisteredClasses = Get-RegisteredComFromRegistry | Where-Object { ($_.Value -like "*server*") -and ($null -ne $_.Data) }
+        $RegisteredClasses = Get-ComClassFromRegistry | Where-Object { ($_.Value -like "*server*") -and ($null -ne $_.Data) }
 
         foreach ($RegisteredClass in $RegisteredClasses) {
 
@@ -1149,7 +1133,7 @@ function Invoke-ComServerMissingModuleFileCheck {
     }
 
     process {
-        $RegisteredClasses = Get-RegisteredComFromRegistry | Where-Object { ($_.Value -like "*server*") -and ($null -ne $_.Path) -and ($null -ne $_.Data) }
+        $RegisteredClasses = Get-ComClassFromRegistry | Where-Object { ($_.Value -like "*server*") -and ($null -ne $_.Path) -and ($null -ne $_.Data) }
 
         foreach ($RegisteredClass in $RegisteredClasses) {
 
