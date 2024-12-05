@@ -555,3 +555,8 @@ $script:DSREG_JOIN_INFO = New-Structure $Module WinApiModule.DSREG_JOIN_INFO @{
     UserSettingSyncUrl          = New-StructureField 10 String
     UserInfo                    = New-StructureField 11 IntPtr
 } -Charset Unicode
+
+$script:FW_INTERFACE_LUIDS = New-Structure $Module WinApiModule.FW_INTERFACE_LUIDS @{
+    NumLUIDs                    = New-StructureField 0 UInt32
+    LUIDs                       = New-StructureField 1 IntPtr
+}

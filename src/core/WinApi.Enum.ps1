@@ -438,3 +438,79 @@ $script:DSREG_JOIN_TYPE = New-Enum $Module WinApiModule.DSREG_JOIN_TYPE UInt32 @
     DSREG_DEVICE_JOIN                   = '0x00000001'
     DSREG_WORKPLACE_JOIN                = '0x00000002'
 }
+
+$script:FW_STORE_TYPE = New-Enum $Module WinApiModule.FW_STORE_TYPE UInt32 @{
+    INVALID                             = 0
+    GP_RSOP                             = 1
+    LOCAL                               = 2
+    NOT_USED_VALUE_3                    = 3
+    NOT_USED_VALUE_4                    = 4
+    DYNAMIC                             = 5
+    GPO                                 = 6
+    DEFAULTS                            = 7
+    NOT_USED_VALUE_8                    = 8
+    NOT_USED_VALUE_9                    = 9
+    NOT_USED_VALUE_10                   = 10
+    NOT_USED_VALUE_11                   = 11
+    MAX                                 = 12
+}
+
+$script:FW_POLICY_ACCESS_RIGHT = New-Enum $Module WinApiModule.FW_POLICY_ACCESS_RIGHT UInt32 @{
+    INVALID                             = 0
+    READ                                = 1
+    READ_WRITE                          = 2
+    MAX                                 = 3
+}
+
+$script:FW_PROFILE_CONFIG = New-Enum $Module WinApiModule.FW_PROFILE_CONFIG UInt32 @{
+    INVALID                             = 0
+    ENABLE_FW                           = 1
+    DISABLE_STEALTH_MODE                = 2
+    SHIELDED                            = 3
+    DISABLE_UNICAST_RESPONSES_TO_MULTICAST_BROADCAST = 4
+    LOG_DROPPED_PACKETS                 = 5
+    LOG_SUCCESS_CONNECTIONS             = 6
+    LOG_IGNORED_RULES                   = 7
+    LOG_MAX_FILE_SIZE                   = 8
+    LOG_FILE_PATH                       = 9
+    DISABLE_INBOUND_NOTIFICATIONS       = 10
+    AUTH_APPS_ALLOW_USER_PREF_MERGE     = 11
+    GLOBAL_PORTS_ALLOW_USER_PREF_MERGE  = 12
+    ALLOW_LOCAL_POLICY_MERGE            = 13
+    ALLOW_LOCAL_IPSEC_POLICY_MERGE      = 14
+    DISABLED_INTERFACES                 = 15
+    DEFAULT_OUTBOUND_ACTION             = 16
+    DEFAULT_INBOUND_ACTION              = 17
+    DISABLE_STEALTH_MODE_IPSEC_SECURED_PACKET_EXEMPTION = 18
+    MAX                                 = 19
+}
+
+$script:FW_PROFILE_TYPE = New-Enum $Module WinApiModule.FW_PROFILE_TYPE Int32 @{
+    Invalid                             = 0x00000000
+    Domain                              = 0x00000001
+    Private                             = 0x00000002
+    Public                              = 0x00000004
+    All                                 = 0x7fffffff
+    Current                             = 0x80000000
+    None                                = 0x80000001
+}
+
+$script:FW_CONFIG_FLAGS = New-Enum $Module WinApiModule.FW_CONFIG_FLAGS UInt32 @{
+    RETURN_DEFAULT_IF_NOT_FOUND         = 0x00000001
+} -BitField
+
+$script:FW_RULE_ORIGIN_TYPE = New-Enum $Module WinApiModule.FW_RULE_ORIGIN_TYPE UInt32 @{
+    INVALID                             = 0
+    LOCAL                               = 1
+    GP                                  = 2
+    DYNAMIC                             = 3
+    AUTOGEN                             = 4
+    HARDCODED                           = 5
+    MDM                                 = 6
+    MAX                                 = 7
+    HOST_LOCAL                          = 8
+    HOST_GP                             = 9
+    HOST_DYNAMIC                        = 10
+    HOST_MDM                            = 11
+    HOST_MAX                            = 12
+}

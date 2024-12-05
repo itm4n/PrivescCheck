@@ -860,7 +860,7 @@ function Get-KernelDriver {
     $script:CachedDriverList | ForEach-Object { $_ }
 }
 
-function Get-NetworkAdaptersList {
+function Get-NetworkAdapter {
     <#
     .SYNOPSIS
     List network adapters.
@@ -875,7 +875,7 @@ function Get-NetworkAdaptersList {
     Specify this option to list all NDIS interfaces.
 
     .EXAMPLE
-    PS C:\> Get-NetworkInterfaceList
+    PS C:\> Get-NetworkAdapter
 
     Name             : {B52615AE-995C-415B-9925-0C0815A81598}
     FriendlyName     : Ethernet0

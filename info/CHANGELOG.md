@@ -1,5 +1,12 @@
 # Changelog
 
+## 2024-12-05
+
+### Added
+
+- Helper function for collecting information about firewall profiles.
+- Check for disabled firewall on each network profile.
+
 ## 2024-11-27
 
 ### Changed

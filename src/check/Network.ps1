@@ -32,7 +32,7 @@ function Invoke-NetworkAdapterCheck {
     [CmdletBinding()]
     param()
 
-    Get-NetworkAdaptersList | Where-Object { $_.Type -eq "Ethernet" -or $_.Type -eq "IEEE80211" } | Select-Object -Property Name,FriendlyName,Type,Status,DnsSuffix,Description,PhysicalAddress,Flags,IPv6,IPv4,Gateway,DHCPv4Server,DHCPv6Server,DnsServers,DNSSuffixList
+    Get-NetworkAdapter | Where-Object { $_.Type -eq "Ethernet" -or $_.Type -eq "IEEE80211" } | Select-Object -Property Name,FriendlyName,Type,Status,DnsSuffix,Description,PhysicalAddress,Flags,IPv6,IPv4,Gateway,DHCPv4Server,DHCPv6Server,DnsServers,DNSSuffixList
 }
 
 function Invoke-TcpEndpointCheck {
@@ -402,4 +402,42 @@ function Convert-SocketAddressToObject {
     $Result | Add-Member -MemberType "NoteProperty" -Name "Family" -Value $AddressFamily
     $Result | Add-Member -MemberType "NoteProperty" -Name "FamilyName" -Value $AddressFamilyName
     $Result
+}
+
+function Invoke-NetworkFirewallProfileCheck {
+    <#
+    .SYNOPSIS
+    Check whether the Windows firewall is enabled on each network profile (domain, private, public).
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet relies on the helper function Get-NetworkFirewallActiveProfile to get the state of Windows firewall for each network profile. Then, it simply check whether it is enabled on each of them.
+    #>
+
+    [CmdletBinding()]
+    param (
+        [UInt32] $BaseSeverity
+    )
+
+    process {
+        $Severity = $BaseSeverity
+
+        $DomainProfile = Get-NetworkFirewallActiveProfile -Profile "Domain"
+        $PrivateProfile = Get-NetworkFirewallActiveProfile -Profile "Private"
+        $PublicProfile = Get-NetworkFirewallActiveProfile -Profile "Public"
+
+        $AllResults = @($DomainProfile, $PrivateProfile, $PublicProfile)
+
+        $ProfilesWithFirewallDisabled = $AllResults | Where-Object { $_.Enabled -eq $false }
+        if ($null -eq $ProfilesWithFirewallDisabled) {
+            $Severity = $script:SeverityLevelEnum::None
+        }
+
+        $CheckResult = New-Object -TypeName PSObject
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $Severity
+        $CheckResult
+    }
 }

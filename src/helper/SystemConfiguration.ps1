@@ -1032,3 +1032,204 @@ function Get-AttackSurfaceReductionRuleFromRegistry {
         }
     }
 }
+
+function Get-NetworkFirewallActiveProfile {
+    <#
+    .SYNOPSIS
+    Helper - Query firewall profile information in the active store
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet is a wrapper for the firewall API. It first opens the currently active firewall profile, and then queries the profile information thanks to the function FWGetConfig2. The information returned is similar to the output of Get-NetFirewallProfile. The reason this cmdlet was implemented, instead of using Get-NetFirewallProfile, is because the latter is not compatible with PowerShell version 2.
+
+    .PARAMETER Profile
+    Name of the firewall profile to query. This must be 'Domain', 'Private', or 'Public'.
+
+    .EXAMPLE
+    PS C:\> Get-NetworkFirewallActiveProfile
+
+    Name                            : Public
+    Enabled                         : True
+    DefaultInboundAction            : Block
+    DefaultOutboundAction           : Allow
+    AllowInboundRules               : True
+    AllowLocalFirewallRules         : True
+    AllowLocalIPsecRules            : True
+    AllowUserApps                   : True
+    AllowUserPorts                  : True
+    AllowUnicastResponseToMulticast : False
+    NotifyOnListen                  : True
+    LogFileName                     : %systemroot%\system32\LogFiles\Firewall\pfirewall.log
+    LogMaxSizeKilobytes             : 4096
+    LogAllowed                      : False
+    LogBlocked                      : False
+    LogIgnored                      : False
+    DisabledInterfaceAliases        : {Ethernet Instance 0}
+
+    .NOTES
+    This cmdlet was built mainly be reverse engineering firewallapi.dll, and therefore might not be 100% accurate.
+    #>
+
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory=$true)]
+        [ValidateSet("Domain","Private","Public")]
+        $Profile
+    )
+
+    begin {
+        $Attributes = @("Enabled","DefaultInboundAction","DefaultOutboundAction","AllowInboundRules","AllowLocalFirewallRules","AllowLocalIPsecRules","AllowUserApps","AllowUserPorts","AllowUnicastResponseToMulticast","NotifyOnListen","LogFileName","LogMaxSizeKilobytes","LogAllowed","LogBlocked","LogIgnored","DisabledInterfaceAliases")
+        $ActionList = @("Allow","Block")
+        $NetworkAdapters = Get-NetworkAdapter
+
+        $PolicyStoreType = $script:FW_STORE_TYPE::DYNAMIC
+        $PolicyStoreAccessRight = $script:FW_POLICY_ACCESS_RIGHT::READ
+        $PolicyStoreHandle = [IntPtr]::Zero
+        $script:FirewallApi::FWOpenPolicyStore(0x200, [IntPtr]::Zero, $PolicyStoreType, $PolicyStoreAccessRight, 0, [ref] $PolicyStoreHandle)
+        if ($PolicyStoreHandle -eq [IntPtr]::Zero) {
+            Write-Warning "FWOpenPolicyStore failed."
+            return
+        }
+    }
+
+    process {
+        if ($PolicyStoreHandle -eq [IntPtr]::Zero) { return }
+
+        $ProfileType = $Profile -as $script:FW_PROFILE_TYPE
+
+        foreach ($Attribute in $Attributes) {
+
+            switch ($Attribute) {
+                "Enabled"   { $ProfileConfig = $script:FW_PROFILE_CONFIG::ENABLE_FW }
+                "DefaultInboundAction" { $ProfileConfig = $script:FW_PROFILE_CONFIG::DEFAULT_INBOUND_ACTION }
+                "DefaultOutboundAction" { $ProfileConfig = $script:FW_PROFILE_CONFIG::DEFAULT_OUTBOUND_ACTION }
+                "AllowInboundRules" { $ProfileConfig = $script:FW_PROFILE_CONFIG::SHIELDED }
+                "AllowLocalFirewallRules" { $ProfileConfig = $script:FW_PROFILE_CONFIG::ALLOW_LOCAL_POLICY_MERGE }
+                "AllowLocalIPsecRules" { $ProfileConfig = $script:FW_PROFILE_CONFIG::ALLOW_LOCAL_IPSEC_POLICY_MERGE }
+                "AllowUserApps" { $ProfileConfig = $script:FW_PROFILE_CONFIG::AUTH_APPS_ALLOW_USER_PREF_MERGE }
+                "AllowUserPorts" { $ProfileConfig = $script:FW_PROFILE_CONFIG::GLOBAL_PORTS_ALLOW_USER_PREF_MERGE }
+                "AllowUnicastResponseToMulticast" { $ProfileConfig = $script:FW_PROFILE_CONFIG::DISABLE_UNICAST_RESPONSES_TO_MULTICAST_BROADCAST }
+                "NotifyOnListen" { $ProfileConfig = $script:FW_PROFILE_CONFIG::DISABLE_INBOUND_NOTIFICATIONS }
+                # "EnableStealthModeForIPsec" { $ProfileConfig = $script:FW_PROFILE_CONFIG::DISABLE_STEALTH_MODE_IPSEC_SECURED_PACKET_EXEMPTION }
+                "LogFileName" { $ProfileConfig = $script:FW_PROFILE_CONFIG::LOG_FILE_PATH }
+                "LogMaxSizeKilobytes" { $ProfileConfig = $script:FW_PROFILE_CONFIG::LOG_MAX_FILE_SIZE }
+                "LogAllowed" { $ProfileConfig = $script:FW_PROFILE_CONFIG::LOG_SUCCESS_CONNECTIONS }
+                "LogBlocked" { $ProfileConfig = $script:FW_PROFILE_CONFIG::LOG_DROPPED_PACKETS }
+                "LogIgnored" { $ProfileConfig = $script:FW_PROFILE_CONFIG::LOG_IGNORED_RULES }
+                "DisabledInterfaceAliases" { $ProfileConfig = $script:FW_PROFILE_CONFIG::DISABLED_INTERFACES }
+                default     { $ProfileConfig = $script:Invalid }
+            }
+
+            $BufferSize = 0
+            $RuleOrigin = $script:FW_RULE_ORIGIN_TYPE::INVALID
+            $script:FirewallApi::FWGetConfig2($PolicyStoreHandle, $ProfileConfig, $ProfileType, 0, [IntPtr]::Zero, [ref] $BufferSize, [ref] $RuleOrigin)
+
+            if ($BufferSize -eq 0) {
+                Write-Warning "FWGetConfig2 failed."
+                continue
+            }
+
+            $BufferPtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($BufferSize)
+            $script:FirewallApi::FWGetConfig2($PolicyStoreHandle, $ProfileConfig, $ProfileType, 0, $BufferPtr, [ref] $BufferSize, [ref] $RuleOrigin)
+
+            switch ($Attribute) {
+                "Enabled" {
+                    $FirewallEnabled = [Bool] [Runtime.InteropServices.Marshal]::ReadInt32($BufferPtr)
+                }
+                "DefaultInboundAction" {
+                    $DefaultInboundActionValue = [Runtime.InteropServices.Marshal]::ReadInt32($BufferPtr)
+                    $DefaultInboundAction = $ActionList[$DefaultInboundActionValue]
+                }
+                "DefaultOutboundAction" {
+                    $DefaultOutboundActionValue = [Runtime.InteropServices.Marshal]::ReadInt32($BufferPtr)
+                    $DefaultOutboundAction = $ActionList[$DefaultOutboundActionValue]
+                }
+                "AllowInboundRules" {
+                    $AllowInboundRules = -not ([Bool] [Runtime.InteropServices.Marshal]::ReadInt32($BufferPtr))
+                }
+                "AllowLocalFirewallRules" {
+                    $AllowLocalFirewallRules = [Bool] [Runtime.InteropServices.Marshal]::ReadInt32($BufferPtr)
+                }
+                "AllowLocalIPsecRules" {
+                    $AllowLocalIPsecRules = [Bool] [Runtime.InteropServices.Marshal]::ReadInt32($BufferPtr)
+                }
+                "AllowUserApps" {
+                    $AllowUserApps = [Bool] [Runtime.InteropServices.Marshal]::ReadInt32($BufferPtr)
+                }
+                "AllowUserPorts" {
+                    $AllowUserPorts = [Bool] [Runtime.InteropServices.Marshal]::ReadInt32($BufferPtr)
+                }
+                "AllowUnicastResponseToMulticast" {
+                    $AllowUnicastResponseToMulticast = -not ([Bool] [Runtime.InteropServices.Marshal]::ReadInt32($BufferPtr))
+                }
+                "NotifyOnListen" {
+                    $NotifyOnListen = -not ([Bool] [Runtime.InteropServices.Marshal]::ReadInt32($BufferPtr))
+                }
+                # "EnableStealthModeForIPsec" {
+                #     $EnableStealthModeForIPsec = -not ([Bool] [Runtime.InteropServices.Marshal]::ReadInt32($BufferPtr))
+                # }
+                "LogFileName" {
+                    $LogFileName = [Runtime.InteropServices.Marshal]::PtrToStringAuto($BufferPtr)
+                }
+                "LogMaxSizeKilobytes" {
+                    $LogMaxSizeKilobytes = [Runtime.InteropServices.Marshal]::ReadInt32($BufferPtr)
+                }
+                "LogAllowed" {
+                    $LogAllowed = [Bool] [Runtime.InteropServices.Marshal]::ReadInt32($BufferPtr)
+                }
+                "LogBlocked" {
+                    $LogBlocked = [Bool] [Runtime.InteropServices.Marshal]::ReadInt32($BufferPtr)
+                }
+                "LogIgnored" {
+                    $LogIgnored = [Bool] [Runtime.InteropServices.Marshal]::ReadInt32($BufferPtr)
+                }
+                "DisabledInterfaceAliases" {
+                    $DisabledInterfaceAliases = @()
+                    $InterfaceIds = [Runtime.InteropServices.Marshal]::PtrToStructure($BufferPtr, [type] $script:FW_INTERFACE_LUIDS)
+                    if ($InterfaceIds.NumLUIDs -gt 0) {
+                        for ($InterfaceIdIndex = 0; $InterfaceIdIndex -lt $InterfaceIds.NumLUIDs; $InterfaceIdIndex++) {
+                            $InterfaceIdPtr = [IntPtr] ($InterfaceIds.LUIDs.ToInt64() + $InterfaceIdIndex * [Runtime.InteropServices.Marshal]::SizeOf([type] [Guid]))
+                            $InterfaceId = [Runtime.InteropServices.Marshal]::PtrToStructure($InterfaceIdPtr, [type] [Guid])
+                            $InterfaceAlias = $NetworkAdapters | Where-Object { $_.Name -like "*$($InterfaceId.ToString())*" } | Select-Object -ExpandProperty "FriendlyName"
+                            $DisabledInterfaceAliases += $InterfaceAlias
+                        }
+                    }
+                }
+                default {
+                    Write-Error "Unsupported attributes: $Attribute"
+                }
+            }
+
+            [System.Runtime.InteropServices.Marshal]::FreeHGlobal($BufferPtr)
+        }
+
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $Profile
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Enabled" -Value $FirewallEnabled
+        $Result | Add-Member -MemberType "NoteProperty" -Name "DefaultInboundAction" -Value $DefaultInboundAction
+        $Result | Add-Member -MemberType "NoteProperty" -Name "DefaultOutboundAction" -Value $DefaultOutboundAction
+        $Result | Add-Member -MemberType "NoteProperty" -Name "AllowInboundRules" -Value $AllowInboundRules
+        $Result | Add-Member -MemberType "NoteProperty" -Name "AllowLocalFirewallRules" -Value $AllowLocalFirewallRules
+        $Result | Add-Member -MemberType "NoteProperty" -Name "AllowLocalIPsecRules" -Value $AllowLocalIPsecRules
+        $Result | Add-Member -MemberType "NoteProperty" -Name "AllowUserApps" -Value $AllowUserApps
+        $Result | Add-Member -MemberType "NoteProperty" -Name "AllowUserPorts" -Value $AllowUserPorts
+        $Result | Add-Member -MemberType "NoteProperty" -Name "AllowUnicastResponseToMulticast" -Value $AllowUnicastResponseToMulticast
+        $Result | Add-Member -MemberType "NoteProperty" -Name "NotifyOnListen" -Value $NotifyOnListen
+        # $Result | Add-Member -MemberType "NoteProperty" -Name "EnableStealthModeForIPsec" -Value $EnableStealthModeForIPsec
+        $Result | Add-Member -MemberType "NoteProperty" -Name "LogFileName" -Value $LogFileName
+        $Result | Add-Member -MemberType "NoteProperty" -Name "LogMaxSizeKilobytes" -Value $LogMaxSizeKilobytes
+        $Result | Add-Member -MemberType "NoteProperty" -Name "LogAllowed" -Value $LogAllowed
+        $Result | Add-Member -MemberType "NoteProperty" -Name "LogBlocked" -Value $LogBlocked
+        $Result | Add-Member -MemberType "NoteProperty" -Name "LogIgnored" -Value $LogIgnored
+        $Result | Add-Member -MemberType "NoteProperty" -Name "DisabledInterfaceAliases" -Value $DisabledInterfaceAliases
+        $Result
+    }
+
+    end {
+        if ($PolicyStoreHandle -ne [IntPtr]::Zero) {
+            $null = $script:FirewallApi::FWClosePolicyStore($PolicyStoreHandle)
+        }
+    }
+}
