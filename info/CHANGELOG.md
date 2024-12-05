@@ -6,6 +6,7 @@
 
 - Helper function for collecting information about firewall profiles.
 - Check for disabled firewall on each network profile.
+- Check for registered AMSI providers.
 
 ## 2024-11-27
 

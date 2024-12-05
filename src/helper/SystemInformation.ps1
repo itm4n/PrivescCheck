@@ -33,7 +33,9 @@ function Get-ComClassFromRegistry {
     #>
 
     [CmdletBinding()]
-    param ()
+    param (
+        [String] $Clsid
+    )
 
     begin {
         $RootKey = "HKLM\SOFTWARE\Classes\CLSID"
@@ -87,6 +89,11 @@ function Get-ComClassFromRegistry {
                     [void] $script:CachedRegisteredComList.Add($Result)
                 }
             }
+        }
+
+        if ($Clsid) {
+            $script:CachedRegisteredComList | Where-Object { $_.Id -eq $Clsid }
+            return
         }
 
         $script:CachedRegisteredComList

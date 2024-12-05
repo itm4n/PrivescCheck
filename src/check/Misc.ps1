@@ -454,6 +454,37 @@ function Invoke-EndpointProtectionCheck {
     }
 }
 
+function Invoke-AmsiProviderCheck {
+    <#
+    .SYNOPSIS
+    Get information about AMSI providers registered by antimalware software.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet iterates the subkeys of HKLM\SOFTWARE\Microsoft\AMSI\Providers to find the class ID of registered AMSI providers. Then it uses the helper function Get-ComClassFromRegistry to collect information about the COM class.
+
+    .EXAMPLE
+    PS C:\> Invoke-AmsiProviderCheck
+
+    Id       : {2781761E-28E0-4109-99FE-B9D127C57AFE}
+    Path     : HKLM\SOFTWARE\Classes\CLSID\{2781761E-28E0-4109-99FE-B9D127C57AFE}
+    Value    : InprocServer32
+    Data     : "%ProgramData%\Microsoft\Windows Defender\Platform\4.18.24090.11-0\MpOav.dll"
+    DataType : FilePath
+    #>
+
+    [CmdletBinding()]
+    param ()
+
+    process {
+        Get-ChildItem -Path "Registry::HKLM\SOFTWARE\Microsoft\AMSI\Providers" -ErrorAction SilentlyContinue | ForEach-Object {
+            Get-ComClassFromRegistry -Clsid $_.PSChildName
+        }
+    }
+}
+
 function Invoke-HijackableDllCheck {
     <#
     .SYNOPSIS
