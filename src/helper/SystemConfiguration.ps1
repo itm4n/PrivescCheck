@@ -1233,3 +1233,102 @@ function Get-NetworkFirewallActiveProfile {
         }
     }
 }
+
+function Get-NameResolutionProtocolConfiguration {
+    <#
+    .SYNOPSIS
+    Helper - Get the configuration of name resolution protocols
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet queries the registry to obtain the configuration of name resolution protocols.
+
+    .PARAMETER Protocol
+    Name of the protocol to query. This must be 'LLMNR', 'NetBIOS', or 'mDNS'.
+
+    .EXAMPLE
+    PS C:\> Get-NameResolutionProtocolConfiguration -Protocol "LLMNR"
+
+    RegKey      : HKLM\SOFTWARE\Policies\Microsoft\Windows NT\DNSClient
+    RegValue    : EnableMulticast
+    RegData     :
+    Description : Multicast name resolution (LLMNR) is enabled (default).
+    #>
+
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory=$true)]
+        [ValidateSet("LLMNR","NetBIOS","mDNS")]
+        [String] $Protocol
+    )
+
+    begin {
+        $LlmnrDescriptions = @(
+            "Multicast name resolution (LLMNR) is disabled.",
+            "Multicast name resolution (LLMNR) is enabled (default)."
+        )
+        $NodeTypeDescriptions = @(
+            "",
+            "The NetBIOS node type is B-node (default) - Broadcast.", # 1
+            "The NetBIOS node type is P-node - Peer-to-peer (WINS servers only).", # 2
+            "",
+            "The NetBIOS node type is M-node - Mixed (broadcast, then WINS servers).", # 4
+            "", "", "",
+            "The NetBIOS node type is H-node - Hybrid (WINS servers, then broadcast)." # 8
+        )
+        $MdnsDescriptions = @(
+            "Multicast DNS (mDNS) is disabled.",
+            "Multicast DNS (mDNS) is enabled (default)."
+        )
+    }
+
+    process {
+
+        switch ($Protocol) {
+            "LLMNR" {
+                $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\DNSClient"
+                $RegValue = "EnableMulticast"
+            }
+            "NetBIOS" {
+                $RegKey = "HKLM\SYSTEM\CurrentControlSet\Services\NetBT\Parameters"
+                $RegValue = "NodeType"
+            }
+            "mDNS" {
+                $RegKey = "HKLM\SYSTEM\CurrentControlSet\Services\Dnscache\Parameters"
+                $RegValue = "EnableMDNS"
+            }
+            default {
+                Write-Error "Unsupported protocol: $Protocol"
+            }
+        }
+
+        $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+
+        switch ($Protocol) {
+            "LLMNR" {
+                $LlmnrDescriptionIndex = $(if ($null -eq $RegData) { 1 } else { $RegData })
+                $Description = $LlmnrDescriptions[$LlmnrDescriptionIndex]
+            }
+            "NetBIOS" {
+                $NodeTypeDescriptionIndex = $(if ($null -eq $RegData) { 1 } else { $RegData })
+                $Description = $NodeTypeDescriptions[$NodeTypeDescriptionIndex]
+            }
+            "mDNS" {
+                $MdnsDescriptionIndex = $(if ($null -eq $RegData) { 1 } else { $RegData })
+                $Description = $MdnsDescriptions[$MdnsDescriptionIndex]
+            }
+            default {
+                Write-Error "Unsupported protocol: $Protocol"
+            }
+        }
+
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $RegData
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+        $Result
+    }
+}

@@ -1060,3 +1060,44 @@ function Invoke-AttackSurfaceReductionRuleCheck {
         Get-AttackSurfaceReductionRuleFromRegistry | Where-Object { ($null -ne $_.State) -and ($_.State -ne 0) }
     }
 }
+
+function Invoke-NameResolutionProtocolCheck {
+    <#
+    .SYNOPSIS
+    Check whether broadcast and multicast name resolution protocols are disabled.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet retrieves the configuration of name resolution protocols and determines whether they are configured according to best practices.
+    #>
+
+    [CmdletBinding()]
+    param (
+        [UInt32] $BaseSeverity
+    )
+
+    process {
+        $Vulnerable = $false
+
+        $LlmnrSetting = Get-NameResolutionProtocolConfiguration -Protocol "LLMNR"
+        $NetBiosSetting = Get-NameResolutionProtocolConfiguration -Protocol "NetBIOS"
+        $MdnsSetting = Get-NameResolutionProtocolConfiguration -Protocol "mDNS"
+
+        if ($LlmnrSetting.Data -ne 0) { $Vulnerable = $true }
+        if ($NetBiosSetting.Data -ne 2) { $Vulnerable = $true }
+        if ($MdnsSetting.Data -ne 0) { $Vulnerable = $true }
+
+        $AllResults = @($LlmnrSetting, $NetBiosSetting, $MdnsSetting)
+
+        $AllResults | ForEach-Object {
+            if ($null -eq $_.Data) { $_.Data = "(null)" }
+        }
+
+        $CheckResult = New-Object -TypeName PSObject
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult
+    }
+}

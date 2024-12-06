@@ -1,5 +1,11 @@
 # Changelog
 
+## 2024-12-06
+
+### Added
+
+- Check for name resolution protocol configuration.
+
 ## 2024-12-05
 
 ### Added
