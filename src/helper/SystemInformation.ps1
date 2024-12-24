@@ -735,10 +735,16 @@ function Get-ServiceFromRegistry {
                     # FilterLevel = 2 - Add the service to the list if it's not a driver
                     if ($FilterLevel -le 2) { $ServiceItem; continue }
 
-                    if (-not (Test-IsKnownService -Service $ServiceItem)) {
+                    # Resolve the service's command line, return immediately if it fails.
+                    $CommandLineResolved = [string[]] (Resolve-CommandLine -CommandLine $ServiceItem.ImagePath.trim())
+                    if ($null -eq $CommandLineResolved) { $ServiceItem; continue }
 
-                        # FilterLevel = 3 - Add the service if it's not a built-in Windows service
-                        if ($FilterLevel -le 3) { $ServiceItem; continue }
+                    $ExecutableFile = Get-Item -Path $CommandLineResolved[0] -ErrorAction SilentlyContinue
+                    if ($null -eq $ExecutableFile) { $ServiceItem; continue }
+
+                    # FilterLevel = 3 - Add the service if it's not a built-in Windows service
+                    if (($FilterLevel -le 3) -and (-not $(Test-IsMicrosoftFile -File $ExecutableFile))) {
+                        $ServiceItem; continue
                     }
                 }
             }

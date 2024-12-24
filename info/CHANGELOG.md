@@ -1,5 +1,11 @@
 # Changelog
 
+## 2024-12-24
+
+### Removed
+
+- Helper function "Test-IsKnownService" (replaced by "Resolve-CommandLine" + "Test-IsMicrosoftFile").
+
 ## 2024-12-06
 
 ### Added

@@ -61,41 +61,6 @@ function Test-IsSystemFolder {
     }
 }
 
-function Test-IsKnownService {
-
-    [OutputType([Boolean])]
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory=$true)]
-        [Object] $Service
-    )
-
-    $SeparationCharacterSets = @('"', "'", ' ', "`"'", '" ', "' ", "`"' ")
-
-    foreach ($SeparationCharacterSet in $SeparationCharacterSets) {
-
-        $CandidatePaths = ($Service.ImagePath).Split($SeparationCharacterSet) | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.trim())) }
-
-        foreach ($CandidatePath in $CandidatePaths) {
-
-            $TempPath = $([System.Environment]::ExpandEnvironmentVariables($CandidatePath))
-
-            $TempPathResolved = Resolve-Path -Path $TempPath -ErrorAction SilentlyContinue -ErrorVariable ErrorResolvePath
-            if ($ErrorResolvePath) { continue }
-            $TempPathResolved = $TempPathResolved | Convert-Path
-
-            $File = Get-Item -Path $TempPathResolved -ErrorAction SilentlyContinue -ErrorVariable ErrorGetItem
-            if ($ErrorGetItem) { continue }
-
-            if ($File -and (Test-IsMicrosoftFile -File $File)) { return $true }
-
-            return $false
-        }
-    }
-
-    return $false
-}
-
 function Test-IsDomainJoined {
 
     [OutputType([Boolean])]
