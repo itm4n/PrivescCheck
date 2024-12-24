@@ -141,14 +141,10 @@ function Invoke-ServiceUnquotedPathCheck {
         Write-Verbose "Enumerating $($Services.Count) services..."
         foreach ($Service in $Services) {
 
-            $Vulnerable = $false
             $ImagePath = $Service.ImagePath.trim()
 
-            # If the path is quoted or doesn't contain spaces, ignore it.
-            $UnquotedPath = Get-UnquotedPath -Path $ImagePath -Spaces
-            if ([string]::IsNullOrEmpty($UnquotedPath)) { continue }
-
             $ExploitablePaths = [object[]] (Get-ExploitableUnquotedPath -Path $ImagePath)
+            if ($null -eq $ExploitablePaths) { continue }
 
             $Result = New-Object -TypeName PSObject
             $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $Service.Name
@@ -172,22 +168,18 @@ function Invoke-ServiceUnquotedPathCheck {
             $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStart" -Value $UserCanStart
             $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStop" -Value $UserCanStop
 
-            $ModifiablePathString = ""
-            if ($ExploitablePaths.Count -gt 0) {
-                $Vulnerable = $true
-                $ModifiablePathString = $(($ExploitablePaths | Select-Object -ExpandProperty "ModifiablePath") -join "; ")
+            foreach ($ExploitablePath in $ExploitablePaths) {
+                $ResultItem = $Result.PSObject.Copy()
+                $ResultItem | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $ExploitablePath.ModifiablePath
+                $ResultItem | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $ExploitablePath.IdentityReference
+                $ResultItem | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value $($ExploitablePath.Permissions -join ', ')
+                $AllResults += $ResultItem
             }
-
-            $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $ModifiablePathString
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Vulnerable" -Value $Vulnerable
-            $AllResults += $Result
         }
-
-        $VulnerableCount = ([object[]] ($AllResults | Where-Object { $_.Vulnerable })).Count
 
         $CheckResult = New-Object -TypeName PSObject
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
-        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($VulnerableCount -gt 0) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AllResults.Count -gt 0) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
         $CheckResult
     }
 

@@ -5,6 +5,7 @@
 ### Changed
 
 - Check "Invoke-StartupApplicationPermissionCheck" refactored to remove duplicate code.
+- Helper functions "Get-UnquotedPath" and "Get-ExploitableUnquotedPath" merged and refactored.
 
 ### Removed
 

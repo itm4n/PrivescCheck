@@ -538,31 +538,6 @@ function Convert-WlanXmlProfile {
     }
 }
 
-function Get-UnquotedPath {
-
-    [OutputType([String])]
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory=$true)]
-        [String] $Path,
-        [Switch] $Spaces = $false
-    )
-
-    # Check Check if the path starts with a " or '
-    if ($Path.StartsWith("`"") -or $Path.StartsWith("'")) { return }
-
-    # Extract EXE path
-    $BinPath = $Path.SubString(0, $Path.ToLower().IndexOf(".exe") + 4)
-
-    # If we don't have to check for spaces, return the path
-    if (-not $Spaces) { return $BinPath }
-
-    # Check if it contains spaces
-    If ($BinPath -notmatch ".* .*") { return }
-
-    return $BinPath
-}
-
 function Get-FirstExistingParentFolderPath {
 
     [CmdletBinding()]

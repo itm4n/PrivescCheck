@@ -391,15 +391,40 @@ function Get-ExploitableUnquotedPath {
     }
 
     process {
+        # Make sure the path doesn't start with a white space, otherwise it might not be
+        # interpreted correctly in the next checks.
+        $Path = $Path.trim()
 
-        $UnquotedPath = Get-UnquotedPath -Path $Path -Spaces
+        # If the path starts with a simple or double quote, consider that the it is
+        # quoted, and therefore not vulnerable.
+        if ($Path.StartsWith("`"") -or $Path.StartsWith("'")) { return }
 
-        if ([String]::IsNullOrEmpty($UnquotedPath)) { return }
+        # Try to resolve the input path as a command line. If it works, we will check
+        # the executable path directly, otherwise we will try to determine one as best
+        # as we can by locating any occurrence of the '.exe' extension.
+        $CommandLineResolved = [string[]] (Resolve-CommandLine -CommandLine $Path)
+        if ($null -eq $CommandLineResolved) {
+            $ExeExtensionIndex = $Path.ToLower().IndexOf(".exe")
+            if ($ExeExtensionIndex -ge 0) {
+                $PathToAnalyze = $Path.SubString(0, $ExeExtensionIndex + 4)
+            }
+            else {
+                Write-Warning "Failed to determine executable path in input: $($Path)"
+                return
+            }
+        }
+        else {
+            $PathToAnalyze = $CommandLineResolved[0]
+        }
 
-        Write-Verbose "Found an unquoted path that contains spaces: $($UnquotedPath)"
+        # If the executable path doesn't contain any space, it isn't vulnerable, we
+        # can stop the search there.
+        If ($PathToAnalyze -notmatch ".* .*") { return }
+
+        Write-Verbose "Found an unquoted path that contains spaces: $($PathToAnalyze)"
 
         # Split path and build candidates paths
-        $SplitPathArray = $UnquotedPath.Split(' ')
+        $SplitPathArray = $PathToAnalyze.Split(' ')
         $ConcatPathArray = @()
         for ($i=0; $i -lt $SplitPathArray.Count; $i++) {
             $ConcatPathArray += $SplitPathArray[0..$i] -join ' '
@@ -410,7 +435,7 @@ function Get-ExploitableUnquotedPath {
         foreach ($ConcatPath in $ConcatPathArray) {
 
             # We exclude the binary path itself
-            if ($ConcatPath -like $UnquotedPath) { continue }
+            if ($ConcatPath -like $PathToAnalyze) { continue }
 
             # Get parent folder. Split-Path does not handle errors nicely so catch exceptions
             # and continue on failure.
