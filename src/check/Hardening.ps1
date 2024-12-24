@@ -58,6 +58,8 @@ function Invoke-UserAccountControlCheck {
     begin {
         $AllResults = @()
         $Vulnerable = $false
+
+        $DefaultAdminInfo = Get-LocalUserInformation | Where-Object { $_.UserId -eq 500 }
     }
 
     process {
@@ -111,19 +113,35 @@ function Invoke-UserAccountControlCheck {
         $RegValue = "FilterAdministratorToken"
         $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
 
+        $FilterAdministratorTokenVulnerable = $false
+
         if ($RegData -ge 1) {
-            $Description = "The built-in Administrator account (RID 500) is only granted a medium integrity token when authenticating remotely."
+            $Description = "The built-in Administrator account (RID 500) is only granted a **medium** integrity token when authenticating remotely."
         }
         else {
-            $Description = "The built-in administrator account (RID 500) is granted a high integrity token when authenticating remotely (default)."
-            $Vulnerable = $true
+            $Description = "The built-in administrator account (RID 500) is granted a **high** integrity token when authenticating remotely (default)."
+
+            # The configuration could be "vulnerable", unless the default local administrator
+            # account is disabled, so let's check that.
+            if ($null -ne $DefaultAdminInfo) {
+                if ($DefaultAdminInfo.Active) {
+                    $Description = "$($Description) The default local administrator account is enabled."
+                    $FilterAdministratorTokenVulnerable = $true
+                }
+                else {
+                    $Description = "$($Description) The default local administrator account is disabled."
+                }
+            }
+            else {
+                $FilterAdministratorTokenVulnerable = $true
+            }
         }
 
         $Result = New-Object -TypeName PSObject
         $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
         $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
         $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value "$(if ($null -eq $RegData) { "(null)" } else { $RegData })"
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Vulnerable" -Value $(($null -eq $RegData) -or ($RegData -eq 0))
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Vulnerable" -Value $FilterAdministratorTokenVulnerable
         $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
         $AllResults += $Result
 
@@ -1097,6 +1115,64 @@ function Invoke-NameResolutionProtocolCheck {
 
         $CheckResult = New-Object -TypeName PSObject
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult
+    }
+}
+
+function Invoke-DefaultLocalAdministratorAccountCheck {
+    <#
+    .SYNOPSIS
+    Check whether the default local administrator account is disabled.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet retrieves detailed information about the default administrator account and determines whether the account is active. The system is considered vulnerable if the default local administrator account is enabled.
+    #>
+
+    [CmdletBinding()]
+    param (
+        [UInt32] $BaseSeverity
+    )
+
+    process {
+        $Info = Get-LocalUserInformation -Level 3 | Where-Object { $_.UserId -eq 500 }
+
+        $IsActive = ($Info.Flags -band $script:USER_FLAGS::UF_ACCOUNTDISABLE) -eq 0
+
+        if ($Info.LastLogoff -ne 0) {
+            $LastLogoff = (Convert-EpochTimeToDateTime -Seconds $Info.LastLogoff).ToLocalTime()
+        }
+
+        if ($Info.LastLogon -ne 0) {
+            $LastLogon = (Convert-EpochTimeToDateTime -Seconds $Info.LastLogon).ToLocalTime()
+        }
+
+        if ($Info.AcctExpires -ne [UInt32]::MaxValue) {
+            $AccountExpires = (Convert-EpochTimeToDateTime -Seconds $Info.AcctExpires).ToLocalTime()
+        }
+
+        $LocalAdministratorInfo = New-Object -TypeName PSObject
+        $LocalAdministratorInfo | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $Info.Name
+        $LocalAdministratorInfo | Add-Member -MemberType "NoteProperty" -Name "Comment" -Value $Info.Comment
+        $LocalAdministratorInfo | Add-Member -MemberType "NoteProperty" -Name "Active" -Value $IsActive
+        $LocalAdministratorInfo | Add-Member -MemberType "NoteProperty" -Name "UserId" -Value $Info.UserId
+        $LocalAdministratorInfo | Add-Member -MemberType "NoteProperty" -Name "PrimaryGroupId" -Value $Info.PrimaryGroupId
+        $LocalAdministratorInfo | Add-Member -MemberType "NoteProperty" -Name "Priv" -Value $Info.Priv
+        $LocalAdministratorInfo | Add-Member -MemberType "NoteProperty" -Name "Flags" -Value $Info.Flags
+        $LocalAdministratorInfo | Add-Member -MemberType "NoteProperty" -Name "BadPasswordCount" -Value $Info.BadPasswordCount
+        $LocalAdministratorInfo | Add-Member -MemberType "NoteProperty" -Name "NumLogons" -Value $Info.NumLogons
+        $LocalAdministratorInfo | Add-Member -MemberType "NoteProperty" -Name "AccountExpires" -Value $AccountExpires
+        $LocalAdministratorInfo | Add-Member -MemberType "NoteProperty" -Name "PasswordLastSet" -Value $((Get-Date).AddSeconds(- $Info.PasswordAge))
+        $LocalAdministratorInfo | Add-Member -MemberType "NoteProperty" -Name "LastLogon" -Value $LastLogon
+        $LocalAdministratorInfo | Add-Member -MemberType "NoteProperty" -Name "LastLogoff" -Value $LastLogoff
+
+        $Vulnerable = $LocalAdministratorInfo.Active -eq $true
+
+        $CheckResult = New-Object -TypeName PSObject
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $LocalAdministratorInfo
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
         $CheckResult
     }

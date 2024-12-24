@@ -45,6 +45,7 @@ $FunctionDefinitions = @(
 
     (New-Function netapi32 NetGetJoinInformation ([UInt32]) @([IntPtr], [IntPtr].MakeByRefType(), $script:NETSETUP_JOIN_STATUS.MakeByRefType()) -Charset Unicode -EntryPoint NetGetJoinInformation),
     (New-Function netapi32 NetGetAadJoinInformation ([Int32]) @([String], [IntPtr].MakeByRefType()) -Charset Unicode -EntryPoint NetGetAadJoinInformation),
+    (New-Function netapi32 NetUserEnum ([UInt32]) @([IntPtr], [UInt32], [UInt32], [IntPtr].MakeByRefType(), [UInt32], [UInt32].MakeByRefType(), [UInt32].MakeByRefType(), [UInt32].MakeByRefType()) -EntryPoint NetUserEnum),
     (New-Function netapi32 NetApiBufferFree ([UInt32]) @([IntPtr]) -EntryPoint NetApiBufferFree),
     (New-Function netapi32 NetFreeAadJoinInformation ([Void]) @([IntPtr]) -EntryPoint NetFreeAadJoinInformation),
 

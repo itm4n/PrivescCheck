@@ -514,3 +514,43 @@ $script:FW_RULE_ORIGIN_TYPE = New-Enum $Module WinApiModule.FW_RULE_ORIGIN_TYPE 
     HOST_MDM                            = 11
     HOST_MAX                            = 12
 }
+
+$script:USER_PRIV = New-Enum $Module WinApiModule.USER_PRIV UInt32 @{
+    USER_PRIV_GUEST                     = 0
+    USER_PRIV_USER                      = 1
+    USER_PRIV_ADMIN                     = 2
+}
+
+$script:USER_FLAGS = New-Enum $Module WinApiModule.USER_FLAGS UInt32 @{
+    UF_SCRIPT                           = 0x00000001
+    UF_ACCOUNTDISABLE                   = 0x00000002
+    UF_HOMEDIR_REQUIRED                 = 0x00000008
+    UF_LOCKOUT                          = 0x00000010
+    UF_PASSWD_NOTREQD                   = 0x00000020
+    UF_PASSWD_CANT_CHANGE               = 0x00000040
+    UF_ENCRYPTED_TEXT_PASSWORD_ALLOWED  = 0x00000080
+    UF_TEMP_DUPLICATE_ACCOUNT           = 0x00000100
+    UF_NORMAL_ACCOUNT                   = 0x00000200
+    UF_INTERDOMAIN_TRUST_ACCOUNT        = 0x00000800
+    UF_WORKSTATION_TRUST_ACCOUNT        = 0x00001000
+    UF_SERVER_TRUST_ACCOUNT             = 0x00002000
+    UF_DONT_EXPIRE_PASSWD               = 0x00010000
+    UF_MNS_LOGON_ACCOUNT                = 0x00020000
+    UF_SMARTCARD_REQUIRED               = 0x00040000
+    UF_TRUSTED_FOR_DELEGATION           = 0x00080000
+    UF_NOT_DELEGATED                    = 0x00100000
+    UF_USE_DES_KEY_ONLY                 = 0x00200000
+    UF_DONT_REQUIRE_PREAUTH             = 0x00400000
+    UF_PASSWORD_EXPIRED                 = 0x00800000
+    UF_TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION = 0x01000000
+    UF_NO_AUTH_DATA_REQUIRED            = 0x02000000
+    UF_PARTIAL_SECRETS_ACCOUNT          = 0x04000000
+    UF_USE_AES_KEYS                     = 0x08000000
+} -BitField
+
+$script:USER_AUTH_FLAGS = New-Enum $Module WinApiModule.USER_AUTH_FLAGS UInt32 @{
+    AF_OP_PRINT                         = 0x00000001
+    AF_OP_COMM                          = 0x00000002
+    AF_OP_SERVER                        = 0x00000004
+    AF_OP_ACCOUNTS                      = 0x00000008
+} -BitField

@@ -95,6 +95,18 @@ function Convert-FiletimeToDatetime {
     [DateTime]::FromFileTimeUtc($Time)
 }
 
+function Convert-EpochTimeToDateTime {
+    [OutputType([DateTime])]
+    [CmdletBinding()]
+    param (
+        [Parameter(Position = 1, Mandatory=$true)]
+        [UInt32] $Seconds
+    )
+
+    $DateTime = [DateTime] '1970-01-01 00:00:00'
+    $DateTime.AddSeconds($Seconds)
+}
+
 function Convert-DateToString {
     <#
     .SYNOPSIS

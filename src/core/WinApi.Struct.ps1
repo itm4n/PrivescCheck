@@ -560,3 +560,35 @@ $script:FW_INTERFACE_LUIDS = New-Structure $Module WinApiModule.FW_INTERFACE_LUI
     NumLUIDs                    = New-StructureField 0 UInt32
     LUIDs                       = New-StructureField 1 IntPtr
 }
+
+$script:USER_INFO_3 = New-Structure $Module WinApiModule.USER_INFO_3 @{
+    Name                        = New-StructureField 0 String
+    Password                    = New-StructureField 1 String
+    PasswordAge                 = New-StructureField 2 UInt32
+    Priv                        = New-StructureField 3 $script:USER_PRIV
+    HomeDir                     = New-StructureField 4 String
+    Comment                     = New-StructureField 5 String
+    Flags                       = New-StructureField 6 $script:USER_FLAGS
+    ScriptPath                  = New-StructureField 7 String
+    AuthFlags                   = New-StructureField 8 $script:USER_AUTH_FLAGS
+    FullName                    = New-StructureField 9 String
+    UserComment                 = New-StructureField 10 String
+    ConfigInfo                  = New-StructureField 11 String
+    Workstations                = New-StructureField 12 String
+    LastLogon                   = New-StructureField 13 UInt32
+    LastLogoff                  = New-StructureField 14 UInt32
+    AcctExpires                 = New-StructureField 15 UInt32
+    MaxStorage                  = New-StructureField 16 UInt32
+    UnitsPerWeek                = New-StructureField 17 UInt32
+    LogonHours                  = New-StructureField 18 IntPtr
+    BadPasswordCount            = New-StructureField 19 UInt32
+    NumLogons                   = New-StructureField 20 UInt32
+    LogonServer                 = New-StructureField 21 String
+    CountryCode                 = New-StructureField 22 UInt32
+    CodePage                    = New-StructureField 23 UInt32
+    UserId                      = New-StructureField 24 UInt32
+    PrimaryGroupId              = New-StructureField 25 UInt32
+    Profile                     = New-StructureField 26 String
+    HomeDirDrive                = New-StructureField 27 String
+    PasswordExpired             = New-StructureField 28 UInt32
+} -Charset Unicode

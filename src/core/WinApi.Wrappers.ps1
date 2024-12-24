@@ -1565,3 +1565,62 @@ function Get-FirmwareType {
         $FirmwareTypeAsEnum
     }
 }
+
+function Get-LocalUserInformation {
+    <#
+    .SYNOPSIS
+    Wrapper for the Win32 API NetUserEnum
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet is a wrapper for the Win32 API NetUserEnum. If successful, it returns detailed information about all local user accounts.
+
+    .PARAMETER Level
+    The level of information to query. Currently, only the value '3' (USER_INFO_3) is supported.
+    #>
+
+    [CmdletBinding()]
+    param (
+        [ValidateSet(3)]
+        [UInt32] $Level = 3
+    )
+
+    begin {
+        $BufferPtr = [IntPtr]::Zero
+        $FILTER_NORMAL_ACCOUNT = 2
+        $MAX_PREFERRED_LENGTH = [UInt32]::MaxValue
+    }
+
+    process {
+
+        switch ($Level) {
+            3 { $UserInfoType = $script:USER_INFO_3 }
+            default {
+                throw "Unhandled user information level: $($Level)"
+            }
+        }
+
+        $EntriesRead = [UInt32] 0
+        $TotalEntries = [UInt32] 0
+        $ResumeHandle = [UInt32] 0
+        $RetVal = $script:Netapi32::NetUserEnum([IntPtr]::Zero, $Level, $FILTER_NORMAL_ACCOUNT, [ref] $BufferPtr, $MAX_PREFERRED_LENGTH, [ref] $EntriesRead, [ref] $TotalEntries, [ref] $ResumeHandle)
+        if ($RetVal -ne 0) {
+            Write-Warning "NetUserEnum - $([ComponentModel.Win32Exception] $RetVal)"
+            return
+        }
+
+        $CurrentUserInfoPtr = $BufferPtr
+
+        for ($i = 0; $i -lt $TotalEntries; $i++) {
+
+            [System.Runtime.InteropServices.Marshal]::PtrToStructure($CurrentUserInfoPtr, [type] $UserInfoType)
+            $CurrentUserInfoPtr = [IntPtr] ($CurrentUserInfoPtr.ToInt64() + [Runtime.InteropServices.Marshal]::SizeOf([type] $UserInfoType))
+        }
+    }
+
+    end {
+        if ($BufferPtr -ne [IntPtr]::Zero) { $null = $script:Netapi32::NetApiBufferFree($BufferPtr) }
+    }
+}

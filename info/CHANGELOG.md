@@ -2,6 +2,11 @@
 
 ## 2024-12-24
 
+### Added
+
+- Check for the configuration of the default local administrator account.
+- Helper function to obtain information about local user accounts.
+
 ### Changed
 
 - Check "Invoke-StartupApplicationPermissionCheck" refactored to remove duplicate code.
