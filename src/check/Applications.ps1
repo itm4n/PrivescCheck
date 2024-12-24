@@ -169,84 +169,77 @@ function Invoke-StartupApplicationPermissionCheck {
 
     begin {
         $AllResults = @()
-        [string[]] $RegistryPaths = "HKLM\Software\Microsoft\Windows\CurrentVersion\Run", "HKLM\Software\Microsoft\Windows\CurrentVersion\RunOnce"
+        $SystemDriveLetter = (Get-Item -Path $env:windir).PSDrive.Root
+        $StartupAppRegistryPaths = @("HKLM\Software\Microsoft\Windows\CurrentVersion\Run", "HKLM\Software\Microsoft\Windows\CurrentVersion\RunOnce")
+        $StartupAppFileSystemPaths = @("\Users\All Users\Start Menu\Programs\Startup")
         $FsRedirectionValue = Disable-Wow64FileSystemRedirection
     }
 
     process {
-        $RegistryPaths | ForEach-Object {
+        # 1. Inspect registry keys
+        foreach ($StartupAppRegistryPath in $StartupAppRegistryPaths) {
 
-            $RegKeyPath = $_
+            $RegItem = Get-Item -Path "Registry::$($StartupAppRegistryPath)" -ErrorAction SilentlyContinue
+            if ($null -eq $RegItem) { continue }
 
-            $Item = Get-Item -Path "Registry::$($RegKeyPath)" -ErrorAction SilentlyContinue -ErrorVariable ErrorGetItem
-            if (-not $ErrorGetItem) {
+            $RegValues = [string[]] ($RegItem | Select-Object -ExpandProperty Property)
+            foreach ($RegValue in $RegValues) {
 
-                $Values = [string[]] ($Item | Select-Object -ExpandProperty Property)
-                foreach ($Value in $Values) {
+                $RegData = $RegItem.GetValue($RegValue, "", "DoNotExpandEnvironmentNames")
+                if ([String]::IsNullOrEmpty($RegData)) { continue }
 
-                    $RegKeyValueName = $Value
-                    $RegKeyValueData = $Item.GetValue($RegKeyValueName, "", "DoNotExpandEnvironmentNames")
-                    if ([String]::IsNullOrEmpty($RegKeyValueData)) { continue }
+                $Result = New-Object -TypeName PSObject
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $RegValue
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value "$($StartupAppRegistryPath)\$($RegValue)"
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $RegData
+                $AllResults += $Result
+            }
+        }
 
-                    $CommandLineResolved = [string[]] (Resolve-CommandLine -CommandLine $RegKeyValueData)
-                    if ($null -eq $CommandLineResolved) { continue }
-                    $ExecutablePath = $CommandLineResolved[0]
+        # 2. Inspect global start menu
+        foreach ($StartupAppFileSystemPath in $StartupAppFileSystemPaths) {
 
-                    $ModifiablePaths = Get-ModifiablePath -Path $ExecutablePath | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
-                    $IsModifiable = $($null -ne $ModifiablePaths)
+            $StartupAppFileSystemPath = Join-Path -Path $SystemDriveLetter -ChildPath $StartupAppFileSystemPath
+            $StartupAppFolders = Get-ChildItem -Path $StartupAppFileSystemPath -ErrorAction SilentlyContinue
+
+            foreach ($StartupAppFolder in $StartupAppFolders) {
+
+                $EntryName = $StartupAppFolder.Name
+                $EntryPath = $StartupAppFolder.FullName
+
+                # Check only .lnk file
+                if ($EntryPath -notlike "*.lnk") { continue }
+
+                try {
+                    $Wsh = New-Object -ComObject WScript.Shell
+                    $Shortcut = $Wsh.CreateShortcut($(Resolve-Path -Path $EntryPath | Convert-Path))
+                    if ([String]::IsNullOrEmpty($Shortcut.TargetPath)) { continue }
 
                     $Result = New-Object -TypeName PSObject
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $RegKeyValueName
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value "$($RegKeyPath)\$($RegKeyValueName)"
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $RegKeyValueData
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "IsModifiable" -Value $IsModifiable
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $EntryName
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $EntryPath
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value "$($Shortcut.TargetPath) $($Shortcut.Arguments)"
                     $AllResults += $Result
+                }
+                catch {
+                    Write-Warning "$($MyInvocation.MyCommand) | Failed to create Shortcut object from path: $($EntryPath)"
                 }
             }
         }
 
-        $Root = (Get-Item -Path $env:windir).PSDrive.Root
+        # 3. Inspect each item to see of the path is modifiable
+        foreach ($Result in $AllResults) {
 
-        # We want to check only startup applications that affect all users
-        [string[]] $FileSystemPaths = "\Users\All Users\Start Menu\Programs\Startup"
+            $CommandLineResolved = [string[]] (Resolve-CommandLine -CommandLine $Result.Data)
+            $IsModifiable = $null
 
-        $FileSystemPaths | ForEach-Object {
-
-            $StartupFolderPath = Join-Path -Path $Root -ChildPath $_
-
-            $StartupFolders = Get-ChildItem -Path $StartupFolderPath -ErrorAction SilentlyContinue
-
-            foreach ($StartupFolder in $StartupFolders) {
-
-                $EntryName = $StartupFolder.Name
-                $EntryPath = $StartupFolder.FullName
-
-                if ($EntryPath -Like "*.lnk") {
-
-                    try {
-                        $Wsh = New-Object -ComObject WScript.Shell
-                        $Shortcut = $Wsh.CreateShortcut($(Resolve-Path -Path $EntryPath | Convert-Path))
-                        if ([String]::IsNullOrEmpty($Shortcut.TargetPath)) { continue }
-
-                        $CommandLineResolved = [String[]] (Resolve-CommandLine -CommandLine $Shortcut.TargetPath)
-                        if ($nul -eq $CommandLineResolved) { continue }
-                        $ExecutablePath = $CommandLineResolved[0]
-
-                        $ModifiablePaths = Get-ModifiablePath -Path $ExecutablePath | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
-                        $IsModifiable = $($null -ne $ModifiablePaths)
-
-                        $Result = New-Object -TypeName PSObject
-                        $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $EntryName
-                        $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $EntryPath
-                        $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value "$($Shortcut.TargetPath) $($Shortcut.Arguments)"
-                        $Result | Add-Member -MemberType "NoteProperty" -Name "IsModifiable" -Value $IsModifiable
-                        $AllResults += $Result
-                    }
-                    catch {
-                        Write-Warning "$($MyInvocation.MyCommand) | Failed to create Shortcut object from path: $($EntryPath)"
-                    }
-                }
+            if ($null -ne $CommandLineResolved) {
+                $ExecutablePath = $CommandLineResolved[0]
+                $ModifiablePaths = Get-ModifiablePath -Path $ExecutablePath | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
+                $IsModifiable = $($null -ne $ModifiablePaths)
             }
+
+            $Result | Add-Member -MemberType "NoteProperty" -Name "IsModifiable" -Value $IsModifiable
         }
 
         $ModifiableCount = ([object[]] ($AllResults | Where-Object { $_.IsModifiable })).Count

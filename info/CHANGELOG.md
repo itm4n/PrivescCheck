@@ -2,6 +2,10 @@
 
 ## 2024-12-24
 
+### Changed
+
+- Check "Invoke-StartupApplicationPermissionCheck" refactored to remove duplicate code.
+
 ### Removed
 
 - Helper function "Test-IsKnownService" (replaced by "Resolve-CommandLine" + "Test-IsMicrosoftFile").
