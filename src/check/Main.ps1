@@ -27,6 +27,9 @@ function Invoke-PrivescCheck {
     .PARAMETER Silent
     Don't output test results, show only the final vulnerability report.
 
+    .PARAMETER Benchmark
+    Set this flag to measure the time taken by each check.
+
     .PARAMETER Report
     The base name of the output file report(s) (extension is appended automatically depending on the chosen file format(s)).
 
@@ -51,6 +54,7 @@ function Invoke-PrivescCheck {
         [switch] $Risky = $false,
         [switch] $Force = $false,
         [switch] $Silent = $false,
+        [switch] $Benchmark = $false,
         [string] $Report,
         [ValidateSet("TXT","HTML","CSV","XML")]
         [string[]] $Format
@@ -75,6 +79,14 @@ function Invoke-PrivescCheck {
         $script:ResultArrayList.Clear()
 
         $AllChecks = New-Object System.Collections.ArrayList
+
+        # If the 'Benchmark' switch is set, prepare a new StopWatch object that we will use
+        # to measure the execution time of each check.
+        if ($Benchmark) {
+            $StopWatch = [Diagnostics.StopWatch]::StartNew()
+            $StopWatch.Stop()
+            $BenchmarkResults = @()
+        }
     }
 
     process {
@@ -116,11 +128,31 @@ function Invoke-PrivescCheck {
 
             if (-not $Silent) { Write-CheckBanner -Check $Check }
 
-            # Run the check and store its output in a temp variable.
+            # Set the default base severity level of the check based on the information stored in the input
+            # CSV file.
             $BaseSeverity = $Check.Severity -as $script:SeverityLevelEnum
             $Check | Add-Member -MemberType "NoteProperty" -Name "BaseSeverity" -Value $BaseSeverity
+
+            # If the 'Benchmark' switch is set, first reset and start the StopWatch.
+            if ($Benchmark) {
+                $StopWatch.Reset()
+                $StopWatch.Start()
+            }
+
+            # Run the check.
             $CheckResult = Invoke-Check -Check $Check
             $CheckResult.Severity = $CheckResult.Severity -as $script:SeverityLevelEnum
+
+            # If the 'Benchmark' switch is set, stop the StopWatch, and save the total time measured in
+            # seconds and milliseconds in the benchmark result list.
+            if ($Benchmark) {
+                $StopWatch.Stop()
+                $BenchmarkResult = New-Object -TypeName PSObject
+                $BenchmarkResult | Add-Member -MemberType "NoteProperty" -Name "Command" -Value $Check.Command
+                $BenchmarkResult | Add-Member -MemberType "NoteProperty" -Name "ExecutionTimeSeconds" -Value $([Math]::Round($StopWatch.Elapsed.TotalSeconds, 0))
+                $BenchmarkResult | Add-Member -MemberType "NoteProperty" -Name "ExecutionTimeMilliseconds" -Value $([Math]::Round($StopWatch.Elapsed.TotalMilliseconds, 0))
+                $BenchmarkResults += $BenchmarkResult
+            }
 
             if (-not $Silent) {
                 # If the 'Silent' option was not specified, print a banner that shows some information about the
@@ -147,6 +179,11 @@ function Invoke-PrivescCheck {
         # this will be only visible if run from a 'real' terminal.
         # Show-PrivescCheckAsciiReport
         Write-ShortReport
+
+        # If the 'Benchmark' switch is set, print the execution time results as a table.
+        if ($Benchmark) {
+            $BenchmarkResults | Sort-Object ExecutionTimeMilliseconds -Descending | Format-Table
+        }
 
         # If the 'Report' option was specified, write a report to a file using the value of this parameter
         # as the basename (or path + basename). The extension is then determined based on the chosen

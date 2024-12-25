@@ -1,5 +1,11 @@
 # Changelog
 
+## 2024-12-25
+
+### Added
+
+- Benchmark option to measure the time taken by each check.
+
 ## 2024-12-24
 
 ### Added
