@@ -20,8 +20,8 @@ function Get-ProcessTokenHandle {
     [CmdletBinding()]
     param(
         [UInt32] $ProcessId = 0,
-        [UInt32] $ProcessAccess = $script:ProcessAccessRightEnum::QUERY_INFORMATION,
-        [UInt32] $TokenAccess = $script:TokenAccessRightEnum::Query
+        [UInt32] $ProcessAccess = $script:ProcessAccessRight::QUERY_INFORMATION,
+        [UInt32] $TokenAccess = $script:TokenAccessRight::Query
     )
 
     if ($ProcessId -eq 0) {
@@ -376,7 +376,7 @@ function Get-TokenInformationIntegrityLevel {
         [UInt32] $ProcessId = 0
     )
 
-    $TokenHandle = Get-ProcessTokenHandle -ProcessId $ProcessId -ProcessAccess $script:ProcessAccessRightEnum::QUERY_LIMITED_INFORMATION
+    $TokenHandle = Get-ProcessTokenHandle -ProcessId $ProcessId -ProcessAccess $script:ProcessAccessRight::QUERY_LIMITED_INFORMATION
     if (-not $TokenHandle) { return }
 
     $TokenMandatoryLabelPtr = Get-TokenInformationData -TokenHandle $TokenHandle -InformationClass $script:TOKEN_INFORMATION_CLASS::TokenIntegrityLevel
@@ -558,7 +558,7 @@ function Get-TokenInformationSource {
         [UInt32] $ProcessId = 0
     )
 
-    $TokenHandle = Get-ProcessTokenHandle -ProcessId $ProcessId -TokenAccess $script:TokenAccessRightEnum::QuerySource
+    $TokenHandle = Get-ProcessTokenHandle -ProcessId $ProcessId -TokenAccess $script:TokenAccessRight::QuerySource
     if (-not $TokenHandle) { return }
 
     $TokenSourcePtr = Get-TokenInformationData -TokenHandle $TokenHandle -InformationClass $script:TOKEN_INFORMATION_CLASS::TokenSource
@@ -1026,7 +1026,7 @@ function Get-FileDacl {
         [String] $Path
     )
 
-    $DesiredAccess = $script:FileAccessRightEnum::ReadControl
+    $DesiredAccess = $script:FileAccessRight::ReadControl
     $ShareMode = 0x00000001 # FILE_SHARE_READ
     $CreationDisposition = 3 # OPEN_EXISTING
     $FlagsAndAttributes = 0x80 # FILE_ATTRIBUTE_NORMAL
@@ -1452,7 +1452,7 @@ function Resolve-ModulePath {
             # Otherwise, print an error.
             if ($RetVal -eq $ModuleFileNameLength) {
                 $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-                if ($LastError -eq $script:SystemErrorCodeEnum::ERROR_INSUFFICIENT_BUFFER) {
+                if ($LastError -eq $script:SystemErrorCode::ERROR_INSUFFICIENT_BUFFER) {
                     $ModuleFileNameLength = $ModuleFileNameLength * 2
                     continue
                 }

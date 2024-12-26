@@ -65,7 +65,7 @@ function Invoke-RegistryAlwaysInstallElevatedCheck {
 
     $CheckResult = New-Object -TypeName PSObject
     $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Config
-    $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+    $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevel::None })
     $CheckResult
 }
 
@@ -162,7 +162,7 @@ function Invoke-WsusConfigurationCheck {
 
         $CheckResult = New-Object -TypeName PSObject
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
-        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevel::None })
         $CheckResult
     }
 }
@@ -317,7 +317,7 @@ function Invoke-HardenedUNCPathCheck {
 
         $CheckResult = New-Object -TypeName PSObject
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
-        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevel::None })
         $CheckResult
     }
 }
@@ -365,7 +365,7 @@ function Invoke-DllHijackingCheck {
 
         $CheckResult = New-Object -TypeName PSObject
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
-        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AllResults) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AllResults) { $BaseSeverity } else { $script:SeverityLevel::None })
         $CheckResult
     }
 
@@ -475,7 +475,7 @@ function Invoke-PointAndPrintConfigurationCheck {
                 # and Print parameters. We can already mark the configuration as vulnerable.
 
                 $ConfigVulnerable = $true
-                $Severity = $script:SeverityLevelEnum::Low
+                $Severity = $script:SeverityLevel::Low
 
                 # From the KB article KB5005652:
                 # "Setting the value to 0 allows non-administrators to install signed and
@@ -495,7 +495,7 @@ function Invoke-PointAndPrintConfigurationCheck {
                     if (($Config.NoWarningNoElevationOnInstall.Data -gt 0) -or ($Config.UpdatePromptSettings.Data -gt 0)) {
                         # At least one of the warning prompts is disabled, the device is vulnerable to CVE-2021-34527
                         # (PrintNightmare), even if the setting "TrustedServers" is set or "InForest" is enabled.
-                        $Severity = [Math]::Max([UInt32] $Severity, [UInt32] $script:SeverityLevelEnum::High) -as $script:SeverityLevelEnum
+                        $Severity = [Math]::Max([UInt32] $Severity, [UInt32] $script:SeverityLevel::High) -as $script:SeverityLevel
                     }
                 }
 
@@ -503,7 +503,7 @@ function Invoke-PointAndPrintConfigurationCheck {
                 if (($null -eq $Config.PackagePointAndPrintServerListEnabled.Data) -or ($Config.PackagePointAndPrintServerListEnabled.Data -eq 0)) {
                     # A list of approved servers is not configured, we can exploit the configuration by
                     # setting up a print server hosting a known vulnerable printer driver.
-                    $Severity = [Math]::Max([UInt32] $Severity, [UInt32] $script:SeverityLevelEnum::Medium) -as $script:SeverityLevelEnum
+                    $Severity = [Math]::Max([UInt32] $Severity, [UInt32] $script:SeverityLevel::Medium) -as $script:SeverityLevel
                 }
 
                 # ATTACK: Install and exploit a known vulnerable printer driver + DNS spoofing
@@ -514,7 +514,7 @@ function Invoke-PointAndPrintConfigurationCheck {
                     # Note that setting the severity to 'low' here is redundant because we already set it
                     # to 'low' as a "base severity level" when we found that the installation of printer
                     # drivers was not restricted to administrators.
-                    $Severity = [Math]::Max([UInt32] $Severity, [UInt32] $script:SeverityLevelEnum::Low) -as $script:SeverityLevelEnum
+                    $Severity = [Math]::Max([UInt32] $Severity, [UInt32] $script:SeverityLevel::Low) -as $script:SeverityLevel
                 }
             }
 
@@ -537,7 +537,7 @@ function Invoke-PointAndPrintConfigurationCheck {
 
         $CheckResult = New-Object -TypeName PSObject
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
-        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ConfigVulnerable) { $Severity } else { $script:SeverityLevelEnum::None })
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ConfigVulnerable) { $Severity } else { $script:SeverityLevel::None })
         $CheckResult
     }
 }
@@ -582,7 +582,7 @@ function Invoke-DriverCoInstallerCheck {
 
     $CheckResult = New-Object -TypeName PSObject
     $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Config
-    $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+    $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevel::None })
     $CheckResult
 }
 
@@ -747,7 +747,7 @@ function Invoke-ProxyAutoConfigurationCheck {
 
         $CheckResult = New-Object -TypeName PSObject
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Result
-        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevel::None })
         $CheckResult
     }
 }
@@ -890,7 +890,7 @@ function Invoke-SmbConfigurationCheck {
 
         $CheckResult = New-Object -TypeName PSObject
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
-        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevel::None })
         $CheckResult
     }
 }
@@ -939,7 +939,7 @@ function Invoke-ComServerRegistryPermissionCheck {
 
         $CheckResult = New-Object -TypeName PSObject
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
-        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AllResults.Count -gt 0) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AllResults.Count -gt 0) { $BaseSeverity } else { $script:SeverityLevel::None })
         $CheckResult
     }
 }
@@ -1024,7 +1024,7 @@ function Invoke-ComServerImagePermissionCheck {
 
         $CheckResult = New-Object -TypeName PSObject
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
-        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AllResults.Count -gt 0) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AllResults.Count -gt 0) { $BaseSeverity } else { $script:SeverityLevel::None })
         $CheckResult
     }
 
@@ -1100,7 +1100,7 @@ function Invoke-ComServerGhostDllHijackingCheck {
 
         $CheckResult = New-Object -TypeName PSObject
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
-        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AllResults.Count -gt 0) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AllResults.Count -gt 0) { $BaseSeverity } else { $script:SeverityLevel::None })
         $CheckResult
     }
 
@@ -1191,7 +1191,7 @@ function Invoke-ComServerMissingModuleFileCheck {
 
         $CheckResult = New-Object -TypeName PSObject
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
-        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AllResults.Count -gt 0) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AllResults.Count -gt 0) { $BaseSeverity } else { $script:SeverityLevel::None })
         $CheckResult
     }
 
@@ -1243,7 +1243,7 @@ function Invoke-MsiAutomaticRepairUacPromptCheck {
 
         $CheckResult = New-Object -TypeName PSObject
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Result
-        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevel::None })
         $CheckResult
     }
 }

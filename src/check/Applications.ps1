@@ -77,7 +77,7 @@ function Invoke-InstalledApplicationPermissionCheck {
 
         $CheckResult = New-Object -TypeName PSObject
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
-        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AllResults) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AllResults) { $BaseSeverity } else { $script:SeverityLevel::None })
         $CheckResult
     }
 
@@ -145,7 +145,7 @@ function Invoke-ProgramDataPermissionCheck {
 
         $CheckResult = New-Object -TypeName PSObject
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
-        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AllResults) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AllResults) { $BaseSeverity } else { $script:SeverityLevel::None })
         $CheckResult
     }
 }
@@ -246,7 +246,7 @@ function Invoke-StartupApplicationPermissionCheck {
 
         $CheckResult = New-Object -TypeName PSObject
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
-        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ModifiableCount -gt 0) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($ModifiableCount -gt 0) { $BaseSeverity } else { $script:SeverityLevel::None })
         $CheckResult
     }
 
@@ -410,7 +410,7 @@ function Invoke-RootFolderPermissionCheck {
 
         $CheckResult = New-Object -TypeName PSObject
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
-        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevel::None })
         $CheckResult
     }
 }

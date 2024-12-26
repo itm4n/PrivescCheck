@@ -126,7 +126,7 @@ function Invoke-HotFixCheck {
 
         $CheckResult = New-Object -TypeName PSObject
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $HotFixListSorted
-        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevel::None })
         $CheckResult
     }
 }

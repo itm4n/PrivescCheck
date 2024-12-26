@@ -274,7 +274,7 @@ function Invoke-WlanProfileCheck {
 
         $CheckResult = New-Object -TypeName PSObject
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
-        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AllResults) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AllResults) { $BaseSeverity } else { $script:SeverityLevel::None })
         $CheckResult
     }
 }
@@ -345,7 +345,7 @@ function Invoke-AirstrikeAttackCheck {
 
     $CheckResult = New-Object -TypeName PSObject
     $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Config
-    $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+    $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevel::None })
     $CheckResult
 }
 
@@ -432,7 +432,7 @@ function Invoke-NetworkFirewallProfileCheck {
 
         $ProfilesWithFirewallDisabled = $AllResults | Where-Object { $_.Enabled -eq $false }
         if ($null -eq $ProfilesWithFirewallDisabled) {
-            $Severity = $script:SeverityLevelEnum::None
+            $Severity = $script:SeverityLevel::None
         }
 
         $CheckResult = New-Object -TypeName PSObject

@@ -159,7 +159,7 @@ function Invoke-WinLogonCredentialCheck {
 
         $CheckResult = New-Object -TypeName PSObject
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
-        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AllResults) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AllResults) { $BaseSeverity } else { $script:SeverityLevel::None })
         $CheckResult
     }
 }
@@ -471,7 +471,7 @@ function Invoke-GPPCredentialCheck {
 
         $CheckResult = New-Object -TypeName PSObject
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
-        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AllResults) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AllResults) { $BaseSeverity } else { $script:SeverityLevel::None })
         $CheckResult
     }
 }
@@ -579,11 +579,11 @@ function Invoke-HiveFilePermissionCheck {
                 foreach ($Ace in $Acl) {
 
                     $PermissionReference = @(
-                        $script:FileAccessRightEnum::ReadData
+                        $script:FileAccessRight::ReadData
                     )
 
-                    $Permissions = [enum]::GetValues($script:FileAccessRightEnum) | Where-Object {
-                        ($Ace.FileSystemRights.value__ -band ($script:FileAccessRightEnum::$_)) -eq ($script:FileAccessRightEnum::$_)
+                    $Permissions = [enum]::GetValues($script:FileAccessRight) | Where-Object {
+                        ($Ace.FileSystemRights.value__ -band ($script:FileAccessRight::$_)) -eq ($script:FileAccessRight::$_)
                     }
 
                     if (Compare-Object -ReferenceObject $Permissions -DifferenceObject $PermissionReference -IncludeEqual -ExcludeDifferent) {
@@ -624,7 +624,7 @@ function Invoke-HiveFilePermissionCheck {
 
         $CheckResult = New-Object -TypeName PSObject
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
-        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AllResults) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AllResults) { $BaseSeverity } else { $script:SeverityLevel::None })
         $CheckResult
     }
 
@@ -687,15 +687,15 @@ function Invoke-HiveFileShadowCopyPermissionCheck {
                 if ($null -eq $FileDacl) { continue }
 
                 $PermissionReference = @(
-                    $script:FileAccessRightEnum::ReadData
+                    $script:FileAccessRight::ReadData
                 )
 
                 foreach ($Ace in $FileDacl.Access) {
 
                     if ($Ace.AceType -notmatch "AccessAllowed") { continue }
 
-                    $Permissions = [Enum]::GetValues($script:FileAccessRightEnum) | Where-Object {
-                        ($Ace.AccessMask -band ($script:FileAccessRightEnum::$_)) -eq ($script:FileAccessRightEnum::$_)
+                    $Permissions = [Enum]::GetValues($script:FileAccessRight) | Where-Object {
+                        ($Ace.AccessMask -band ($script:FileAccessRight::$_)) -eq ($script:FileAccessRight::$_)
                     }
 
                     if (Compare-Object -ReferenceObject $Permissions -DifferenceObject $PermissionReference -IncludeEqual -ExcludeDifferent) {
@@ -718,7 +718,7 @@ function Invoke-HiveFileShadowCopyPermissionCheck {
 
         $CheckResult = New-Object -TypeName PSObject
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
-        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AllResults) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AllResults) { $BaseSeverity } else { $script:SeverityLevel::None })
         $CheckResult
     }
 
@@ -784,7 +784,7 @@ function Invoke-UnattendFileCredentialCheck {
 
         $CheckResult = New-Object -TypeName PSObject
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
-        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AllResults) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AllResults) { $BaseSeverity } else { $script:SeverityLevel::None })
         $CheckResult
     }
 
@@ -815,7 +815,7 @@ function Invoke-SccmNaaCredentialCheck {
 
         $CheckResult = New-Object -TypeName PSObject
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Entries
-        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Entries) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Entries) { $BaseSeverity } else { $script:SeverityLevel::None })
         $CheckResult
     }
 }
@@ -842,7 +842,7 @@ function Invoke-SccmCacheFolderCredentialCheck {
 
         $CheckResult = New-Object -TypeName PSObject
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
-        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AllResults) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AllResults) { $BaseSeverity } else { $script:SeverityLevel::None })
         $CheckResult
     }
 }

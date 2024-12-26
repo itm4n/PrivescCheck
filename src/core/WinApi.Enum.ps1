@@ -1,17 +1,17 @@
-$script:SeverityLevelEnum = New-Enum $Module WinApiModule.SeverityLevel UInt32 @{
+$script:SeverityLevel = New-Enum $Module WinApiModule.SeverityLevel UInt32 @{
     None                                = '0x00000000'
     Low                                 = '0x00000001'
     Medium                              = '0x00000002'
     High                                = '0x00000003'
 }
 
-$script:SystemErrorCodeEnum = New-Enum $Module WinApiModule.SystemErrorCode UInt32 @{
+$script:SystemErrorCode = New-Enum $Module WinApiModule.SystemErrorCode UInt32 @{
     ERROR_INVALID_FUNCTION              = 1
     ERROR_INSUFFICIENT_BUFFER           = 122
     ERROR_ENVVAR_NOT_FOUND              = 203
 }
 
-$script:FileAccessRightEnum = New-Enum $Module WinApiModule.FileAccessRight UInt32 @{
+$script:FileAccessRight = New-Enum $Module WinApiModule.FileAccessRight UInt32 @{
     # GenericRead                       = '0x80000000'
     # GenericWrite                      = '0x40000000'
     # GenericExecute                    = '0x20000000'
@@ -34,7 +34,7 @@ $script:FileAccessRightEnum = New-Enum $Module WinApiModule.FileAccessRight UInt
     ReadData                            = '0x00000001'
 } -BitField
 
-$script:ServiceAccessRightEnum = New-Enum $Module WinApiModule.ServiceAccessRight UInt32 @{
+$script:ServiceAccessRight = New-Enum $Module WinApiModule.ServiceAccessRight UInt32 @{
     QueryConfig                         = '0x00000001'
     ChangeConfig                        = '0x00000002'
     QueryStatus                         = '0x00000004'
@@ -57,7 +57,7 @@ $script:ServiceAccessRightEnum = New-Enum $Module WinApiModule.ServiceAccessRigh
     AllAccess                           = '0x000F01FF'
 } -BitField
 
-$script:ServiceControlManagerAccessRightEnum = New-Enum $Module WinApiModule.ServiceControlManagerAccessRight UInt32 @{
+$script:ServiceControlManagerAccessRight = New-Enum $Module WinApiModule.ServiceControlManagerAccessRight UInt32 @{
     Connect                             = '0x00000001'
     CreateService                       = '0x00000002'
     EnumerateService                    = '0x00000004'
@@ -70,7 +70,7 @@ $script:ServiceControlManagerAccessRightEnum = New-Enum $Module WinApiModule.Ser
     GenericExecute                      = '0x00020009' # STANDARD_RIGHTS_EXECUTE | SC_MANAGER_CONNECT | SC_MANAGER_LOCK
 } -BitField
 
-$script:ProcessAccessRightEnum = New-Enum $Module WinApiModule.ProcessAccessRight UInt32 @{
+$script:ProcessAccessRight = New-Enum $Module WinApiModule.ProcessAccessRight UInt32 @{
     TERMINATE                           = '0x00000001'
     CREATE_THREAD                       = '0x00000002'
     SET_SESSIONID                       = '0x00000004'
@@ -89,7 +89,7 @@ $script:ProcessAccessRightEnum = New-Enum $Module WinApiModule.ProcessAccessRigh
     SYNCHRONIZE                         = '0x00100000'
 } -BitField
 
-$script:ThreadAccessRightEnum = New-Enum $Module WinApiModule.ThreadAccessRight UInt32 @{
+$script:ThreadAccessRight = New-Enum $Module WinApiModule.ThreadAccessRight UInt32 @{
     Terminate                           = '0x00000001'
     SuspendResume                       = '0x00000002'
     GetContext                          = '0x00000008'
@@ -109,7 +109,7 @@ $script:ThreadAccessRightEnum = New-Enum $Module WinApiModule.ThreadAccessRight 
     AllAccess                           = '0x001FFFFF' # STANDARD_RIGHTS_REQUIRED (0x000F0000L) | SYNCHRONIZE (0x00100000L) | 0xFFFF
 } -BitField
 
-$script:TokenAccessRightEnum = New-Enum $Module WinApiModule.TokenAccessRight UInt32 @{
+$script:TokenAccessRight = New-Enum $Module WinApiModule.TokenAccessRight UInt32 @{
     AssignPrimary                       = '0x00000001'
     Duplicate                           = '0x00000002'
     Impersonate                         = '0x00000004'
@@ -128,7 +128,7 @@ $script:TokenAccessRightEnum = New-Enum $Module WinApiModule.TokenAccessRight UI
     AllAccess                           = '0x000f01ff'
 } -BitField
 
-$script:ServiceTypeEnum = New-Enum $Module WinApiModule.ServiceType UInt32 @{
+$script:ServiceType = New-Enum $Module WinApiModule.ServiceType UInt32 @{
     KernelDriver                        = '0x00000001'
     FileSystemDriver                    = '0x00000002'
     Adapter                             = '0x00000004'
@@ -146,7 +146,7 @@ $script:ServiceTypeEnum = New-Enum $Module WinApiModule.ServiceType UInt32 @{
     All                                 = '0x000003ff'
 } -BitField
 
-$script:ServiceStartTypeEnum = New-Enum $Module WinApiModule.ServiceStartType UInt32 @{
+$script:ServiceStartType = New-Enum $Module WinApiModule.ServiceStartType UInt32 @{
     Boot                                = '0x00000000'
     System                              = '0x00000001'
     Automatic                           = '0x00000002'

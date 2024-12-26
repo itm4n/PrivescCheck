@@ -233,7 +233,7 @@ function Get-UEFIStatus {
         $null = $script:Kernel32::GetFirmwareEnvironmentVariable("", "{00000000-0000-0000-0000-000000000000}", [IntPtr]::Zero, 0)
         $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
 
-        if ($LastError -eq $script:SystemErrorCodeEnum::ERROR_INVALID_FUNCTION) {
+        if ($LastError -eq $script:SystemErrorCode::ERROR_INVALID_FUNCTION) {
             $Status = $false
             $Description = "BIOS mode is Legacy."
             Write-Verbose ([ComponentModel.Win32Exception] $LastError)
@@ -693,8 +693,8 @@ function Get-ServiceFromRegistry {
             $Result | Add-Member -MemberType "NoteProperty" -Name "DisplayName" -Value ([System.Environment]::ExpandEnvironmentVariables($RegItem.DisplayName))
             $Result | Add-Member -MemberType "NoteProperty" -Name "User" -Value $RegItem.ObjectName
             $Result | Add-Member -MemberType "NoteProperty" -Name "ImagePath" -Value $RegItem.ImagePath
-            $Result | Add-Member -MemberType "NoteProperty" -Name "StartMode" -Value ($RegItem.Start -as $script:ServiceStartTypeEnum)
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Type" -Value ($RegItem.Type -as $script:ServiceTypeEnum)
+            $Result | Add-Member -MemberType "NoteProperty" -Name "StartMode" -Value ($RegItem.Start -as $script:ServiceStartType)
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Type" -Value ($RegItem.Type -as $script:ServiceType)
             $Result | Add-Member -MemberType "NoteProperty" -Name "RegistryKey" -Value $RegKeyServices
             $Result | Add-Member -MemberType "NoteProperty" -Name "RegistryPath" -Value $RegKey
             $Result
@@ -729,7 +729,7 @@ function Get-ServiceFromRegistry {
                     continue
                 }
 
-                $TypeMask = $script:ServiceTypeEnum::Win32OwnProcess -bor $script:ServiceTypeEnum::Win32ShareProcess -bor $script:ServiceTypeEnum::InteractiveProcess
+                $TypeMask = $script:ServiceType::Win32OwnProcess -bor $script:ServiceType::Win32ShareProcess -bor $script:ServiceType::InteractiveProcess
                 if (($ServiceItem.Type -band $TypeMask) -gt 0) {
 
                     # FilterLevel = 2 - Add the service to the list if it's not a driver
@@ -793,7 +793,7 @@ function Get-ServiceControlManagerDiscretionaryAccessControlList {
     param()
 
     $SERVICES_ACTIVE_DATABASE = "ServicesActive"
-    $ServiceManagerHandle = $script:Advapi32::OpenSCManager($null, $SERVICES_ACTIVE_DATABASE, $script:ServiceControlManagerAccessRightEnum::GenericRead)
+    $ServiceManagerHandle = $script:Advapi32::OpenSCManager($null, $SERVICES_ACTIVE_DATABASE, $script:ServiceControlManagerAccessRight::GenericRead)
     $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
 
     if ($ServiceManagerHandle) {
@@ -820,7 +820,7 @@ function Get-ServiceControlManagerDiscretionaryAccessControlList {
 
                 if ($null -eq $Dacl) {
                     $Result = New-Object -TypeName PSObject
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "AccessRights" -Value $script:ServiceControlManagerAccessRightEnum::AllAccess
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "AccessRights" -Value $script:ServiceControlManagerAccessRight::AllAccess
                     # $Result | Add-Member -MemberType "NoteProperty" -Name "AccessMask" -Value AccessRights.value__
                     $Result | Add-Member -MemberType "NoteProperty" -Name "SecurityIdentifier" -Value "S-1-1-0"
                     $Result | Add-Member -MemberType "NoteProperty" -Name "AceType" -Value "AccessAllowed"
@@ -828,7 +828,7 @@ function Get-ServiceControlManagerDiscretionaryAccessControlList {
                 }
                 else {
                     $Dacl | ForEach-Object {
-                        Add-Member -InputObject $_ -MemberType NoteProperty -Name AccessRights -Value ($_.AccessMask -as $script:ServiceControlManagerAccessRightEnum) -PassThru
+                        Add-Member -InputObject $_ -MemberType NoteProperty -Name AccessRights -Value ($_.AccessMask -as $script:ServiceControlManagerAccessRight) -PassThru
                     }
                 }
             }

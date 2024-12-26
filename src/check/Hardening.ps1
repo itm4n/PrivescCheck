@@ -147,7 +147,7 @@ function Invoke-UserAccountControlCheck {
 
         $CheckResult = New-Object -TypeName PSObject
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
-        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevel::None })
         $CheckResult
     }
 }
@@ -336,7 +336,7 @@ function Invoke-LapsCheck {
 
         $CheckResult = New-Object -TypeName PSObject
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $LapsResult
-        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevel::None })
         $CheckResult
     }
 }
@@ -457,7 +457,7 @@ function Invoke-BitLockerCheck {
             if ($BitLockerConfig.Status.Value -ne 1) {
                 # BitLocker is not enabled.
                 $Vulnerable = $true
-                $Severity = $script:SeverityLevelEnum::High
+                $Severity = $script:SeverityLevel::High
                 $Description = "BitLocker is not enabled."
 
                 if ($null -ne $TpmDeviceInformation) {
@@ -465,13 +465,13 @@ function Invoke-BitLockerCheck {
                         # BitLocker not enabled + TPM present -> Is it a virtual machine?
                         if (($TpmType -band $script:TPM_DEVICE_TYPE::Virtual) -gt 0) {
                             $Description = "$($Description) The installed TPM seems to be a virtual one, this check is probably irrelevant."
-                            $Severity = $script:SeverityLevelEnum::Low
+                            $Severity = $script:SeverityLevel::Low
                         }
                     }
                     else {
                         # BitLocker not enabled + TPM not present -> Most probably a virtual machine?!
                         $Description = "$($Description) No TPM found on this machine, this check is probably irrelevant."
-                        $Severity = $script:SeverityLevelEnum::Low
+                        $Severity = $script:SeverityLevel::Low
                     }
                 }
             }
@@ -488,7 +488,7 @@ function Invoke-BitLockerCheck {
                     # Advanced startup is not enabled. This means that a second factor of authentication
                     # cannot be configured. We can report this and return.
                     $Vulnerable = $true
-                    $Severity = $script:SeverityLevelEnum::Medium
+                    $Severity = $script:SeverityLevel::Medium
                     $Description = "$($Description) Additional authentication is not required at startup."
 
                     if ($BitLockerConfig.UseTPM.Value -eq 1) {
@@ -499,19 +499,19 @@ function Invoke-BitLockerCheck {
                                 if (($TpmType -band $script:TPM_DEVICE_TYPE::Discrete) -gt 0) {
                                     # BitLocker TPM only + dTPM -> TPM sniffing attack possible, max severity.
                                     $Description = "$($Description) A discrete TPM (dTPM) seems to be installed on this machine, a TPM sniffing attack is more likely to be performed."
-                                    $Severity = $script:SeverityLevelEnum::High
+                                    $Severity = $script:SeverityLevel::High
                                 }
                                 else {
                                     # BitLocker TPM only + vTPM, iTPM, or fTPM -> TPM sniffing attack not possible,
                                     # lower the severity.
                                     $Description = "$($Description) The installed TPM does not seem to be a discrete one, a TPM sniffing attack is therefore less likely to be performed."
-                                    $Severity = $script:SeverityLevelEnum::Medium
+                                    $Severity = $script:SeverityLevel::Medium
                                 }
                             }
                             else {
                                 # BitLocker enabled without TPM
                                 $Description = "$($Description) No TPM found on this machine, this check is probably irrelevant."
-                                $Severity = $script:SeverityLevelEnum::Low
+                                $Severity = $script:SeverityLevel::Low
                             }
                         }
                     }
@@ -521,7 +521,7 @@ function Invoke-BitLockerCheck {
                     if (($BitLockerConfig.UseTPMPIN.Value -ne 1) -and ($BitLockerConfig.UseTPMKey.Value -ne 1) -and ($BitLockerConfig.UseTPMKeyPIN -ne 1)) {
                         # A second factor of authentication is not explicitly enforced.
                         $Vulnerable = $true
-                        $Severity = $script:SeverityLevelEnum::Medium
+                        $Severity = $script:SeverityLevel::Medium
                         $Description = "$($Description) A second factor of authentication (PIN, startup key) is not explicitly required."
 
                         if ($BitLockerConfig.EnableBDEWithNoTPM.Value -eq 1) {
@@ -536,7 +536,7 @@ function Invoke-BitLockerCheck {
 
         $CheckResult = New-Object -TypeName PSObject
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Config
-        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $Severity } else { $script:SeverityLevelEnum::None })
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $Severity } else { $script:SeverityLevel::None })
         $CheckResult
     }
 }
@@ -606,7 +606,7 @@ function Invoke-LsaProtectionCheck {
 
         $CheckResult = New-Object -TypeName PSObject
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Config
-        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevel::None })
         $CheckResult
     }
 }
@@ -731,7 +731,7 @@ function Invoke-CredentialGuardCheck {
 
         $CheckResult = New-Object -TypeName PSObject
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Config
-        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevel::None })
         $CheckResult
     }
 }
@@ -790,7 +790,7 @@ function Invoke-BiosModeCheck {
 
         $CheckResult = New-Object -TypeName PSObject
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
-        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevel::None })
         $CheckResult
     }
 }
@@ -838,7 +838,7 @@ function Invoke-AppLockerCheck {
 
         $CheckResult = New-Object -TypeName PSObject
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AppLockerConfigured
-        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevel::None })
         $CheckResult
     }
 }
@@ -885,7 +885,7 @@ function Invoke-AppLockerPolicyCheck {
 
         $CheckResult = New-Object -TypeName PSObject
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AppLockerPolicy
-        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AppLockerPolicy) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AppLockerPolicy) { $BaseSeverity } else { $script:SeverityLevel::None })
         $CheckResult
     }
 }
@@ -942,7 +942,7 @@ function Invoke-FileExtensionAssociationCheck {
 
         $CheckResult = New-Object -TypeName PSObject
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $VulnerableAssociations
-        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($VulnerableAssociations.Count) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($VulnerableAssociations.Count) { $BaseSeverity } else { $script:SeverityLevel::None })
         $CheckResult
     }
 }
@@ -992,7 +992,7 @@ function Invoke-HiddenFilenameExtensionCheck {
 
         $CheckResult = New-Object -TypeName PSObject
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Config
-        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($IsVulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($IsVulnerable) { $BaseSeverity } else { $script:SeverityLevel::None })
         $CheckResult
     }
 }
@@ -1041,7 +1041,7 @@ function Invoke-PowerShellExecutionPolicyCheck {
 
         $CheckResult = New-Object -TypeName PSObject
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $PolicyResult
-        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevel::None })
         $CheckResult
     }
 }
@@ -1115,7 +1115,7 @@ function Invoke-NameResolutionProtocolCheck {
 
         $CheckResult = New-Object -TypeName PSObject
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
-        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevel::None })
         $CheckResult
     }
 }
@@ -1173,7 +1173,7 @@ function Invoke-DefaultLocalAdministratorAccountCheck {
 
         $CheckResult = New-Object -TypeName PSObject
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $LocalAdministratorInfo
-        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevelEnum::None })
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevel::None })
         $CheckResult
     }
 }
