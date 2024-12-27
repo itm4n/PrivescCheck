@@ -1,3 +1,63 @@
+function Get-ComClassEntryFromRegistry {
+
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory=$true)]
+        [String] $Clsid
+    )
+
+    begin {
+        $RootKey = "HKLM\SOFTWARE\Classes\CLSID"
+        $ComTypes = @( "InprocHandler", "InprocHandler32", "InprocServer", "InprocServer32", "LocalServer", "LocalServer32" )
+    }
+
+    process {
+        $ClassId = $Clsid
+        if ($Clsid -like "{*}") { $ClassId = $Clsid.Trim('{').Trim('}') }
+
+        $ClassRegPath = "$($RootKey)\{$($ClassId)}"
+        $ServerProperties = Get-ChildItem -Path "Registry::$($ClassRegPath)" -ErrorAction SilentlyContinue | Where-Object { $ComTypes -contains $_.PSChildName }
+        if ($null -eq $ServerProperties) { return }
+
+        foreach ($ServerProperty in $ServerProperties) {
+
+            $ServerData = $ServerProperty.GetValue($null, $null, "DoNotExpandEnvironmentNames")
+            $ServerDataType = $null
+
+            if ($ServerProperty.PSChildName -like "Inproc*") {
+                # The data contains the name or path of a DLL.
+                # $PathToAnalyze = $ServerData
+                $PathToAnalyze = [System.Environment]::ExpandEnvironmentVariables($ServerData)
+                # The following regex matches any string surrounded by double quotes, but not
+                # containing double quotes within it. This should match quoted paths such as
+                # "C:\windows\system32\combase.dll"
+                if ($ServerData -match "^`"[^`"]+`"`$") {
+                    $PathToAnalyze = $PathToAnalyze.Trim('"')
+                }
+                if ([System.IO.Path]::IsPathRooted($PathToAnalyze)) {
+                    $ServerDataType = "FilePath"
+                }
+                else {
+                    $ServerDataType = "FileName"
+                }
+            }
+            elseif ($ServerProperty.PSChildName -like "Local*") {
+                # The data contains the path of an executable or a command line.
+                $ServerDataType = "CommandLine"
+            }
+
+            $Result = New-Object -TypeName PSObject
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Id" -Value $ClassId
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $ClassRegPath
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $ServerProperty.PSChildName
+            $Result | Add-Member -MemberType "NoteProperty" -Name "FullPath" -Value $(Join-Path -Path $Result.Path -ChildPath $Result.Value)
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $ServerData
+            $Result | Add-Member -MemberType "NoteProperty" -Name "DataType" -Value $ServerDataType
+            $Result
+        }
+    }
+}
+
 function Get-ComClassFromRegistry {
     <#
     .SYNOPSIS
@@ -33,13 +93,10 @@ function Get-ComClassFromRegistry {
     #>
 
     [CmdletBinding()]
-    param (
-        [String] $Clsid
-    )
+    param ()
 
     begin {
         $RootKey = "HKLM\SOFTWARE\Classes\CLSID"
-        $ComTypes = @( "InprocHandler", "InprocHandler32", "InprocServer", "InprocServer32", "LocalServer", "LocalServer32" )
     }
 
     process {
@@ -47,57 +104,17 @@ function Get-ComClassFromRegistry {
 
             $script:GlobalCache.RegisteredComList = @()
 
-            $ClassIds = Get-ChildItem -Path "Registry::$($RootKey)" -ErrorAction SilentlyContinue
-            Write-Verbose "CLSID count: $($ClassIds.Count)"
-
-            foreach ($ClassId in $ClassIds) {
-                $ServerProperties = Get-ChildItem -Path "Registry::$($ClassId.Name)" -ErrorAction SilentlyContinue | Where-Object { $ComTypes -contains $_.PSChildName }
-                if ($null -eq $ServerProperties) { continue }
-
-                foreach ($ServerProperty in $ServerProperties) {
-
-                    $ServerData = $ServerProperty.GetValue($null, $null, "DoNotExpandEnvironmentNames")
-                    $ServerDataType = $null
-
-                    if ($ServerProperty.PSChildName -like "Inproc*") {
-                        # The data contains the name or path of a DLL.
-                        # $PathToAnalyze = $ServerData
-                        $PathToAnalyze = [System.Environment]::ExpandEnvironmentVariables($ServerData)
-                        # The following regex matches any string surrounded by double quotes, but not
-                        # containing double quotes within it. This should match quoted paths such as
-                        # "C:\windows\system32\combase.dll"
-                        if ($ServerData -match "^`"[^`"]+`"`$") {
-                            $PathToAnalyze = $PathToAnalyze.Trim('"')
+            Get-ChildItem -Path "Registry::$($RootKey)" -ErrorAction SilentlyContinue |
+                Select-Object -ExpandProperty "PSChildName" |
+                    Invoke-CommandMultithread -InitialSessionState $(Get-InitialSessionState) -Command "Get-ComClassEntryFromRegistry" -InputParameter "Clsid" |
+                        ForEach-Object {
+                            $script:GlobalCache.RegisteredComList += $_
+                            $_
                         }
-                        if ([System.IO.Path]::IsPathRooted($PathToAnalyze)) {
-                            $ServerDataType = "FilePath"
-                        }
-                        else {
-                            $ServerDataType = "FileName"
-                        }
-                    }
-                    elseif ($ServerProperty.PSChildName -like "Local*") {
-                        # The data contains the path of an executable or a command line.
-                        $ServerDataType = "CommandLine"
-                    }
-
-                    $Result = New-Object -TypeName PSObject
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "Id" -Value $ClassId.PSChildName
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $($ClassId.Name -replace "HKEY_LOCAL_MACHINE","HKLM")
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $ServerProperty.PSChildName
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $ServerData
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "DataType" -Value $ServerDataType
-                    $script:GlobalCache.RegisteredComList += $Result
-                }
-            }
         }
-
-        if ($Clsid) {
-            $script:GlobalCache.RegisteredComList | Where-Object { $_.Id -eq $Clsid }
-            return
+        else {
+            $script:GlobalCache.RegisteredComList
         }
-
-        $script:GlobalCache.RegisteredComList
     }
 }
 

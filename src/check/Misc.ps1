@@ -480,7 +480,8 @@ function Invoke-AmsiProviderCheck {
 
     process {
         Get-ChildItem -Path "Registry::HKLM\SOFTWARE\Microsoft\AMSI\Providers" -ErrorAction SilentlyContinue | ForEach-Object {
-            Get-ComClassFromRegistry -Clsid $_.PSChildName
+            $ChildKeyName = $_.PSChildName
+            Get-ComClassFromRegistry | Where-Object { $ChildKeyName -like "*$($_.Id)*" }
         }
     }
 }

@@ -921,20 +921,19 @@ function Invoke-ComServerRegistryPermissionCheck {
 
     process {
         $RegisteredClasses = Get-ComClassFromRegistry | Where-Object { ($_.Value -like "*server*") -and ($null -ne $_.Path) }
-        foreach ($RegisteredClass in $RegisteredClasses) {
 
-            $RegPath = Join-Path -Path $RegisteredClass.Path -ChildPath $RegisteredClass.Value
-            $ModifiableRegPaths = Get-ModifiableRegistryPath -Path $RegPath | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
-            if ($null -eq $ModifiableRegPaths) { continue }
+        $TempHashTable = @{}
+        $RegisteredClasses | ForEach-Object { $TempHashTable[$_.FullPath] = $_ }
 
-            foreach ($ModifiableRegPath in $ModifiableRegPaths) {
-
-                $Result = $RegisteredClass.PSObject.Copy()
-                $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $ModifiableRegPath.ModifiablePath
-                $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $ModifiableRegPath.IdentityReference
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value ($ModifiableRegPath.Permissions -join ", ")
-                $AllResults += $Result
-            }
+        $VulnerableRegPaths = $TempHashTable.Keys | Invoke-CommandMultithread -InitialSessionState $(Get-InitialSessionState) -Command "Get-ModifiableRegistryPath"
+        $VulnerableRegPaths | ForEach-Object {
+            $VulnerableRegPath = $_
+            $RegisteredClass = $TempHashTable[$VulnerableRegPath.ModifiablePath]
+            $Result = $RegisteredClass.PSObject.Copy()
+            $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $VulnerableRegPath.ModifiablePath
+            $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $VulnerableRegPath.IdentityReference
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value ($VulnerableRegPath.Permissions -join ", ")
+            $AllResults += $Result
         }
 
         $CheckResult = New-Object -TypeName PSObject
