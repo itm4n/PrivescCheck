@@ -107,3 +107,5 @@ $script:Vaultcli = $Types['vaultcli']
 $script:Winspool = $Types['winspool']
 $script:Wlanapi  = $Types['wlanapi']
 $script:Wtsapi32 = $Types['wtsapi32']
+Remove-Variable -Name "Types"
+Remove-Variable -Name "FunctionDefinitions"
