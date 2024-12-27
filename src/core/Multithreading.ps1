@@ -111,23 +111,19 @@ function Invoke-CommandMultithread {
 
             # Add 'Invoke-Command -Param Foo' or 'Invoke-Command Foo'.
             if ([String]::IsNullOrEmpty($InputParameter)) {
-                Write-Verbose "Add input '$($Object.ToString())' as argument"
-                $null = $PowerShellThread.AddArgument($Object.ToString())
+                $null = $PowerShellThread.AddArgument($Object)
             }
             else {
-                Write-Verbose "Add input '$($Object.ToString())' as parameter '$($InputParameter)'"
-                $null = $PowerShellThread.AddParameter($InputParameter, $Object.ToString())
+                $null = $PowerShellThread.AddParameter($InputParameter, $Object)
             }
 
             # Add 'Invoke-Command -Option Bar'.
             foreach ($Key in $OptionalParameter.Keys) {
-                Write-Verbose "Add option '$($OptionalParameter)' with value '$($Key)'"
                 $null = $PowerShellThread.AddParameter($Key, $OptionalParameter.$Key)
             }
 
             # Add 'Invoke-Command -Switch'.
             foreach ($Switch in $OptionalSwitch) {
-                Write-Verbose "Add switch '$($Switch)'"
                 $null = $PowerShellThread.AddParameter($Switch)
             }
 

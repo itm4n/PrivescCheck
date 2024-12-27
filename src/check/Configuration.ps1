@@ -920,21 +920,10 @@ function Invoke-ComServerRegistryPermissionCheck {
     }
 
     process {
-        $RegisteredClasses = Get-ComClassFromRegistry | Where-Object { ($_.Value -like "*server*") -and ($null -ne $_.Path) }
-
-        $TempHashTable = @{}
-        $RegisteredClasses | ForEach-Object { $TempHashTable[$_.FullPath] = $_ }
-
-        $VulnerableRegPaths = $TempHashTable.Keys | Invoke-CommandMultithread -InitialSessionState $(Get-InitialSessionState) -Command "Get-ModifiableRegistryPath"
-        $VulnerableRegPaths | ForEach-Object {
-            $VulnerableRegPath = $_
-            $RegisteredClass = $TempHashTable[$VulnerableRegPath.ModifiablePath]
-            $Result = $RegisteredClass.PSObject.Copy()
-            $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $VulnerableRegPath.ModifiablePath
-            $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $VulnerableRegPath.IdentityReference
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value ($VulnerableRegPath.Permissions -join ", ")
-            $AllResults += $Result
-        }
+        Get-ComClassFromRegistry |
+            Where-Object { ($_.Value -like "*server*") -and ($null -ne $_.Path) } |
+                Invoke-CommandMultithread -InitialSessionState $(Get-InitialSessionState) -Command "Get-ModifiableComClassEntry" -InputParameter "ComClassEntry" |
+                    ForEach-Object { $AllResults += $_ }
 
         $CheckResult = New-Object -TypeName PSObject
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults

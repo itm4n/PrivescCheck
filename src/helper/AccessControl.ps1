@@ -366,6 +366,25 @@ function Get-ModifiableRegistryPath {
     }
 }
 
+function Get-ModifiableComClassEntry {
+
+    [CmdletBinding()]
+    param (
+        [Parameter(Position=0, Mandatory=$true, ValueFromPipeline=$true, ValueFromPipelineByPropertyName=$true)]
+        [Object] $ComClassEntry
+    )
+
+    process {
+        Get-ModifiableRegistryPath -Path $ComClassEntry.FullPath | ForEach-Object {
+            $Result = $ComClassEntry.PSObject.Copy()
+            $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $_.ModifiablePath
+            $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $_.IdentityReference
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value ($_.Permissions -join ", ")
+            $Result
+        }
+    }
+}
+
 function Get-ExploitableUnquotedPath {
     <#
     .SYNOPSIS
