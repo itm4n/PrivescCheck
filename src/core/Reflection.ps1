@@ -507,26 +507,30 @@ function Add-Win32Type {
     }
 
     process {
+        # In case the DLL is specified using a filename, strip the extension to define
+        # the type name.
+        $TypeName = $DllName.Split('.')[0]
+
         if ($Module -is [Reflection.Assembly]) {
             if ($Namespace) {
-                $TypeHash[$DllName] = $Module.GetType("$Namespace.$DllName")
+                $TypeHash[$TypeName] = $Module.GetType("$Namespace.$TypeName")
             }
             else {
-                $TypeHash[$DllName] = $Module.GetType($DllName)
+                $TypeHash[$TypeName] = $Module.GetType($TypeName)
             }
         }
         else {
             # Define one type for each DLL
-            if (!$TypeHash.ContainsKey($DllName)) {
+            if (!$TypeHash.ContainsKey($TypeName)) {
                 if ($Namespace) {
-                    $TypeHash[$DllName] = $Module.DefineType("$Namespace.$DllName", 'Public,BeforeFieldInit')
+                    $TypeHash[$TypeName] = $Module.DefineType("$Namespace.$TypeName", 'Public,BeforeFieldInit')
                 }
                 else {
-                    $TypeHash[$DllName] = $Module.DefineType($DllName, 'Public,BeforeFieldInit')
+                    $TypeHash[$TypeName] = $Module.DefineType($TypeName, 'Public,BeforeFieldInit')
                 }
             }
 
-            $Method = $TypeHash[$DllName].DefineMethod(
+            $Method = $TypeHash[$TypeName].DefineMethod(
                 $FunctionName,
                 'Public,Static,PInvokeImpl',
                 $ReturnType,
