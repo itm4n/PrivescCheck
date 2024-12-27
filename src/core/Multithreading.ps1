@@ -21,10 +21,14 @@ function New-InitialSessionState {
     process {
         $InitialSessionState = [Management.Automation.Runspaces.InitialSessionState]::CreateDefault()
 
-        # List all variables defined in the current session and add them to the new
-        # initial session state object.
-        # Get-Variable -Scope Script | Where-Object { $null -ne $_.Value } | ForEach-Object {
-        Get-Variable -Scope Script | Where-Object { $_.Value -and $_.Value.ToString() -like "WinApiModule.*" } | ForEach-Object {
+        # Enumerate all session variables used to define types and functions in
+        # 'WinApiModule' as well as custom global variables.
+        $SessionVariables = Get-Variable -Scope Script | Where-Object {
+            ($_.Value -and $_.Value.ToString() -like "WinApiModule.*") -or ($_.Name -and $_.Name -like "Global*")
+        }
+
+        # Populate the initial session state object with all our session variables.
+        $SessionVariables | ForEach-Object {
             $SessionStateVariableEntry = New-Object System.Management.Automation.Runspaces.SessionStateVariableEntry -ArgumentList $_.Name, $_.Value, $null
             $InitialSessionState.Variables.Add($SessionStateVariableEntry)
         }
