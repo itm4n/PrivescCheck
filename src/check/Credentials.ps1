@@ -503,7 +503,7 @@ function Invoke-PowerShellHistoryCredentialCheck {
     if (-not $ErrorGetContent) {
 
         $HistoryCount = $HistoryFileContent.Count
-        $AllMatches = $HistoryFileContent | Select-String -Pattern $script:KeywordsOfInterest -AllMatches
+        $AllMatches = $HistoryFileContent | Select-String -Pattern $script:GlobalConstant.KeywordsOfInterest -AllMatches
         $AllMatchesCount = $AllMatches.Count
         $FileItem = Get-Item -Path $HistoryFilePath
 

@@ -360,7 +360,7 @@ function Invoke-EndpointProtectionCheck {
     begin {
         $Signatures = @{}
 
-        ConvertFrom-EmbeddedTextBlob -TextBlob $script:EndpointProtectionSignatureBlob | ConvertFrom-Csv | ForEach-Object {
+        ConvertFrom-EmbeddedTextBlob -TextBlob $script:GlobalConstant.EndpointProtectionSignatureBlob | ConvertFrom-Csv | ForEach-Object {
             $Signatures.Add($_.Name, $_.Signature)
         }
 

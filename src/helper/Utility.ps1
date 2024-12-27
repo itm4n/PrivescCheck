@@ -28,7 +28,7 @@ function Test-IsCommonApplicationFile {
     )
 
     process {
-        $script:CommonApplicationExtensions -contains ([System.IO.Path]::GetExtension($Path)).Replace('.', '')
+        $script:GlobalConstant.CommonApplicationExtensions -contains ([System.IO.Path]::GetExtension($Path)).Replace('.', '')
     }
 }
 
@@ -769,7 +769,7 @@ function Get-KnownVulnerableKernelDriverList {
     [CmdletBinding()]
     param ()
 
-    $VulnerableDriverList = $script:VulnerableDrivers | ConvertFrom-Csv -Delimiter ";"
+    $VulnerableDriverList = $script:GlobalConstant.VulnerableDrivers | ConvertFrom-Csv -Delimiter ";"
     if ($null -eq $VulnerableDriverList) { Write-Warning "Failed to get list of vulnerable drivers."; return }
 
     $VulnerableDriverList | ForEach-Object {

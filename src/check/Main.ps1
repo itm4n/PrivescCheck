@@ -71,7 +71,10 @@ function Invoke-PrivescCheck {
             }
         }
 
-        $script:ResultArrayList.Clear()
+        # Reset global variables.
+        foreach ($VariableEntry in $($script:GlobalVariable.Keys)) {
+            $script:GlobalVariable.$VariableEntry = $null
+        }
 
         # Reset global cache.
         foreach ($CacheEntryName in $($script:GlobalCache.Keys)) {
@@ -88,6 +91,7 @@ function Invoke-PrivescCheck {
         #     }
         # }
 
+        $script:GlobalVariable.CheckResultList = @()
         $AllChecks = New-Object System.Collections.ArrayList
 
         # If the 'Benchmark' switch is set, prepare a new StopWatch object that we will use
@@ -101,7 +105,7 @@ function Invoke-PrivescCheck {
 
     process {
 
-        ConvertFrom-EmbeddedTextBlob -TextBlob $script:CheckCsvBlob | ConvertFrom-Csv | ForEach-Object {
+        ConvertFrom-EmbeddedTextBlob -TextBlob $script:GlobalConstant.CheckCsvBlob | ConvertFrom-Csv | ForEach-Object {
             [void] $AllChecks.Add($_)
         }
 
@@ -211,10 +215,10 @@ function Invoke-PrivescCheck {
                 # filename.
                 $ReportFileName = "$($Report.Trim()).$($_.ToLower())"
                 switch ($_) {
-                    "TXT"   { Write-TxtReport  -AllResults $script:ResultArrayList | Out-File $ReportFileName }
-                    "HTML"  { Write-HtmlReport -AllResults $script:ResultArrayList | Out-File $ReportFileName }
-                    "CSV"   { Write-CsvReport  -AllResults $script:ResultArrayList | Out-File $ReportFileName }
-                    "XML"   { Write-XmlReport  -AllResults $script:ResultArrayList | Out-File $ReportFileName }
+                    "TXT"   { Write-TxtReport  -AllResults $script:GlobalVariable.CheckResultList | Out-File $ReportFileName }
+                    "HTML"  { Write-HtmlReport -AllResults $script:GlobalVariable.CheckResultList | Out-File $ReportFileName }
+                    "CSV"   { Write-CsvReport  -AllResults $script:GlobalVariable.CheckResultList | Out-File $ReportFileName }
+                    "XML"   { Write-XmlReport  -AllResults $script:GlobalVariable.CheckResultList | Out-File $ReportFileName }
                     default { Write-Warning "`nReport format not implemented: $($Format.ToUpper())`n" }
                 }
             }
@@ -276,7 +280,7 @@ function Invoke-Check {
         $Check | Add-Member -MemberType "NoteProperty" -Name "ResultRawString" -Value $($Check.ResultRaw | Format-List | Out-String)
     }
 
-    [void] $script:ResultArrayList.Add($Check)
+    $script:GlobalVariable.CheckResultList += $Check
     $Check
 }
 
@@ -585,7 +589,7 @@ function Write-ShortReport {
 
     # Show only vulnerabilities, i.e. any finding that has a final severity of at
     # least "low".
-    $AllVulnerabilities = $script:ResultArrayList | Where-Object { $_.Severity -ne $script:SeverityLevel::None }
+    $AllVulnerabilities = $script:GlobalVariable.CheckResultList | Where-Object { $_.Severity -ne $script:SeverityLevel::None }
     $Categories = $AllVulnerabilities | Select-Object -ExpandProperty "Category" | Sort-Object -Unique
 
     if ($null -eq $AllVulnerabilities) {
