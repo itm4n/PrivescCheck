@@ -9,6 +9,7 @@ function Invoke-Build {
     begin {
         $BuildProfileCore = @(
             ".\src\core\Compression.ps1",
+            ".\src\core\Multithreading.ps1",
             ".\src\core\Reflection.ps1",
             ".\src\core\WinApi.Enum.ps1",
             ".\src\core\WinApi.Struct.ps1",
@@ -390,12 +391,18 @@ function Get-ScriptLoader {
     }
     `$ScriptBlock = `$ExecutionContext.InvokeCommand.NewScriptBlock(`$Decoded)
     . `$ScriptBlock
+    Remove-Variable -Name "Decoded"
+    Remove-Variable -Name "ScriptBlock"
 }
+Remove-Variable -Name "Modules"
+@(MODULE_STR_LIST) | ForEach-Object { Remove-Variable -Name `$_ }
 "@
     }
 
     process {
-        $LoaderBlock -replace "MODULE_LIST",$(($Modules | ForEach-Object { "`$$($_)" }) -join ',')
+        $ModuleList = ($Modules | ForEach-Object { "`$$($_)" }) -join ','
+        $ModuleStrList = ($Modules | ForEach-Object { "`"$($_)`"" }) -join ','
+        ($LoaderBlock -replace "MODULE_LIST",$ModuleList) -replace "MODULE_STR_LIST",$ModuleStrList
     }
 }
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## 2025-12-27
+
+### Added
+
+- Support for multithreading.
+
 ## 2024-12-25
 
 ### Added
