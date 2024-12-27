@@ -1,10 +1,13 @@
-$script:CachedServiceList = New-Object -TypeName System.Collections.ArrayList
-$script:CachedDriverList = New-Object -TypeName System.Collections.ArrayList
-$script:CachedHotFixList = New-Object -TypeName System.Collections.ArrayList
-$script:CachedScheduledTaskList = New-Object -TypeName System.Collections.ArrayList
-$script:CachedRegisteredComList = New-Object -TypeName System.Collections.ArrayList
-$script:CachedCurrentUserSids = $null
-$script:CachedCurrentUserDenySids = $null
+$script:GlobalCache = @{
+    ServiceList = $null
+    DriverList = $null
+    HotFixList = $null
+    ScheduledTaskList = $null
+    RegisteredComList = $null
+    CurrentUserSids = $null
+    CurrentUserDenySids = $null
+}
+
 $script:ResultArrayList = New-Object -TypeName System.Collections.ArrayList
 $script:KeywordsOfInterest = @( "key", "passw", "secret", "pwd", "creds", "credential", "api" )
 $script:CommonApplicationExtensions = @( "bat", "cmd", "exe", "dll", "msi", "ps1", "reg", "vbe", "vbs" )

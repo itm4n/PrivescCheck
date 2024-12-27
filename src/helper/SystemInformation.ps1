@@ -43,8 +43,9 @@ function Get-ComClassFromRegistry {
     }
 
     process {
+        if ($null -eq $script:GlobalCache.RegisteredComList) {
 
-        if ($script:CachedRegisteredComList.Count -eq 0) {
+            $script:GlobalCache.RegisteredComList = @()
 
             $ClassIds = Get-ChildItem -Path "Registry::$($RootKey)" -ErrorAction SilentlyContinue
             Write-Verbose "CLSID count: $($ClassIds.Count)"
@@ -86,17 +87,17 @@ function Get-ComClassFromRegistry {
                     $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $ServerProperty.PSChildName
                     $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $ServerData
                     $Result | Add-Member -MemberType "NoteProperty" -Name "DataType" -Value $ServerDataType
-                    [void] $script:CachedRegisteredComList.Add($Result)
+                    $script:GlobalCache.RegisteredComList += $Result
                 }
             }
         }
 
         if ($Clsid) {
-            $script:CachedRegisteredComList | Where-Object { $_.Id -eq $Clsid }
+            $script:GlobalCache.RegisteredComList | Where-Object { $_.Id -eq $Clsid }
             return
         }
 
-        $script:CachedRegisteredComList
+        $script:GlobalCache.RegisteredComList
     }
 }
 
@@ -702,7 +703,7 @@ function Get-ServiceFromRegistry {
     }
 
     process {
-        if ($script:CachedServiceList.Count -eq 0) {
+        if ($null -eq $script:GlobalCache.ServiceList) {
 
             # If the cached service list hasn't been initialized yet, enumerate all services and populate the
             # cache.
@@ -710,10 +711,11 @@ function Get-ServiceFromRegistry {
             $ServicesRegPath = "HKLM\SYSTEM\CurrentControlSet\Services"
             $RegAllServices = Get-ChildItem -Path "Registry::$($ServicesRegPath)" -ErrorAction SilentlyContinue
 
-            $RegAllServices | ForEach-Object { [void] $script:CachedServiceList.Add((Get-ServiceFromRegistryHelper -Name $_.PSChildName)) }
+            $script:GlobalCache.ServiceList = @()
+            $RegAllServices | ForEach-Object { $script:GlobalCache.ServiceList += $(Get-ServiceFromRegistryHelper -Name $_.PSChildName) }
         }
 
-        foreach ($ServiceItem in $script:CachedServiceList) {
+        foreach ($ServiceItem in $script:GlobalCache.ServiceList) {
 
             # FilterLevel = 0 - Add the service to the list and go to the next one
             if ($FilterLevel -eq 0) { $ServiceItem; continue }
@@ -850,7 +852,9 @@ function Get-KernelDriver {
     [CmdletBinding()]
     param()
 
-    if ($script:CachedDriverList.Count -eq 0) {
+    if ($null -eq $script:GlobalCache.DriverList) {
+
+        $script:GlobalCache.DriverList = @()
 
         # If the cached driver list hasn't been initialized yet, enumerate all drivers,
         # resolve their paths and populate the cache.
@@ -866,11 +870,11 @@ function Get-KernelDriver {
 
             $Service | Add-Member -MemberType "NoteProperty" -Name "ImagePathResolved" -Value $ImagePath
 
-            [void] $script:CachedDriverList.Add($Service)
+            $script:GlobalCache.DriverList += $Service
         }
     }
 
-    $script:CachedDriverList | ForEach-Object { $_ }
+    $script:GlobalCache.DriverList | ForEach-Object { $_ }
 }
 
 function Get-NetworkAdapter {
@@ -1255,10 +1259,11 @@ function Get-ScheduledTaskList {
     }
 
     try {
-
-        if ($script:CachedScheduledTaskList.Count -eq 0) {
+        if ($null -eq $script:GlobalCache.ScheduledTaskList) {
 
             # If the cache is empty, enumerate scheduled tasks and populate the cache.
+
+            $script:GlobalCache.ScheduledTaskList = @()
 
             $ScheduleService = New-Object -ComObject("Schedule.Service")
             $ScheduleService.Connect()
@@ -1321,8 +1326,7 @@ function Get-ScheduledTaskList {
                             $Result | Add-Member -MemberType "NoteProperty" -Name "Arguments" -Value $TaskArguments
                             $Result | Add-Member -MemberType "NoteProperty" -Name "CommandLine" -Value $TaskCommandLine
                             $Result | Add-Member -MemberType "NoteProperty" -Name "CurrentUserIsOwner" -Value $CurrentUserIsOwner
-
-                            [void] $script:CachedScheduledTaskList.Add($Result)
+                            $script:GlobalCache.ScheduledTaskList += $Result
                         }
                     }
                 }
@@ -1332,10 +1336,7 @@ function Get-ScheduledTaskList {
             }
         }
 
-        $script:CachedScheduledTaskList | ForEach-Object {
-            $_
-        }
-
+        $script:GlobalCache.ScheduledTaskList | ForEach-Object { $_ }
     }
     catch {
         Write-Verbose $_

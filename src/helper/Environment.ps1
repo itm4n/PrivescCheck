@@ -3,13 +3,13 @@ function Get-CurrentUserSid {
     [CmdletBinding()]
     param()
 
-    if ($null -eq $script:CachedCurrentUserSids) {
+    if ($null -eq $script:GlobalCache.CurrentUserSids) {
         $UserIdentity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
-        $script:CachedCurrentUserSids = $UserIdentity.Groups | Select-Object -ExpandProperty Value
-        $script:CachedCurrentUserSids += $UserIdentity.User.Value
+        $script:GlobalCache.CurrentUserSids = $UserIdentity.Groups | Select-Object -ExpandProperty Value
+        $script:GlobalCache.CurrentUserSids += $UserIdentity.User.Value
     }
 
-    $script:CachedCurrentUserSids
+    $script:GlobalCache.CurrentUserSids
 }
 
 function Get-CurrentUserDenySid {
@@ -17,14 +17,14 @@ function Get-CurrentUserDenySid {
     [CmdletBinding()]
     param()
 
-    if ($null -eq $script:CachedCurrentUserDenySids) {
-        $script:CachedCurrentUserDenySids = [string[]](Get-TokenInformationGroup -InformationClass Groups | Where-Object { $_.Attributes.Equals("UseForDenyOnly") } | Select-Object -ExpandProperty SID)
-        if ($null -eq $script:CachedCurrentUserDenySids) {
-            $script:CachedCurrentUserDenySids = @()
+    if ($null -eq $script:GlobalCache.CurrentUserDenySids) {
+        $script:GlobalCache.CurrentUserDenySids = [string[]](Get-TokenInformationGroup -InformationClass Groups | Where-Object { $_.Attributes.Equals("UseForDenyOnly") } | Select-Object -ExpandProperty SID)
+        if ($null -eq $script:GlobalCache.CurrentUserDenySids) {
+            $script:GlobalCache.CurrentUserDenySids = @()
         }
     }
 
-    $script:CachedCurrentUserDenySids
+    $script:GlobalCache.CurrentUserDenySids
 }
 
 function Get-InstalledApplication {

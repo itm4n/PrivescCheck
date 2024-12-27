@@ -71,12 +71,22 @@ function Invoke-PrivescCheck {
             }
         }
 
-        # Reset all global ArrayLists on startup
-        $script:CachedServiceList.Clear()
-        $script:CachedHotFixList.Clear()
-        $script:CachedScheduledTaskList.Clear()
-        $script:CachedRegisteredComList.Clear()
         $script:ResultArrayList.Clear()
+
+        # Reset global cache.
+        foreach ($CacheEntryName in $($script:GlobalCache.Keys)) {
+            $script:GlobalCache.$CacheEntryName = $null
+        }
+
+        # TODO: Initialize global cache.
+
+        # Ensure global cache was initialized.
+        # TODO: Uncomment after implementing cache initialization
+        # foreach ($CacheEntryName in $($script:GlobalCache.Keys)) {
+        #     if ($null -eq $script:GlobalCache.$CacheEntryName) {
+        #         Write-Warning "Cache entry '$($CacheEntryName)' was not initialized."
+        #     }
+        # }
 
         $AllChecks = New-Object System.Collections.ArrayList
 
