@@ -1,3 +1,18 @@
+function Get-InitialSessionState {
+
+    [OutputType([Management.Automation.Runspaces.InitialSessionState])]
+    [CmdletBinding()]
+    param ()
+
+    process {
+        if ($null -eq $script:GlobalVariable.InitialSessionState) {
+            $script:GlobalVariable.InitialSessionState = New-InitialSessionState
+        }
+
+        return $script:GlobalVariable.InitialSessionState
+    }
+}
+
 function Test-IsRunningInConsole {
     return $Host.Name -match "ConsoleHost"
 }
