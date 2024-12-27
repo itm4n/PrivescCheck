@@ -366,7 +366,8 @@ function Get-ModifiableRegistryPath {
     }
 }
 
-function Get-ModifiableComClassEntry {
+# Used by 'Invoke-ComServerRegistryPermissionCheck'
+function Get-ModifiableComClassEntryRegistryPath {
 
     [CmdletBinding()]
     param (
@@ -381,6 +382,73 @@ function Get-ModifiableComClassEntry {
             $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $_.IdentityReference
             $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value ($_.Permissions -join ", ")
             $Result
+        }
+    }
+}
+
+# Used by 'Invoke-ComServerImagePermissionCheck'
+function Get-ModifiableComClassEntryImagePath {
+
+    [CmdletBinding()]
+    param (
+        [Parameter(Position=0, Mandatory=$true, ValueFromPipeline=$true, ValueFromPipelineByPropertyName=$true)]
+        [Object] $ComClassEntry,
+
+        [System.Collections.ArrayList] $CheckedPaths = $null
+    )
+
+    begin {
+        if ($null -eq $CheckedPaths) { $CheckedPaths = New-Object System.Collections.ArrayList }
+    }
+
+    process {
+        $CandidatePaths = @()
+
+        switch ($ComClassEntry.DataType) {
+            "FileName" {
+                Resolve-ModulePath -Name $ComClassEntry.Data | ForEach-Object { $CandidatePaths += $_ }
+            }
+            "FilePath" {
+                $CandidatePaths += [System.Environment]::ExpandEnvironmentVariables($ComClassEntry.Data).Trim('"')
+            }
+            "CommandLine" {
+                $CommandLineResolved = [string[]] (Resolve-CommandLine -CommandLine $ComClassEntry.Data)
+                if ($null -eq $CommandLineResolved) { continue }
+
+                $CandidatePaths += $CommandLineResolved[0]
+
+                if (($CommandLineResolved[0] -match ".*rundll32(\.exe)?`$") -and ($CommandLineResolved.Count -gt 1) -and ($CommandLineResolved[1] -like "*.dll,*")) {
+                    $PathToAnalyze = $CommandLineResolved[1].Split(',')[0]
+                    if ([System.IO.Path]::IsPathRooted($PathToAnalyze)) {
+                        $CandidatePaths += $PathToAnalyze
+                    }
+                    else {
+                        Resolve-ModulePath -Name $PathToAnalyze | ForEach-Object { $CandidatePaths += $_ }
+                    }
+                }
+            }
+            default {
+                Write-Warning "Unknown server data type: $($ComClassEntry.DataType)"
+                continue
+            }
+        }
+
+        foreach ($CandidatePath in $CandidatePaths) {
+
+            if ([String]::IsNullOrEmpty($CandidatePath)) { continue }
+            if ($CheckedPaths -contains $CandidatePath) { continue }
+
+            $ModifiablePaths = Get-ModifiablePath -Path $CandidatePath | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
+            if ($null -eq $ModifiablePaths) { $null = $CheckedPaths.Add($CandidatePath); continue }
+
+            foreach ($ModifiablePath in $ModifiablePaths) {
+
+                $Result = $ComClassEntry.PSObject.Copy()
+                $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $ModifiablePath.ModifiablePath
+                $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $ModifiablePath.IdentityReference
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value ($ModifiablePath.Permissions -join ", ")
+                $Result
+            }
         }
     }
 }

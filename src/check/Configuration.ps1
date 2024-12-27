@@ -922,7 +922,7 @@ function Invoke-ComServerRegistryPermissionCheck {
     process {
         Get-ComClassFromRegistry |
             Where-Object { ($_.Value -like "*server*") -and ($null -ne $_.Path) } |
-                Invoke-CommandMultithread -InitialSessionState $(Get-InitialSessionState) -Command "Get-ModifiableComClassEntry" -InputParameter "ComClassEntry" |
+                Invoke-CommandMultithread -InitialSessionState $(Get-InitialSessionState) -Command "Get-ModifiableComClassEntryRegistryPath" -InputParameter "ComClassEntry" |
                     ForEach-Object { $AllResults += $_ }
 
         $CheckResult = New-Object -TypeName PSObject
@@ -951,64 +951,18 @@ function Invoke-ComServerImagePermissionCheck {
 
     begin {
         $AllResults = @()
-        $AlreadyCheckedPaths = @()
         $FsRedirectionValue = Disable-Wow64FileSystemRedirection
+        # Create a synchronized list that we will use to store file paths which were
+        # tested and are not vulnerable. This list will be populated by the threads,
+        # hence why we need to use thread-safe collection object.
+        $AlreadyCheckedPaths = [System.Collections.ArrayList]::Synchronized((New-Object System.Collections.ArrayList))
     }
 
     process {
-        $RegisteredClasses = Get-ComClassFromRegistry | Where-Object { ($_.Value -like "*server*") -and ($null -ne $_.Path) -and ($null -ne $_.Data) }
-
-        foreach ($RegisteredClass in $RegisteredClasses) {
-
-            $CandidatePaths = @()
-
-            switch ($RegisteredClass.DataType) {
-                "FileName" {
-                    Resolve-ModulePath -Name $RegisteredClass.Data | ForEach-Object { $CandidatePaths += $_ }
-                }
-                "FilePath" {
-                    $CandidatePaths += [System.Environment]::ExpandEnvironmentVariables($RegisteredClass.Data).Trim('"')
-                }
-                "CommandLine" {
-                    $CommandLineResolved = [string[]] (Resolve-CommandLine -CommandLine $RegisteredClass.Data)
-                    if ($null -eq $CommandLineResolved) { continue }
-
-                    $CandidatePaths += $CommandLineResolved[0]
-
-                    if (($CommandLineResolved[0] -match ".*rundll32(\.exe)?`$") -and ($CommandLineResolved.Count -gt 1) -and ($CommandLineResolved[1] -like "*.dll,*")) {
-                        $PathToAnalyze = $CommandLineResolved[1].Split(',')[0]
-                        if ([System.IO.Path]::IsPathRooted($PathToAnalyze)) {
-                            $CandidatePaths += $PathToAnalyze
-                        }
-                        else {
-                            Resolve-ModulePath -Name $PathToAnalyze | ForEach-Object { $CandidatePaths += $_ }
-                        }
-                    }
-                }
-                default {
-                    Write-Warning "Unknown server data type: $($RegisteredClass.DataType)"
-                    continue
-                }
-            }
-
-            foreach ($CandidatePath in $CandidatePaths) {
-
-                if ([String]::IsNullOrEmpty($CandidatePath)) { continue }
-                if ($AlreadyCheckedPaths -contains $CandidatePath) { continue }
-
-                $ModifiablePaths = Get-ModifiablePath -Path $CandidatePath | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
-                if ($null -eq $ModifiablePaths) { $AlreadyCheckedPaths += $CandidatePath; continue }
-
-                foreach ($ModifiablePath in $ModifiablePaths) {
-
-                    $Result = $RegisteredClass.PSObject.Copy()
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $ModifiablePath.ModifiablePath
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $ModifiablePath.IdentityReference
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value ($ModifiablePath.Permissions -join ", ")
-                    $AllResults += $Result
-                }
-            }
-        }
+        Get-ComClassFromRegistry |
+            Where-Object { ($_.Value -like "*server*") -and ($null -ne $_.Path) -and ($null -ne $_.Data) } |
+                Invoke-CommandMultithread -InitialSessionState $(Get-InitialSessionState) -Command "Get-ModifiableComClassEntryImagePath" -InputParameter "ComClassEntry" -OptionalParameter @{ "CheckedPaths" = $AlreadyCheckedPaths } |
+                    ForEach-Object { $AllResults += $_ }
 
         $CheckResult = New-Object -TypeName PSObject
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults

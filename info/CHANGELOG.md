@@ -6,6 +6,11 @@
 
 - Support for multithreading.
 
+### Changed
+
+- Add multithreading to COM class registry path permission check.
+- Add multithreading to COM class image file permission check.
+
 ## 2024-12-25
 
 ### Added
