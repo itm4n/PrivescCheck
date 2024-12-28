@@ -398,6 +398,7 @@ function Get-ModifiableComClassEntryImagePath {
     )
 
     begin {
+        $FsRedirectionValue = Disable-Wow64FileSystemRedirection
         if ($null -eq $CheckedPaths) { $CheckedPaths = New-Object System.Collections.ArrayList }
     }
 
@@ -450,6 +451,10 @@ function Get-ModifiableComClassEntryImagePath {
                 $Result
             }
         }
+    }
+
+    end {
+        Restore-Wow64FileSystemRedirection -OldValue $FsRedirectionValue
     }
 }
 

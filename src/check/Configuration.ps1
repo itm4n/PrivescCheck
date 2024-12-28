@@ -951,7 +951,6 @@ function Invoke-ComServerImagePermissionCheck {
 
     begin {
         $AllResults = @()
-        $FsRedirectionValue = Disable-Wow64FileSystemRedirection
         # Create a synchronized list that we will use to store file paths which were
         # tested and are not vulnerable. This list will be populated by the threads,
         # hence why we need to use thread-safe collection object.
@@ -968,10 +967,6 @@ function Invoke-ComServerImagePermissionCheck {
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AllResults.Count -gt 0) { $BaseSeverity } else { $script:SeverityLevel::None })
         $CheckResult
-    }
-
-    end {
-        Restore-Wow64FileSystemRedirection -OldValue $FsRedirectionValue
     }
 }
 
