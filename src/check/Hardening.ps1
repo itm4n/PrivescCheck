@@ -1137,6 +1137,13 @@ function Invoke-DefaultLocalAdministratorAccountCheck {
         [UInt32] $BaseSeverity
     )
 
+    begin {
+        $AccountActiveDescriptions = @(
+            "The default local administrator account is **disabled**.",
+            "The default local administrator account is **enabled**."
+        )
+    }
+
     process {
         $Info = Get-LocalUserInformation -Level 3 | Where-Object { $_.UserId -eq 500 }
 
@@ -1168,6 +1175,7 @@ function Invoke-DefaultLocalAdministratorAccountCheck {
         $LocalAdministratorInfo | Add-Member -MemberType "NoteProperty" -Name "PasswordLastSet" -Value $((Get-Date).AddSeconds(- $Info.PasswordAge))
         $LocalAdministratorInfo | Add-Member -MemberType "NoteProperty" -Name "LastLogon" -Value $LastLogon
         $LocalAdministratorInfo | Add-Member -MemberType "NoteProperty" -Name "LastLogoff" -Value $LastLogoff
+        $LocalAdministratorInfo | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $AccountActiveDescriptions[([UInt32]$IsActive)]
 
         $Vulnerable = $LocalAdministratorInfo.Active -eq $true
 
