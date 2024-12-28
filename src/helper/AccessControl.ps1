@@ -727,57 +727,57 @@ function Add-ServiceDiscretionaryAccessControlList {
     process {
         foreach ($ServiceName in $Name) {
 
-            $IndividualService = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue -ErrorVariable GetServiceError
-            if (-not $GetServiceError) {
+            $ServiceObject = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
+            if ($null -eq $ServiceObject) {
+                Write-Warning "Failed to query service '$($ServiceName)'."
+                continue
+            }
 
-                try {
-                    $ServiceHandle = Get-ServiceReadControlHandle -Service $IndividualService
-                }
-                catch {
-                    $ServiceHandle = $null
-                }
+            try { $ServiceHandle = Get-ServiceReadControlHandle -Service $ServiceObject } catch { $ServiceHandle = $null }
+            if (($null -eq $ServiceHandle) -or ($ServiceHandle -eq [IntPtr]::Zero)) {
+                Write-Warning "Failed to obtain handle for service '$($ServiceName)'."
+                continue
+            }
 
-                if ($ServiceHandle -and ($ServiceHandle -ne [IntPtr]::Zero)) {
-                    $SizeNeeded = 0
+            $SizeNeeded = 0
+            $Result = $script:Advapi32::QueryServiceObjectSecurity($ServiceHandle, [Security.AccessControl.SecurityInfos]::DiscretionaryAcl, @(), 0, [Ref] $SizeNeeded)
+            $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
 
-                    $Result = $script:Advapi32::QueryServiceObjectSecurity($ServiceHandle, [Security.AccessControl.SecurityInfos]::DiscretionaryAcl, @(), 0, [Ref] $SizeNeeded)
-                    $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+            if (($LastError -ne $script:SystemErrorCode::ERROR_INSUFFICIENT_BUFFER) -or ($SizeNeeded -eq 0)) {
+                Write-Warning "QueryServiceObjectSecurity - $([ComponentModel.Win32Exception] $LastError)"
+                $null = $script:Advapi32::CloseServiceHandle($ServiceHandle)
+                continue
+            }
 
-                    # 122 == The data area passed to a system call is too small
-                    if ((-not $Result) -and ($LastError -eq 122) -and ($SizeNeeded -gt 0)) {
-                        $BinarySecurityDescriptor = New-Object Byte[]($SizeNeeded)
+            $BinarySecurityDescriptor = New-Object Byte[]($SizeNeeded)
+            $Result = $script:Advapi32::QueryServiceObjectSecurity($ServiceHandle, [Security.AccessControl.SecurityInfos]::DiscretionaryAcl, $BinarySecurityDescriptor, $BinarySecurityDescriptor.Count, [Ref] $SizeNeeded)
 
-                        $Result = $script:Advapi32::QueryServiceObjectSecurity($ServiceHandle, [Security.AccessControl.SecurityInfos]::DiscretionaryAcl, $BinarySecurityDescriptor, $BinarySecurityDescriptor.Count, [Ref] $SizeNeeded)
-                        $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+            if (-not $Result) {
+                Write-Warning "QueryServiceObjectSecurity - $([ComponentModel.Win32Exception] $([Runtime.InteropServices.Marshal]::GetLastWin32Error()))"
+                $null = $script:Advapi32::CloseServiceHandle($ServiceHandle)
+                continue
+            }
 
-                        if ($Result) {
+            $RawSecurityDescriptor = New-Object Security.AccessControl.RawSecurityDescriptor -ArgumentList $BinarySecurityDescriptor, 0
+            $RawDacl = $RawSecurityDescriptor.DiscretionaryAcl
 
-                            $RawSecurityDescriptor = New-Object Security.AccessControl.RawSecurityDescriptor -ArgumentList $BinarySecurityDescriptor, 0
-
-                            $RawDacl = $RawSecurityDescriptor.DiscretionaryAcl
-
-                            # Check for NULL DACL first
-                            if ($nul -eq $RawDacl) {
-                                $Ace = New-Object -TypeName PSObject
-                                $Ace | Add-Member -MemberType "NoteProperty" -Name "AccessRights" -Value $script:ServiceAccessRight::GenericAll
-                                # $Ace | Add-Member -MemberType "NoteProperty" -Name "AccessMask" -Value AccessRights.value__
-                                $Ace | Add-Member -MemberType "NoteProperty" -Name "SecurityIdentifier" -Value (Convert-SidStringToSid -Sid "S-1-1-0")
-                                $Ace | Add-Member -MemberType "NoteProperty" -Name "AceType" -Value "AccessAllowed"
-                                $Dacl = @($Ace)
-                            }
-                            else {
-                                $Dacl = $RawDacl | ForEach-Object {
-                                    Add-Member -InputObject $_ -MemberType NoteProperty -Name AccessRights -Value ($_.AccessMask -as $script:ServiceAccessRight) -PassThru
-                                }
-                            }
-
-                            Add-Member -InputObject $IndividualService -MemberType NoteProperty -Name Dacl -Value $Dacl -PassThru
-                        }
-                    }
-
-                    $null = $script:Advapi32::CloseServiceHandle($ServiceHandle)
+            # Check for NULL DACL first
+            if ($null -eq $RawDacl) {
+                $Ace = New-Object -TypeName PSObject
+                $Ace | Add-Member -MemberType "NoteProperty" -Name "AccessRights" -Value $script:ServiceAccessRight::GenericAll
+                $Ace | Add-Member -MemberType "NoteProperty" -Name "SecurityIdentifier" -Value (Convert-SidStringToSid -Sid "S-1-1-0")
+                $Ace | Add-Member -MemberType "NoteProperty" -Name "AceType" -Value "AccessAllowed"
+                $Dacl = @($Ace)
+            }
+            else {
+                $Dacl = $RawDacl | ForEach-Object {
+                    Add-Member -InputObject $_ -MemberType "NoteProperty" -Name "AccessRights" -Value ($_.AccessMask -as $script:ServiceAccessRight) -PassThru
                 }
             }
+
+            Add-Member -InputObject $ServiceObject -MemberType "NoteProperty" -Name "Dacl" -Value $Dacl -PassThru
+
+            $null = $script:Advapi32::CloseServiceHandle($ServiceHandle)
         }
     }
 }
