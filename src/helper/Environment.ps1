@@ -55,50 +55,50 @@ function Get-InstalledApplication {
         [switch] $Filtered = $false
     )
 
-    $IgnoredPrograms = @("Common Files", "Internet Explorer", "ModifiableWindowsApps", "PackageManagement", "Windows Defender", "Windows Defender Advanced Threat Protection", "Windows Mail", "Windows Media Player", "Windows Multimedia Platform", "Windows NT", "Windows Photo Viewer", "Windows Portable Devices", "Windows Security", "WindowsPowerShell", "Microsoft.NET", "Windows Portable Devices", "dotnet", "MSBuild", "Intel", "Reference Assemblies")
-
-    $InstalledPrograms = New-Object System.Collections.ArrayList
-
-    # List all items in 'C:\Program Files' and 'C:\Program Files (x86)'
-    $PathProgram32 = Join-Path -Path $env:SystemDrive -ChildPath "Program Files (x86)"
-    $PathProgram64 = Join-Path -Path $env:SystemDrive -ChildPath "Program Files"
-
-    $Items = Get-ChildItem -Path $PathProgram32,$PathProgram64 -ErrorAction SilentlyContinue
-    if ($Items) {
-        [void] $InstalledPrograms.AddRange($Items)
+    begin {
+        $IgnoredPrograms = @( "Common Files", "Internet Explorer", "ModifiableWindowsApps", "PackageManagement", "Windows Defender", "Windows Defender Advanced Threat Protection", "Windows Mail", "Windows Media Player", "Windows Multimedia Platform", "Windows NT", "Windows Photo Viewer", "Windows Portable Devices", "Windows Security", "WindowsPowerShell", "Microsoft.NET", "Windows Portable Devices", "dotnet", "MSBuild", "Intel", "Reference Assemblies" )
     }
 
-    $RegInstalledPrograms = Get-ChildItem -Path "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"
-    $RegInstalledPrograms6432 = Get-ChildItem -Path "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall" -ErrorAction SilentlyContinue
-    if ($RegInstalledPrograms6432) { $RegInstalledPrograms += $RegInstalledPrograms6432 }
+    process {
+        $InstalledPrograms = @()
+        $InstalledPrograms += Get-ChildItem -Path $(Join-Path -Path $env:SystemDrive -ChildPath "Program Files (x86)") -ErrorAction SilentlyContinue | Where-Object { $_ -is [System.IO.DirectoryInfo] }
+        $InstalledPrograms += Get-ChildItem -Path $(Join-Path -Path $env:SystemDrive -ChildPath "Program Files") -ErrorAction SilentlyContinue | Where-Object { $_ -is [System.IO.DirectoryInfo] }
 
-    foreach ($InstalledProgram in $RegInstalledPrograms) {
+        $InstalledProgramsRegKeys = @()
+        $InstalledProgramsRegKeys += Get-ChildItem -Path "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall" -ErrorAction SilentlyContinue
+        $InstalledProgramsRegKeys += Get-ChildItem -Path "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall" -ErrorAction SilentlyContinue
 
-        $InstallLocation = [System.Environment]::ExpandEnvironmentVariables($InstalledProgram.GetValue("InstallLocation"))
+        foreach ($InstalledProgramsRegKey in $InstalledProgramsRegKeys) {
 
-        if (-not [String]::IsNullOrEmpty($InstallLocation)) {
+            $InstallLocation = [System.Environment]::ExpandEnvironmentVariables($InstalledProgramsRegKey.GetValue("InstallLocation"))
+            if ([String]::IsNullOrEmpty($InstallLocation)) { continue }
+            if (-not (Test-Path -Path $InstallLocation -ErrorAction SilentlyContinue)) { continue }
 
-            if (Test-Path -Path $InstallLocation -ErrorAction SilentlyContinue) {
+            $InstallLocation = $InstallLocation.Trim('\')
 
-                if ($InstallLocation[$InstallLocation.Length - 1] -eq "\") {
-                    $InstallLocation = $InstallLocation.SubString(0, $InstallLocation.Length - 1)
-                }
+            $FileItem = Get-Item -Path $InstallLocation -ErrorAction SilentlyContinue
+            if ($null -eq $FileItem) { continue }
+            if ($FileItem -isnot [System.IO.DirectoryInfo]) { continue }
 
-                $FileObject = Get-Item -Path $InstallLocation -ErrorAction SilentlyContinue -ErrorVariable GetItemError
-                if ($GetItemError) { continue }
-
-                if (-not ($FileObject -is [System.IO.DirectoryInfo])) { continue }
-
-                [void] $InstalledPrograms.Add([Object] $FileObject)
-            }
+            $InstalledPrograms += $FileItem
         }
-    }
 
-    foreach ($InstalledProgram in $($InstalledPrograms | Sort-Object -Property "FullName" -Unique)) {
-        if ([string]::IsNullOrEmpty($InstalledProgram.FullName)) { continue }
-        if (Test-IsSystemFolder -Path $InstalledProgram.FullName) { continue }
-        if ($Filtered -and ($IgnoredPrograms -contains $InstalledProgram.Name)) { continue }
-        $InstalledProgram | Select-Object -Property Name,FullName
+        foreach ($InstalledProgram in $($InstalledPrograms | Sort-Object -Property "FullName" -Unique)) {
+
+            # Make sure we skip empty paths.
+            if ([string]::IsNullOrEmpty($InstalledProgram.FullName)) { continue }
+
+            # Make sure we don't treat system paths such as 'C:\Windows\System32' as
+            # application folders.
+            if (Test-IsSystemFolder -Path $InstalledProgram.FullName) { continue }
+
+            # If the 'Filtered' switch is used, only return non-default application
+            # folder entries.
+            if ($Filtered -and ($IgnoredPrograms -contains $InstalledProgram.Name)) { continue }
+
+            # Keep only the folder name and full path.
+            $InstalledProgram | Select-Object -Property Name,FullName
+        }
     }
 }
 

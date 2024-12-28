@@ -5,6 +5,7 @@
 ### Changed
 
 - Add multithreading to application file permissions check.
+- Refactor application folder enumeration.
 
 ## 2025-12-27
 
