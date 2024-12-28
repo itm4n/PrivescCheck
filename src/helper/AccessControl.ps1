@@ -453,6 +453,70 @@ function Get-ModifiableComClassEntryImagePath {
     }
 }
 
+function Get-ModifiableApplicationFile {
+    <#
+    .SYNOPSIS
+    Helper - Test the permissions of application files.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet is used as a helper function by 'Invoke-InstalledApplicationPermissionCheck' to support multithreading. It checks the permissions of a single application folder, which can be a time consuming if it has a lot of sub-folders and files.
+
+    .PARAMETER FileItem
+    A mandatory input file item (file or directory) returned by 'Get-InstalledApplication'.
+
+    .EXAMPLE
+    PS C:\> $Applications = Get-InstalledApplication -Filtered
+    PS C:\> Get-ModifiableApplicationFile -FileItem $Applications[0]
+    #>
+
+    [CmdletBinding()]
+    param (
+        [Parameter(Position=0, Mandatory=$true, ValueFromPipeline=$true, ValueFromPipelineByPropertyName=$true)]
+        [Object] $FileItem
+    )
+
+    begin {
+        $FsRedirectionValue = Disable-Wow64FileSystemRedirection
+    }
+
+    process {
+        # Ensure the path is not a known system folder, in which case it does not make
+        # sense to check it. This also prevents the script from spending a considerable
+        # amount of time and resources searching those paths recursively.
+        if (Test-IsSystemFolder -Path $FileItem.FullName) {
+            Write-Warning "System path detected, ignoring: $($FileItem.FullName)"
+            return
+        }
+
+        # Build the search path list. The following trick is used to search recursively
+        # without using the 'Depth' option, which is only available in PSv5+. This
+        # allows us to maintain compatibility with PSv2.
+        $SearchPath = @()
+        $SearchPath += $(Join-Path -Path $FileItem.FullName -ChildPath "\*")
+        $SearchPath += $(Join-Path -Path $FileItem.FullName -ChildPath "\*\*")
+
+        # Enumerate sub-folders and files, return immediately if nothing is found.
+        $CandidateItems = Get-ChildItem -Path $SearchPath -ErrorAction SilentlyContinue
+        if ($null -eq $CandidateItems) { return }
+
+        foreach ($CandidateItem in $CandidateItems) {
+
+            # Ignore application files that do not have a common extension such as '.exe'
+            # or '.dll'.
+            if (($CandidateItem -is [System.IO.FileInfo]) -and (-not (Test-IsCommonApplicationFile -Path $CandidateItem.FullName))) { continue }
+
+            Get-ModifiablePath -Path $CandidateItem.FullName | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
+        }
+    }
+
+    end {
+        Restore-Wow64FileSystemRedirection -OldValue $FsRedirectionValue
+    }
+}
+
 function Get-ExploitableUnquotedPath {
     <#
     .SYNOPSIS

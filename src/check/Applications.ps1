@@ -33,56 +33,20 @@ function Invoke-InstalledApplicationPermissionCheck {
         [UInt32] $BaseSeverity
     )
 
-    begin {
-        $AllResults = @()
-        $FsRedirectionValue = Disable-Wow64FileSystemRedirection
-    }
-
     process {
-        $InstalledPrograms = Get-InstalledApplication -Filtered
+        $AllResults = @()
 
-        foreach ($InstalledProgram in $InstalledPrograms) {
-
-            # Ensure the path is not a known system folder, in which case it does not make
-            # sense to check it. This also prevents the script from spending a considerable
-            # amount of time and resources searching those paths recursively.
-            if (Test-IsSystemFolder -Path $InstalledProgram.FullName) {
-                Write-Warning "System path detected, ignoring: $($InstalledProgram.FullName)"
-                continue
-            }
-
-            # Build the search path list. The following trick is used to search recursively
-            # without using the 'Depth' option, which is only available in PSv5+. This
-            # allows us to maintain compatibility with PSv2.
-            $SearchPath = New-Object -TypeName System.Collections.ArrayList
-            [void] $SearchPath.Add([String] $(Join-Path -Path $InstalledProgram.FullName -ChildPath "\*"))
-            [void] $SearchPath.Add([String] $(Join-Path -Path $InstalledProgram.FullName -ChildPath "\*\*"))
-
-            $CandidateItems = Get-ChildItem -Path $SearchPath -ErrorAction SilentlyContinue
-            if ($null -eq $CandidateItems) { continue }
-
-            foreach ($CandidateItem in $CandidateItems) {
-
-                if (($CandidateItem -is [System.IO.FileInfo]) -and (-not (Test-IsCommonApplicationFile -Path $CandidateItem.FullName))) { continue }
-                if ([String]::IsNullOrEmpty($CandidateItem.FullName)) { continue }
-
-                $ModifiablePaths = Get-ModifiablePath -Path $CandidateItem.FullName | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
-                if ($null -eq $ModifiablePaths) { continue }
-                foreach ($ModifiablePath in $ModifiablePaths) {
-                    $ModifiablePath.Permissions = $ModifiablePath.Permissions -join ', '
-                    $AllResults += $ModifiablePath
+        Get-InstalledApplication -Filtered |
+            Invoke-CommandMultithread -InitialSessionState $(Get-InitialSessionState) -Command "Get-ModifiableApplicationFile" -InputParameter "FileItem" |
+                ForEach-Object {
+                    $_.Permissions = $_.Permissions -join ', '
+                    $AllResults += $_
                 }
-            }
-        }
 
         $CheckResult = New-Object -TypeName PSObject
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AllResults) { $BaseSeverity } else { $script:SeverityLevel::None })
         $CheckResult
-    }
-
-    end {
-        Restore-Wow64FileSystemRedirection -OldValue $FsRedirectionValue
     }
 }
 

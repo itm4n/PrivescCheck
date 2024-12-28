@@ -1,5 +1,11 @@
 # Changelog
 
+## 2025-12-28
+
+### Changed
+
+- Add multithreading to application file permissions check.
+
 ## 2025-12-27
 
 ### Added
