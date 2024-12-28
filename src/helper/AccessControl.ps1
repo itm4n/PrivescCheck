@@ -366,8 +366,24 @@ function Get-ModifiableRegistryPath {
     }
 }
 
-# Used by 'Invoke-ComServerRegistryPermissionCheck'
 function Get-ModifiableComClassEntryRegistryPath {
+    <#
+    .SYNOPSIS
+    Helper - Test the permissions of COM class entry in the registry.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet is used as a helper function by 'Invoke-ComServerRegistryPermissionCheck' to support multithreading. It checks the permissions of a single COM class entry in the registry.
+
+    .PARAMETER ComClassEntry
+    A mandatory COM class registry entry returned by 'Get-ComClassFromRegistry'.
+
+    .EXAMPLE
+    PS C:\> $RegisteredComClasses = Get-ComClassFromRegistry
+    PS C:\> Get-ModifiableComClassEntryRegistryPath -ComClassEntry $RegisteredComClasses[0]
+    #>
 
     [CmdletBinding()]
     param (
@@ -386,8 +402,27 @@ function Get-ModifiableComClassEntryRegistryPath {
     }
 }
 
-# Used by 'Invoke-ComServerImagePermissionCheck'
 function Get-ModifiableComClassEntryImagePath {
+    <#
+    .SYNOPSIS
+    Helper - Test the permissions of COM class' image file.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet is used as a helper function by 'Invoke-ComServerImagePermissionCheck' to support multithreading. It checks the permissions of the image file of a single COM class entry.
+
+    .PARAMETER ComClassEntry
+    A mandatory COM class registry entry returned by 'Get-ComClassFromRegistry'.
+
+    .PARAMETER CheckedPaths
+    An optional synchronized array list. This list is populated each time a filesystem path is analyzed and is found to not be vulnerable. This helps reduce the overall time it takes to check a large number of paths by avoiding to inspect them multiple times.
+
+    .EXAMPLE
+    PS C:\> $RegisteredComClasses = Get-ComClassFromRegistry
+    PS C:\> Get-ModifiableComClassEntryImagePath -ComClassEntry $RegisteredComClasses[0]
+    #>
 
     [CmdletBinding()]
     param (
