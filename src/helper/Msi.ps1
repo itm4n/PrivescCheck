@@ -697,6 +697,53 @@ function Get-MsiExpandedString {
     Get-MsiExpandedString -String $String -Database $Database -SystemFolders $SystemFolders
 }
 
+function Get-MsiItem {
+
+    [CmdletBinding()]
+    param (
+        [Parameter(Position=0, Mandatory=$true, ValueFromPipeline=$true, ValueFromPipelineByPropertyName=$true)]
+        [String] $Path
+    )
+
+    begin {
+        $Arch = $(if ([Environment]::Is64BitOperatingSystem) { 64 } else { 32 })
+    }
+
+    process {
+        # Note: An Installer object must be instantiated for each MSI file! We cannot
+        # just create one in the 'begin' block and release it in the 'end' block.
+        $Installer = New-Object -ComObject WindowsInstaller.Installer
+        $Database = Invoke-MsiOpenDatabase -Installer $Installer -Path $Path -Mode 0
+
+        $IdentifyingNumber = [string] (Get-MsiProperty -Database $Database -Property "ProductCode")
+        $Name = [string] (Get-MsiProperty -Database $Database -Property "ProductName")
+        $Vendor = [string] (Get-MsiProperty -Database $Database -Property "Manufacturer")
+        $Version = [string] (Get-MsiProperty -Database $Database -Property "ProductVersion")
+        $AllUsers = Get-MsiProperty -Database $Database -Property "ALLUSERS"
+
+        # Extract the GUID value, without the curly braces.
+        if ($IdentifyingNumber -match "(\d|[A-F]){8}-((\d|[A-F]){4}-){3}((\d|[A-F]){12})") {
+            $IdentifyingNumber = $Matches[0]
+        }
+
+        # If ALLUSERS is not defined, the default is "per-user", which corresponds to a value of 0.
+        # https://learn.microsoft.com/en-us/windows/win32/msi/allusers
+        $AllUsers = [uint32] $(if ($AllUsers) { $AllUsers[1] } else { 0 })
+
+        $MsiItem = New-Object -TypeName PSObject
+        $MsiItem | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $Path
+        $MsiItem | Add-Member -MemberType "NoteProperty" -Name "IdentifyingNumber" -Value $(if ($IdentifyingNumber) { $IdentifyingNumber.Trim() })
+        $MsiItem | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $(if ($Name) { $Name.Trim() })
+        $MsiItem | Add-Member -MemberType "NoteProperty" -Name "Vendor" -Value $(if ($Vendor) { $Vendor.Trim() })
+        $MsiItem | Add-Member -MemberType "NoteProperty" -Name "Version" -Value $(if ($Version) { $Version.Trim() })
+        $MsiItem | Add-Member -MemberType "NoteProperty" -Name "AllUsers" -Value $AllUsers
+        $MsiItem | Add-Member -MemberType "NoteProperty" -Name "CustomActions" -Value $(Get-CustomAction -FilePath $Path -Database $Database -Arch $Arch -AllUsers $AllUsers)
+        $MsiItem
+
+        $null = [System.Runtime.InteropServices.Marshal]::ReleaseComObject($Installer)
+    }
+}
+
 function Get-MsiFileItem {
     <#
     .SYNOPSIS
@@ -716,50 +763,16 @@ function Get-MsiFileItem {
 
     begin {
         $InstallerPath = Join-Path -Path $env:windir -ChildPath "Installer"
-        $Arch = $(if ([Environment]::Is64BitOperatingSystem) { 64 } else { 32 })
     }
 
     process {
         if ([string]::IsNullOrEmpty($FilePath)) {
-            $MsiFiles = Get-ChildItem -Path "$($InstallerPath)\*.msi" -ErrorAction SilentlyContinue
+            Get-ChildItem -Path "$($InstallerPath)\*.msi" -ErrorAction SilentlyContinue |
+                Select-Object -ExpandProperty FullName |
+                    Invoke-CommandMultithread -InitialSessionState $(Get-InitialSessionState) -Command "Get-MsiItem" -InputParameter "Path"
         }
         else {
-            $MsiFiles = Get-Item -Path $FilePath
-        }
-
-        foreach ($MsiFile in $MsiFiles) {
-
-            Write-Verbose "Parsing file: $($MsiFile.FullName)"
-            $Installer = New-Object -ComObject WindowsInstaller.Installer
-
-            $Database = Invoke-MsiOpenDatabase -Installer $Installer -Path $MsiFile.FullName -Mode 0
-
-            $IdentifyingNumber = [string] (Get-MsiProperty -Database $Database -Property "ProductCode")
-            $Name = [string] (Get-MsiProperty -Database $Database -Property "ProductName")
-            $Vendor = [string] (Get-MsiProperty -Database $Database -Property "Manufacturer")
-            $Version = [string] (Get-MsiProperty -Database $Database -Property "ProductVersion")
-            $AllUsers = Get-MsiProperty -Database $Database -Property "ALLUSERS"
-
-            # Extract the GUID value, without the curly braces.
-            if ($IdentifyingNumber -match "(\d|[A-F]){8}-((\d|[A-F]){4}-){3}((\d|[A-F]){12})") {
-                $IdentifyingNumber = $Matches[0]
-            }
-
-            # If ALLUSERS is not defined, the default is "per-user", which corresponds to a value of 0.
-            # https://learn.microsoft.com/en-us/windows/win32/msi/allusers
-            $AllUsers = [uint32] $(if ($AllUsers) { $AllUsers[1] } else { 0 })
-
-            $MsiFileItem = New-Object -TypeName PSObject
-            $MsiFileItem | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $MsiFile.FullName
-            $MsiFileItem | Add-Member -MemberType "NoteProperty" -Name "IdentifyingNumber" -Value $(if ($IdentifyingNumber) { $IdentifyingNumber.Trim() })
-            $MsiFileItem | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $(if ($Name) { $Name.Trim() })
-            $MsiFileItem | Add-Member -MemberType "NoteProperty" -Name "Vendor" -Value $(if ($Vendor) { $Vendor.Trim() })
-            $MsiFileItem | Add-Member -MemberType "NoteProperty" -Name "Version" -Value $(if ($Version) { $Version.Trim() })
-            $MsiFileItem | Add-Member -MemberType "NoteProperty" -Name "AllUsers" -Value $AllUsers
-            $MsiFileItem | Add-Member -MemberType "NoteProperty" -Name "CustomActions" -Value $(Get-CustomAction -FilePath $MsiFile.FullName -Database $Database -Arch $Arch -AllUsers $AllUsers)
-            $MsiFileItem
-
-            $null = [System.Runtime.InteropServices.Marshal]::ReleaseComObject($Installer)
+            Get-MsiItem -Path $FilePath
         }
     }
 }

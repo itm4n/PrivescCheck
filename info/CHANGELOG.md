@@ -10,6 +10,7 @@
 
 - Add multithreading to COM class registry path permission check.
 - Add multithreading to COM class image file permission check.
+- Add multithreading to MSI enumeration.
 
 ## 2024-12-25
 
