@@ -51,6 +51,61 @@ function Get-ProcessTokenHandle {
     $TokenHandle
 }
 
+function Get-ServiceHandle {
+    <#
+    .SYNOPSIS
+    Helper - Open a service using the 'OpenService' Windows API.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet is a wrapper for the 'OpenService' Windows API. It automatically connects to the service control manager and invokes 'OpenService' to get a handle on Windows service. The service handle is returned as an IntPtr.
+
+    .PARAMETER Name
+    A mandatory service name.
+
+    .PARAMETER AccessRights
+    Optional service rights to use when opening the service. If not specified, the GENERIC_READ access right set is used.
+
+    .EXAMPLE
+    PS C:\> $ServiceHandle = Get-ServiceHandle -Name IKEEXT
+    #>
+
+    [OutputType([IntPtr])]
+    [CmdletBinding()]
+    param (
+        [Parameter(Position = 0, Mandatory = $true)]
+        [String] $Name,
+
+        [UInt32] $AccessRights = $script:ServiceAccessRight::GenericRead
+    )
+
+    begin {
+        $SERVICES_ACTIVE_DATABASE = "ServicesActive"
+    }
+
+    process {
+
+        $ServiceManagerHandle = $script:Advapi32::OpenSCManager($null, $SERVICES_ACTIVE_DATABASE, $script:ServiceControlManagerAccessRight::Connect)
+        if ($ServiceManagerHandle -eq [IntPtr]::Zero) {
+            $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+            Write-Warning "OpenSCManager - $([ComponentModel.Win32Exception] $LastError)"
+            return [IntPtr]::Zero
+        }
+
+        $ServiceHandle = $script:advapi32::OpenService($ServiceManagerHandle, $Name, $AccessRights)
+        if ($ServiceHandle -eq [IntPtr]::Zero) {
+            $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+            Write-Warning "OpenService - $([ComponentModel.Win32Exception] $LastError)"
+        }
+
+        $ServiceHandle
+
+        $null = $script:Advapi32::CloseServiceHandle($ServiceManagerHandle)
+    }
+}
+
 function Get-TokenInformationData {
     <#
     .SYNOPSIS

@@ -46,6 +46,9 @@ $script:ServiceAccessRight = New-Enum $Module WinApiModule.ServiceAccessRight UI
     WriteOwner                          = 0x00080000
     Synchronize                         = 0x00100000
     AccessSystemSecurity                = 0x01000000
+    GenericRead                         = 0x0002008d # STANDARD_RIGHTS_READ | SERVICE_QUERY_CONFIG | SERVICE_QUERY_STATUS | SERVICE_INTERROGATE | SERVICE_ENUMERATE_DEPENDENTS
+    GenericWrite                        = 0x00020002 # STANDARD_RIGHTS_WRITE | SERVICE_CHANGE_CONFIG
+    GenericExecute                      = 0x00020170 # STANDARD_RIGHTS_EXECUTE | SERVICE_START | SERVICE_STOP | SERVICE_PAUSE_CONTINUE | SERVICE_USER_DEFINED_CONTROL
     AllAccess                           = 0x000f01ff
 } -BitField
 
@@ -57,9 +60,9 @@ $script:ServiceControlManagerAccessRight = New-Enum $Module WinApiModule.Service
     QueryLockStatus                     = 0x00000010
     ModifyBootConfig                    = 0x00000020
     AllAccess                           = 0x000f003f
-    # GenericRead                         = 0x00020014 # STANDARD_RIGHTS_READ | SC_MANAGER_ENUMERATE_SERVICE | SC_MANAGER_QUERY_LOCK_STATUS
-    # GenericWrite                        = 0x00020022 # STANDARD_RIGHTS_WRITE | SC_MANAGER_CREATE_SERVICE | SC_MANAGER_MODIFY_BOOT_CONFIG
-    # GenericExecute                      = 0x00020009 # STANDARD_RIGHTS_EXECUTE | SC_MANAGER_CONNECT | SC_MANAGER_LOCK
+    GenericRead                         = 0x00020014 # STANDARD_RIGHTS_READ | SC_MANAGER_ENUMERATE_SERVICE | SC_MANAGER_QUERY_LOCK_STATUS
+    GenericWrite                        = 0x00020022 # STANDARD_RIGHTS_WRITE | SC_MANAGER_CREATE_SERVICE | SC_MANAGER_MODIFY_BOOT_CONFIG
+    GenericExecute                      = 0x00020009 # STANDARD_RIGHTS_EXECUTE | SC_MANAGER_CONNECT | SC_MANAGER_LOCK
 } -BitField
 
 $script:ProcessAccessRight = New-Enum $Module WinApiModule.ProcessAccessRight UInt32 @{

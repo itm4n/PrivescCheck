@@ -2,6 +2,10 @@
 
 ## 2025-12-28
 
+### Added
+
+- Add a helper function for opening services.
+
 ### Changed
 
 - Add multithreading to application file permissions check.

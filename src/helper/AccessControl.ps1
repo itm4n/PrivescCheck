@@ -764,7 +764,7 @@ function Add-ServiceDiscretionaryAccessControlList {
             # Check for NULL DACL first
             if ($null -eq $RawDacl) {
                 $Ace = New-Object -TypeName PSObject
-                $Ace | Add-Member -MemberType "NoteProperty" -Name "AccessRights" -Value $script:ServiceAccessRight::GenericAll
+                $Ace | Add-Member -MemberType "NoteProperty" -Name "AccessRights" -Value $script:ServiceAccessRight::AllAccess
                 $Ace | Add-Member -MemberType "NoteProperty" -Name "SecurityIdentifier" -Value (Convert-SidStringToSid -Sid "S-1-1-0")
                 $Ace | Add-Member -MemberType "NoteProperty" -Name "AceType" -Value "AccessAllowed"
                 $Dacl = @($Ace)
