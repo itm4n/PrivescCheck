@@ -97,7 +97,7 @@ function Invoke-CommandMultithread {
     )
 
     begin {
-        $ThreadWatchTimer = 200
+        $ThreadWatchTimer = 100
         $RunspacePool = [RunspaceFactory]::CreateRunspacePool(1, $env:NUMBER_OF_PROCESSORS + 1, $InitialSessionState, $Host)
         $RunspacePool.Open()
         $Jobs = @()
