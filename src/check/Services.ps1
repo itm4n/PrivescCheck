@@ -236,32 +236,30 @@ function Invoke-ServiceImagePermissionCheck {
 
             $ModifiablePaths = Get-ModifiablePath -Path $ExecutablePath | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
             if ($null -eq $ModifiablePaths) { continue }
+
+            $ServiceStatus = "Unknown"
+            $StartPermission = $null
+            $StopPermission = $null
+
+            $ServiceObject = Get-Service -Name $Service.Name -ErrorAction SilentlyContinue
+            if ($null -ne $ServiceObject) {
+                $ServiceStatus = $ServiceObject | Select-Object -ExpandProperty "Status"
+                $StartPermission = Test-ServiceDiscretionaryAccessControlList -Name $Service.Name -Permissions "Start"
+                $StopPermission = Test-ServiceDiscretionaryAccessControlList -Name $Service.Name -Permissions "Stop"
+            }
+
+            $Result = $Service.PSObject.Copy()
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $ServiceStatus
+            $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStart" -Value $($null -ne $StartPermission)
+            $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStop" -Value $($null -ne $StopPermission)
+
             foreach ($ModifiablePath in $ModifiablePaths) {
 
-                $Status = "Unknown"
-                $UserCanStart = $false
-                $UserCanStop = $false
-
-                $ServiceObject = Get-Service -Name $Service.Name -ErrorAction SilentlyContinue
-                if ($ServiceObject) {
-                    $Status = $ServiceObject | Select-Object -ExpandProperty "Status"
-                    $ServiceCanStart = Test-ServiceDiscretionaryAccessControlList -Name $Service.Name -Permissions 'Start'
-                    if ($ServiceCanStart) { $UserCanStart = $true } else { $UserCanStart = $false }
-                    $ServiceCanStop = Test-ServiceDiscretionaryAccessControlList -Name $Service.Name -Permissions 'Stop'
-                    if ($ServiceCanStop) { $UserCanStop = $true } else { $UserCanStop = $false }
-                }
-
-                $Result = New-Object -TypeName PSObject
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $Service.Name
-                $Result | Add-Member -MemberType "NoteProperty" -Name "ImagePath" -Value $Service.ImagePath
-                $Result | Add-Member -MemberType "NoteProperty" -Name "User" -Value $Service.User
-                $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $ModifiablePath.ModifiablePath
-                $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $ModifiablePath.IdentityReference
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value ($ModifiablePath.Permissions -join ", ")
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $Status
-                $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStart" -Value $UserCanStart
-                $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStop" -Value $UserCanStop
-                $AllResults += $Result
+                $ResultWithPath = $Result.PSObject.Copy()
+                $ResultWithPath | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $ModifiablePath.ModifiablePath
+                $ResultWithPath | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $ModifiablePath.IdentityReference
+                $ResultWithPath | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value ($ModifiablePath.Permissions -join ", ")
+                $AllResults += $ResultWithPath
             }
         }
 
