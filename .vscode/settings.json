@@ -88,6 +88,7 @@
         "HKCU",
         "HKEY",
         "HKLM",
+        "HRESULT",
         "IAID",
         "IBSS",
         "ieframe",
