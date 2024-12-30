@@ -1,3 +1,22 @@
+function Format-Error {
+
+    [OutputType([String])]
+    [CmdletBinding()]
+    param (
+        [Parameter(Position=0, Mandatory=$true)]
+        [ValidateNotNullOrEmpty()]
+        [Int32] $Code
+    )
+
+    process {
+        $ErrorObject = [ComponentModel.Win32Exception] $Code
+        $ErrorMessage = "$($ErrorObject.Message)"
+        if ($ErrorObject.NativeErrorCode -ge 0) { $ErrorMessage += " ($($ErrorObject.NativeErrorCode))" }
+        $ErrorMessage += " - HRESULT: $('0x{0:x8}' -f $ErrorObject.HResult)"
+        return $ErrorMessage
+    }
+}
+
 function Get-InitialSessionState {
 
     [OutputType([Management.Automation.Runspaces.InitialSessionState])]
