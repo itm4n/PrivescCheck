@@ -73,10 +73,8 @@ function Invoke-ServiceRegistryPermissionCheck {
                 $ServiceObject = Get-Service -Name $Service.Name -ErrorAction SilentlyContinue
                 if ($ServiceObject) {
                     $Status = $ServiceObject | Select-Object -ExpandProperty "Status"
-                    $ServiceCanStart = Test-ServiceDiscretionaryAccessControlList -Name $Service.Name -Permissions 'Start'
-                    if ($ServiceCanStart) { $UserCanStart = $true } else { $UserCanStart = $false }
-                    $ServiceCanStop = Test-ServiceDiscretionaryAccessControlList -Name $Service.Name -Permissions 'Stop'
-                    if ($ServiceCanStop) { $UserCanStop = $true } else { $UserCanStop = $false }
+                    $UserCanStart = Test-ServiceDiscretionaryAccessControlList -Service $Service -Permissions 'Start'
+                    $UserCanStop = Test-ServiceDiscretionaryAccessControlList -Service $Service -Permissions 'Stop'
                 }
 
                 $VulnerableService = New-Object -TypeName PSObject
@@ -158,10 +156,8 @@ function Invoke-ServiceUnquotedPathCheck {
             $ServiceObject = Get-Service -Name $Service.Name -ErrorAction SilentlyContinue
             if ($ServiceObject) {
                 $Status = $ServiceObject | Select-Object -ExpandProperty "Status"
-                $ServiceCanStart = Test-ServiceDiscretionaryAccessControlList -Name $Service.Name -Permissions 'Start'
-                if ($ServiceCanStart) { $UserCanStart = $true } else { $UserCanStart = $false }
-                $ServiceCanStop = Test-ServiceDiscretionaryAccessControlList -Name $Service.Name -Permissions 'Stop'
-                if ($ServiceCanStop) { $UserCanStop = $true } else { $UserCanStop = $false }
+                $UserCanStart = Test-ServiceDiscretionaryAccessControlList -Service $Service -Permissions 'Start'
+                $UserCanStop = Test-ServiceDiscretionaryAccessControlList -Service $Service -Permissions 'Stop'
             }
 
             $Result | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $Status
@@ -238,20 +234,20 @@ function Invoke-ServiceImagePermissionCheck {
             if ($null -eq $ModifiablePaths) { continue }
 
             $ServiceStatus = "Unknown"
-            $StartPermission = $null
-            $StopPermission = $null
+            $UserCanStart = $false
+            $UserCanStop = $false
 
             $ServiceObject = Get-Service -Name $Service.Name -ErrorAction SilentlyContinue
             if ($null -ne $ServiceObject) {
                 $ServiceStatus = $ServiceObject | Select-Object -ExpandProperty "Status"
-                $StartPermission = Test-ServiceDiscretionaryAccessControlList -Name $Service.Name -Permissions "Start"
-                $StopPermission = Test-ServiceDiscretionaryAccessControlList -Name $Service.Name -Permissions "Stop"
+                $UserCanStart = Test-ServiceDiscretionaryAccessControlList -Service $Service -Permissions "Start"
+                $UserCanStop = Test-ServiceDiscretionaryAccessControlList -Service $Service -Permissions "Stop"
             }
 
             $Result = $Service.PSObject.Copy()
             $Result | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $ServiceStatus
-            $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStart" -Value $($null -ne $StartPermission)
-            $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStop" -Value $($null -ne $StopPermission)
+            $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStart" -Value $UserCanStart
+            $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStop" -Value $UserCanStop
 
             foreach ($ModifiablePath in $ModifiablePaths) {
 
@@ -304,49 +300,28 @@ function Invoke-ServicePermissionCheck {
         [UInt32] $BaseSeverity
     )
 
-    begin {
-        $AllResults = @()
-    }
-
     process {
-        # Get-ServiceFromRegistry returns a list of custom Service objects. The properties of a custom Service
-        # object are: Name, DisplayName, User, ImagePath, StartMode, Type, RegistryKey, RegistryPath.
-        # We also apply the FilterLevel 1 to filter out services which have an empty ImagePath
-        $Services = Get-ServiceFromRegistry -FilterLevel 1
-        Write-Verbose "Enumerating $($Services.Count) services..."
+        $AllResults = @()
 
-        # For each custom Service object in the list
-        foreach ($Service in $Services) {
+        Get-ServiceFromRegistry -FilterLevel 1 | Get-ModifiableService | ForEach-Object {
 
-            # Get a 'real' Service object and the associated DACL, based on its name
-            $TargetService = Test-ServiceDiscretionaryAccessControlList -Name $Service.Name -PermissionSet 'ChangeConfig'
+            $Status = "Unknown"
+            $UserCanStart = $false
+            $UserCanStop = $false
 
-            if ($TargetService) {
-
-                $Status = "Unknown"
-                $UserCanStart = $false
-                $UserCanStop = $false
-
-                $ServiceObject = Get-Service -Name $Service.Name -ErrorAction SilentlyContinue
-                if ($ServiceObject) {
-                    $Status = $ServiceObject | Select-Object -ExpandProperty "Status"
-                    $ServiceCanStart = Test-ServiceDiscretionaryAccessControlList -Name $Service.Name -Permissions 'Start'
-                    if ($ServiceCanStart) { $UserCanStart = $true } else { $UserCanStart = $false }
-                    $ServiceCanStop = Test-ServiceDiscretionaryAccessControlList -Name $Service.Name -Permissions 'Stop'
-                    if ($ServiceCanStop) { $UserCanStop = $true } else { $UserCanStop = $false }
-                }
-
-                $Result = New-Object -TypeName PSObject
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $Service.Name
-                $Result | Add-Member -MemberType "NoteProperty" -Name "ImagePath" -Value $Service.ImagePath
-                $Result | Add-Member -MemberType "NoteProperty" -Name "User" -Value $Service.User
-                $Result | Add-Member -MemberType "NoteProperty" -Name "AccessRights" -Value $TargetService.AccessRights
-                $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $TargetService.IdentityReference
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $Status
-                $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStart" -Value $UserCanStart
-                $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStop" -Value $UserCanStop
-                $AllResults += $Result
+            $ServiceObject = Get-Service -Name $_.Name -ErrorAction SilentlyContinue
+            if ($ServiceObject) {
+                $Status = $ServiceObject | Select-Object -ExpandProperty "Status"
+                $UserCanStart = Test-ServiceDiscretionaryAccessControlList -Service $_ -Permissions 'Start'
+                $UserCanStop = Test-ServiceDiscretionaryAccessControlList -Service $_ -Permissions 'Stop'
             }
+
+            $Result = $_.PSObject.Copy()
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $Status
+            $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStart" -Value $UserCanStart
+            $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStop" -Value $UserCanStop
+
+            $AllResults += $Result
         }
 
         $CheckResult = New-Object -TypeName PSObject

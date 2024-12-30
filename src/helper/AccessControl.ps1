@@ -666,78 +666,41 @@ function Get-ExploitableUnquotedPath {
     }
 }
 
-function Add-ServiceDiscretionaryAccessControlList {
+function Get-ServiceDiscretionaryAccessControlList {
     <#
     .SYNOPSIS
-    Helper - Adds a Dacl field to a service object returned by Get-Service.
+    Helper - Get the DACL of a service.
 
-    Author: Matthew Graeber
+    Author: @itm4n
     License: BSD 3-Clause
 
     .DESCRIPTION
-    Takes one or more ServiceProcess.ServiceController objects on the pipeline and adds a Dacl field to each object. It does this by opening a handle with ReadControl for the service with using the GetServiceHandle Win32 API call and then uses QueryServiceObjectSecurity to retrieve a copy of the security descriptor for the service.
+    This cmdlet takes a service object returned by 'Get-ServiceFromRegistry' as an input and returns its DACL. If it can't query a service's DACL, it returns null.
 
-    @itm4n: I had to make some small changes to the original code because i don't import the Win32 API functions the same way it was done in PowerUp.
-
-    .PARAMETER Name
-    An array of one or more service names to add a service Dacl for. Passable on the pipeline.
+    .PARAMETER Service
+    A mandatory Service object returned by 'Get-ServiceFromRegistry' (or 'Get-Service').
 
     .EXAMPLE
-    PS C:\> Get-Service | Add-ServiceDiscretionaryAccessControlList
-
-    Add DACLs for every service the current user can read.
+    PS C:\> $ServiceObject = Get-ServiceFromRegistry | Where-Object { $_.Name -eq "IKEEXT" }
+    PS C:\> $ServiceDacl = Get-ServiceDiscretionaryAccessControlList -Service $ServiceObject
 
     .EXAMPLE
-    PS C:\> Get-Service -Name VMTools | Add-ServiceDiscretionaryAccessControlList
-
-    Add the Dacl to the VMTools service object.
-
-    .OUTPUTS
-    ServiceProcess.ServiceController
-
-    .LINK
-    https://rohnspowershellblog.wordpress.com/2013/03/19/viewing-service-acls/
+    PS C:\> $ServiceObject = Get-ServiceFromRegistry | Where-Object { $_.Name -eq "IKEEXT" }
+    PS C:\> $ServiceDacl = $ServiceObject | Get-ServiceDiscretionaryAccessControlList
     #>
 
-    [OutputType('ServiceProcess.ServiceController')]
+    [CmdletBinding()]
     param (
         [Parameter(Position=0, Mandatory=$true, ValueFromPipeline=$true, ValueFromPipelineByPropertyName=$true)]
-        [Alias('ServiceName')]
         [ValidateNotNullOrEmpty()]
-        [String[]] $Name
+        [Object[]] $Service
     )
 
-    begin {
-        filter Local:Get-ServiceReadControlHandle {
-            [OutputType([IntPtr])]
-            param (
-                [Parameter(Mandatory=$true, ValueFromPipeline=$true)]
-                [ValidateNotNullOrEmpty()]
-                [ValidateScript({ $_ -as 'ServiceProcess.ServiceController' })]
-                $Service
-            )
-            Add-Type -AssemblyName System.ServiceProcess # ServiceProcess is not loaded by default
-            $GetServiceHandle = [ServiceProcess.ServiceController].GetMethod('GetServiceHandle', [Reflection.BindingFlags] 'Instance, NonPublic')
-            $ReadControl = 0x00020000
-            $RawHandle = $GetServiceHandle.Invoke($Service, @($ReadControl))
-            $RawHandle
-        }
-    }
-
     process {
-        foreach ($ServiceName in $Name) {
+        foreach ($ServiceObject in $Service) {
 
-            $ServiceObject = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
-            if ($null -eq $ServiceObject) {
-                Write-Warning "Failed to query service '$($ServiceName)'."
-                continue
-            }
-
-            try { $ServiceHandle = Get-ServiceReadControlHandle -Service $ServiceObject } catch { $ServiceHandle = $null }
-            if (($null -eq $ServiceHandle) -or ($ServiceHandle -eq [IntPtr]::Zero)) {
-                Write-Warning "Failed to obtain handle for service '$($ServiceName)'."
-                continue
-            }
+            $ServiceHandle = Get-ServiceHandle -Name $ServiceObject.Name -AccessRights $script:ServiceAccessRight::ReadControl
+            if ($ServiceHandle -eq [IntPtr]::Zero) { continue }
 
             $SizeNeeded = 0
             $Result = $script:Advapi32::QueryServiceObjectSecurity($ServiceHandle, [Security.AccessControl.SecurityInfos]::DiscretionaryAcl, @(), 0, [Ref] $SizeNeeded)
@@ -761,7 +724,7 @@ function Add-ServiceDiscretionaryAccessControlList {
             $RawSecurityDescriptor = New-Object Security.AccessControl.RawSecurityDescriptor -ArgumentList $BinarySecurityDescriptor, 0
             $RawDacl = $RawSecurityDescriptor.DiscretionaryAcl
 
-            # Check for NULL DACL first
+            # A NULL DACL would be equivalent to 'AllAccess' for everyone.
             if ($null -eq $RawDacl) {
                 $Ace = New-Object -TypeName PSObject
                 $Ace | Add-Member -MemberType "NoteProperty" -Name "AccessRights" -Value $script:ServiceAccessRight::AllAccess
@@ -775,9 +738,77 @@ function Add-ServiceDiscretionaryAccessControlList {
                 }
             }
 
-            Add-Member -InputObject $ServiceObject -MemberType "NoteProperty" -Name "Dacl" -Value $Dacl -PassThru
+            $Dacl
 
             $null = $script:Advapi32::CloseServiceHandle($ServiceHandle)
+        }
+    }
+}
+
+function Get-ModifiableService {
+    <#
+    .SYNOPSIS
+    Helper - Get services on which the current user has modification permissions.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet retrieves the DACL of a service, and checks whether the current user has modification permissions on it such as 'ChangeConfig' or 'WriteOwner'.
+
+    .PARAMETER Service
+    A mandatory service object returned by 'Get-ServiceFromRegistry' (or 'Get-Service').
+
+    .EXAMPLE
+    PS C:\> Get-ServiceFromRegistry -FilterLevel 2 | Get-ModifiableService
+    #>
+
+    [CmdletBinding()]
+    param (
+        [Parameter(Position=0, Mandatory=$true, ValueFromPipeline=$true, ValueFromPipelineByPropertyName=$true)]
+        [ValidateNotNullOrEmpty()]
+        [Object[]] $Service
+    )
+
+    begin {
+        $ModificationPermissions = @(
+            $script:ServiceAccessRight::ChangeConfig,
+            $script:ServiceAccessRight::WriteDac,
+            $script:ServiceAccessRight::WriteOwner,
+            $script:ServiceAccessRight::AllAccess,
+            $script:ServiceAccessRight::GenericAll
+        )
+
+        $CurrentUserSids = Get-CurrentUserSid
+    }
+
+    process {
+        foreach ($ServiceObject in $Service) {
+            $ServiceDacl = $ServiceObject | Get-ServiceDiscretionaryAccessControlList
+
+            # If we failed to retrieve the service's DACL, return immediately.
+            if ($null -eq $ServiceDacl) { return }
+
+            foreach ($Ace in $ServiceDacl) {
+
+                # Ignore ACEs that do not match our identity.
+                if ($CurrentUserSids -notcontains $Ace.SecurityIdentifier) { continue }
+
+                # Ignore deny ACEs
+                if ($Ace.AceType -ne "AccessAllowed") {
+                    Write-Warning "Unhandled ACE type found ('$($Ace.AceType)') for service '$($ServiceObject.Name)'."
+                    continue
+                }
+
+                foreach ($ModificationPermission in $ModificationPermissions) {
+                    if ((([UInt32] $ModificationPermission) -band $Ace.AccessRights) -eq $ModificationPermission) {
+                        $Result = $ServiceObject.PSObject.Copy()
+                        $Result | Add-Member -MemberType "NoteProperty" -Name "AccessRights" -Value $Ace.AccessRights
+                        $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $(Convert-SidToName -Sid $Ace.SecurityIdentifier)
+                        $Result
+                    }
+                }
+            }
         }
     }
 }
@@ -785,99 +816,76 @@ function Add-ServiceDiscretionaryAccessControlList {
 function Test-ServiceDiscretionaryAccessControlList {
     <#
     .SYNOPSIS
-    Tests one or more passed services or service names against a given permission set, returning the service objects where the current user have the specified permissions.
+    Helper - Test whether the current user has a specific permission, or set of permissions, on a service.
 
-    Author: @harmj0y, Matthew Graeber
+    Author: @itm4n
     License: BSD 3-Clause
 
     .DESCRIPTION
-    Takes a service Name or a ServiceProcess.ServiceController on the pipeline, and first adds a service Dacl to the service object with Add-ServiceDiscretionaryAccessControlList. All group SIDs for the current user are enumerated services where the user has some type of permission are filtered. The services are then filtered against a specified set of permissions, and services where the current user have the specified permissions are returned.
+    This cmdlet retrieves the DACL of a service, and checks whether the current user has a specific permission, or set of permissions on it.
 
-    .PARAMETER Name
-    An array of one or more service names to test against the specified permission set.
+    .PARAMETER Service
+    A mandatory Service object returned by 'Get-ServiceFromRegistry' (or 'Get-Service').
 
     .PARAMETER Permissions
-    A manual set of permission to test again. One of:'QueryConfig', 'ChangeConfig', 'QueryStatus', 'EnumerateDependents', 'Start', 'Stop', 'PauseContinue', 'Interrogate', UserDefinedControl', 'Delete', 'ReadControl', 'WriteDac', 'WriteOwner', 'Synchronize', 'AccessSystemSecurity', 'GenericAll', 'GenericExecute', 'GenericWrite', 'GenericRead', 'AllAccess'
+    A manual set of permission to test again. One of: 'QueryConfig', 'ChangeConfig', 'QueryStatus', 'EnumerateDependents', 'Start', 'Stop', 'PauseContinue', 'Interrogate', UserDefinedControl', 'Delete', 'ReadControl', 'WriteDac', 'WriteOwner', 'Synchronize', 'AccessSystemSecurity', 'GenericAll', 'GenericExecute', 'GenericWrite', 'GenericRead', 'AllAccess'
 
     .PARAMETER PermissionSet
     A pre-defined permission set to test a specified service against. 'ChangeConfig', 'Restart', or 'AllAccess'.
 
-    .OUTPUTS
-    ServiceProcess.ServiceController
-
-    .EXAMPLE
-    PS C:\> Get-Service | Test-ServiceDiscretionaryAccessControlList
-
-    Return all service objects where the current user can modify the service configuration.
-
-    .EXAMPLE
-    PS C:\> Get-Service | Test-ServiceDiscretionaryAccessControlList -PermissionSet 'Restart'
-
-    Return all service objects that the current user can restart.
-
-    .EXAMPLE
-    PS C:\> Test-ServiceDiscretionaryAccessControlList -Permissions 'Start' -Name 'VulnSVC'
-
-    Return the VulnSVC object if the current user has start permissions.
-
-    .LINK
-    https://rohnspowershellblog.wordpress.com/2013/03/19/viewing-service-acls/
+    .PARAMETER CheckAll
+    An optional switch specifying whether or not all the permissions in the permission set must be present.
     #>
-    [OutputType('ServiceProcess.ServiceController')] param(
+
+    [OutputType([Boolean])]
+    [CmdletBinding()]
+    param(
         [Parameter(Position=0, Mandatory=$true, ValueFromPipeline=$true, ValueFromPipelineByPropertyName=$true)]
-        [Alias('ServiceName')]
-        [String[]]
         [ValidateNotNullOrEmpty()]
-        $Name,
+        [Object[]] $Service,
 
-        [String[]]
         [ValidateSet('QueryConfig', 'ChangeConfig', 'QueryStatus', 'EnumerateDependents', 'Start', 'Stop', 'PauseContinue', 'Interrogate', 'UserDefinedControl', 'Delete', 'ReadControl', 'WriteDac', 'WriteOwner', 'Synchronize', 'AccessSystemSecurity', 'GenericAll', 'GenericExecute', 'GenericWrite', 'GenericRead', 'AllAccess')]
-        $Permissions,
+        [String[]] $Permissions,
 
-        [String]
         [ValidateSet('ChangeConfig', 'Restart', 'AllAccess')]
-        $PermissionSet = 'ChangeConfig'
+        [String] $PermissionSet = 'ChangeConfig',
+
+        [Switch] $CheckAll = $false
     )
 
     begin {
-        $AccessMask = @{
-            'QueryConfig'           = [UInt32]'0x00000001'
-            'ChangeConfig'          = [UInt32]'0x00000002'
-            'QueryStatus'           = [UInt32]'0x00000004'
-            'EnumerateDependents'   = [UInt32]'0x00000008'
-            'Start'                 = [UInt32]'0x00000010'
-            'Stop'                  = [UInt32]'0x00000020'
-            'PauseContinue'         = [UInt32]'0x00000040'
-            'Interrogate'           = [UInt32]'0x00000080'
-            'UserDefinedControl'    = [UInt32]'0x00000100'
-            'Delete'                = [UInt32]'0x00010000'
-            'ReadControl'           = [UInt32]'0x00020000'
-            'WriteDac'              = [UInt32]'0x00040000'
-            'WriteOwner'            = [UInt32]'0x00080000'
-            'Synchronize'           = [UInt32]'0x00100000'
-            'AccessSystemSecurity'  = [UInt32]'0x01000000'
-            'GenericAll'            = [UInt32]'0x10000000'
-            'GenericExecute'        = [UInt32]'0x20000000'
-            'GenericWrite'          = [UInt32]'0x40000000'
-            'GenericRead'           = [UInt32]'0x80000000'
-            'AllAccess'             = [UInt32]'0x000F01FF'
-        }
-
         $CheckAllPermissionsInSet = $false
 
+        if ($CheckAll) { $CheckAllPermissionsInSet = $true }
+
         if ($PSBoundParameters['Permissions']) {
-            $TargetPermissions = $Permissions
+            $TargetPermissions = @()
+            $Permissions | Sort-Object -Unique | ForEach-Object { $TargetPermissions += $_ -as $script:ServiceAccessRight }
         }
         else {
             if ($PermissionSet -eq 'ChangeConfig') {
-                $TargetPermissions = @('ChangeConfig', 'WriteDac', 'WriteOwner', 'GenericAll', ' GenericWrite', 'AllAccess')
+                $TargetPermissions = @(
+                    $script:ServiceAccessRight::ChangeConfig,
+                    $script:ServiceAccessRight::WriteDac,
+                    $script:ServiceAccessRight::WriteOwner,
+                    $script:ServiceAccessRight::AllAccess,
+                    $script:ServiceAccessRight::GenericAll
+                )
             }
             elseif ($PermissionSet -eq 'Restart') {
-                $TargetPermissions = @('Start', 'Stop')
-                $CheckAllPermissionsInSet = $true # so we check all permissions && style
+                $TargetPermissions = @(
+                    $script:ServiceAccessRight::Start,
+                    $script:ServiceAccessRight::Stop
+                )
+                # Restart requires both 'Start' and 'Stop' so check all permissions in the set
+                # in this case.
+                $CheckAllPermissionsInSet = $true
             }
             elseif ($PermissionSet -eq 'AllAccess') {
-                $TargetPermissions = @('GenericAll', 'AllAccess')
+                $TargetPermissions = @(
+                    $script:ServiceAccessRight::AllAccess,
+                    $script:ServiceAccessRight::GenericAll
+                )
             }
         }
 
@@ -886,67 +894,47 @@ function Test-ServiceDiscretionaryAccessControlList {
 
     process {
 
-        foreach ($IndividualService in $Name) {
+        foreach ($ServiceObject in $Service) {
 
-            $TargetService = $IndividualService | Add-ServiceDiscretionaryAccessControlList
+            $ServiceDacl = $Service | Get-ServiceDiscretionaryAccessControlList
 
-            # We might not be able to access the Service at all so we must check whether Add-ServiceDiscretionaryAccessControlList
-            # returned something.
-            if ($TargetService -and $TargetService.Dacl) {
+            # If we failed to retrieve the service's DACL return false.
+            if ($null -eq $ServiceDacl) { $false; continue }
 
-                # Check all the Dacl objects of the current service
-                foreach ($Ace in $TargetService.Dacl) {
+            $MatchingAces = @()
 
-                    $MatchingDaclFound = $false
+            foreach ($Ace in $ServiceDacl) {
 
-                    # An ACE object contains two properties we want to check: a SID and a list of AccessRights. First,
-                    # we want to check if the current Dacl SID is in the list of SIDs of the current user
-                    if ($CurrentUserSids -contains $Ace.SecurityIdentifier) {
+                # Ignore ACEs that do not match our identity.
+                if ($CurrentUserSids -notcontains $Ace.SecurityIdentifier) { continue }
 
-                        if ($CheckAllPermissionsInSet) {
+                # Ignore deny ACEs
+                if ($Ace.AceType -ne "AccessAllowed") {
+                    Write-Warning "Unhandled ACE type found ('$($Ace.AceType)') for service '$($ServiceObject.Name)'."
+                    continue
+                }
 
-                            # If a Permission Set was specified, we want to make sure that we have all the necessary access
-                            # rights
-                            $AllMatched = $true
-                            foreach ($TargetPermission in $TargetPermissions) {
-                                # check permissions && style
-                                if (($Ace.AccessRights -band $AccessMask[$TargetPermission]) -ne $AccessMask[$TargetPermission]) {
-                                    # Write-Verbose "Current user doesn't have '$TargetPermission' for $($TargetService.Name)"
-                                    $AllMatched = $false
-                                    break
-                                }
-                            }
-                            if ($AllMatched) {
-                                $TargetService | Add-Member -MemberType "NoteProperty" -Name "AccessRights" -Value $Ace.AccessRights
-                                $TargetService | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $(Convert-SidToName -Sid $Ace.SecurityIdentifier)
-                                $TargetService
-                                $MatchingDaclFound = $true
-                            }
-                        }
-                        else {
-
-                            foreach ($TargetPermission in $TargetPermissions) {
-                                # check permissions || style
-                                if (($Ace.AceType -eq 'AccessAllowed') -and ($Ace.AccessRights -band $AccessMask[$TargetPermission]) -eq $AccessMask[$TargetPermission]) {
-                                    $TargetService | Add-Member -MemberType "NoteProperty" -Name "AccessRights" -Value $Ace.AccessRights
-                                    $TargetService | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $(Convert-SidToName -Sid $Ace.SecurityIdentifier)
-                                    $TargetService
-                                    $MatchingDaclFound = $true
-                                    break
-                                }
-                            }
-                        }
-                    }
-
-                    if ($MatchingDaclFound) {
-                        # As soon as we find a matching Dacl, we can stop searching
-                        break
+                foreach ($TargetPermission in $TargetPermissions) {
+                    if (($TargetPermission -band $Ace.AccessRights) -eq $TargetPermission) {
+                        $MatchingAces += $Ace
                     }
                 }
             }
-            else {
-                Write-Verbose "Error enumerating the Dacl for service $IndividualService"
+
+            $TargetPermissionMask = 0
+            $TargetPermissions | ForEach-Object { $TargetPermissionMask = $TargetPermissionMask -bor ([UInt32] $_) }
+
+            $FoundPermissionMask = 0
+            $MatchingAces | ForEach-Object { $FoundPermissionMask = $FoundPermissionMask -bor ($_.AccessRights -band $TargetPermissionMask) }
+
+            if ($CheckAllPermissionsInSet) {
+                if ($FoundPermissionMask -eq $TargetPermissionMask) { $true; continue }
             }
+            else {
+                if ($FoundPermissionMask -gt 0) { $true; continue }
+            }
+
+            $false
         }
     }
 }

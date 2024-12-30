@@ -76,6 +76,7 @@ function Get-ServiceHandle {
     [CmdletBinding()]
     param (
         [Parameter(Position = 0, Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
         [String] $Name,
 
         [UInt32] $AccessRights = $script:ServiceAccessRight::GenericRead
@@ -83,6 +84,7 @@ function Get-ServiceHandle {
 
     begin {
         $SERVICES_ACTIVE_DATABASE = "ServicesActive"
+        $ServiceManagerHandle = [IntPtr]::Zero
     }
 
     process {
@@ -90,19 +92,21 @@ function Get-ServiceHandle {
         $ServiceManagerHandle = $script:Advapi32::OpenSCManager($null, $SERVICES_ACTIVE_DATABASE, $script:ServiceControlManagerAccessRight::Connect)
         if ($ServiceManagerHandle -eq [IntPtr]::Zero) {
             $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-            Write-Warning "OpenSCManager - $([ComponentModel.Win32Exception] $LastError)"
+            Write-Warning "OpenSCManager - $(Format-Error $LastError)"
             return [IntPtr]::Zero
         }
 
         $ServiceHandle = $script:advapi32::OpenService($ServiceManagerHandle, $Name, $AccessRights)
         if ($ServiceHandle -eq [IntPtr]::Zero) {
             $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-            Write-Warning "OpenService - $([ComponentModel.Win32Exception] $LastError)"
+            Write-Warning "OpenService($('0x{0:x}' -f $ServiceManagerHandle), '$($Name)', $($AccessRights -as $script:ServiceAccessRight)) - $(Format-Error $LastError)"
         }
 
-        $ServiceHandle
+        return $ServiceHandle
+    }
 
-        $null = $script:Advapi32::CloseServiceHandle($ServiceManagerHandle)
+    end {
+        if ($ServiceManagerHandle -ne [IntPtr]::Zero) { $null = $script:Advapi32::CloseServiceHandle($ServiceManagerHandle) }
     }
 }
 
