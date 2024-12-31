@@ -23,7 +23,7 @@ function Invoke-Build {
             ".\src\helper\Msi.ps1",
             ".\src\helper\SystemConfiguration.ps1",
             ".\src\helper\SystemInformation.ps1",
-            ".\src\helper\Utility.ps1"
+            ".\src\helper\Utility.ps1",
             ".\src\check\Globals.ps1",
             ".\src\check\Main.ps1",
             ".\src\check\User.ps1",

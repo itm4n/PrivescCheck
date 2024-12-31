@@ -1,6 +1,12 @@
 # Changelog
 
-## 2025-12-28
+## 2024-12-31
+
+### Changed
+
+- Improve standard Windows error handling (using a dedicated 'Format-Error' helper function).
+
+## 2024-12-28
 
 ### Added
 
@@ -11,7 +17,7 @@
 - Add multithreading to application file permissions check.
 - Refactor application folder enumeration.
 
-## 2025-12-27
+## 2024-12-27
 
 ### Added
 

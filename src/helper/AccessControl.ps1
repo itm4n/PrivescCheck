@@ -707,7 +707,7 @@ function Get-ServiceDiscretionaryAccessControlList {
             $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
 
             if (($LastError -ne $script:SystemErrorCode::ERROR_INSUFFICIENT_BUFFER) -or ($SizeNeeded -eq 0)) {
-                Write-Warning "QueryServiceObjectSecurity - $([ComponentModel.Win32Exception] $LastError)"
+                Write-Warning "QueryServiceObjectSecurity - $(Format-Error $LastError)"
                 $null = $script:Advapi32::CloseServiceHandle($ServiceHandle)
                 continue
             }
@@ -716,7 +716,8 @@ function Get-ServiceDiscretionaryAccessControlList {
             $Result = $script:Advapi32::QueryServiceObjectSecurity($ServiceHandle, [Security.AccessControl.SecurityInfos]::DiscretionaryAcl, $BinarySecurityDescriptor, $BinarySecurityDescriptor.Count, [Ref] $SizeNeeded)
 
             if (-not $Result) {
-                Write-Warning "QueryServiceObjectSecurity - $([ComponentModel.Win32Exception] $([Runtime.InteropServices.Marshal]::GetLastWin32Error()))"
+                $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+                Write-Warning "QueryServiceObjectSecurity - $(Format-Error $LastError)"
                 $null = $script:Advapi32::CloseServiceHandle($ServiceHandle)
                 continue
             }

@@ -270,7 +270,7 @@ function Get-CredentialItem {
         # If there is no saved credentials, CredEnumerate sets the last error to ERROR_NOT_FOUND but this
         # doesn't mean that the function really failed. The same thing applies for the error code
         # ERROR_NO_SUCH_LOGON_SESSION.
-        Write-Verbose ([ComponentModel.Win32Exception] $LastError)
+        Write-Verbose "CredEnumerate - $(Format-Error $LastError)"
     }
 }
 
@@ -745,7 +745,7 @@ function Get-RemoteDesktopUserSession {
 
     if (-not $Success) {
         $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-        Write-Verbose "WTSEnumerateSessionsEx - $([ComponentModel.Win32Exception] $LastError)"
+        Write-Verbose "WTSEnumerateSessionsEx - $(Format-Error $LastError)"
         return
     }
 
@@ -763,7 +763,7 @@ function Get-RemoteDesktopUserSession {
 
     if (-not $Success) {
         $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-        Write-Verbose "WTSFreeMemoryEx - $([ComponentModel.Win32Exception] $LastError)"
+        Write-Verbose "WTSFreeMemoryEx - $(Format-Error $LastError)"
         return
     }
 }
@@ -1089,13 +1089,13 @@ function Get-NetworkEndpoint {
 
         }
         else {
-            Write-Verbose ([ComponentModel.Win32Exception] $LastError)
+            Write-Verbose "GetExtended***Table - $(Format-Error $LastError)"
         }
 
         [System.Runtime.InteropServices.Marshal]::FreeHGlobal($TablePtr)
 
     }
     else {
-        Write-Verbose ([ComponentModel.Win32Exception] $LastError)
+        Write-Verbose "GetExtended***Table - $(Format-Error $LastError)"
     }
 }

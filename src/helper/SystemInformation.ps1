@@ -163,7 +163,7 @@ function Get-VolumeShadowCopyInformation {
 
     if ($Status -ne 0) {
         $LastError = $script:Ntdll::RtlNtStatusToDosError($Status)
-        Write-Verbose "NtOpenDirectoryObject - $([ComponentModel.Win32Exception] $LastError)"
+        Write-Verbose "NtOpenDirectoryObject - $(Format-Error $LastError)"
         [System.Runtime.InteropServices.Marshal]::FreeHGlobal($ObjectAttributes.ObjectName) | Out-Null
         return
     }
@@ -254,12 +254,12 @@ function Get-UEFIStatus {
         if ($LastError -eq $script:SystemErrorCode::ERROR_INVALID_FUNCTION) {
             $Status = $false
             $Description = "BIOS mode is Legacy."
-            Write-Verbose ([ComponentModel.Win32Exception] $LastError)
+            Write-Verbose "GetFirmwareEnvironmentVariable - $(Format-Error $LastError)"
         }
         else {
             $Status = $true
             $Description = "BIOS mode is UEFI."
-            Write-Verbose ([ComponentModel.Win32Exception] $LastError)
+            Write-Verbose "GetFirmwareEnvironmentVariable - $(Format-Error $LastError)"
         }
     }
     else {
@@ -854,13 +854,13 @@ function Get-ServiceControlManagerDiscretionaryAccessControlList {
 
         }
         else {
-            Write-Verbose ([ComponentModel.Win32Exception] $LastError)
+            Write-Verbose "QueryServiceObjectSecurity - $(Format-Error $LastError)"
         }
 
         $null = $script:Advapi32::CloseServiceHandle($ServiceManagerHandle)
     }
     else {
-        Write-Verbose ([ComponentModel.Win32Exception] $LastError)
+        Write-Verbose "OpenSCManager - $(Format-Error $LastError)"
     }
 }
 
@@ -1170,14 +1170,14 @@ function Get-WlanProfileList {
         [UInt32] $ClientVersion = 2 # Client version for Windows Vista and Windows Server 2008
         $Result = $script:Wlanapi::WlanOpenHandle($ClientVersion, [IntPtr]::Zero, [ref] $NegotiatedVersion, [ref] $ClientHandle)
         if ($Result -ne 0) {
-            Write-Warning "WlanOpenHandle - $([ComponentModel.Win32Exception] $Result)"
+            Write-Warning "WlanOpenHandle - $(Format-Error $Result)"
             return
         }
 
         [IntPtr] $InterfaceListPtr = [IntPtr]::Zero
         $Result = $script:Wlanapi::WlanEnumInterfaces($ClientHandle, [IntPtr]::Zero, [ref] $InterfaceListPtr)
         if ($Result -ne 0) {
-            Write-Warning "WlanEnumInterfaces - $([ComponentModel.Win32Exception] $Result)"
+            Write-Warning "WlanEnumInterfaces - $(Format-Error $Result)"
             $script:Wlanapi::WlanCloseHandle($ClientHandle, [IntPtr]::Zero)
             return
         }
@@ -1212,7 +1212,7 @@ function Get-WlanProfileList {
                         Convert-WlanXmlProfile -WlanProfile $ProfileXml
                     }
                     else {
-                        Write-Warning "WlanGetProfile - $([ComponentModel.Win32Exception] $Result)"
+                        Write-Warning "WlanGetProfile - $(Format-Error $Result)"
                     }
 
                     $WlanProfileInfoPtr = [IntPtr] ($WlanProfileInfoPtr.ToInt64() + [System.Runtime.InteropServices.Marshal]::SizeOf($WlanProfileInfo))
@@ -1221,7 +1221,7 @@ function Get-WlanProfileList {
                 $script:Wlanapi::WlanFreeMemory($ProfileListPtr)
             }
             else {
-                Write-Warning "WlanGetProfileList - $([ComponentModel.Win32Exception] $Result)"
+                Write-Warning "WlanGetProfileList - $(Format-Error $Result)"
             }
 
             $WlanInterfaceInfoPtr = [IntPtr] ($WlanInterfaceInfoPtr.ToInt64() + [System.Runtime.InteropServices.Marshal]::SizeOf($WlanInterfaceInfo))

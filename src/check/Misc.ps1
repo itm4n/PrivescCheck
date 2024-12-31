@@ -838,7 +838,7 @@ function Invoke-ExploitableLeakedHandleCheck {
                 # can be opened with the access right "duplicate handle". So, print a warning,
                 # just in case.
                 $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-                Write-Warning "Failed to duplicate handle 0x$('{0:x}' -f $InheritedHandle.HandleValue) - $([ComponentModel.Win32Exception] $LastError)"
+                Write-Warning "Failed to duplicate handle 0x$('{0:x}' -f $InheritedHandle.HandleValue) - $(Format-Error $LastError)"
                 continue
             }
 
@@ -859,7 +859,7 @@ function Invoke-ExploitableLeakedHandleCheck {
                     $TargetProcessId = $script:Kernel32::GetProcessId($InheritedHandleDuplicated)
                     if ($HandleProcessId -eq 0) {
                         $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-                        Write-Warning "GetProcessId KO - $([ComponentModel.Win32Exception] $LastError)"
+                        Write-Warning "GetProcessId KO - $(Format-Error $LastError)"
                         continue
                     }
                     $CandidateHandle | Add-Member -MemberType "NoteProperty" -Name "TargetProcessId" -Value $TargetProcessId
@@ -877,7 +877,7 @@ function Invoke-ExploitableLeakedHandleCheck {
                     $TargetThreadId = $script:Kernel32::GetThreadId($InheritedHandleDuplicated)
                     if ($HandleThreadId -eq 0) {
                         $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-                        Write-Warning "GetThreadId KO - $([ComponentModel.Win32Exception] $LastError)"
+                        Write-Warning "GetThreadId KO - $(Format-Error $LastError)"
                         continue
                     }
                     $CandidateHandle | Add-Member -MemberType "NoteProperty" -Name "TargetThreadId" -Value $TargetThreadId

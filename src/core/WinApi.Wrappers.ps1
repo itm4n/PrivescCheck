@@ -1,3 +1,43 @@
+function Format-Error {
+    <#
+    .SYNOPSIS
+    Helper - Format a Windows standard error message.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet returns a formatted error message given a standard Windows error code.
+
+    .PARAMETER Code
+    A mandatory standard Windows error code.
+
+    .EXAMPLE
+    PS C:\> Format-Error -Code 5
+    Access is denied (5) - HRESULT: 0x80004005
+
+    .EXAMPLE
+    PS C:\> Format-Error 2
+    The system cannot find the file specified (2) - HRESULT: 0x80004005
+    #>
+
+    [OutputType([String])]
+    [CmdletBinding()]
+    param (
+        [Parameter(Position=0, Mandatory=$true)]
+        [ValidateNotNullOrEmpty()]
+        [Int32] $Code
+    )
+
+    process {
+        $ErrorObject = [ComponentModel.Win32Exception] $Code
+        $ErrorMessage = "$($ErrorObject.Message)"
+        if ($ErrorObject.NativeErrorCode -ge 0) { $ErrorMessage += " ($($ErrorObject.NativeErrorCode))" }
+        $ErrorMessage += " - HRESULT: $('0x{0:x8}' -f $ErrorObject.HResult)"
+        return $ErrorMessage
+    }
+}
+
 function Get-ProcessTokenHandle {
     <#
     .SYNOPSIS
@@ -32,7 +72,7 @@ function Get-ProcessTokenHandle {
 
         if ($ProcessHandle -eq [IntPtr]::Zero) {
             $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-            Write-Verbose "OpenProcess($($ProcessId), 0x$('{0:x8}' -f $ProcessAccess))) - $([ComponentModel.Win32Exception] $LastError)"
+            Write-Verbose "OpenProcess($($ProcessId), 0x$('{0:x8}' -f $ProcessAccess))) - $(Format-Error $LastError)"
             return
         }
     }
@@ -41,7 +81,7 @@ function Get-ProcessTokenHandle {
     $Success = $script:Advapi32::OpenProcessToken($ProcessHandle, $TokenAccess, [ref] $TokenHandle)
     if (-not $Success) {
         $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-        Write-Verbose "OpenProcessToken - $([ComponentModel.Win32Exception] $LastError)"
+        Write-Verbose "OpenProcessToken - $(Format-Error $LastError)"
         $script:Kernel32::CloseHandle($ProcessHandle) | Out-Null
         return
     }
@@ -138,7 +178,7 @@ function Get-TokenInformationData {
     $Success = $script:Advapi32::GetTokenInformation($TokenHandle, $InformationClass, 0, $null, [ref] $DataSize)
     if ($DataSize -eq 0) {
         $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-        Write-Verbose "GetTokenInformation - $([ComponentModel.Win32Exception] $LastError)"
+        Write-Verbose "GetTokenInformation - $(Format-Error $LastError)"
         return
     }
 
@@ -147,7 +187,7 @@ function Get-TokenInformationData {
     $Success = $script:Advapi32::GetTokenInformation($TokenHandle, $InformationClass, $DataPtr, $DataSize, [ref] $DataSize)
     if (-not $Success) {
         $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-        Write-Verbose "GetTokenInformation - $([ComponentModel.Win32Exception] $LastError)"
+        Write-Verbose "GetTokenInformation - $(Format-Error $LastError)"
         [System.Runtime.InteropServices.Marshal]::FreeHGlobal($DataPtr)
         return
     }
@@ -372,7 +412,7 @@ function Get-TokenInformationPrivilege {
 
         if ($Length -eq 0) {
             $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-            Write-Verbose "LookupPrivilegeName - $([ComponentModel.Win32Exception] $LastError)"
+            Write-Verbose "LookupPrivilegeName - $(Format-Error $LastError)"
             continue
         }
 
@@ -384,7 +424,7 @@ function Get-TokenInformationPrivilege {
 
         if (-not $Success) {
             $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-            Write-Verbose "LookupPrivilegeName - $([ComponentModel.Win32Exception] $LastError)"
+            Write-Verbose "LookupPrivilegeName - $(Format-Error $LastError)"
             continue
         }
 
@@ -940,7 +980,7 @@ function Convert-PSidToStringSid {
 
     if (-not $Success) {
         $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-        Write-Verbose "ConvertSidToStringSidW - $([ComponentModel.Win32Exception] $LastError)"
+        Write-Verbose "ConvertSidToStringSidW - $(Format-Error $LastError)"
         return
     }
 
@@ -971,7 +1011,7 @@ function Convert-PSidToNameAndType {
     $Success = $script:Advapi32::LookupAccountSid($null, $PSid, $Name, [ref] $NameSize, $Domain, [ref] $DomainSize, [ref] $SidType)
     if (-not $Success) {
         $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-        Write-Verbose "LookupAccountSid - $([ComponentModel.Win32Exception] $LastError)"
+        Write-Verbose "LookupAccountSid - $(Format-Error $LastError)"
         return
     }
 
@@ -1035,7 +1075,7 @@ function Convert-DosDeviceToDevicePath {
     if ($TargetPathLen -eq 0) {
         [System.Runtime.InteropServices.Marshal]::FreeHGlobal($TargetPathPtr)
         $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-        Write-Verbose "QueryDosDevice('$($DosDevice)') - $([ComponentModel.Win32Exception] $LastError)"
+        Write-Verbose "QueryDosDevice('$($DosDevice)') - $(Format-Error $LastError)"
         return
     }
 
@@ -1093,7 +1133,7 @@ function Get-FileDacl {
 
     if ($FileHandle -eq [IntPtr]-1) {
         $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-        Write-Verbose "CreateFile KO - $([ComponentModel.Win32Exception] $LastError)"
+        Write-Verbose "CreateFile KO - $(Format-Error $LastError)"
         return
     }
 
@@ -1108,7 +1148,7 @@ function Get-FileDacl {
 
     if ($Result -ne 0) {
         $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-        Write-Verbose "GetSecurityInfo KO ($Result) - $([ComponentModel.Win32Exception] $LastError)"
+        Write-Verbose "GetSecurityInfo KO ($Result) - $(Format-Error $LastError)"
         $script:Kernel32::CloseHandle($FileHandle) | Out-Null
         return
     }
@@ -1124,7 +1164,7 @@ function Get-FileDacl {
 
     if (-not $Success) {
         $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-        Write-Verbose "ConvertSecurityDescriptorToStringSecurityDescriptor KO ($Result) - $([ComponentModel.Win32Exception] $LastError)"
+        Write-Verbose "ConvertSecurityDescriptorToStringSecurityDescriptor KO ($Result) - $(Format-Error $LastError)"
         $script:Kernel32::LocalFree($SecurityDescriptorPtr) | Out-Null
         $script:Kernel32::CloseHandle($FileHandle) | Out-Null
         return
@@ -1136,7 +1176,7 @@ function Get-FileDacl {
 
     if (-not $Success) {
         $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-        Write-Verbose "ConvertStringSecurityDescriptorToSecurityDescriptor KO ($Result) - $([ComponentModel.Win32Exception] $LastError)"
+        Write-Verbose "ConvertStringSecurityDescriptorToSecurityDescriptor KO ($Result) - $(Format-Error $LastError)"
         $script:Kernel32::LocalFree($SecurityDescriptorPtr) | Out-Null
         $script:Kernel32::CloseHandle($FileHandle) | Out-Null
         return
@@ -1195,7 +1235,7 @@ function Disable-Wow64FileSystemRedirection {
             }
             else {
                 $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-                Write-Warning "Wow64DisableWow64FsRedirection KO ($Result) - $([ComponentModel.Win32Exception] $LastError)"
+                Write-Warning "Wow64DisableWow64FsRedirection KO ($Result) - $(Format-Error $LastError)"
             }
         }
     }
@@ -1235,7 +1275,7 @@ function Restore-Wow64FileSystemRedirection {
             }
             else {
                 $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-                Write-Warning "Wow64RevertWow64FsRedirection KO ($Result) - $([ComponentModel.Win32Exception] $LastError)"
+                Write-Warning "Wow64RevertWow64FsRedirection KO ($Result) - $(Format-Error $LastError)"
             }
         }
     }
@@ -1340,7 +1380,7 @@ function Get-DomainInformation {
                     Write-Verbose "No Azure Active Directory configuration found on this machine."
                 }
                 else {
-                    Write-Warning "NetGetAadJoinInformation - $([ComponentModel.Win32Exception] $RetVal)"
+                    Write-Warning "NetGetAadJoinInformation - $(Format-Error $RetVal)"
                 }
                 return
             }
@@ -1378,7 +1418,7 @@ function Get-DomainInformation {
             $BufferType = 0
             $RetVal = $script:Netapi32::NetGetJoinInformation([IntPtr]::Zero, [ref] $NameBufferPtr, [ref] $BufferType)
             if ($RetVal -ne 0) {
-                Write-Warning "NetGetJoinInformation - $([ComponentModel.Win32Exception] $RetVal)"
+                Write-Warning "NetGetJoinInformation - $(Format-Error $RetVal))"
                 return
             }
 
@@ -1389,7 +1429,7 @@ function Get-DomainInformation {
 
             $RetVal = $Netapi32::NetApiBufferFree($NameBufferPtr)
             if ($RetVal -ne 0) {
-                Write-Warning "NetApiBufferFree - $([ComponentModel.Win32Exception] $RetVal)"
+                Write-Warning "NetApiBufferFree - $(Format-Error $RetVal)"
                 return
             }
         }
@@ -1422,7 +1462,7 @@ function ConvertTo-ArgumentList {
         $RetVal = $script:Shell32::CommandLineToArgvW($CommandLine, [ref] $NumArgs)
         if ($RetVal -eq [IntPtr]::Zero) {
             $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-            Write-Warning "CommandLineToArgvW - $([ComponentModel.Win32Exception] $LastError)"
+            Write-Warning "CommandLineToArgvW - $(Format-Error $LastError)"
             return
         }
 
@@ -1481,7 +1521,7 @@ function Resolve-ModulePath {
         $RetVal = $script:Kernel32::LoadLibrary($Name)
         if ($RetVal -eq [IntPtr]::Zero) {
             $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-            Write-Warning "LoadLibrary(`"$($Name)`") - $([ComponentModel.Win32Exception] $LastError)"
+            Write-Warning "LoadLibrary(`"$($Name)`") - $(Format-Error $LastError)"
             return
         }
 
@@ -1501,7 +1541,7 @@ function Resolve-ModulePath {
             $RetVal = $script:Kernel32::GetModuleFileName($ModuleHandle, $ModuleFileName, $ModuleFileNameLength)
             if ($RetVal -eq 0) {
                 $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-                Write-Warning "GetModuleFileName - $([ComponentModel.Win32Exception] $LastError)"
+                Write-Warning "GetModuleFileName - $(Format-Error $LastError)"
                 return
             }
 
@@ -1516,7 +1556,7 @@ function Resolve-ModulePath {
                     continue
                 }
                 else {
-                    Write-Warning "GetModuleFileName - $([ComponentModel.Win32Exception] $LastError)"
+                    Write-Warning "GetModuleFileName - $(Format-Error $LastError)"
                     return
                 }
             }
@@ -1577,7 +1617,7 @@ function Resolve-PathRelativeTo {
         $Result = $script:Shlwapi::PathRelativePathTo($PathOut, $From, $FILE_ATTRIBUTE_DIRECTORY, $To, $FILE_ATTRIBUTE_NORMAL)
         if (-not $Result) {
             $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-            Write-Warning "PathRelativePathTo(`"$($From)`", `"$($To)`") error - $([ComponentModel.Win32Exception] $LastError)"
+            Write-Warning "PathRelativePathTo(`"$($From)`", `"$($To)`") error - $(Format-Error $LastError)"
             return
         }
 
@@ -1607,10 +1647,10 @@ function Get-FirmwareType {
     process {
         [UInt32] $FirmwareType = 0
         $Result = $script:Kernel32::GetFirmwareType([ref] $FirmwareType)
-        $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
 
         if ($Result -eq 0) {
-            Write-Warning "GetFirmwareType error - $([ComponentModel.Win32Exception] $LastError)"
+            $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+            Write-Warning "GetFirmwareType error - $(Format-Error $LastError)"
             return
         }
 
@@ -1666,7 +1706,7 @@ function Get-LocalUserInformation {
         $ResumeHandle = [UInt32] 0
         $RetVal = $script:Netapi32::NetUserEnum([IntPtr]::Zero, $Level, $FILTER_NORMAL_ACCOUNT, [ref] $BufferPtr, $MAX_PREFERRED_LENGTH, [ref] $EntriesRead, [ref] $TotalEntries, [ref] $ResumeHandle)
         if ($RetVal -ne 0) {
-            Write-Warning "NetUserEnum - $([ComponentModel.Win32Exception] $RetVal)"
+            Write-Warning "NetUserEnum - $(Format-Error $RetVal)"
             return
         }
 
