@@ -356,44 +356,53 @@ function Invoke-ServiceControlManagerPermissionCheck {
     begin {
         $CurrentUserSids = Get-CurrentUserSid
         $AllResults = @()
+        $ServiceControlManagerHandle = [IntPtr]::Zero
+
+        $PermissionReference = @(
+            $script:ServiceControlManagerAccessRight::CreateService,
+            $script:ServiceControlManagerAccessRight::ModifyBootConfig,
+            $script:ServiceControlManagerAccessRight::AllAccess,
+            $script:ServiceControlManagerAccessRight::GenericWrite
+        )
     }
 
     process {
-        Get-ServiceControlManagerDiscretionaryAccessControlList | Where-Object { $($_ | Select-Object -ExpandProperty "AceType") -match "AccessAllowed" } | ForEach-Object {
+        $ServiceControlManagerHandle = Get-ServiceHandle -Name "SCM" -SCM
+        if ($ServiceControlManagerHandle -eq [IntPtr]::Zero) { return }
 
-            $CurrentAce = $_
+        Get-ServiceDiscretionaryAccessControlList -Handle $ServiceControlManagerHandle -SCM |
+            Where-Object { $($_ | Select-Object -ExpandProperty "AceType") -match "AccessAllowed" } |
+                ForEach-Object {
+                    $CurrentAce = $_
 
-            $Permissions = [Enum]::GetValues($script:ServiceControlManagerAccessRight) | Where-Object {
-                ($CurrentAce.AccessMask -band ($script:ServiceControlManagerAccessRight::$_)) -eq ($script:ServiceControlManagerAccessRight::$_)
-            }
+                    $Permissions = [Enum]::GetValues($script:ServiceControlManagerAccessRight) | Where-Object {
+                        ($CurrentAce.AccessMask -band ($script:ServiceControlManagerAccessRight::$_)) -eq ($script:ServiceControlManagerAccessRight::$_)
+                    }
 
-            $PermissionReference = @(
-                $script:ServiceControlManagerAccessRight::CreateService,
-                $script:ServiceControlManagerAccessRight::ModifyBootConfig,
-                $script:ServiceControlManagerAccessRight::AllAccess,
-                $script:ServiceControlManagerAccessRight::GenericWrite
-            )
+                    if (Compare-Object -ReferenceObject $Permissions -DifferenceObject $PermissionReference -IncludeEqual -ExcludeDifferent) {
 
-            if (Compare-Object -ReferenceObject $Permissions -DifferenceObject $PermissionReference -IncludeEqual -ExcludeDifferent) {
+                        $IdentityReference = $($CurrentAce | Select-Object -ExpandProperty "SecurityIdentifier").ToString()
 
-                $IdentityReference = $($CurrentAce | Select-Object -ExpandProperty "SecurityIdentifier").ToString()
+                        if ($CurrentUserSids -contains $IdentityReference) {
 
-                if ($CurrentUserSids -contains $IdentityReference) {
-
-                    $Result = New-Object -TypeName PSObject
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "AceType" -Value $($CurrentAce | Select-Object -ExpandProperty "AceType")
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "AccessRights" -Value $($CurrentAce | Select-Object -ExpandProperty "AccessRights")
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "IdentitySid" -Value $IdentityReference
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityName" -Value $(Convert-SidToName -Sid $IdentityReference)
-                    $AllResults += $Result
+                            $Result = New-Object -TypeName PSObject
+                            $Result | Add-Member -MemberType "NoteProperty" -Name "AceType" -Value $($CurrentAce | Select-Object -ExpandProperty "AceType")
+                            $Result | Add-Member -MemberType "NoteProperty" -Name "AccessRights" -Value $($CurrentAce | Select-Object -ExpandProperty "AccessRights")
+                            $Result | Add-Member -MemberType "NoteProperty" -Name "IdentitySid" -Value $IdentityReference
+                            $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityName" -Value $(Convert-SidToName -Sid $IdentityReference)
+                            $AllResults += $Result
+                        }
+                    }
                 }
-            }
-        }
 
-        $CheckResult = New-Object -TypeName PSObject
-        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
-        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AllResults) { $BaseSeverity } else { $script:SeverityLevel::None })
-        $CheckResult
+                $CheckResult = New-Object -TypeName PSObject
+                $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
+                $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AllResults) { $BaseSeverity } else { $script:SeverityLevel::None })
+                $CheckResult
+    }
+
+    end {
+        if ($ServiceControlManagerHandle -ne [IntPtr]::Zero) { $null = $script:Advapi32::CloseServiceHandle($ServiceControlManagerHandle) }
     }
 }
 

@@ -666,86 +666,6 @@ function Get-ExploitableUnquotedPath {
     }
 }
 
-function Get-ServiceDiscretionaryAccessControlList {
-    <#
-    .SYNOPSIS
-    Helper - Get the DACL of a service.
-
-    Author: @itm4n
-    License: BSD 3-Clause
-
-    .DESCRIPTION
-    This cmdlet takes a service object returned by 'Get-ServiceFromRegistry' as an input and returns its DACL. If it can't query a service's DACL, it returns null.
-
-    .PARAMETER Service
-    A mandatory Service object returned by 'Get-ServiceFromRegistry' (or 'Get-Service').
-
-    .EXAMPLE
-    PS C:\> $ServiceObject = Get-ServiceFromRegistry | Where-Object { $_.Name -eq "IKEEXT" }
-    PS C:\> $ServiceDacl = Get-ServiceDiscretionaryAccessControlList -Service $ServiceObject
-
-    .EXAMPLE
-    PS C:\> $ServiceObject = Get-ServiceFromRegistry | Where-Object { $_.Name -eq "IKEEXT" }
-    PS C:\> $ServiceDacl = $ServiceObject | Get-ServiceDiscretionaryAccessControlList
-    #>
-
-    [CmdletBinding()]
-    param (
-        [Parameter(Position=0, Mandatory=$true, ValueFromPipeline=$true, ValueFromPipelineByPropertyName=$true)]
-        [ValidateNotNullOrEmpty()]
-        [Object[]] $Service
-    )
-
-    process {
-        foreach ($ServiceObject in $Service) {
-
-            $ServiceHandle = Get-ServiceHandle -Name $ServiceObject.Name -AccessRights $script:ServiceAccessRight::ReadControl
-            if ($ServiceHandle -eq [IntPtr]::Zero) { continue }
-
-            $SizeNeeded = 0
-            $Result = $script:Advapi32::QueryServiceObjectSecurity($ServiceHandle, [Security.AccessControl.SecurityInfos]::DiscretionaryAcl, @(), 0, [Ref] $SizeNeeded)
-            $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-
-            if (($LastError -ne $script:SystemErrorCode::ERROR_INSUFFICIENT_BUFFER) -or ($SizeNeeded -eq 0)) {
-                Write-Warning "QueryServiceObjectSecurity - $(Format-Error $LastError)"
-                $null = $script:Advapi32::CloseServiceHandle($ServiceHandle)
-                continue
-            }
-
-            $BinarySecurityDescriptor = New-Object Byte[]($SizeNeeded)
-            $Result = $script:Advapi32::QueryServiceObjectSecurity($ServiceHandle, [Security.AccessControl.SecurityInfos]::DiscretionaryAcl, $BinarySecurityDescriptor, $BinarySecurityDescriptor.Count, [Ref] $SizeNeeded)
-
-            if (-not $Result) {
-                $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-                Write-Warning "QueryServiceObjectSecurity - $(Format-Error $LastError)"
-                $null = $script:Advapi32::CloseServiceHandle($ServiceHandle)
-                continue
-            }
-
-            $RawSecurityDescriptor = New-Object Security.AccessControl.RawSecurityDescriptor -ArgumentList $BinarySecurityDescriptor, 0
-            $RawDacl = $RawSecurityDescriptor.DiscretionaryAcl
-
-            # A NULL DACL would be equivalent to 'AllAccess' for everyone.
-            if ($null -eq $RawDacl) {
-                $Ace = New-Object -TypeName PSObject
-                $Ace | Add-Member -MemberType "NoteProperty" -Name "AccessRights" -Value $script:ServiceAccessRight::AllAccess
-                $Ace | Add-Member -MemberType "NoteProperty" -Name "SecurityIdentifier" -Value (Convert-SidStringToSid -Sid "S-1-1-0")
-                $Ace | Add-Member -MemberType "NoteProperty" -Name "AceType" -Value "AccessAllowed"
-                $Dacl = @($Ace)
-            }
-            else {
-                $Dacl = $RawDacl | ForEach-Object {
-                    Add-Member -InputObject $_ -MemberType "NoteProperty" -Name "AccessRights" -Value ($_.AccessMask -as $script:ServiceAccessRight) -PassThru
-                }
-            }
-
-            $Dacl
-
-            $null = $script:Advapi32::CloseServiceHandle($ServiceHandle)
-        }
-    }
-}
-
 function Get-ModifiableService {
     <#
     .SYNOPSIS
@@ -785,10 +705,14 @@ function Get-ModifiableService {
 
     process {
         foreach ($ServiceObject in $Service) {
-            $ServiceDacl = $ServiceObject | Get-ServiceDiscretionaryAccessControlList
+            $ServiceHandle = Get-ServiceHandle -Name $ServiceObject.Name -AccessRights $script:ServiceAccessRight::ReadControl
+            if ($ServiceHandle -eq [IntPtr]::Zero) { continue }
 
-            # If we failed to retrieve the service's DACL, return immediately.
-            if ($null -eq $ServiceDacl) { return }
+            $ServiceDacl = Get-ServiceDiscretionaryAccessControlList -Handle $ServiceHandle
+            if ($null -eq $ServiceDacl) {
+                $null = $script:Advapi32::CloseServiceHandle($ServiceHandle)
+                continue
+            }
 
             foreach ($Ace in $ServiceDacl) {
 
@@ -810,6 +734,8 @@ function Get-ModifiableService {
                     }
                 }
             }
+
+            $null = $script:Advapi32::CloseServiceHandle($ServiceHandle)
         }
     }
 }
@@ -841,9 +767,9 @@ function Test-ServiceDiscretionaryAccessControlList {
     [OutputType([Boolean])]
     [CmdletBinding()]
     param(
-        [Parameter(Position=0, Mandatory=$true, ValueFromPipeline=$true, ValueFromPipelineByPropertyName=$true)]
+        [Parameter(Position=0, Mandatory=$true)]
         [ValidateNotNullOrEmpty()]
-        [Object[]] $Service,
+        [Object] $Service,
 
         [ValidateSet('QueryConfig', 'ChangeConfig', 'QueryStatus', 'EnumerateDependents', 'Start', 'Stop', 'PauseContinue', 'Interrogate', 'UserDefinedControl', 'Delete', 'ReadControl', 'WriteDac', 'WriteOwner', 'Synchronize', 'AccessSystemSecurity', 'GenericAll', 'GenericExecute', 'GenericWrite', 'GenericRead', 'AllAccess')]
         [String[]] $Permissions,
@@ -855,7 +781,9 @@ function Test-ServiceDiscretionaryAccessControlList {
     )
 
     begin {
+        $AccessAllowed = $false
         $CheckAllPermissionsInSet = $false
+        $ServiceHandle = [IntPtr]::Zero
 
         if ($CheckAll) { $CheckAllPermissionsInSet = $true }
 
@@ -894,48 +822,48 @@ function Test-ServiceDiscretionaryAccessControlList {
     }
 
     process {
+        $ServiceHandle = Get-ServiceHandle -Name $Service.Name -AccessRights $script:ServiceAccessRight::ReadControl
+        if ($ServiceHandle -eq [IntPtr]::Zero) { return }
 
-        foreach ($ServiceObject in $Service) {
+        $ServiceDacl = Get-ServiceDiscretionaryAccessControlList -Handle $ServiceHandle
+        if ($null -eq $ServiceDacl) { return }
 
-            $ServiceDacl = $Service | Get-ServiceDiscretionaryAccessControlList
+        $MatchingAces = @()
 
-            # If we failed to retrieve the service's DACL return false.
-            if ($null -eq $ServiceDacl) { $false; continue }
+        foreach ($Ace in $ServiceDacl) {
 
-            $MatchingAces = @()
+            # Ignore ACEs that do not match our identity.
+            if ($CurrentUserSids -notcontains $Ace.SecurityIdentifier) { continue }
 
-            foreach ($Ace in $ServiceDacl) {
+            # Ignore deny ACEs
+            if ($Ace.AceType -ne "AccessAllowed") {
+                Write-Warning "Unhandled ACE type found ('$($Ace.AceType)') for service '$($Service.Name)'."
+                continue
+            }
 
-                # Ignore ACEs that do not match our identity.
-                if ($CurrentUserSids -notcontains $Ace.SecurityIdentifier) { continue }
-
-                # Ignore deny ACEs
-                if ($Ace.AceType -ne "AccessAllowed") {
-                    Write-Warning "Unhandled ACE type found ('$($Ace.AceType)') for service '$($ServiceObject.Name)'."
-                    continue
-                }
-
-                foreach ($TargetPermission in $TargetPermissions) {
-                    if (($TargetPermission -band $Ace.AccessRights) -eq $TargetPermission) {
-                        $MatchingAces += $Ace
-                    }
+            foreach ($TargetPermission in $TargetPermissions) {
+                if ((([UInt32] $TargetPermission) -band $Ace.AccessRights) -eq $TargetPermission) {
+                    $MatchingAces += $Ace
                 }
             }
-
-            $TargetPermissionMask = 0
-            $TargetPermissions | ForEach-Object { $TargetPermissionMask = $TargetPermissionMask -bor ([UInt32] $_) }
-
-            $FoundPermissionMask = 0
-            $MatchingAces | ForEach-Object { $FoundPermissionMask = $FoundPermissionMask -bor ($_.AccessRights -band $TargetPermissionMask) }
-
-            if ($CheckAllPermissionsInSet) {
-                if ($FoundPermissionMask -eq $TargetPermissionMask) { $true; continue }
-            }
-            else {
-                if ($FoundPermissionMask -gt 0) { $true; continue }
-            }
-
-            $false
         }
+
+        $TargetPermissionMask = 0
+        $TargetPermissions | ForEach-Object { $TargetPermissionMask = $TargetPermissionMask -bor ([UInt32] $_) }
+
+        $FoundPermissionMask = 0
+        $MatchingAces | ForEach-Object { $FoundPermissionMask = $FoundPermissionMask -bor ($_.AccessRights -band $TargetPermissionMask) }
+
+        if ($CheckAllPermissionsInSet) {
+            if ($FoundPermissionMask -eq $TargetPermissionMask) { $AccessAllowed = $true }
+        }
+        else {
+            if ($FoundPermissionMask -gt 0) { $AccessAllowed = $true }
+        }
+    }
+
+    end {
+        if ($ServiceHandle -ne [IntPtr]::Zero) { $null = $script:Advapi32::CloseServiceHandle($ServiceHandle) }
+        return $AccessAllowed
     }
 }

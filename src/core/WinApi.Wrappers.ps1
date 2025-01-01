@@ -108,8 +108,22 @@ function Get-ServiceHandle {
     .PARAMETER AccessRights
     Optional service rights to use when opening the service. If not specified, the GENERIC_READ access right set is used.
 
+    .PARAMETER SCM
+    An optional switch specifying whether the service to open is the Service Control Manager itself. This flag is intended to avoid name conflicts by specifying explicitly that we want to open the Service Control Manager, not a potential service named "SCM".
+
     .EXAMPLE
-    PS C:\> $ServiceHandle = Get-ServiceHandle -Name IKEEXT
+    PS C:\> $ServiceHandle = Get-ServiceHandle -Name 'IKEEXT'
+    PS C:\> $null = $script:Advapi32::CloseServiceHandle($ServiceHandle)
+
+    .EXAMPLE
+    PS C:\> $ServiceHandle = Get-ServiceHandle -Name 'IKEEXT' -AccessRights $script:ServiceAccessRight::AllAccess
+    WARNING: OpenService(0x2031963154800, 'IKEEXT', AllAccess) - Access is denied (5) - HRESULT: 0x80004005
+    0
+
+    .EXAMPLE
+    PS C:\> # Open the Service Control Manager
+    PS C:\> $ServiceControlManagerHandle = Get-ServiceHandle -Name 'SCM' -SCM
+    PS C:\> $null = $script:Advapi32::CloseServiceHandle($ServiceControlManagerHandle)
     #>
 
     [OutputType([IntPtr])]
@@ -119,34 +133,174 @@ function Get-ServiceHandle {
         [ValidateNotNullOrEmpty()]
         [String] $Name,
 
-        [UInt32] $AccessRights = $script:ServiceAccessRight::GenericRead
+        [UInt32] $AccessRights = $script:ServiceAccessRight::GenericRead,
+
+        [Switch] $SCM = $false
     )
 
     begin {
         $SERVICES_ACTIVE_DATABASE = "ServicesActive"
-        $ServiceManagerHandle = [IntPtr]::Zero
+        $ServiceControlManagerHandle = [IntPtr]::Zero
+
+        if ($SCM) {
+            $ServiceControlManagerAccessRights = $script:ServiceControlManagerAccessRight::GenericRead
+            if ($PSBoundParameters['AccessRights']) {
+                $ServiceControlManagerAccessRights = $AccessRights
+            }
+        }
+        else {
+            $ServiceControlManagerAccessRights = $script:ServiceControlManagerAccessRight::Connect
+            $ServiceAccessRights = $script:ServiceAccessRight::GenericRead
+            if ($PSBoundParameters['AccessRights']) {
+                $ServiceAccessRights = $AccessRights
+            }
+        }
     }
 
     process {
-
-        $ServiceManagerHandle = $script:Advapi32::OpenSCManager($null, $SERVICES_ACTIVE_DATABASE, $script:ServiceControlManagerAccessRight::Connect)
-        if ($ServiceManagerHandle -eq [IntPtr]::Zero) {
+        $ServiceControlManagerHandle = $script:Advapi32::OpenSCManager($null, $SERVICES_ACTIVE_DATABASE, $ServiceControlManagerAccessRights)
+        if ($ServiceControlManagerHandle -eq [IntPtr]::Zero) {
             $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-            Write-Warning "OpenSCManager - $(Format-Error $LastError)"
+            Write-Warning "OpenSCManager(null, '$($SERVICES_ACTIVE_DATABASE)', $($ServiceControlManagerAccessRights -as $script:ServiceControlManagerAccessRight)) - $(Format-Error $LastError)"
             return [IntPtr]::Zero
         }
 
-        $ServiceHandle = $script:advapi32::OpenService($ServiceManagerHandle, $Name, $AccessRights)
+        # If the service being queried is the Service Control Manager, we
+        if (($Name -eq "SCM") -and $SCM) {
+            return $ServiceControlManagerHandle
+        }
+
+        $ServiceHandle = $script:advapi32::OpenService($ServiceControlManagerHandle, $Name, $ServiceAccessRights)
         if ($ServiceHandle -eq [IntPtr]::Zero) {
             $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-            Write-Warning "OpenService($('0x{0:x}' -f $ServiceManagerHandle), '$($Name)', $($AccessRights -as $script:ServiceAccessRight)) - $(Format-Error $LastError)"
+            Write-Warning "OpenService($('0x{0:x}' -f $ServiceControlManagerHandle), '$($Name)', $($ServiceAccessRights -as $script:ServiceAccessRight)) - $(Format-Error $LastError)"
         }
 
         return $ServiceHandle
     }
 
     end {
-        if ($ServiceManagerHandle -ne [IntPtr]::Zero) { $null = $script:Advapi32::CloseServiceHandle($ServiceManagerHandle) }
+        if ((-not $SCM) -and ($ServiceControlManagerHandle -ne [IntPtr]::Zero)) { $null = $script:Advapi32::CloseServiceHandle($ServiceControlManagerHandle) }
+    }
+}
+
+function Get-ServiceDiscretionaryAccessControlList {
+    <#
+    .SYNOPSIS
+    Helper - Get the DACL of a service (or the Service Control Manager itself)
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet takes a service handle returned by 'Get-ServiceHandle' as an input and returns its DACL. If it can't query a service's DACL, it returns null.
+
+    .PARAMETER Handle
+    A mandatory service handle input returned by 'Get-ServiceHandle'.
+
+    .PARAMETER SCM
+    An optional switch specifying whether the service being queried is the Service Control Manager itself.
+
+    .EXAMPLE
+    PS C:\> $ServiceHandle = Get-ServiceHandle -Name "IKEEXT"
+    PS C:\> $ServiceDacl = Get-ServiceDiscretionaryAccessControlList -Handle $ServiceHandle
+    PS C:\> $null = $script:Advapi32::CloseServiceHandle($ServiceHandle)
+    PS C:\> $ServiceDacl
+
+    AccessRights       : QueryConfig, QueryStatus, EnumerateDependents, Interrogate, GenericExecute
+    BinaryLength       : 20
+    AceQualifier       : AccessAllowed
+    IsCallback         : False
+    OpaqueLength       : 0
+    AccessMask         : 131581
+    SecurityIdentifier : S-1-5-18
+    AceType            : AccessAllowed
+    AceFlags           : None
+    IsInherited        : False
+    InheritanceFlags   : None
+    PropagationFlags   : None
+    AuditFlags         : None
+
+    ...
+
+    .EXAMPLE
+    PS C:\> $ServiceControlManagerHandle = Get-ServiceHandle -Name "SCM"
+    PS C:\> $ServiceDacl = Get-ServiceDiscretionaryAccessControlList -Handle $ServiceControlManagerHandle -SCM
+    PS C:\> $null = $script:Advapi32::CloseServiceHandle($ServiceControlManagerHandle)
+    PS C:\> $ServiceDacl
+
+    AccessRights       : Connect
+    BinaryLength       : 20
+    AceQualifier       : AccessAllowed
+    IsCallback         : False
+    OpaqueLength       : 0
+    AccessMask         : 1
+    SecurityIdentifier : S-1-5-11
+    AceType            : AccessAllowed
+    AceFlags           : None
+    IsInherited        : False
+    InheritanceFlags   : None
+    PropagationFlags   : None
+    AuditFlags         : None
+
+    ...
+    #>
+
+    [CmdletBinding()]
+    param (
+        [Parameter(Position=0, Mandatory=$true)]
+        [ValidateNotNullOrEmpty()]
+        [IntPtr] $Handle,
+
+        [Switch] $SCM = $false
+    )
+
+    begin {
+        if ($SCM) {
+            $AccessRightEnum = $script:ServiceControlManagerAccessRight
+        }
+        else {
+            $AccessRightEnum = $script:ServiceAccessRight
+        }
+    }
+
+    process {
+        $SizeNeeded = 0
+        $null = $script:Advapi32::QueryServiceObjectSecurity($Handle, [Security.AccessControl.SecurityInfos]::DiscretionaryAcl, @(), 0, [ref] $SizeNeeded)
+        $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+
+        # We expect the last error code to be 'ERROR_INSUFFICIENT_BUFFER'. The API is
+        # expected to return the size of the buffer we should allocate.
+        if (($SizeNeeded -eq 0) -or ($LastError -ne $script:SystemErrorCode::ERROR_INSUFFICIENT_BUFFER)) {
+            Write-Warning "QueryServiceObjectSecurity - $(Format-Error $LastError)"
+            return
+        }
+
+        $BinarySecurityDescriptor = New-Object Byte[]($SizeNeeded)
+        $Success = $script:Advapi32::QueryServiceObjectSecurity($Handle, [Security.AccessControl.SecurityInfos]::DiscretionaryAcl, $BinarySecurityDescriptor, $BinarySecurityDescriptor.Count, [ref] $SizeNeeded)
+
+        if (-not $Success) {
+            $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+            Write-Warning "QueryServiceObjectSecurity - $(Format-Error $LastError)"
+            return
+        }
+
+        $RawSecurityDescriptor = New-Object Security.AccessControl.RawSecurityDescriptor -ArgumentList $BinarySecurityDescriptor, 0
+        $Dacl = $RawSecurityDescriptor.DiscretionaryAcl
+
+        if ($null -eq $Dacl) {
+            # A null DACL is equivalent to 'AllAccess' for everyone.
+            $Result = New-Object -TypeName PSObject
+            $Result | Add-Member -MemberType "NoteProperty" -Name "AccessRights" -Value $AccessRightEnum::AllAccess
+            $Result | Add-Member -MemberType "NoteProperty" -Name "SecurityIdentifier" -Value "S-1-1-0"
+            $Result | Add-Member -MemberType "NoteProperty" -Name "AceType" -Value "AccessAllowed"
+            $Result
+        }
+        else {
+            $Dacl | ForEach-Object {
+                Add-Member -InputObject $_ -MemberType NoteProperty -Name AccessRights -Value ($_.AccessMask -as $AccessRightEnum) -PassThru
+            }
+        }
     }
 }
 

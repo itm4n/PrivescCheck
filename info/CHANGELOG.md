@@ -1,5 +1,11 @@
 # Changelog
 
+## 2025-01-01
+
+### Changed
+
+- Refactor service access and DACL check, and merge Service Control Manager check.
+
 ## 2024-12-31
 
 ### Changed
