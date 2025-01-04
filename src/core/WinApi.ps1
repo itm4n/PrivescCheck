@@ -2,6 +2,7 @@ $FunctionDefinitions = @(
     (New-Function advapi32 OpenSCManager ([IntPtr]) @([String], [String], [UInt32]) ([Runtime.InteropServices.CallingConvention]::Winapi) ([Runtime.InteropServices.CharSet]::Unicode) -SetLastError -EntryPoint OpenSCManager),
     (New-Function advapi32 OpenService ([IntPtr]) @([IntPtr], [String], [UInt32]) ([Runtime.InteropServices.CallingConvention]::Winapi) ([Runtime.InteropServices.CharSet]::Unicode) -SetLastError -EntryPoint OpenServiceW),
     (New-Function advapi32 QueryServiceObjectSecurity ([Bool]) @([IntPtr], [Security.AccessControl.SecurityInfos], [Byte[]], [UInt32], [UInt32].MakeByRefType()) -SetLastError -EntryPoint QueryServiceObjectSecurity),
+    (New-Function advapi32 QueryServiceStatusEx ([Bool]) @([IntPtr], [UInt32], [IntPtr], [UInt32], [UInt32].MakeByRefType()) -SetLastError -EntryPoint QueryServiceStatusEx),
     (New-Function advapi32 CloseServiceHandle ([Bool]) @([IntPtr]) -SetLastError -EntryPoint CloseServiceHandle),
     (New-Function advapi32 OpenProcessToken ([Bool]) @([IntPtr], [UInt32], [IntPtr].MakeByRefType()) -SetLastError -EntryPoint OpenProcessToken),
     (New-Function advapi32 GetTokenInformation ([Bool]) @([IntPtr], [UInt32], [IntPtr], [UInt32], [UInt32].MakeByRefType()) -SetLastError -EntryPoint GetTokenInformation),

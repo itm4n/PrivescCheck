@@ -603,8 +603,8 @@ function Invoke-HijackableDllCheck {
     # Windows Vista, 7, 8
     if (($OsVersion.Major -eq 6) -and ($OsVersion.Minor -ge 0) -and ($OsVersion.Minor -le 2)) {
         $RebootRequired = $true
-        $Service = Get-Service -Name "IKEEXT" -ErrorAction SilentlyContinue -ErrorVariable ErrorGetService
-        if ((-not $ErrorGetService) -and ($Service.Status -eq "Stopped")) {
+        $ServiceStatus = Get-ServiceStatus -Name "IKEEXT"
+        if ($ServiceStatus -eq $script:ServiceState::Stopped) {
             $RebootRequired = $false
         }
         Test-HijackableDll -ServiceName "IKEEXT" -DllName "wlbsctrl.dll" -Description "Loaded by the IKE and AuthIP IPsec Keying Modules service (IKEEXT) upon startup." -RebootRequired $RebootRequired -Link "https://www.reddit.com/r/hacking/comments/b0lr05/a_few_binary_plating_0days_for_windows/"

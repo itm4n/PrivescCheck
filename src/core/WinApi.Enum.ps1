@@ -149,6 +149,16 @@ $script:ServiceStartType = New-Enum $Module WinApiModule.ServiceStartType UInt32
     Disabled                            = 4
 }
 
+$script:ServiceState = New-Enum $Module WinApiModule.ServiceState UInt32 @{
+    Stopped                             = 1
+    StartPending                        = 2
+    StopPending                         = 3
+    Running                             = 4
+    ContinuePending                     = 5
+    PausePending                        = 6
+    Paused                              = 7
+}
+
 $script:SID_NAME_USE = New-Enum $Module WinApiModule.SID_NAME_USE UInt32 @{
     User                                = 1
     Group                               = 2

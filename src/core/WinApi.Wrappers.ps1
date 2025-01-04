@@ -94,7 +94,7 @@ function Get-ProcessTokenHandle {
 function Get-ServiceHandle {
     <#
     .SYNOPSIS
-    Helper - Open a service using the 'OpenService' Windows API.
+    Wrapper - Open a service using the 'OpenService' Windows API.
 
     Author: @itm4n
     License: BSD 3-Clause
@@ -187,7 +187,7 @@ function Get-ServiceHandle {
 function Get-ServiceDiscretionaryAccessControlList {
     <#
     .SYNOPSIS
-    Helper - Get the DACL of a service (or the Service Control Manager itself)
+    Wrapper - Get the DACL of a service (or the Service Control Manager itself)
 
     Author: @itm4n
     License: BSD 3-Clause
@@ -300,6 +300,92 @@ function Get-ServiceDiscretionaryAccessControlList {
             $Dacl | ForEach-Object {
                 Add-Member -InputObject $_ -MemberType NoteProperty -Name AccessRights -Value ($_.AccessMask -as $AccessRightEnum) -PassThru
             }
+        }
+    }
+}
+
+function Get-ServiceStatus {
+    <#
+    .SYNOPSIS
+    Wrapper - Get the status of a Windows service.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet uses the API QueryServiceStatusEx to query the status of a service, using a user-supplied service handle or a service name. When passing a service handle as a parameter, users must ensure that the SERVICE_QUERY_STATUS access right was specified when opening the service. When passing a service name, the cmdlet takes care of opening the service with appropriate rights, and closes it when done.
+
+    .PARAMETER Handle
+    A service handle (SERVICE_QUERY_STATUS access right required).
+
+    .PARAMETER Name
+    A service name.
+
+    .EXAMPLE
+    PS C:\> $ServiceHandle = Get-ServiceHandle -Name 'IKEEXT'
+    PS C:\> Get-ServiceStatus -Handle $ServiceHandle
+    Stopped
+    PS C:\> $script:Advapi32::CloseServiceHandle($ServiceHandle)
+
+    .EXAMPLE
+    PS C:\> Get-ServiceStatus -Name 'IKEEXT'
+    Stopped
+
+    .LINK
+    https://learn.microsoft.com/en-us/windows/win32/api/winsvc/nf-winsvc-queryservicestatusex
+    #>
+
+    [CmdletBinding()]
+    param (
+        [IntPtr] $Handle,
+        [String] $Name
+    )
+
+    begin {
+        if (($null -eq $PSBoundParameters['Handle']) -and ($null -eq $PSBoundParameters['Name'])) {
+            throw "Either a service handle or service name must be passed as an input."
+        }
+
+        if (($null -ne $PSBoundParameters['Handle']) -and ($null -ne $PSBoundParameters['Name'])) {
+            throw "Either a service handle or service name must be passed as an input, but not both."
+        }
+
+        # At the time of writing, SC_STATUS_PROCESS_INFO is the only enum member
+        # supported by QueryServiceStatusEx.
+        $SC_STATUS_PROCESS_INFO = 0
+
+        # If a service name is passed as an input, instead of a service handle, we must
+        # open the target service first. The access right SERVICE_QUERY_STATUS is
+        # mandatory for querying a service's status.
+        if ($null -ne $PSBoundParameters['Name']) {
+            $Handle = Get-ServiceHandle -Name $Name -AccessRights $script:ServiceAccessRight::QueryStatus
+            if ($Handle -eq [IntPtr]::Zero) { return }
+        }
+    }
+
+    process {
+        $StructSize = [Runtime.InteropServices.Marshal]::SizeOf([type] $script:SERVICE_STATUS_PROCESS)
+        $StatusProcessInfoPtr = [Runtime.InteropServices.Marshal]::AllocHGlobal($StructSize)
+        $Success = $script:Advapi32::QueryServiceStatusEx($Handle, $SC_STATUS_PROCESS_INFO, $StatusProcessInfoPtr, $StructSize, [ref] $StructSize)
+
+        if (-not $Success) {
+            $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+            Write-Warning "QueryServiceStatusEx - $(Format-Error $LastError)"
+            [System.Runtime.InteropServices.Marshal]::FreeHGlobal($StatusProcessInfoPtr)
+            return
+        }
+
+        $StatusProcessInfo = [Runtime.InteropServices.Marshal]::PtrToStructure($StatusProcessInfoPtr, [type] $script:SERVICE_STATUS_PROCESS)
+        [System.Runtime.InteropServices.Marshal]::FreeHGlobal($StatusProcessInfoPtr)
+
+        return ($StatusProcessInfo.CurrentState -as $script:ServiceState)
+    }
+
+    end {
+        # A service name was passed as an input, which means that we opened it, so we
+        # must close it here.
+        if (($null -ne $PSBoundParameters['Name']) -and ($Handle -ne [IntPtr]::Zero)) {
+            $null = $script:Advapi32::CloseServiceHandle($Handle)
         }
     }
 }

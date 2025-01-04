@@ -66,17 +66,6 @@ function Invoke-ServiceRegistryPermissionCheck {
 
             Get-ModifiableRegistryPath -Path "$($Service.RegistryPath)" | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) } | Foreach-Object {
 
-                $Status = "Unknown"
-                $UserCanStart = $false
-                $UserCanStop = $false
-
-                $ServiceObject = Get-Service -Name $Service.Name -ErrorAction SilentlyContinue
-                if ($ServiceObject) {
-                    $Status = $ServiceObject | Select-Object -ExpandProperty "Status"
-                    $UserCanStart = Test-ServiceDiscretionaryAccessControlList -Service $Service -Permissions 'Start'
-                    $UserCanStop = Test-ServiceDiscretionaryAccessControlList -Service $Service -Permissions 'Stop'
-                }
-
                 $VulnerableService = New-Object -TypeName PSObject
                 $VulnerableService | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $Service.Name
                 $VulnerableService | Add-Member -MemberType "NoteProperty" -Name "ImagePath" -Value $Service.ImagePath
@@ -84,9 +73,9 @@ function Invoke-ServiceRegistryPermissionCheck {
                 $VulnerableService | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $Service.RegistryPath
                 $VulnerableService | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $_.IdentityReference
                 $VulnerableService | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value ($_.Permissions -join ", ")
-                $VulnerableService | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $Status
-                $VulnerableService | Add-Member -MemberType "NoteProperty" -Name "UserCanStart" -Value $UserCanStart
-                $VulnerableService | Add-Member -MemberType "NoteProperty" -Name "UserCanStop" -Value $UserCanStop
+                $VulnerableService | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $(Get-ServiceStatus -Name $Service.Name)
+                $VulnerableService | Add-Member -MemberType "NoteProperty" -Name "UserCanStart" -Value $(Test-ServiceDiscretionaryAccessControlList -Service $Service -Permissions "Start")
+                $VulnerableService | Add-Member -MemberType "NoteProperty" -Name "UserCanStop" -Value $(Test-ServiceDiscretionaryAccessControlList -Service $Service -Permissions "Stop")
                 $AllResults += $VulnerableService
             }
         }
@@ -148,21 +137,9 @@ function Invoke-ServiceUnquotedPathCheck {
             $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $Service.Name
             $Result | Add-Member -MemberType "NoteProperty" -Name "ImagePath" -Value $Service.ImagePath
             $Result | Add-Member -MemberType "NoteProperty" -Name "User" -Value $Service.User
-
-            $Status = "Unknown"
-            $UserCanStart = $false
-            $UserCanStop = $false
-
-            $ServiceObject = Get-Service -Name $Service.Name -ErrorAction SilentlyContinue
-            if ($ServiceObject) {
-                $Status = $ServiceObject | Select-Object -ExpandProperty "Status"
-                $UserCanStart = Test-ServiceDiscretionaryAccessControlList -Service $Service -Permissions 'Start'
-                $UserCanStop = Test-ServiceDiscretionaryAccessControlList -Service $Service -Permissions 'Stop'
-            }
-
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $Status
-            $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStart" -Value $UserCanStart
-            $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStop" -Value $UserCanStop
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $(Get-ServiceStatus -Name $Service.Name)
+            $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStart" -Value $(Test-ServiceDiscretionaryAccessControlList -Service $Service -Permissions "Start")
+            $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStop" -Value $(Test-ServiceDiscretionaryAccessControlList -Service $Service -Permissions "Stop")
 
             foreach ($ExploitablePath in $ExploitablePaths) {
                 $ResultItem = $Result.PSObject.Copy()
@@ -233,21 +210,10 @@ function Invoke-ServiceImagePermissionCheck {
             $ModifiablePaths = Get-ModifiablePath -Path $ExecutablePath | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
             if ($null -eq $ModifiablePaths) { continue }
 
-            $ServiceStatus = "Unknown"
-            $UserCanStart = $false
-            $UserCanStop = $false
-
-            $ServiceObject = Get-Service -Name $Service.Name -ErrorAction SilentlyContinue
-            if ($null -ne $ServiceObject) {
-                $ServiceStatus = $ServiceObject | Select-Object -ExpandProperty "Status"
-                $UserCanStart = Test-ServiceDiscretionaryAccessControlList -Service $Service -Permissions "Start"
-                $UserCanStop = Test-ServiceDiscretionaryAccessControlList -Service $Service -Permissions "Stop"
-            }
-
             $Result = $Service.PSObject.Copy()
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $ServiceStatus
-            $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStart" -Value $UserCanStart
-            $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStop" -Value $UserCanStop
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $(Get-ServiceStatus -Name $Service.Name)
+            $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStart" -Value $(Test-ServiceDiscretionaryAccessControlList -Service $Service -Permissions "Start")
+            $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStop" -Value $(Test-ServiceDiscretionaryAccessControlList -Service $Service -Permissions "Stop")
 
             foreach ($ModifiablePath in $ModifiablePaths) {
 
@@ -305,21 +271,10 @@ function Invoke-ServicePermissionCheck {
 
         Get-ServiceFromRegistry -FilterLevel 1 | Get-ModifiableService | ForEach-Object {
 
-            $Status = "Unknown"
-            $UserCanStart = $false
-            $UserCanStop = $false
-
-            $ServiceObject = Get-Service -Name $_.Name -ErrorAction SilentlyContinue
-            if ($ServiceObject) {
-                $Status = $ServiceObject | Select-Object -ExpandProperty "Status"
-                $UserCanStart = Test-ServiceDiscretionaryAccessControlList -Service $_ -Permissions 'Start'
-                $UserCanStop = Test-ServiceDiscretionaryAccessControlList -Service $_ -Permissions 'Stop'
-            }
-
             $Result = $_.PSObject.Copy()
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $Status
-            $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStart" -Value $UserCanStart
-            $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStop" -Value $UserCanStop
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $(Get-ServiceStatus -Name $_.Name)
+            $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStart" -Value $(Test-ServiceDiscretionaryAccessControlList -Service $_ -Permissions "Start")
+            $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStop" -Value $(Test-ServiceDiscretionaryAccessControlList -Service $_ -Permissions "Stop")
 
             $AllResults += $Result
         }
@@ -434,14 +389,10 @@ function Invoke-ThirdPartyDriverCheck {
             if ($null -eq $ImageFile) { Write-Warning "Failed to open file: $($Driver.ImagePathResolved)"; continue }
             if (Test-IsMicrosoftFile -File $ImageFile) { continue }
 
-            $ServiceObject = Get-Service -Name $Driver.Name -ErrorAction SilentlyContinue
-
-            if ($null -eq $ServiceObject) { Write-Warning "Failed to query service '$($Driver.Name)'"; continue }
-
             $VersionInfo = $ImageFile | Select-Object -ExpandProperty VersionInfo
 
             $Result = $Driver | Select-Object Name,ImagePath,StartMode,Type
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $(if ($ServiceObject) { $ServiceObject.Status} else { "Unknown" })
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $(Get-ServiceStatus -Name $Driver.Name)
             $Result | Add-Member -MemberType "NoteProperty" -Name "ProductName" -Value $(if ($VersionInfo.ProductName) { $VersionInfo.ProductName.trim() } else { "Unknown" })
             $Result | Add-Member -MemberType "NoteProperty" -Name "Company" -Value $(if ($VersionInfo.CompanyName) { $VersionInfo.CompanyName.trim() } else { "Unknown" })
             $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $(if ($VersionInfo.FileDescription) { $VersionInfo.FileDescription.trim() } else { "Unknown" })
@@ -495,11 +446,8 @@ function Invoke-VulnerableDriverCheck {
     process {
         Get-KernelDriver | Get-KnownVulnerableKernelDriver | ForEach-Object {
 
-            $ServiceObject = Get-Service -Name $_.Name -ErrorAction SilentlyContinue
-            if ($null -eq $ServiceObject) { Write-Warning "Failed to query service $($_.Name)" }
-
             $ServiceObjectResult = $_ | Select-Object Name,DisplayName,ImagePath,StartMode,Type
-            $ServiceObjectResult | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $(if ($ServiceObject) { $ServiceObject.Status} else { "Unknown" })
+            $ServiceObjectResult | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $(Get-ServiceStatus -Name $_.Name)
             $ServiceObjectResult | Add-Member -MemberType "NoteProperty" -Name "Hash" -Value $_.FileHash
             $ServiceObjectResult | Add-Member -MemberType "NoteProperty" -Name "Url" -Value $_.Url
             $AllResults += $ServiceObjectResult

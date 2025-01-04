@@ -1,5 +1,15 @@
 # Changelog
 
+## 2025-01-04
+
+### Added
+
+- Add a Windows API wrapper ('Get-ServiceStatus') for querying a service's status.
+
+### Changed
+
+- Replaced use of 'Get-Service' for obtaining a service's current status with the new wrapper cmdlet 'Get-ServiceStatus'.
+
 ## 2025-01-01
 
 ### Changed

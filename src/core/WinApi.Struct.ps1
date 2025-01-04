@@ -592,3 +592,15 @@ $script:USER_INFO_3 = New-Structure $Module WinApiModule.USER_INFO_3 @{
     HomeDirDrive                = New-StructureField 27 String
     PasswordExpired             = New-StructureField 28 UInt32
 } -Charset Unicode
+
+$script:SERVICE_STATUS_PROCESS = New-Structure $Module WinApiModule.SERVICE_STATUS_PROCESS @{
+    ServiceType                 = New-StructureField 0 UInt32
+    CurrentState                = New-StructureField 1 UInt32
+    ControlsAccepted            = New-StructureField 2 UInt32
+    Win32ExitCode               = New-StructureField 3 UInt32
+    ServiceSpecificExitCode     = New-StructureField 4 UInt32
+    CheckPoint                  = New-StructureField 5 UInt32
+    WaitHint                    = New-StructureField 6 UInt32
+    ProcessId                   = New-StructureField 7 UInt32
+    ServiceFlags                = New-StructureField 8 UInt32
+}
