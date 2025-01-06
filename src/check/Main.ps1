@@ -303,6 +303,7 @@ function Write-CheckBanner {
     $Result += "$($HeavyDownAndRight)$("$HeavyHorizontal" * 10)$($HeavyDownAndHorizontal)$("$HeavyHorizontal" * 51)$($HeavyDownAndLeft)`n"
     $Result += "$($HeavyVertical) CATEGORY $($HeavyVertical) $($Check.Category)$(' ' * (49 - $Check.Category.Length)) $($HeavyVertical)`n"
     $Result += "$($HeavyVertical) NAME     $($HeavyVertical) $($Check.DisplayName)$(' ' * (49 - $Check.DisplayName.Length)) $($HeavyVertical)`n"
+    $Result += "$($HeavyVertical) TYPE     $($HeavyVertical) $($Check.Type)$(' ' * (49 - $Check.Type.Length)) $($HeavyVertical)`n"
     $Result += "$($HeavyVerticalAndRight)$("$HeavyHorizontal" * 10)$($HeavyUpAndHorizontal)$("$HeavyHorizontal" * 51)$($HeavyVerticalAndLeft)`n"
     Split-Description -Description $Check.Description | ForEach-Object {
         $Result += "$($HeavyVertical) $($_)$(' '*(60 - ([String] $_).Length)) $($HeavyVertical)`n"

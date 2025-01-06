@@ -6,6 +6,7 @@
 
 - Add multithreading to root folder permissions check.
 - Update check result output (and include execution time).
+- Add check type information to check banner (console output).
 
 ## 2025-01-04
 
