@@ -27,9 +27,6 @@ function Invoke-PrivescCheck {
     .PARAMETER Silent
     Don't output test results, show only the final vulnerability report.
 
-    .PARAMETER Benchmark
-    Set this flag to measure the time taken by each check.
-
     .PARAMETER Report
     The base name of the output file report(s) (extension is appended automatically depending on the chosen file format(s)).
 
@@ -54,7 +51,6 @@ function Invoke-PrivescCheck {
         [switch] $Risky = $false,
         [switch] $Force = $false,
         [switch] $Silent = $false,
-        [switch] $Benchmark = $false,
         [string] $Report,
         [ValidateSet("TXT","HTML","CSV","XML")]
         [string[]] $Format
@@ -88,13 +84,9 @@ function Invoke-PrivescCheck {
         $script:GlobalVariable.CheckResultList = @()
         $AllChecks = New-Object System.Collections.ArrayList
 
-        # If the 'Benchmark' switch is set, prepare a new StopWatch object that we will use
-        # to measure the execution time of each check.
-        if ($Benchmark) {
-            $StopWatch = [Diagnostics.StopWatch]::StartNew()
-            $StopWatch.Stop()
-            $BenchmarkResults = @()
-        }
+        # Create a StopWatch object to measure the time take by each check.
+        $StopWatch = [Diagnostics.StopWatch]::StartNew()
+        $StopWatch.Stop()
     }
 
     process {
@@ -141,26 +133,17 @@ function Invoke-PrivescCheck {
             $BaseSeverity = $Check.Severity -as $script:SeverityLevel
             $Check | Add-Member -MemberType "NoteProperty" -Name "BaseSeverity" -Value $BaseSeverity
 
-            # If the 'Benchmark' switch is set, first reset and start the StopWatch.
-            if ($Benchmark) {
-                $StopWatch.Reset()
-                $StopWatch.Start()
-            }
+            # Reset and start the StopWatch.
+            $StopWatch.Reset()
+            $StopWatch.Start()
 
             # Run the check.
             $CheckResult = Invoke-Check -Check $Check
             $CheckResult.Severity = $CheckResult.Severity -as $script:SeverityLevel
 
-            # If the 'Benchmark' switch is set, stop the StopWatch, and save the total time measured in
-            # seconds and milliseconds in the benchmark result list.
-            if ($Benchmark) {
-                $StopWatch.Stop()
-                $BenchmarkResult = New-Object -TypeName PSObject
-                $BenchmarkResult | Add-Member -MemberType "NoteProperty" -Name "Command" -Value $Check.Command
-                $BenchmarkResult | Add-Member -MemberType "NoteProperty" -Name "ExecutionTimeSeconds" -Value $([Math]::Round($StopWatch.Elapsed.TotalSeconds, 0))
-                $BenchmarkResult | Add-Member -MemberType "NoteProperty" -Name "ExecutionTimeMilliseconds" -Value $([Math]::Round($StopWatch.Elapsed.TotalMilliseconds, 0))
-                $BenchmarkResults += $BenchmarkResult
-            }
+            # Stop the StopWatch and add the elapsed time object as a new property to the check result.
+            $StopWatch.Stop()
+            $CheckResult | Add-Member -MemberType "NoteProperty" -Name "TimeElapsed" -Value $StopWatch.Elapsed
 
             if (-not $Silent) {
                 # If the 'Silent' option was not specified, print a banner that shows some information about the
@@ -187,11 +170,6 @@ function Invoke-PrivescCheck {
         # this will be only visible if run from a 'real' terminal.
         # Show-PrivescCheckAsciiReport
         Write-ShortReport
-
-        # If the 'Benchmark' switch is set, print the execution time results as a table.
-        if ($Benchmark) {
-            $BenchmarkResults | Sort-Object ExecutionTimeMilliseconds -Descending | Format-Table
-        }
 
         # If the 'Report' option was specified, write a report to a file using the value of this parameter
         # as the basename (or path + basename). The extension is then determined based on the chosen
@@ -338,37 +316,45 @@ function Write-CheckResult {
     [OutputType([string])]
     [CmdletBinding()]
     param(
-        [object] $CheckResult
+        [Object] $CheckResult
     )
 
-    $IsVulnerabilityCheck = $CheckResult.BaseSeverity -ne $script:SeverityLevel::None
-    $Severity = $(if ($CheckResult.Severity) { $CheckResult.Severity} else { $script:SeverityLevel::None }) -as $script:SeverityLevel
-    $ResultOutput = "[*] Status:"
+    begin {
+        $ResultOutput = ""
+        $IsVulnerabilityCheck = $CheckResult.BaseSeverity -ne $script:SeverityLevel::None
+        $Severity = $(if ($CheckResult.Severity) { $CheckResult.Severity} else { $script:SeverityLevel::None }) -as $script:SeverityLevel
+    }
 
-    if ($Severity -eq $script:SeverityLevel::None) {
-        $ResultOutput += " Informational"
-        if ($IsVulnerabilityCheck) {
-            $ResultOutput += " (not vulnerable)"
+    process {
+        # Show the raw output of the check first.
+        switch ($CheckResult.Format) {
+            "Table"     { $ResultOutput += $CheckResult.ResultRaw | Format-Table -AutoSize | Out-String }
+            "List"      { $ResultOutput += $CheckResult.ResultRaw | Format-List | Out-String }
+            default     { throw "Unknown output format: $($CheckResult.Format)" }
         }
-        else {
-            if (-not $CheckResult.ResultRaw) {
-                $ResultOutput += " (nothing found)"
+
+        # Then show a status message.
+        $ResultOutput += "[*] Status:"
+
+        if ($Severity -eq $script:SeverityLevel::None) {
+            $ResultOutput += " Informational"
+            if ($IsVulnerabilityCheck) {
+                $ResultOutput += " (not vulnerable)"
+            }
+            else {
+                if (-not $CheckResult.ResultRaw) {
+                    $ResultOutput += " (nothing found)"
+                }
             }
         }
-    }
-    else {
-        $ResultOutput += " Vulnerable - $($Severity)"
-    }
+        else {
+            $ResultOutput += " Vulnerable"
+        }
 
-    $ResultOutput += "`n"
+        $ResultOutput += " - Severity: $($Severity) - Execution time: $($CheckResult.TimeElapsed.ToString("hh\:mm\:ss\.fff"))`n"
 
-    switch ($CheckResult.Format) {
-        "Table"     { $ResultOutput += $CheckResult.ResultRaw | Format-Table -AutoSize | Out-String }
-        "List"      { $ResultOutput += $CheckResult.ResultRaw | Format-List | Out-String }
-        default     { Write-Warning "Unknown format: $($CheckResult.Format)" }
+        $ResultOutput
     }
-
-    $ResultOutput
 }
 
 function Write-TxtReport {

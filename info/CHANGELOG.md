@@ -5,6 +5,7 @@
 ### Changed
 
 - Add multithreading to root folder permissions check.
+- Update check result output (and include execution time).
 
 ## 2025-01-04
 
