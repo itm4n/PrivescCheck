@@ -4,6 +4,7 @@ function Get-CurrentUserSid {
     param()
 
     if ($null -eq $script:GlobalCache.CurrentUserSids) {
+        Write-Verbose "Initializing cache: CurrentUserSids"
         $UserIdentity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
         $script:GlobalCache.CurrentUserSids = $UserIdentity.Groups | Select-Object -ExpandProperty Value
         $script:GlobalCache.CurrentUserSids += $UserIdentity.User.Value
@@ -18,6 +19,7 @@ function Get-CurrentUserDenySid {
     param()
 
     if ($null -eq $script:GlobalCache.CurrentUserDenySids) {
+        Write-Verbose "Initializing cache: CurrentUserDenySids"
         $script:GlobalCache.CurrentUserDenySids = [string[]](Get-TokenInformationGroup -InformationClass Groups | Where-Object { $_.Attributes.Equals("UseForDenyOnly") } | Select-Object -ExpandProperty SID)
         if ($null -eq $script:GlobalCache.CurrentUserDenySids) {
             $script:GlobalCache.CurrentUserDenySids = @()

@@ -61,8 +61,8 @@ function Invoke-PrivescCheck {
     )
 
     begin {
-        # Check wether the current process has admin privileges.
-        # The following check was taken from Pow*rUp.ps1
+        # Check whether the current process has admin privileges.
+        # The following check was taken from PowerUp.ps1
         $IsAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")
         if ($IsAdmin) {
             if (-not $Force) {
@@ -80,16 +80,6 @@ function Invoke-PrivescCheck {
         foreach ($CacheEntryName in $($script:GlobalCache.Keys)) {
             $script:GlobalCache.$CacheEntryName = $null
         }
-
-        # TODO: Initialize global cache.
-
-        # Ensure global cache was initialized.
-        # TODO: Uncomment after implementing cache initialization
-        # foreach ($CacheEntryName in $($script:GlobalCache.Keys)) {
-        #     if ($null -eq $script:GlobalCache.$CacheEntryName) {
-        #         Write-Warning "Cache entry '$($CacheEntryName)' was not initialized."
-        #     }
-        # }
 
         # Once the cache is fully initialized, we can build an InitialSessionState
         # object that we can use in different runspaces.

@@ -6,7 +6,6 @@ $script:GlobalVariable = @{
 $script:GlobalCache = @{
     ServiceList = $null
     DriverList = $null
-    HotFixList = $null
     ScheduledTaskList = $null
     RegisteredComList = $null
     CurrentUserSids = $null

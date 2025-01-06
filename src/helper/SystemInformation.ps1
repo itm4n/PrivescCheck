@@ -102,6 +102,8 @@ function Get-ComClassFromRegistry {
     process {
         if ($null -eq $script:GlobalCache.RegisteredComList) {
 
+            Write-Verbose "Initializing cache: RegisteredComList"
+
             $script:GlobalCache.RegisteredComList = @()
 
             Get-ChildItem -Path "Registry::$($RootKey)" -ErrorAction SilentlyContinue |
@@ -686,9 +688,8 @@ function Get-ServiceFromRegistry {
 
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true)]
         [ValidateSet(0,1,2,3)]
-        [Int] $FilterLevel
+        [UInt32] $FilterLevel = 1
     )
 
     begin {
@@ -724,6 +725,8 @@ function Get-ServiceFromRegistry {
 
             # If the cached service list hasn't been initialized yet, enumerate all services and populate the
             # cache.
+
+            Write-Verbose "Initializing cache: ServiceList"
 
             $ServicesRegPath = "HKLM\SYSTEM\CurrentControlSet\Services"
             $RegAllServices = Get-ChildItem -Path "Registry::$($ServicesRegPath)" -ErrorAction SilentlyContinue
@@ -787,7 +790,7 @@ function Get-KernelDriver {
         # If the cached driver list hasn't been initialized yet, enumerate all drivers,
         # resolve their paths and populate the cache.
 
-        Write-Verbose "Populating driver list cache..."
+        Write-Verbose "Initializing cache: DriverList"
 
         $Services = Get-ServiceFromRegistry -FilterLevel 1 | Where-Object { @('KernelDriver','FileSystemDriver','RecognizerDriver') -contains $_.Type }
 
@@ -1190,6 +1193,8 @@ function Get-ScheduledTaskList {
         if ($null -eq $script:GlobalCache.ScheduledTaskList) {
 
             # If the cache is empty, enumerate scheduled tasks and populate the cache.
+
+            Write-Verbose "Initializing cache: ScheduledTaskList"
 
             $script:GlobalCache.ScheduledTaskList = @()
 
