@@ -297,7 +297,7 @@ function Invoke-RootFolderPermissionCheck {
     begin {
         # $IgnoredRootFolders = @( "Windows", "Users", "Program Files", "Program Files (x86)", "PerfLogs")
         $IgnoredRootFolders = @( "`$Recycle.Bin", "`$WinREAgent", "Documents and Settings", "PerfLogs", "Program Files", "Program Files (x86)", "ProgramData", "Recovery", "System Volume Information", "Users", "Windows" )
-        $MaxFileCount = 8
+        # $MaxFileCount = 8
         $AllResults = @()
     }
 
@@ -312,62 +312,66 @@ function Invoke-RootFolderPermissionCheck {
             # is then filtered to exclude known folders such as "C:\Windows".
             $RootFolders = Get-ChildItem -Path $FixedDrive -Force -ErrorAction SilentlyContinue | Where-Object { ($_ -is [System.IO.DirectoryInfo]) -and ($IgnoredRootFolders -notcontains $_.Name) }
             if ($null -eq $RootFolders) { continue }
-            foreach ($RootFolder in $RootFolders) {
+            # foreach ($RootFolder in $RootFolders) {
 
-                $Vulnerable = $false
+            #     $Vulnerable = $false
 
-                # Check whether the current user has any modification right on the root folder.
-                $RootFolderModifiablePaths = Get-ModifiablePath -Path $RootFolder.FullName | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
-                if ($RootFolderModifiablePaths) {
-                    $Description = "The current user has modification rights on this root folder."
-                }
-                else {
-                    $Description = "The current user does not have modification rights on this root folder."
-                }
+            #     # Check whether the current user has any modification right on the root folder.
+            #     $RootFolderModifiablePaths = Get-ModifiablePath -Path $RootFolder.FullName | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
+            #     if ($RootFolderModifiablePaths) {
+            #         $Description = "The current user has modification rights on this root folder."
+            #     }
+            #     else {
+            #         $Description = "The current user does not have modification rights on this root folder."
+            #     }
 
-                # Check whether the current user has any modification right on a common app
-                # file within this root folder.
-                $ApplicationFileModifiablePaths = @()
-                $ApplicationFiles = Get-ChildItem -Path $RootFolder.FullName -Force -Recurse -ErrorAction SilentlyContinue | Where-Object { ($_ -is [System.IO.FileInfo]) -and (Test-IsCommonApplicationFile -Path $_.FullName) }
-                foreach ($ApplicationFile in $ApplicationFiles) {
-                    if ($ApplicationFileModifiablePaths.Count -gt $MaxFileCount) { break }
-                    if ([String]::IsNullOrEmpty($ApplicationFile.FullName)) { continue }
-                    $ModifiablePaths = Get-ModifiablePath -Path $ApplicationFile.FullName | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
-                    if ($ModifiablePaths) { $ApplicationFileModifiablePaths += $ApplicationFile.FullName }
-                }
+            #     # Check whether the current user has any modification right on a common app
+            #     # file within this root folder.
+            #     $ApplicationFileModifiablePaths = @()
+            #     $ApplicationFiles = Get-ChildItem -Path $RootFolder.FullName -Force -Recurse -ErrorAction SilentlyContinue | Where-Object { ($_ -is [System.IO.FileInfo]) -and (Test-IsCommonApplicationFile -Path $_.FullName) }
+            #     foreach ($ApplicationFile in $ApplicationFiles) {
+            #         if ($ApplicationFileModifiablePaths.Count -gt $MaxFileCount) { break }
+            #         if ([String]::IsNullOrEmpty($ApplicationFile.FullName)) { continue }
+            #         $ModifiablePaths = Get-ModifiablePath -Path $ApplicationFile.FullName | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
+            #         if ($ModifiablePaths) { $ApplicationFileModifiablePaths += $ApplicationFile.FullName }
+            #     }
 
-                # If at least one modifiable application file is found, consider the folder as
-                # 'vulnerable'. Even if application files are not modifiable, consider the folder
-                # as 'vulnerable' if the current user has any modification right on it.
-                if ($ApplicationFileModifiablePaths) { $Vulnerable = $true }
-                if ($ApplicationFiles.Count -gt 0 -and $RootFolderModifiablePaths) { $Vulnerable = $true }
+            #     # If at least one modifiable application file is found, consider the folder as
+            #     # 'vulnerable'. Even if application files are not modifiable, consider the folder
+            #     # as 'vulnerable' if the current user has any modification right on it.
+            #     if ($ApplicationFileModifiablePaths) { $Vulnerable = $true }
+            #     if ($ApplicationFiles.Count -gt 0 -and $RootFolderModifiablePaths) { $Vulnerable = $true }
 
-                if ($ApplicationFiles.Count -gt 0) {
-                    if ($ApplicationFileModifiablePaths) {
-                        $Description = "$($Description) A total of $($ApplicationFiles.Count) common application files were found. The current user has modification rights on some, or all of them."
-                    }
-                    else {
-                        $Description = "$($Description) A total of $($ApplicationFiles.Count) common application files were found. The current user does not have any modification right on them."
-                    }
-                }
-                else {
-                    $Description = "$($Description) This folder does not seem to contain any common application file."
-                }
+            #     if ($ApplicationFiles.Count -gt 0) {
+            #         if ($ApplicationFileModifiablePaths) {
+            #             $Description = "$($Description) A total of $($ApplicationFiles.Count) common application files were found. The current user has modification rights on some, or all of them."
+            #         }
+            #         else {
+            #             $Description = "$($Description) A total of $($ApplicationFiles.Count) common application files were found. The current user does not have any modification right on them."
+            #         }
+            #     }
+            #     else {
+            #         $Description = "$($Description) This folder does not seem to contain any common application file."
+            #     }
 
-                if (($null -ne $RootFolderFiles) -or ($null -ne $RootFolderModifiablePaths)) {
+            #     if (($null -ne $RootFolderFiles) -or ($null -ne $RootFolderModifiablePaths)) {
 
-                    $ModifiableChildPathResult = ($ApplicationFileModifiablePaths | ForEach-Object { Resolve-PathRelativeTo -From $RootFolder.FullName -To $_ } | Select-Object -First $MaxFileCount) -join "; "
-                    if ($ApplicationFileModifiablePaths.Count -gt $MaxFileCount) { $ModifiableChildPathResult += "; ..." }
+            #         $ModifiableChildPathResult = ($ApplicationFileModifiablePaths | ForEach-Object { Resolve-PathRelativeTo -From $RootFolder.FullName -To $_ } | Select-Object -First $MaxFileCount) -join "; "
+            #         if ($ApplicationFileModifiablePaths.Count -gt $MaxFileCount) { $ModifiableChildPathResult += "; ..." }
 
-                    $Result = New-Object -TypeName PSObject
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $RootFolder.FullName
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "Modifiable" -Value ($null -ne $RootFolderModifiablePaths)
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePaths" -Value $ModifiableChildPathResult
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "Vulnerable" -Value $Vulnerable
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
-                    $AllResults += $Result
-                }
-            }
+            #         $Result = New-Object -TypeName PSObject
+            #         $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $RootFolder.FullName
+            #         $Result | Add-Member -MemberType "NoteProperty" -Name "Modifiable" -Value ($null -ne $RootFolderModifiablePaths)
+            #         $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePaths" -Value $ModifiableChildPathResult
+            #         $Result | Add-Member -MemberType "NoteProperty" -Name "Vulnerable" -Value $Vulnerable
+            #         $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+            #         $AllResults += $Result
+            #     }
+            # }
+
+            $RootFolders | Select-Object -ExpandProperty "Fullname" |
+                Invoke-CommandMultithread -InitialSessionState $(Get-InitialSessionState) -Command "Get-ModifiableRootFolder" -InputParameter "Path" |
+                    ForEach-Object { $AllResults += $_ }
         }
 
         $Vulnerable = ($AllResults | Where-Object { $_.Vulnerable }).Count -gt 0

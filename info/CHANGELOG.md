@@ -1,5 +1,11 @@
 # Changelog
 
+## 2025-01-06
+
+### Changed
+
+- Add multithreading to root folder permissions check.
+
 ## 2025-01-04
 
 ### Added

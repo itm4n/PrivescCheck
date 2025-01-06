@@ -740,6 +740,90 @@ function Get-ModifiableService {
     }
 }
 
+function Get-ModifiableRootFolder {
+    <#
+    .SYNOPSIS
+    Helper - Test the permissions of a root folder and the common application files it contains.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet is used as a helper function by 'Invoke-RootFolderPermissionCheck' to support multithreading. It checks the permissions of a single root folder, which can be a time consuming if it has a lot of sub-folders and files.
+
+    .PARAMETER Path
+    A mandatory input string representing the absolute path of a root folder.
+
+    .EXAMPLE
+    PS C:\> Get-ModifiableRootFolder -Path "C:\Microsoft Shared"
+    #>
+
+    [CmdletBinding()]
+
+    param (
+        [Parameter(Position=0, Mandatory=$true)]
+        [ValidateNotNullOrEmpty()]
+        [String] $Path
+    )
+
+    begin {
+        $Vulnerable = $false
+        $Description = ""
+        $MaxFileCount = 8
+    }
+
+    process {
+        # Check whether the current user has any modification right on the root folder.
+        $RootFolderModifiablePaths = Get-ModifiablePath -Path $Path | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
+        if ($RootFolderModifiablePaths) {
+            $Description = "The current user has modification rights on this root folder."
+        }
+        else {
+            $Description = "The current user does not have modification rights on this root folder."
+        }
+
+        # Check whether the current user has any modification rights on a common app
+        # file within this root folder.
+        $ApplicationFileModifiablePaths = @()
+        $ApplicationFiles = Get-ChildItem -Path $Path -Force -Recurse -ErrorAction SilentlyContinue | Where-Object { ($_ -is [System.IO.FileInfo]) -and (Test-IsCommonApplicationFile -Path $_.FullName) }
+        foreach ($ApplicationFile in $ApplicationFiles) {
+            if ($ApplicationFileModifiablePaths.Count -gt $MaxFileCount) { break }
+            if ([String]::IsNullOrEmpty($ApplicationFile.FullName)) { continue }
+            $ModifiablePaths = Get-ModifiablePath -Path $ApplicationFile.FullName | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
+            if ($ModifiablePaths) { $ApplicationFileModifiablePaths += $ApplicationFile.FullName }
+        }
+
+        # If at least one modifiable application file is found, consider the folder as
+        # 'vulnerable'. Even if application files are not modifiable, consider the folder
+        # as 'vulnerable' if the current user has any modification rights on it.
+        if ($ApplicationFileModifiablePaths) { $Vulnerable = $true }
+        if (($ApplicationFiles.Count -gt 0) -and $RootFolderModifiablePaths) { $Vulnerable = $true }
+
+        if ($ApplicationFiles.Count -gt 0) {
+            if ($ApplicationFileModifiablePaths) {
+                $Description = "$($Description) A total of $($ApplicationFiles.Count) common application files were found. The current user has modification rights on some, or all of them."
+            }
+            else {
+                $Description = "$($Description) A total of $($ApplicationFiles.Count) common application files were found. The current user does not have any modification right on them."
+            }
+        }
+        else {
+            $Description = "$($Description) This folder does not seem to contain any common application file."
+        }
+
+        $ModifiableChildPathResult = ($ApplicationFileModifiablePaths | ForEach-Object { Resolve-PathRelativeTo -From $Path -To $_ } | Select-Object -First $MaxFileCount) -join "; "
+        if ($ApplicationFileModifiablePaths.Count -gt $MaxFileCount) { $ModifiableChildPathResult += "; ..." }
+
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $Path
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Modifiable" -Value ($null -ne $RootFolderModifiablePaths)
+        $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePaths" -Value $ModifiableChildPathResult
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Vulnerable" -Value $Vulnerable
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+        $Result
+    }
+}
+
 function Test-ServiceDiscretionaryAccessControlList {
     <#
     .SYNOPSIS
