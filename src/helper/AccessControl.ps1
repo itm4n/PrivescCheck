@@ -41,102 +41,47 @@ function Get-ModificationRight {
 
     [CmdletBinding()]
     param(
-        [String]
-        $Path,
+        [Parameter(Mandatory=$true)]
+        [String] $Path,
 
+        [Parameter(Mandatory=$true)]
         [ValidateSet("File", "Directory", "RegistryKey")]
-        [String]
-        $Type
+        [String] $Type
     )
 
     begin {
-        $TypeFile = "File"
-        $TypeDirectory = "Directory"
-        $TypeRegistryKey = "RegistryKey"
+        $FileModificationRights = @(
+            $script:FileAccessRight::WriteData,
+            $script:FileAccessRight::AppendData,
+            $script:FileAccessRight::WriteAttributes,
+            $script:FileAccessRight::Delete,
+            $script:FileAccessRight::WriteDac,
+            $script:FileAccessRight::WriteOwner,
+            $script:FileAccessRight::GenericWrite,
+            $script:FileAccessRight::AllAccess
+        )
 
-        $FileAccessMask = @{
-            [UInt32]'0x80000000' = 'GenericRead'
-            [UInt32]'0x40000000' = 'GenericWrite'
-            [UInt32]'0x20000000' = 'GenericExecute'
-            [UInt32]'0x10000000' = 'GenericAll'
-            [UInt32]'0x02000000' = 'MaximumAllowed'
-            [UInt32]'0x01000000' = 'AccessSystemSecurity'
-            [UInt32]'0x00100000' = 'Synchronize'
-            [UInt32]'0x00080000' = 'WriteOwner'
-            [UInt32]'0x00040000' = 'WriteDAC'
-            [UInt32]'0x00020000' = 'ReadControl'
-            [UInt32]'0x00010000' = 'Delete'
-            [UInt32]'0x00000100' = 'WriteAttributes'
-            [UInt32]'0x00000080' = 'ReadAttributes'
-            [UInt32]'0x00000040' = 'DeleteChild'
-            [UInt32]'0x00000020' = 'Execute'
-            [UInt32]'0x00000010' = 'WriteExtendedAttributes'
-            [UInt32]'0x00000008' = 'ReadExtendedAttributes'
-            [UInt32]'0x00000004' = 'AppendData'
-            [UInt32]'0x00000002' = 'WriteData'
-            [UInt32]'0x00000001' = 'ReadData'
-        }
+        $DirectoryModificationRights = @(
+            $script:DirectoryAccessRight::AddFile,
+            $script:DirectoryAccessRight::AddSubdirectory,
+            $script:DirectoryAccessRight::DeleteChild,
+            $script:DirectoryAccessRight::WriteAttributes,
+            $script:DirectoryAccessRight::Delete,
+            $script:DirectoryAccessRight::WriteDac,
+            $script:DirectoryAccessRight::WriteOwner,
+            $script:DirectoryAccessRight::GenericWrite,
+            $script:DirectoryAccessRight::AllAccess
+        )
 
-        $DirectoryAccessMask = @{
-            [UInt32]'0x80000000' = 'GenericRead'
-            [UInt32]'0x40000000' = 'GenericWrite'
-            [UInt32]'0x20000000' = 'GenericExecute'
-            [UInt32]'0x10000000' = 'GenericAll'
-            [UInt32]'0x02000000' = 'MaximumAllowed'
-            [UInt32]'0x01000000' = 'AccessSystemSecurity'
-            [UInt32]'0x00100000' = 'Synchronize'
-            [UInt32]'0x00080000' = 'WriteOwner'
-            [UInt32]'0x00040000' = 'WriteDAC'
-            [UInt32]'0x00020000' = 'ReadControl'
-            [UInt32]'0x00010000' = 'Delete'
-            [UInt32]'0x00000100' = 'WriteAttributes'
-            [UInt32]'0x00000080' = 'ReadAttributes'
-            [UInt32]'0x00000040' = 'DeleteChild'
-            [UInt32]'0x00000020' = 'Traverse'
-            [UInt32]'0x00000010' = 'WriteExtendedAttributes'
-            [UInt32]'0x00000008' = 'ReadExtendedAttributes'
-            [UInt32]'0x00000004' = 'AddSubdirectory'
-            [UInt32]'0x00000002' = 'AddFile'
-            [UInt32]'0x00000001' = 'ListDirectory'
-        }
-
-        $RegistryKeyAccessMask = @{
-            # Generic access rights
-            [UInt32]'0x10000000' = 'GenericAll'
-            [UInt32]'0x20000000' = 'GenericExecute'
-            [UInt32]'0x40000000' = 'GenericWrite'
-            [UInt32]'0x80000000' = 'GenericRead'
-            # Registry key access rights
-            [UInt32]'0x00000001' = 'QueryValue'
-            [UInt32]'0x00000002' = 'SetValue'
-            [UInt32]'0x00000004' = 'CreateSubKey'
-            [UInt32]'0x00000008' = 'EnumerateSubKeys'
-            [UInt32]'0x00000010' = 'Notify'
-            [UInt32]'0x00000020' = 'CreateLink'
-            # Valid standard access rights for registry keys
-            [UInt32]'0x00010000' = 'Delete'
-            [UInt32]'0x00020000' = 'ReadControl'
-            [UInt32]'0x00040000' = 'WriteDAC'
-            [UInt32]'0x00080000' = 'WriteOwner'
-        }
-
-        $AccessMask = @{
-            $TypeFile = $FileAccessMask
-            $TypeDirectory = $DirectoryAccessMask
-            $TypeRegistryKey = $RegistryKeyAccessMask
-        }
-
-        $AccessRights = @{
-            $TypeFile = "FileSystemRights"
-            $TypeDirectory = "FileSystemRights"
-            $TypeRegistryKey = "RegistryRights"
-        }
-
-        $ModificationRights = @{
-            $TypeFile = @('GenericWrite', 'GenericAll', 'MaximumAllowed', 'WriteOwner', 'WriteDAC', 'Delete', 'WriteData', 'AppendData')
-            $TypeDirectory = @('GenericWrite', 'GenericAll', 'MaximumAllowed', 'WriteOwner', 'WriteDAC', 'Delete', 'AddFile', 'AddSubdirectory')
-            $TypeRegistryKey = @('SetValue', 'CreateSubKey', 'Delete', 'WriteDAC', 'WriteOwner')
-        }
+        $RegistryKeyModificationRights = @(
+            $script:RegistryKeyAccessRight::SetValue,
+            $script:RegistryKeyAccessRight::CreateSubKey,
+            $script:RegistryKeyAccessRight::Delete,
+            $script:RegistryKeyAccessRight::WriteDac,
+            $script:RegistryKeyAccessRight::WriteOwner,
+            $script:RegistryKeyAccessRight::GenericWrite,
+            $script:RegistryKeyAccessRight::AllAccess
+        )
 
         $CurrentUserSids = Get-CurrentUserSid
         $CurrentUserDenySids = Get-CurrentUserDenySid
@@ -163,97 +108,114 @@ function Get-ModificationRight {
     }
 
     process {
-
-        try {
-
-            # First things first, try to get the ACL of the object given its path.
-            $Acl = Get-Acl -Path $Path -ErrorAction SilentlyContinue -ErrorVariable GetAclError
-            if ($GetAclError) { return }
-
-            # If no ACL is returned, it means that the object has a "null" DACL, in which case everyone is
-            # granted full access to the object. We can therefore simply return a "virtual" ACE that grants
-            # Everyone the "FullControl" right and exit.
-            if ($null -eq $Acl) {
-                $Result = New-Object -TypeName PSObject
-                $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $Path
-                $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value (Convert-SidToName -Sid "S-1-1-0")
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value "GenericAll"
-                $Result
-                return
+        switch ($Type) {
+            "File" {
+                $AccessRights = $script:FileAccessRight
+                $AccessRightsType = "FileSystemRights"
+                $ModificationRights = $FileModificationRights
             }
-
-            $DenyAces = [Object[]]($Acl | Select-Object -ExpandProperty Access | Where-Object { $_.AccessControlType -match "Deny" })
-            $AllowAces = [Object[]]($Acl | Select-Object -ExpandProperty Access | Where-Object { $_.AccessControlType -match "Allow" })
-
-            # Here we simply get the access mask, access list name and list of access rights that are
-            # specific to the object type we are dealing with.
-            $TypeAccessMask = $AccessMask[$Type]
-            $TypeAccessRights = $AccessRights[$Type]
-            $TypeModificationRights = $ModificationRights[$Type]
-
-            # Before checking the object permissions, we first need to enumerate deny ACEs (if any) that
-            # would restrict the rights we may have on the target object.
-            $RestrictedRights = @()
-            if ($DenyAces) { # Need to make sure it not null because of PSv2
-                foreach ($DenyAce in $DenyAces) {
-
-                    # Ignore "InheritOnly" ACEs because they only apply to child objects, not to the object itself
-                    # (e.g.: a file in a directory or a sub-key of a registry key).
-                    if ($DenyAce.PropagationFlags -band ([System.Security.AccessControl.PropagationFlags]"InheritOnly").value__) { continue }
-
-                    # Convert the ACE's identity reference name to its SID. If the SID is not in the list
-                    # of deny-only SIDs of the current Token, ignore it. If the SID does not match the
-                    # current user SID or the SID of any of its groups, ignore it as well.
-                    # Note: deny-only SIDs are only used to check access-denied ACEs.
-                    # https://docs.microsoft.com/en-us/windows/win32/secauthz/sid-attributes-in-an-access-token
-                    $IdentityReferenceSid = Convert-NameToSid -Name $DenyAce.IdentityReference
-                    if ($CurrentUserDenySids -notcontains $IdentityReferenceSid) { continue }
-                    if ($CurrentUserSids -notcontains $IdentityReferenceSid) { continue }
-
-                    $Restrictions = $TypeAccessMask.Keys | Where-Object { $DenyAce.$TypeAccessRights.value__ -band $_ } | ForEach-Object { $TypeAccessMask[$_] }
-                    $RestrictedRights += [String[]] $Restrictions
-                }
+            "Directory" {
+                $AccessRights = $script:DirectoryAccessRight
+                $AccessRightsType = "FileSystemRights"
+                $ModificationRights = $DirectoryModificationRights
             }
-
-            # Need to make sure it not null because of PSv2
-            if ($AllowAces) {
-                foreach ($AllowAce in $AllowAces) {
-
-                    # Ignore "InheritOnly" ACEs because they only apply to child objects, not to the object itself
-                    # (e.g.: a file in a directory or a sub-key of a registry key).
-                    if ($AllowAce.PropagationFlags -band ([System.Security.AccessControl.PropagationFlags]"InheritOnly").value__) { continue }
-
-                    # Here, we simply extract the permissions granted by the current ACE
-                    $Permissions = New-Object System.Collections.ArrayList
-                    $TypeAccessMask.Keys | Where-Object { $AllowAce.$TypeAccessRights.value__ -band $_ } | ForEach-Object { $null = $Permissions.Add($TypeAccessMask[$_]) }
-
-                    # ... and we remove any right that would be restricted due to deny ACEs.
-                    if ($RestrictedRights) {
-                        foreach ($RestrictedRight in $RestrictedRights) {
-                            $null = $Permissions.Remove($RestrictedRight)
-                        }
-                    }
-
-                    # Here, we filter out ACEs that do not apply to the current user by checking whether the ACE's
-                    # identity reference is in the current user's SID list.
-                    $IdentityReferenceSid = Convert-NameToSid -Name $AllowAce.IdentityReference
-                    if ($CurrentUserSids -notcontains $IdentityReferenceSid) { continue }
-
-                    # We compare the list of permissions (minus the potential restrictions) against a list of
-                    # predefined modification rights. If there is no match, we ignore the ACE.
-                    $Comparison = Compare-Object -ReferenceObject $Permissions -DifferenceObject $TypeModificationRights -IncludeEqual -ExcludeDifferent
-                    if (-not $Comparison) { continue }
-
-                    $Result = New-Object -TypeName PSObject
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $Path
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $AllowAce.IdentityReference
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value $Permissions
-                    $Result
-                }
+            "RegistryKey" {
+                $AccessRights = $script:RegistryKeyAccessRight
+                $AccessRightsType = "RegistryRights"
+                $ModificationRights = $RegistryKeyModificationRights
+            }
+            default {
+                throw "Unhandled object type: $($Type)"
             }
         }
-        catch {
-            Write-Debug "Could not handle path: $($Path)"
+
+        # First things first, try to get the ACL of the object given its path.
+        $Acl = Get-Acl -Path $Path -ErrorAction SilentlyContinue -ErrorVariable GetAclError
+        if ($GetAclError) { return }
+
+        # If no ACL is returned, it means that the object has a "null" DACL, in which case everyone is
+        # granted full access to the object. We can therefore simply return a "virtual" ACE that grants
+        # Everyone the "FullControl" right and exit.
+        if ($null -eq $Acl) {
+            $Result = New-Object -TypeName PSObject
+            $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $Path
+            $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value (Convert-SidToName -Sid "S-1-1-0")
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value $AccessRights::GenericAll
+            $Result
+            return
+        }
+
+        $DenyAces = [Object[]]($Acl | Select-Object -ExpandProperty Access | Where-Object { $_.AccessControlType -match "Deny" })
+        $AllowAces = [Object[]]($Acl | Select-Object -ExpandProperty Access | Where-Object { $_.AccessControlType -match "Allow" })
+
+        # Before checking the object permissions, we first need to enumerate deny ACEs (if any) that
+        # would restrict the rights we may have on the target object.
+        $Restrictions = @()
+        # Need to make sure it not null because of PSv2
+        if ($DenyAces) {
+
+            foreach ($DenyAce in $DenyAces) {
+
+                # Ignore "InheritOnly" ACEs because they only apply to child objects, not to the object itself
+                # (e.g.: a file in a directory or a sub-key of a registry key).
+                if ($DenyAce.PropagationFlags -band ([System.Security.AccessControl.PropagationFlags]"InheritOnly").value__) { continue }
+
+                # Convert the ACE's identity reference name to its SID. If the SID is not in the list
+                # of deny-only SIDs of the current Token, ignore it. If the SID does not match the
+                # current user SID or the SID of any of its groups, ignore it as well.
+                # Note: deny-only SIDs are only used to check access-denied ACEs.
+                # https://docs.microsoft.com/en-us/windows/win32/secauthz/sid-attributes-in-an-access-token
+                $IdentityReferenceSid = Convert-NameToSid -Name $DenyAce.IdentityReference
+                if ($CurrentUserDenySids -notcontains $IdentityReferenceSid) { continue }
+                if ($CurrentUserSids -notcontains $IdentityReferenceSid) { continue }
+
+                $AccessRights.GetEnumValues() |
+                    Where-Object { ($DenyAce.$AccessRightsType.value__ -band $AccessRights::$_.value__) -eq $AccessRights::$_.value__ } |
+                        ForEach-Object { $Restrictions += $_ }
+            }
+        }
+
+        # Need to make sure it not null because of PSv2
+        if ($AllowAces) {
+
+            foreach ($AllowAce in $AllowAces) {
+
+                # Ignore "InheritOnly" ACEs because they only apply to child objects, not to the object itself
+                # (e.g.: a file in a directory or a sub-key of a registry key).
+                if ($AllowAce.PropagationFlags -band ([System.Security.AccessControl.PropagationFlags]"InheritOnly").value__) { continue }
+
+                # Here, we simply extract the permissions granted by the current ACE
+                $Permissions = @()
+                $AccessRights.GetEnumValues() |
+                    Where-Object { ($AllowAce.$AccessRightsType.value__ -band $AccessRights::$_.value__) -eq $AccessRights::$_.value__ } |
+                        ForEach-Object { $Permissions += $_ }
+
+                # If the ACE grants 'AllAccess', then all access rights match. In such a case,
+                # instead of reporting all access rights + GenericAll, we modify the list and
+                # set AllAccess only.
+                if ($Permissions -contains $AccessRights::GenericAll) { $Permissions = @( $AccessRights::GenericAll )}
+
+                # ... and we remove any right that would be restricted due to deny ACEs.
+                if ($Restrictions.Count -gt 0) {
+                    $Permissions = $Permissions | Where-Object { $Restrictions -notcontains $_ }
+                }
+
+                # Here, we filter out ACEs that do not apply to the current user by checking whether the ACE's
+                # identity reference is in the current user's SID list.
+                $IdentityReferenceSid = Convert-NameToSid -Name $AllowAce.IdentityReference
+                if ($CurrentUserSids -notcontains $IdentityReferenceSid) { continue }
+
+                # We compare the list of permissions (minus the potential restrictions) against a list of
+                # predefined modification rights. If there is no match, we ignore the ACE.
+                $GrantedModificationRights = $Permissions | Where-Object { $ModificationRights -contains $_ }
+                if ($null -eq $GrantedModificationRights) { continue }
+
+                $Result = New-Object -TypeName PSObject
+                $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $Path
+                $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $AllowAce.IdentityReference
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value $Permissions
+                $Result
+            }
         }
     }
 }

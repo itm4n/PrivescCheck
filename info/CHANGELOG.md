@@ -1,5 +1,11 @@
 # Changelog
 
+## 2025-01-08
+
+### Changed
+
+- Refactor file, directory, registry key ACL check.
+
 ## 2025-01-06
 
 ### Changed

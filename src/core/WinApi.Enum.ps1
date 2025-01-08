@@ -12,23 +12,63 @@ $script:SystemErrorCode = New-Enum $Module WinApiModule.SystemErrorCode UInt32 @
 }
 
 $script:FileAccessRight = New-Enum $Module WinApiModule.FileAccessRight UInt32 @{
-    MaximumAllowed                      = 0x02000000
-    AccessSystemSecurity                = 0x01000000
-    Synchronize                         = 0x00100000
-    WriteOwner                          = 0x00080000
-    WriteDac                            = 0x00040000
-    ReadControl                         = 0x00020000
-    Delete                              = 0x00010000
-    WriteAttributes                     = 0x00000100
-    ReadAttributes                      = 0x00000080
-    DeleteChild                         = 0x00000040
-    Execute                             = 0x00000020
-    WriteExtendedAttributes             = 0x00000010
-    ReadExtendedAttributes              = 0x00000008
-    AppendData                          = 0x00000004
-    WriteData                           = 0x00000002
     ReadData                            = 0x00000001
+    WriteData                           = 0x00000002
+    AppendData                          = 0x00000004
+    ReadExtendedAttributes              = 0x00000008
+    WriteExtendedAttributes             = 0x00000010
+    Execute                             = 0x00000020
+    ReadAttributes                      = 0x00000080
+    WriteAttributes                     = 0x00000100
+    Delete                              = 0x00010000
+    ReadControl                         = 0x00020000
+    WriteDac                            = 0x00040000
+    WriteOwner                          = 0x00080000
+    Synchronize                         = 0x00100000
+    AccessSystemSecurity                = 0x01000000
+    GenericRead                         = 0x00120089 # FILE_READ_ATTRIBUTES | FILE_READ_DATA | FILE_READ_EA | STANDARD_RIGHTS_READ | SYNCHRONIZE
+    GenericWrite                        = 0x00120116 # FILE_APPEND_DATA | FILE_WRITE_ATTRIBUTES | FILE_WRITE_DATA | FILE_WRITE_EA | STANDARD_RIGHTS_WRITE | SYNCHRONIZE
+    GenericExecute                      = 0x001200a0 # FILE_EXECUTE | FILE_READ_ATTRIBUTES | STANDARD_RIGHTS_EXECUTE | SYNCHRONIZE
+    GenericAll                          = 0x001f01ff
 } -BitField
+
+$script:DirectoryAccessRight = New-Enum $Module WinApiModule.DirectoryAccessRight UInt32 @{
+    ListDirectory                       = 0x00000001
+    AddFile                             = 0x00000002
+    AddSubdirectory                     = 0x00000004
+    ReadExtendedAttributes              = 0x00000008
+    WriteExtendedAttributes             = 0x00000010
+    Traverse                            = 0x00000020
+    DeleteChild                         = 0x00000040
+    ReadAttributes                      = 0x00000080
+    WriteAttributes                     = 0x00000100
+    Delete                              = 0x00010000
+    ReadControl                         = 0x00020000
+    WriteDac                            = 0x00040000
+    WriteOwner                          = 0x00080000
+    Synchronize                         = 0x00100000
+    AccessSystemSecurity                = 0x01000000
+    GenericRead                         = 0x00120089
+    GenericWrite                        = 0x00120116
+    GenericExecute                      = 0x001200a0
+    GenericAll                          = 0x000f000f
+}
+
+$script:RegistryKeyAccessRight = New-Enum $Module WinApiModule.RegistryKeyAccessRight UInt32 @{
+    QueryValue                          = 0x00000001
+    SetValue                            = 0x00000002
+    CreateSubKey                        = 0x00000004
+    EnumerateSubKeys                    = 0x00000008
+    Notify                              = 0x00000010
+    CreateLink                          = 0x00000020
+    Delete                              = 0x00010000
+    ReadControl                         = 0x00020000
+    WriteDac                            = 0x00040000
+    WriteOwner                          = 0x00080000
+    GenericRead                         = 0x00020019 # STANDARD_RIGHTS_READ | KEY_NOTIFY | KEY_ENUMERATE_SUB_KEYS | KEY_QUERY_VALUE
+    GenericWrite                        = 0x00020006 # STANDARD_RIGHTS_WRITE | KEY_SET_VALUE | KEY_CREATE_SUB_KEY
+    GenericAll                          = 0x000f003f
+}
 
 $script:ServiceAccessRight = New-Enum $Module WinApiModule.ServiceAccessRight UInt32 @{
     QueryConfig                         = 0x00000001
