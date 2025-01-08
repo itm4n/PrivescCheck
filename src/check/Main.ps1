@@ -352,7 +352,8 @@ function Write-CheckResult {
             $ResultOutput += " Vulnerable"
         }
 
-        $ResultOutput += " - Severity: $($Severity) - Execution time: $($CheckResult.TimeElapsed.ToString("hh\:mm\:ss\.fff"))`n"
+        $ResultOutput += " - Severity: $($Severity) - Execution time: $($CheckResult.TimeElapsed.ToString("hh\:mm\:ss\.fff"))"
+        $ResultOutput += "`n`n"
 
         $ResultOutput
     }
