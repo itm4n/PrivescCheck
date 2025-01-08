@@ -670,6 +670,7 @@ function Invoke-HiveFileShadowCopyPermissionCheck {
 
     begin {
         $AllResults = @()
+        $FileHandles = @()
         $CurrentUserSids = Get-CurrentUserSid
         $FsRedirectionValue = Disable-Wow64FileSystemRedirection
     }
@@ -682,36 +683,35 @@ function Invoke-HiveFileShadowCopyPermissionCheck {
             foreach ($HiveFile in "SAM", "SECURITY", "SYSTEM") {
 
                 $Path = $(Join-Path -Path $ConfigPath -ChildPath $HiveFile)
-                $FileDacl = Get-FileDacl -Path $Path
 
-                if ($null -eq $FileDacl) { continue }
+                $FileHandle = Get-FileHandle -Path $Path -AccessRights $script:FileAccessRight::ReadControl
+                if ($FileHandle -eq -1) { continue }
 
-                $PermissionReference = @(
-                    $script:FileAccessRight::ReadData
-                )
+                $FileHandles += $FileHandle
 
-                foreach ($Ace in $FileDacl.Access) {
+                $SecurityInfo = Get-ObjectSecurityInfo -Handle $FileHandle -Type File
+                if ($null -eq $SecurityInfo) { continue }
+
+                foreach ($Ace in $SecurityInfo.Dacl) {
 
                     if ($Ace.AceType -notmatch "AccessAllowed") { continue }
 
-                    $Permissions = [Enum]::GetValues($script:FileAccessRight) | Where-Object {
-                        ($Ace.AccessMask -band ($script:FileAccessRight::$_)) -eq ($script:FileAccessRight::$_)
-                    }
+                    $IdentityReference = $($Ace | Select-Object -ExpandProperty "SecurityIdentifier").ToString()
+                    if ($CurrentUserSids -notcontains $IdentityReference) { continue }
 
-                    if (Compare-Object -ReferenceObject $Permissions -DifferenceObject $PermissionReference -IncludeEqual -ExcludeDifferent) {
-
-                        $IdentityReference = $($Ace | Select-Object -ExpandProperty "SecurityIdentifier").ToString()
-
-                        if ($CurrentUserSids -contains $IdentityReference) {
-
-                            $Result = New-Object -TypeName PSObject
-                            $Result | Add-Member -MemberType "NoteProperty" -Name "Volume" -Value $ShadowCopy.Volume
-                            $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $Path
-                            $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value (Convert-SidToName -Sid $IdentityReference)
-                            $Result | Add-Member -MemberType "NoteProperty" -Name "AccessRights" -Value ($Permissions -join ", ")
-                            $AllResults += $Result
+                    $Permissions = $script:FileAccessRight.GetEnumValues() |
+                        Where-Object {
+                            ($Ace.AccessMask -band ($script:FileAccessRight::$_)) -eq ($script:FileAccessRight::$_)
                         }
-                    }
+
+                    if ($Permissions -notcontains $script:FileAccessRight::ReadData) { continue }
+
+                    $Result = New-Object -TypeName PSObject
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "Volume" -Value $ShadowCopy.Volume
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $Path
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value (Convert-SidToName -Sid $IdentityReference)
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "AccessRights" -Value ($Permissions -join ", ")
+                    $AllResults += $Result
                 }
             }
         }
@@ -724,6 +724,10 @@ function Invoke-HiveFileShadowCopyPermissionCheck {
 
     end {
         Restore-Wow64FileSystemRedirection -OldValue $FsRedirectionValue
+
+        foreach ($FileHandle in $FileHandles) {
+            $null = $script:Kernel32::CloseHandle($FileHandle)
+        }
     }
 }
 

@@ -2,6 +2,10 @@
 
 ## 2025-01-08
 
+### Added
+
+- Wrapper function for querying an object's security information in a generic way.
+
 ### Changed
 
 - Refactor file, directory, registry key ACL check.

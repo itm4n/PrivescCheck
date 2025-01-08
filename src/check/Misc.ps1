@@ -639,64 +639,68 @@ function Invoke-NamedPipePermissionCheck {
     [CmdletBinding()]
     param()
 
-    $UserIdentity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
-    $CurrentUserSids = Get-CurrentUserSid
-
-    ForEach ($NamedPipe in $(Get-ChildItem -Path "\\.\pipe\")) {
-
-        $NamedPipeDacl = Get-FileDacl -Path $NamedPipe.FullName
-
-        if ($null -eq $NamedPipeDacl) { continue }
-
-        if ($UserIdentity.User.Value -match $NamedPipeDacl.OwnerSid) { continue }
-
-        if ($null -eq $NamedPipeDacl.Access) {
-
-            $Result = New-Object -TypeName PSObject
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Pipe" -Value $NamedPipe.FullName
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Owner" -Value $NamedPipeDacl.Owner
-            # $Result | Add-Member -MemberType "NoteProperty" -Name "Group" -Value $NamedPipeDacl.Group
-            $Result | Add-Member -MemberType "NoteProperty" -Name "AceType" -Value "AccessAllowed"
-            $Result | Add-Member -MemberType "NoteProperty" -Name "AccessRights" -Value "GenericAll"
-            $Result | Add-Member -MemberType "NoteProperty" -Name "SecurityIdentifier" -Value "S-1-1-0"
-            $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityName" -Value (Convert-SidToName -Sid "S-1-1-0")
-            $Result
-            continue
-        }
+    begin {
+        $UserIdentity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
+        $CurrentUserSids = Get-CurrentUserSid
+        $NamedPipeHandles = @()
 
         $PermissionReference = @(
             $script:FileAccessRight::Delete,
             $script:FileAccessRight::WriteDac,
             $script:FileAccessRight::WriteOwner,
             $script:FileAccessRight::FileWriteEa,
-            $script:FileAccessRight::FileWriteAttributes
+            $script:FileAccessRight::FileWriteAttributes,
+            $script:FileAccessRight::AllAccess
         )
+    }
 
-        ForEach ($Ace in $NamedPipeDacl.Access) {
+    process {
+        ForEach ($NamedPipe in $(Get-ChildItem -Path "\\.\pipe\")) {
 
-            if ($Ace.AceType -notmatch "AccessAllowed") { continue }
+            $NamedPipeHandle = Get-FileHandle -Path $NamedPipe.FullName -AccessRights $script:FileAccessRight::ReadControl
+            if ($NamedPipeHandle -eq -1) { continue }
 
-            $Permissions = [Enum]::GetValues($script:FileAccessRight) | Where-Object {
-                ($Ace.AccessMask -band ($script:FileAccessRight::$_)) -eq ($script:FileAccessRight::$_)
-            }
+            $NamedPipeHandles += $NamedPipeHandle
 
-            if (Compare-Object -ReferenceObject $Permissions -DifferenceObject $PermissionReference -IncludeEqual -ExcludeDifferent) {
+            $NamedPipeDacl = Get-ObjectSecurityInfo -Handle $NamedPipeHandle -Type File
+            if ($null -eq $NamedPipeDacl) { continue }
 
-                $IdentityReference = $($Ace | Select-Object -ExpandProperty "SecurityIdentifier").ToString()
+            # Ignore named pipes owned by the current user.
+            if ($UserIdentity.User.Value -match $NamedPipeDacl.OwnerSid) { continue }
 
-                if ($CurrentUserSids -contains $IdentityReference) {
+            foreach ($Ace in $NamedPipeDacl.Dacl) {
 
-                    $Result = New-Object -TypeName PSObject
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "Pipe" -Value $NamedPipe.FullName
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "Owner" -Value $NamedPipeDacl.Owner
-                    # $Result | Add-Member -MemberType "NoteProperty" -Name "Group" -Value $NamedPipeDacl.Group
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "AceType" -Value ($Ace | Select-Object -ExpandProperty "AceType")
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "AccessRights" -Value ($Ace.AccessMask -as $script:FileAccessRight)
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "SecurityIdentifier" -Value $IdentityReference
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityName" -Value (Convert-SidToName -Sid $IdentityReference)
-                    $Result
+                if ($Ace.AceType -notmatch "AccessAllowed") { continue }
+
+                $Permissions = $script:FileAccessRight.GetEnumValues() |
+                    Where-Object {
+                        ($Ace.AccessMask -band ($script:FileAccessRight::$_)) -eq ($script:FileAccessRight::$_)
+                    }
+
+                if (Compare-Object -ReferenceObject $Permissions -DifferenceObject $PermissionReference -IncludeEqual -ExcludeDifferent) {
+
+                    $IdentityReference = $($Ace | Select-Object -ExpandProperty "SecurityIdentifier").ToString()
+
+                    if ($CurrentUserSids -contains $IdentityReference) {
+
+                        $Result = New-Object -TypeName PSObject
+                        $Result | Add-Member -MemberType "NoteProperty" -Name "Pipe" -Value $NamedPipe.FullName
+                        $Result | Add-Member -MemberType "NoteProperty" -Name "Owner" -Value $NamedPipeDacl.Owner
+                        $Result | Add-Member -MemberType "NoteProperty" -Name "Group" -Value $NamedPipeDacl.Group
+                        $Result | Add-Member -MemberType "NoteProperty" -Name "AceType" -Value ($Ace | Select-Object -ExpandProperty "AceType")
+                        $Result | Add-Member -MemberType "NoteProperty" -Name "AccessRights" -Value ($Ace.AccessMask -as $script:FileAccessRight)
+                        $Result | Add-Member -MemberType "NoteProperty" -Name "SecurityIdentifier" -Value $IdentityReference
+                        $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityName" -Value (Convert-SidToName -Sid $IdentityReference)
+                        $Result
+                    }
                 }
             }
+        }
+    }
+
+    end {
+        foreach ($NamedPipeHandle in $NamedPipeHandles) {
+            $null = $script:Kernel32::CloseHandle($NamedPipeHandle)
         }
     }
 }

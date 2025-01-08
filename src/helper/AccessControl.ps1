@@ -140,7 +140,7 @@ function Get-ModificationRight {
             $Result = New-Object -TypeName PSObject
             $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $Path
             $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value (Convert-SidToName -Sid "S-1-1-0")
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value $AccessRights::GenericAll
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value $AccessRights::AllAccess
             $Result
             return
         }
@@ -191,9 +191,9 @@ function Get-ModificationRight {
                         ForEach-Object { $Permissions += $_ }
 
                 # If the ACE grants 'AllAccess', then all access rights match. In such a case,
-                # instead of reporting all access rights + GenericAll, we modify the list and
+                # instead of reporting all access rights + AllAccess, we modify the list and
                 # set AllAccess only.
-                if ($Permissions -contains $AccessRights::GenericAll) { $Permissions = @( $AccessRights::GenericAll )}
+                if ($Permissions -contains $AccessRights::AllAccess) { $Permissions = @( $AccessRights::AllAccess )}
 
                 # ... and we remove any right that would be restricted due to deny ACEs.
                 if ($Restrictions.Count -gt 0) {
@@ -658,8 +658,7 @@ function Get-ModifiableService {
             $script:ServiceAccessRight::ChangeConfig,
             $script:ServiceAccessRight::WriteDac,
             $script:ServiceAccessRight::WriteOwner,
-            $script:ServiceAccessRight::AllAccess,
-            $script:ServiceAccessRight::GenericAll
+            $script:ServiceAccessRight::AllAccess
         )
 
         $CurrentUserSids = Get-CurrentUserSid
@@ -801,7 +800,7 @@ function Test-ServiceDiscretionaryAccessControlList {
     A mandatory Service object returned by 'Get-ServiceFromRegistry' (or 'Get-Service').
 
     .PARAMETER Permissions
-    A manual set of permission to test again. One of: 'QueryConfig', 'ChangeConfig', 'QueryStatus', 'EnumerateDependents', 'Start', 'Stop', 'PauseContinue', 'Interrogate', UserDefinedControl', 'Delete', 'ReadControl', 'WriteDac', 'WriteOwner', 'Synchronize', 'AccessSystemSecurity', 'GenericAll', 'GenericExecute', 'GenericWrite', 'GenericRead', 'AllAccess'
+    A manual set of permission to test again. One of: 'QueryConfig', 'ChangeConfig', 'QueryStatus', 'EnumerateDependents', 'Start', 'Stop', 'PauseContinue', 'Interrogate', UserDefinedControl', 'Delete', 'ReadControl', 'WriteDac', 'WriteOwner', 'Synchronize', 'AccessSystemSecurity', 'GenericExecute', 'GenericWrite', 'GenericRead', 'AllAccess'
 
     .PARAMETER PermissionSet
     A pre-defined permission set to test a specified service against. 'ChangeConfig', 'Restart', or 'AllAccess'.
@@ -817,7 +816,7 @@ function Test-ServiceDiscretionaryAccessControlList {
         [ValidateNotNullOrEmpty()]
         [Object] $Service,
 
-        [ValidateSet('QueryConfig', 'ChangeConfig', 'QueryStatus', 'EnumerateDependents', 'Start', 'Stop', 'PauseContinue', 'Interrogate', 'UserDefinedControl', 'Delete', 'ReadControl', 'WriteDac', 'WriteOwner', 'Synchronize', 'AccessSystemSecurity', 'GenericAll', 'GenericExecute', 'GenericWrite', 'GenericRead', 'AllAccess')]
+        [ValidateSet('QueryConfig', 'ChangeConfig', 'QueryStatus', 'EnumerateDependents', 'Start', 'Stop', 'PauseContinue', 'Interrogate', 'UserDefinedControl', 'Delete', 'ReadControl', 'WriteDac', 'WriteOwner', 'Synchronize', 'AccessSystemSecurity', 'GenericExecute', 'GenericWrite', 'GenericRead', 'AllAccess')]
         [String[]] $Permissions,
 
         [ValidateSet('ChangeConfig', 'Restart', 'AllAccess')]
@@ -843,8 +842,7 @@ function Test-ServiceDiscretionaryAccessControlList {
                     $script:ServiceAccessRight::ChangeConfig,
                     $script:ServiceAccessRight::WriteDac,
                     $script:ServiceAccessRight::WriteOwner,
-                    $script:ServiceAccessRight::AllAccess,
-                    $script:ServiceAccessRight::GenericAll
+                    $script:ServiceAccessRight::AllAccess
                 )
             }
             elseif ($PermissionSet -eq 'Restart') {
@@ -858,8 +856,7 @@ function Test-ServiceDiscretionaryAccessControlList {
             }
             elseif ($PermissionSet -eq 'AllAccess') {
                 $TargetPermissions = @(
-                    $script:ServiceAccessRight::AllAccess,
-                    $script:ServiceAccessRight::GenericAll
+                    $script:ServiceAccessRight::AllAccess
                 )
             }
         }

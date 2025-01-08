@@ -91,6 +91,59 @@ function Get-ProcessTokenHandle {
     $TokenHandle
 }
 
+function Get-FileHandle {
+    <#
+    .SYNOPSIS
+    Wrapper - Open a file using the 'CreateFileW' Windows API.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet is a wrapper for the 'CreateFileW' Windows API. It attempts to open a file using a user-supplied path.
+
+    .PARAMETER Path
+    A mandatory parameter representing the path of the file (or folder) to open.
+
+    .PARAMETER AccessRights
+    An optional set of file or folder access rights. If not specified, this parameter defaults to $script:FileAccessRight::GenericRead.
+
+    .PARAMETER ShareMode
+    A optional parameter representing sharing mode to use when opening the file (or folder). If not specified it defaults to 0 (none).
+
+    .EXAMPLE
+    PS C:\> Get-FileHandle "C:\Windows\Win.ini"
+    2360
+
+    .EXAMPLE
+    PS C:\> Get-FileHandle "\\localhost\C$\Windows\Win.ini" -AccessRights $script:FileAccessRight::ReadControl
+    2404
+    #>
+
+    [OutputType([IntPtr])]
+    [CmdletBinding()]
+    param (
+        [Parameter(Position=0, Mandatory=$true)]
+        [ValidateNotNullOrEmpty()]
+        [String] $Path,
+
+        [UInt32] $AccessRights = $script:FileAccessRight::GenericRead,
+
+        [UInt32] $ShareMode = $script:FileShareMode::None
+    )
+
+    process {
+
+        $FileHandle = $script:Kernel32::CreateFile($Path, $AccessRights, $ShareMode, [IntPtr]::Zero, 3, 0, [IntPtr]::Zero)
+        if ($FileHandle -eq -1) {
+            $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+            Write-Warning "CreateFile('$($Path)') - $(Format-Error $LastError)"
+        }
+
+        return $FileHandle
+    }
+}
+
 function Get-ServiceHandle {
     <#
     .SYNOPSIS
@@ -265,41 +318,11 @@ function Get-ServiceDiscretionaryAccessControlList {
     }
 
     process {
-        $SizeNeeded = 0
-        $null = $script:Advapi32::QueryServiceObjectSecurity($Handle, [Security.AccessControl.SecurityInfos]::DiscretionaryAcl, @(), 0, [ref] $SizeNeeded)
-        $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+        $SecurityInfo = Get-ObjectSecurityInfo -Handle $Handle -Type Service
+        if ($null -eq $SecurityInfo) { return }
 
-        # We expect the last error code to be 'ERROR_INSUFFICIENT_BUFFER'. The API is
-        # expected to return the size of the buffer we should allocate.
-        if (($SizeNeeded -eq 0) -or ($LastError -ne $script:SystemErrorCode::ERROR_INSUFFICIENT_BUFFER)) {
-            Write-Warning "QueryServiceObjectSecurity - $(Format-Error $LastError)"
-            return
-        }
-
-        $BinarySecurityDescriptor = New-Object Byte[]($SizeNeeded)
-        $Success = $script:Advapi32::QueryServiceObjectSecurity($Handle, [Security.AccessControl.SecurityInfos]::DiscretionaryAcl, $BinarySecurityDescriptor, $BinarySecurityDescriptor.Count, [ref] $SizeNeeded)
-
-        if (-not $Success) {
-            $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-            Write-Warning "QueryServiceObjectSecurity - $(Format-Error $LastError)"
-            return
-        }
-
-        $RawSecurityDescriptor = New-Object Security.AccessControl.RawSecurityDescriptor -ArgumentList $BinarySecurityDescriptor, 0
-        $Dacl = $RawSecurityDescriptor.DiscretionaryAcl
-
-        if ($null -eq $Dacl) {
-            # A null DACL is equivalent to 'AllAccess' for everyone.
-            $Result = New-Object -TypeName PSObject
-            $Result | Add-Member -MemberType "NoteProperty" -Name "AccessRights" -Value $AccessRightEnum::AllAccess
-            $Result | Add-Member -MemberType "NoteProperty" -Name "SecurityIdentifier" -Value "S-1-1-0"
-            $Result | Add-Member -MemberType "NoteProperty" -Name "AceType" -Value "AccessAllowed"
-            $Result
-        }
-        else {
-            $Dacl | ForEach-Object {
-                Add-Member -InputObject $_ -MemberType NoteProperty -Name AccessRights -Value ($_.AccessMask -as $AccessRightEnum) -PassThru
-            }
+        $SecurityInfo.Dacl | ForEach-Object {
+            Add-Member -InputObject $_ -MemberType "NoteProperty" -Name "AccessRights" -Value ($_.AccessMask -as $AccessRightEnum) -PassThru
         }
     }
 }
@@ -1323,126 +1346,153 @@ function Convert-DosDeviceToDevicePath {
     [System.Runtime.InteropServices.Marshal]::FreeHGlobal($TargetPathPtr)
 }
 
-function Get-FileDacl {
+function Get-ObjectSecurityInfo {
     <#
     .SYNOPSIS
-    Get security information about a file.
+    Wrapper - Get security information about an object.
 
     Author: @itm4n
     License: BSD 3-Clause
 
     .DESCRIPTION
-    This function leverages the Windows API to get some security information about a file, such as the owner and the DACL.
+    This cmdlet is a wrapper for the Windows API 'GetSecurityInfo'. It takes an object handle as an input, queries its security information (owner, group, DACL), and returns the result as a custom PS object.
 
-    .PARAMETER Path
-    The path of a file such as "C:\Windows\win.ini", "\\.pipe\spoolss"
+    .PARAMETER Handle
+    A mandatory parameter representing an object handle. The minimum required access right for this operation is usually 'ReadControl'.
+
+    .PARAMETER Type
+    A mandatory parameter representing the type of the queried object (File, Directory, Process, etc.).
 
     .EXAMPLE
-    PS C:\> Get-FileDacl -Path C:\Windows\win.ini
+    PS C:\> $Handle = Get-FileHandle 'C:\Windows\Win.ini' -AccessRights $script:FileAccessRight::ReadControl
+    PS C:\> Get-ObjectSecurityInfo -Handle $Handle -Type File
 
-    Path     : C:\Windows\win.ini
     Owner    : NT AUTHORITY\SYSTEM
     OwnerSid : S-1-5-18
     Group    : NT AUTHORITY\SYSTEM
     GroupSid : S-1-5-18
-    Access   : {System.Security.AccessControl.CommonAce, System.Security.AccessControl.CommonAce, System.Security.AccessControl.CommonAce, System.Security.AccessControl.CommonAce...}
-    SDDL     : O:SYG:SYD:AI(A;ID;FA;;;SY)(A;ID;FA;;;BA)(A;ID;0x1200a9;;;BU)(A;ID;0x1200a9;;;AC)(A;ID;0x1200a9;;;S-1-15-2-2)
+    Dacl     : {System.Security.AccessControl.CommonAce, System.Security.AccessControl.CommonAce, System.Security.AccessControl.CommonAce, System.Security.AccessControl.CommonAce...}
+    Sddl     : O:SYG:SYD:AI(A;ID;FA;;;SY)(A;ID;FA;;;BA)(A;ID;0x1200a9;;;BU)(A;ID;0x1200a9;;;AC)(A;ID;0x1200a9;;;S-1-15-2-2)
+
+    PS C:\> $script:Kernel32::CloseHandle($Handle)
 
     .EXAMPLE
-    PS C:\> Get-FileDacl -Path \\.\pipe\spoolss
+    PS C:\> $Handle = Get-ServiceHandle 'IKEEXT' -AccessRights $script:ServiceAccessRight::ReadControl
+    PS C:\> Get-ObjectSecurityInfo -Handle $Handle -Type Service
 
-    Path     : \\.\pipe\spoolss
     Owner    : NT AUTHORITY\SYSTEM
     OwnerSid : S-1-5-18
     Group    : NT AUTHORITY\SYSTEM
     GroupSid : S-1-5-18
-    Access   : {System.Security.AccessControl.CommonAce, System.Security.AccessControl.CommonAce, System.Security.AccessControl.CommonAce, System.Security.AccessControl.CommonAce...}
-    SDDL     : O:SYG:SYD:(A;;0x100003;;;BU)(A;;0x1201bb;;;WD)(A;;0x1201bb;;;AN)(A;;FA;;;CO)(A;;FA;;;SY)(A;;FA;;;BA)
+    Dacl     : {System.Security.AccessControl.CommonAce, System.Security.AccessControl.CommonAce, System.Security.AccessControl.CommonAce, System.Security.AccessControl.CommonAce}
+    Sddl     : O:SYG:SYD:(A;;CCLCSWRPWPDTLOCRRC;;;SY)(A;;CCDCLCSWRPWPDTLOCRSDRCWDWO;;;BA)(A;;CCLCSWLOCRRC;;;IU)(A;;CCLCSWLOCRRC;;;SU)
+
+    PS C:\> $null = $script:Advapi32::CloseServiceHandle($Handle)
     #>
 
     [CmdletBinding()]
-    param(
-        [String] $Path
+    param (
+        [Parameter(Mandatory=$true)]
+        [IntPtr] $Handle,
+
+        [Parameter(Mandatory=$true)]
+        [ValidateSet("File", "Directory", "Service")]
+        [String] $Type
     )
 
-    $DesiredAccess = $script:FileAccessRight::ReadControl
-    $ShareMode = 0x00000001 # FILE_SHARE_READ
-    $CreationDisposition = 3 # OPEN_EXISTING
-    $FlagsAndAttributes = 0x80 # FILE_ATTRIBUTE_NORMAL
-    $FileHandle = $script:Kernel32::CreateFile($Path, $DesiredAccess, $ShareMode, [IntPtr]::Zero, $CreationDisposition, $FlagsAndAttributes, [IntPtr]::Zero)
-
-    if ($FileHandle -eq [IntPtr]-1) {
-        $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-        Write-Verbose "CreateFile KO - $(Format-Error $LastError)"
-        return
+    begin {
+        $SecurityDescriptorPtr = [IntPtr]::Zero
+        $SecurityDescriptorNewPtr = [IntPtr]::Zero
     }
 
-    $ObjectType = 6 # SE_KERNEL_OBJECT
-    $SecurityInfo = 7 # DACL_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION | OWNER_SECURITY_INFORMATION
-    $SidOwnerPtr = [IntPtr]::Zero
-    $SidGroupPtr = [IntPtr]::Zero
-    $DaclPtr = [IntPtr]::Zero
-    $SaclPtr = [IntPtr]::Zero
-    $SecurityDescriptorPtr = [IntPtr]::Zero
-    $Result = $script:Advapi32::GetSecurityInfo($FileHandle, $ObjectType, $SecurityInfo, [ref] $SidOwnerPtr, [ref] $SidGroupPtr, [ref] $DaclPtr, [ref] $SaclPtr, [ref] $SecurityDescriptorPtr)
+    process {
 
-    if ($Result -ne 0) {
-        $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-        Write-Verbose "GetSecurityInfo KO ($Result) - $(Format-Error $LastError)"
-        $script:Kernel32::CloseHandle($FileHandle) | Out-Null
-        return
+        switch ($Type) {
+            "File"          { $ObjectType = $script:SE_OBJECT_TYPE::SE_FILE_OBJECT; $AccessRights = $script:FileAccessRight }
+            "Directory"     { $ObjectType = $script:SE_OBJECT_TYPE::SE_FILE_OBJECT; $AccessRights = $script:DirectoryAccessRight }
+            "Service"       { $ObjectType = $script:SE_OBJECT_TYPE::SE_SERVICE; $AccessRights = $script:ServiceAccessRight }
+            "SCM"           { $ObjectType = $script:SE_OBJECT_TYPE::SE_SERVICE; $AccessRights = $script:ServiceControlManagerAccessRight }
+            "RegistryKey"   { $ObjectType = $script:SE_OBJECT_TYPE::SE_REGISTRY_KEY; $AccessRights = $script:RegistryKeyAccessRight }
+            default         { throw "Unhandled object type: $($Type)" }
+        }
+
+        $SecurityInfo = 7 # DACL_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION | OWNER_SECURITY_INFORMATION
+        $SidOwnerPtr = [IntPtr]::Zero
+        $SidGroupPtr = [IntPtr]::Zero
+        $DaclPtr = [IntPtr]::Zero
+        $SaclPtr = [IntPtr]::Zero
+
+        $Result = $script:Advapi32::GetSecurityInfo($Handle, $ObjectType, $SecurityInfo, [ref] $SidOwnerPtr, [ref] $SidGroupPtr, [ref] $DaclPtr, [ref] $SaclPtr, [ref] $SecurityDescriptorPtr)
+
+        if ($Result -ne $script:SystemErrorCode::ERROR_SUCCESS) {
+            Write-Verbose "GetSecurityInfo - $(Format-Error $Result)"
+            return
+        }
+
+        $OwnerSidString = Convert-PSidToStringSid -PSid $SidOwnerPtr
+        $OwnerSidInfo = Convert-PSidToNameAndType -PSid $SidOwnerPtr
+        $GroupSidString = Convert-PSidToStringSid -PSid $SidGroupPtr
+        $GroupSidInfo = Convert-PSidToNameAndType -PSid $SidGroupPtr
+
+        $SecurityDescriptorString = ""
+        $SecurityDescriptorStringLen = 0
+        $Success = $script:Advapi32::ConvertSecurityDescriptorToStringSecurityDescriptor($SecurityDescriptorPtr, 1, $SecurityInfo, [ref] $SecurityDescriptorString, [ref] $SecurityDescriptorStringLen)
+
+        if (-not $Success) {
+            $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+            Write-Warning "ConvertSecurityDescriptorToStringSecurityDescriptor - $(Format-Error $LastError)"
+            return
+        }
+
+        $SecurityDescriptorNewSize = 0
+        $Success = $script:Advapi32::ConvertStringSecurityDescriptorToSecurityDescriptor($SecurityDescriptorString, 1, [ref] $SecurityDescriptorNewPtr, [ref] $SecurityDescriptorNewSize)
+
+        if (-not $Success) {
+            $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+            Write-Warning "ConvertStringSecurityDescriptorToSecurityDescriptor - $(Format-Error $LastError)"
+            return
+        }
+
+        $SecurityDescriptorNewBytes = New-Object Byte[]($SecurityDescriptorNewSize)
+        for ($i = 0; $i -lt $SecurityDescriptorNewSize; $i++) {
+            $Offset = [IntPtr] ($SecurityDescriptorNewPtr.ToInt64() + $i)
+            $SecurityDescriptorNewBytes[$i] = [Runtime.InteropServices.Marshal]::ReadByte($Offset)
+        }
+
+        $RawSecurityDescriptor = New-Object Security.AccessControl.RawSecurityDescriptor -ArgumentList $SecurityDescriptorNewBytes, 0
+
+        # A null DACL is equivalent to AllAccess for everyone, so let's create a "virtual"
+        # DACL that represents that.
+        if ($null -eq $RawSecurityDescriptor.DiscretionaryAcl) {
+            $Ace = New-Object -TypeName PSObject
+            $Ace | Add-Member -MemberType "NoteProperty" -Name "AceQualifier" -Value [System.Security.AccessControl.AceQualifier]::AccessAllowed
+            $Ace | Add-Member -MemberType "NoteProperty" -Name "IsCallback" -Value $false
+            $Ace | Add-Member -MemberType "NoteProperty" -Name "AccessMask" -Value $AccessRights::AllAccess
+            $Ace | Add-Member -MemberType "NoteProperty" -Name "SecurityIdentifier" -Value "S-1-1-0"
+            $Ace | Add-Member -MemberType "NoteProperty" -Name "AceType" -Value [System.Security.AccessControl.AceType]::AccessAllowed
+            $Ace | Add-Member -MemberType "NoteProperty" -Name "InheritanceFlags" -Value [System.Security.AccessControl.InheritanceFlags]::None
+            $Ace | Add-Member -MemberType "NoteProperty" -Name "PropagationFlags" -Value [System.Security.AccessControl.PropagationFlags]::None
+            $Ace | Add-Member -MemberType "NoteProperty" -Name "AuditFlags" -Value [System.Security.AccessControl.AuditFlags]::None
+            $Dacl = @( $Ace )
+        }
+        else {
+            $Dacl = $RawSecurityDescriptor.DiscretionaryAcl
+        }
+
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Owner" -Value $OwnerSidInfo.DisplayName
+        $Result | Add-Member -MemberType "NoteProperty" -Name "OwnerSid" -Value $OwnerSidString
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Group" -Value $GroupSidInfo.DisplayName
+        $Result | Add-Member -MemberType "NoteProperty" -Name "GroupSid" -Value $GroupSidString
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Dacl" -Value $Dacl
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Sddl" -Value $SecurityDescriptorString
+        $Result
     }
 
-    $OwnerSidString = Convert-PSidToStringSid -PSid $SidOwnerPtr
-    $OwnerSidInfo = Convert-PSidToNameAndType -PSid $SidOwnerPtr
-    $GroupSidString = Convert-PSidToStringSid -PSid $SidGroupPtr
-    $GroupSidInfo = Convert-PSidToNameAndType -PSid $SidGroupPtr
-
-    $SecurityDescriptorString = ""
-    $SecurityDescriptorStringLen = 0
-    $Success = $script:Advapi32::ConvertSecurityDescriptorToStringSecurityDescriptor($SecurityDescriptorPtr, 1, $SecurityInfo, [ref] $SecurityDescriptorString, [ref] $SecurityDescriptorStringLen)
-
-    if (-not $Success) {
-        $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-        Write-Verbose "ConvertSecurityDescriptorToStringSecurityDescriptor KO ($Result) - $(Format-Error $LastError)"
-        $script:Kernel32::LocalFree($SecurityDescriptorPtr) | Out-Null
-        $script:Kernel32::CloseHandle($FileHandle) | Out-Null
-        return
+    end {
+        if ($SecurityDescriptorPtr -ne [IntPtr]::Zero) { $null = $script:Kernel32::LocalFree($SecurityDescriptorPtr) }
+        if ($SecurityDescriptorNewPtr -ne [IntPtr]::Zero) { $null = $script:Kernel32::LocalFree($SecurityDescriptorNewPtr) }
     }
-
-    $SecurityDescriptorNewPtr = [IntPtr]::Zero
-    $SecurityDescriptorNewSize = 0
-    $Success = $script:Advapi32::ConvertStringSecurityDescriptorToSecurityDescriptor($SecurityDescriptorString, 1, [ref] $SecurityDescriptorNewPtr, [ref] $SecurityDescriptorNewSize)
-
-    if (-not $Success) {
-        $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-        Write-Verbose "ConvertStringSecurityDescriptorToSecurityDescriptor KO ($Result) - $(Format-Error $LastError)"
-        $script:Kernel32::LocalFree($SecurityDescriptorPtr) | Out-Null
-        $script:Kernel32::CloseHandle($FileHandle) | Out-Null
-        return
-    }
-
-    $SecurityDescriptorNewBytes = New-Object Byte[]($SecurityDescriptorNewSize)
-    for ($i = 0; $i -lt $SecurityDescriptorNewSize; $i++) {
-        $Offset = [IntPtr] ($SecurityDescriptorNewPtr.ToInt64() + $i)
-        $SecurityDescriptorNewBytes[$i] = [Runtime.InteropServices.Marshal]::ReadByte($Offset)
-    }
-
-    $RawSecurityDescriptor = New-Object Security.AccessControl.RawSecurityDescriptor -ArgumentList $SecurityDescriptorNewBytes, 0
-
-    $Result = New-Object -TypeName PSObject
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $Path
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Owner" -Value $OwnerSidInfo.DisplayName
-    $Result | Add-Member -MemberType "NoteProperty" -Name "OwnerSid" -Value $OwnerSidString
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Group" -Value $GroupSidInfo.DisplayName
-    $Result | Add-Member -MemberType "NoteProperty" -Name "GroupSid" -Value $GroupSidString
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Access" -Value $RawSecurityDescriptor.DiscretionaryAcl
-    $Result | Add-Member -MemberType "NoteProperty" -Name "SDDL" -Value $SecurityDescriptorString
-    $Result
-
-    $script:Kernel32::LocalFree($SecurityDescriptorNewPtr) | Out-Null
-    $script:Kernel32::LocalFree($SecurityDescriptorPtr) | Out-Null
-    $script:Kernel32::CloseHandle($FileHandle) | Out-Null
 }
 
 function Disable-Wow64FileSystemRedirection {

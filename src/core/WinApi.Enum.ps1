@@ -6,10 +6,18 @@ $script:SeverityLevel = New-Enum $Module WinApiModule.SeverityLevel UInt32 @{
 }
 
 $script:SystemErrorCode = New-Enum $Module WinApiModule.SystemErrorCode UInt32 @{
+    ERROR_SUCCESS                       = 0
     ERROR_INVALID_FUNCTION              = 1
     ERROR_INSUFFICIENT_BUFFER           = 122
     ERROR_ENVVAR_NOT_FOUND              = 203
 }
+
+$script:FileShareMode = New-Enum $Module WinApiModule.FileShareMode UInt32 @{
+    None                                = 0x00000000
+    Read                                = 0x00000001
+    Write                               = 0x00000002
+    Delete                              = 0x00000004
+} -BitField
 
 $script:FileAccessRight = New-Enum $Module WinApiModule.FileAccessRight UInt32 @{
     ReadData                            = 0x00000001
@@ -26,10 +34,10 @@ $script:FileAccessRight = New-Enum $Module WinApiModule.FileAccessRight UInt32 @
     WriteOwner                          = 0x00080000
     Synchronize                         = 0x00100000
     AccessSystemSecurity                = 0x01000000
+    AllAccess                           = 0x001f01ff
     GenericRead                         = 0x00120089 # FILE_READ_ATTRIBUTES | FILE_READ_DATA | FILE_READ_EA | STANDARD_RIGHTS_READ | SYNCHRONIZE
     GenericWrite                        = 0x00120116 # FILE_APPEND_DATA | FILE_WRITE_ATTRIBUTES | FILE_WRITE_DATA | FILE_WRITE_EA | STANDARD_RIGHTS_WRITE | SYNCHRONIZE
     GenericExecute                      = 0x001200a0 # FILE_EXECUTE | FILE_READ_ATTRIBUTES | STANDARD_RIGHTS_EXECUTE | SYNCHRONIZE
-    GenericAll                          = 0x001f01ff
 } -BitField
 
 $script:DirectoryAccessRight = New-Enum $Module WinApiModule.DirectoryAccessRight UInt32 @{
@@ -48,10 +56,10 @@ $script:DirectoryAccessRight = New-Enum $Module WinApiModule.DirectoryAccessRigh
     WriteOwner                          = 0x00080000
     Synchronize                         = 0x00100000
     AccessSystemSecurity                = 0x01000000
+    AllAccess                           = 0x000f000f
     GenericRead                         = 0x00120089
     GenericWrite                        = 0x00120116
     GenericExecute                      = 0x001200a0
-    GenericAll                          = 0x000f000f
 }
 
 $script:RegistryKeyAccessRight = New-Enum $Module WinApiModule.RegistryKeyAccessRight UInt32 @{
@@ -65,9 +73,9 @@ $script:RegistryKeyAccessRight = New-Enum $Module WinApiModule.RegistryKeyAccess
     ReadControl                         = 0x00020000
     WriteDac                            = 0x00040000
     WriteOwner                          = 0x00080000
+    AllAccess                           = 0x000f003f
     GenericRead                         = 0x00020019 # STANDARD_RIGHTS_READ | KEY_NOTIFY | KEY_ENUMERATE_SUB_KEYS | KEY_QUERY_VALUE
     GenericWrite                        = 0x00020006 # STANDARD_RIGHTS_WRITE | KEY_SET_VALUE | KEY_CREATE_SUB_KEY
-    GenericAll                          = 0x000f003f
 }
 
 $script:ServiceAccessRight = New-Enum $Module WinApiModule.ServiceAccessRight UInt32 @{
@@ -86,10 +94,10 @@ $script:ServiceAccessRight = New-Enum $Module WinApiModule.ServiceAccessRight UI
     WriteOwner                          = 0x00080000
     Synchronize                         = 0x00100000
     AccessSystemSecurity                = 0x01000000
+    AllAccess                           = 0x000f01ff
     GenericRead                         = 0x0002008d # STANDARD_RIGHTS_READ | SERVICE_QUERY_CONFIG | SERVICE_QUERY_STATUS | SERVICE_INTERROGATE | SERVICE_ENUMERATE_DEPENDENTS
     GenericWrite                        = 0x00020002 # STANDARD_RIGHTS_WRITE | SERVICE_CHANGE_CONFIG
     GenericExecute                      = 0x00020170 # STANDARD_RIGHTS_EXECUTE | SERVICE_START | SERVICE_STOP | SERVICE_PAUSE_CONTINUE | SERVICE_USER_DEFINED_CONTROL
-    AllAccess                           = 0x000f01ff
 } -BitField
 
 $script:ServiceControlManagerAccessRight = New-Enum $Module WinApiModule.ServiceControlManagerAccessRight UInt32 @{
@@ -600,3 +608,20 @@ $script:USER_AUTH_FLAGS = New-Enum $Module WinApiModule.USER_AUTH_FLAGS UInt32 @
     AF_OP_SERVER                        = 0x00000004
     AF_OP_ACCOUNTS                      = 0x00000008
 } -BitField
+
+$script:SE_OBJECT_TYPE = New-Enum $Module WinApiModule.SE_OBJECT_TYPE UInt32 @{
+    SE_UNKNOWN_OBJECT_TYPE              = 0
+    SE_FILE_OBJECT                      = 1
+    SE_SERVICE                          = 2
+    SE_PRINTER                          = 3
+    SE_REGISTRY_KEY                     = 4
+    SE_LMSHARE                          = 5
+    SE_KERNEL_OBJECT                    = 6
+    SE_WINDOW_OBJECT                    = 7
+    SE_DS_OBJECT                        = 8
+    SE_DS_OBJECT_ALL                    = 9
+    SE_PROVIDER_DEFINED_OBJECT          = 10
+    SE_WMIGUID_OBJECT                   = 11
+    SE_REGISTRY_WOW64_32KEY             = 12
+    SE_REGISTRY_WOW64_64KEY             = 13
+}
