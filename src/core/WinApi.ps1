@@ -17,6 +17,7 @@ $FunctionDefinitions = @(
     (New-Function advapi32 ConvertStringSecurityDescriptorToSecurityDescriptor ([Bool]) @([String], [UInt32], [IntPtr].MakeByRefType(), [UInt32].MakeByRefType()) ([Runtime.InteropServices.CallingConvention]::Winapi) ([Runtime.InteropServices.CharSet]::Unicode) -SetLastError -EntryPoint ConvertStringSecurityDescriptorToSecurityDescriptorW),
     (New-Function advapi32 GetSidSubAuthority ([IntPtr]) @([IntPtr], [UInt32]) -SetLastError -EntryPoint GetSidSubAuthority),
     (New-Function advapi32 GetSidSubAuthorityCount ([IntPtr]) @([IntPtr]) -SetLastError -EntryPoint GetSidSubAuthorityCount),
+    (New-Function advapi32 RegOpenKeyEx ([UInt32]) @([IntPtr], [String], [UInt32], [UInt32], [IntPtr].MakeByRefType()) ([Runtime.InteropServices.CallingConvention]::Winapi) ([Runtime.InteropServices.CharSet]::Unicode) -SetLastError -EntryPoint RegOpenKeyExW),
 
     (New-Function firewallapi FWOpenPolicyStore ([Void]) @([UInt32], [IntPtr], $script:FW_STORE_TYPE, $script:FW_POLICY_ACCESS_RIGHT, [UInt32], [IntPtr].MakeByRefType()) -EntryPoint FWOpenPolicyStore),
     (New-Function firewallapi FWClosePolicyStore ([UInt32]) @([IntPtr]) -EntryPoint FWClosePolicyStore),

@@ -45,11 +45,13 @@ function Get-ModificationRight {
         [String] $Path,
 
         [Parameter(Mandatory=$true)]
-        [ValidateSet("File", "Directory", "RegistryKey")]
+        [ValidateSet("File", "Directory", "RegistryKey", "Service")]
         [String] $Type
     )
 
     begin {
+        $Handle = [IntPtr]::Zero
+
         $FileModificationRights = @(
             $script:FileAccessRight::WriteData,
             $script:FileAccessRight::AppendData,
@@ -83,6 +85,13 @@ function Get-ModificationRight {
             $script:RegistryKeyAccessRight::AllAccess
         )
 
+        $ServiceModificationRights = @(
+            $script:ServiceAccessRight::ChangeConfig,
+            $script:ServiceAccessRight::WriteDac,
+            $script:ServiceAccessRight::WriteOwner,
+            $script:ServiceAccessRight::AllAccess
+        )
+
         $CurrentUserSids = Get-CurrentUserSid
         $CurrentUserDenySids = Get-CurrentUserDenySid
 
@@ -111,18 +120,23 @@ function Get-ModificationRight {
         switch ($Type) {
             "File" {
                 $AccessRights = $script:FileAccessRight
-                $AccessRightsType = "FileSystemRights"
                 $ModificationRights = $FileModificationRights
+                $Handle = Get-FileHandle -Path $Path -AccessRights $script:FileAccessRight::ReadControl
             }
             "Directory" {
                 $AccessRights = $script:DirectoryAccessRight
-                $AccessRightsType = "FileSystemRights"
                 $ModificationRights = $DirectoryModificationRights
+                $Handle = Get-FileHandle -Path $Path -AccessRights $script:DirectoryAccessRight::ReadControl -Directory
             }
             "RegistryKey" {
                 $AccessRights = $script:RegistryKeyAccessRight
-                $AccessRightsType = "RegistryRights"
                 $ModificationRights = $RegistryKeyModificationRights
+                $Handle = Get-RegistryKeyHandle -Path $Path -AccessRights $script:RegistryKeyAccessRight::ReadControl
+            }
+            "Service" {
+                $AccessRights = $script:ServiceAccessRight
+                $ModificationRights = $ServiceModificationRights
+                $Handle = Get-ServiceHandle -Name $Path -AccessRights $script:ServiceAccessRight::ReadControl
             }
             default {
                 throw "Unhandled object type: $($Type)"
@@ -130,23 +144,11 @@ function Get-ModificationRight {
         }
 
         # First things first, try to get the ACL of the object given its path.
-        $Acl = Get-Acl -Path $Path -ErrorAction SilentlyContinue -ErrorVariable GetAclError
-        if ($GetAclError) { return }
+        $SecurityInfo = Get-ObjectSecurityInfo -Handle $Handle -Type $Type
+        if ($null -eq $SecurityInfo) { return }
 
-        # If no ACL is returned, it means that the object has a "null" DACL, in which case everyone is
-        # granted full access to the object. We can therefore simply return a "virtual" ACE that grants
-        # Everyone the "FullControl" right and exit.
-        if ($null -eq $Acl) {
-            $Result = New-Object -TypeName PSObject
-            $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $Path
-            $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value (Convert-SidToName -Sid "S-1-1-0")
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value $AccessRights::AllAccess
-            $Result
-            return
-        }
-
-        $DenyAces = [Object[]]($Acl | Select-Object -ExpandProperty Access | Where-Object { $_.AccessControlType -match "Deny" })
-        $AllowAces = [Object[]]($Acl | Select-Object -ExpandProperty Access | Where-Object { $_.AccessControlType -match "Allow" })
+        $DenyAces = $SecurityInfo.Dacl | Where-Object { $_.AceType -eq "AccessDenied" }
+        $AllowAces = $SecurityInfo.Dacl | Where-Object { $_.AceType -eq "AccessAllowed" }
 
         # Before checking the object permissions, we first need to enumerate deny ACEs (if any) that
         # would restrict the rights we may have on the target object.
@@ -158,19 +160,18 @@ function Get-ModificationRight {
 
                 # Ignore "InheritOnly" ACEs because they only apply to child objects, not to the object itself
                 # (e.g.: a file in a directory or a sub-key of a registry key).
-                if ($DenyAce.PropagationFlags -band ([System.Security.AccessControl.PropagationFlags]"InheritOnly").value__) { continue }
+                if ($DenyAce.PropagationFlags -band [System.Security.AccessControl.PropagationFlags]::InheritOnly.value__) { continue }
 
                 # Convert the ACE's identity reference name to its SID. If the SID is not in the list
                 # of deny-only SIDs of the current Token, ignore it. If the SID does not match the
                 # current user SID or the SID of any of its groups, ignore it as well.
                 # Note: deny-only SIDs are only used to check access-denied ACEs.
                 # https://docs.microsoft.com/en-us/windows/win32/secauthz/sid-attributes-in-an-access-token
-                $IdentityReferenceSid = Convert-NameToSid -Name $DenyAce.IdentityReference
-                if ($CurrentUserDenySids -notcontains $IdentityReferenceSid) { continue }
-                if ($CurrentUserSids -notcontains $IdentityReferenceSid) { continue }
+                if ($CurrentUserDenySids -notcontains $DenyAce.SecurityIdentifier) { continue }
+                if ($CurrentUserSids -notcontains $DenyAce.SecurityIdentifier) { continue }
 
                 $AccessRights.GetEnumValues() |
-                    Where-Object { ($DenyAce.$AccessRightsType.value__ -band $AccessRights::$_.value__) -eq $AccessRights::$_.value__ } |
+                    Where-Object { ($DenyAce.AccessMask -band $AccessRights::$_.value__) -eq $AccessRights::$_.value__ } |
                         ForEach-Object { $Restrictions += $_ }
             }
         }
@@ -182,12 +183,12 @@ function Get-ModificationRight {
 
                 # Ignore "InheritOnly" ACEs because they only apply to child objects, not to the object itself
                 # (e.g.: a file in a directory or a sub-key of a registry key).
-                if ($AllowAce.PropagationFlags -band ([System.Security.AccessControl.PropagationFlags]"InheritOnly").value__) { continue }
+                if ($AllowAce.PropagationFlags -band [System.Security.AccessControl.PropagationFlags]::InheritOnly.value__) { continue }
 
                 # Here, we simply extract the permissions granted by the current ACE
                 $Permissions = @()
                 $AccessRights.GetEnumValues() |
-                    Where-Object { ($AllowAce.$AccessRightsType.value__ -band $AccessRights::$_.value__) -eq $AccessRights::$_.value__ } |
+                    Where-Object { ($AllowAce.AccessMask -band $AccessRights::$_.value__) -eq $AccessRights::$_.value__ } |
                         ForEach-Object { $Permissions += $_ }
 
                 # If the ACE grants 'AllAccess', then all access rights match. In such a case,
@@ -202,19 +203,54 @@ function Get-ModificationRight {
 
                 # Here, we filter out ACEs that do not apply to the current user by checking whether the ACE's
                 # identity reference is in the current user's SID list.
-                $IdentityReferenceSid = Convert-NameToSid -Name $AllowAce.IdentityReference
-                if ($CurrentUserSids -notcontains $IdentityReferenceSid) { continue }
+                if ($CurrentUserSids -notcontains $AllowAce.SecurityIdentifier) { continue }
 
                 # We compare the list of permissions (minus the potential restrictions) against a list of
                 # predefined modification rights. If there is no match, we ignore the ACE.
                 $GrantedModificationRights = $Permissions | Where-Object { $ModificationRights -contains $_ }
                 if ($null -eq $GrantedModificationRights) { continue }
 
+                $ResolvedIdentity = Convert-SidToName -Sid $AllowAce.SecurityIdentifier
+                if ($ResolvedIdentity) {
+                    $IdentityReference = "$($ResolvedIdentity) ($($AllowAce.SecurityIdentifier))"
+                }
+                else {
+                    $IdentityReference = $AllowAce.SecurityIdentifier
+                }
+
                 $Result = New-Object -TypeName PSObject
                 $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $Path
-                $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $AllowAce.IdentityReference
+                $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $IdentityReference
                 $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value $Permissions
                 $Result
+            }
+        }
+    }
+
+    end {
+        switch ($Type) {
+            "File" {
+                if (($Handle -ne [IntPtr]::Zero) -and ($Handle -ne -1)) {
+                    $null = $script:Kernel32::CloseHandle($Handle)
+                }
+            }
+            "Directory" {
+                if (($Handle -ne [IntPtr]::Zero) -and ($Handle -ne -1)) {
+                    $null = $script:Kernel32::CloseHandle($Handle)
+                }
+            }
+            "RegistryKey" {
+                if ($Handle -ne [IntPtr]::Zero) {
+                    $null = $script:Kernel32::CloseHandle($Handle)
+                }
+            }
+            "Service" {
+                if ($Handle -ne [IntPtr]::Zero) {
+                    $null = $script:Advapi32::CloseServiceHandle($Handle)
+                }
+            }
+            default {
+                throw "Unhandled object type: $($Type)"
             }
         }
     }
@@ -321,9 +357,7 @@ function Get-ModifiableRegistryPath {
 
     process {
         $Path | ForEach-Object {
-            $RegPath = "Registry::$($_)"
-            $OrigPath = $_
-            Get-ModificationRight -Path $RegPath -Type RegistryKey | ForEach-Object { $_.ModifiablePath = $OrigPath; $_ }
+            Get-ModificationRight -Path $_ -Type RegistryKey
         }
     }
 }
@@ -669,13 +703,13 @@ function Get-ModifiableService {
             $ServiceHandle = Get-ServiceHandle -Name $ServiceObject.Name -AccessRights $script:ServiceAccessRight::ReadControl
             if ($ServiceHandle -eq [IntPtr]::Zero) { continue }
 
-            $ServiceDacl = Get-ServiceDiscretionaryAccessControlList -Handle $ServiceHandle
-            if ($null -eq $ServiceDacl) {
+            $SecurityInfo = Get-ObjectSecurityInfo -Handle $ServiceHandle -Type Service
+            if ($null -eq $SecurityInfo) {
                 $null = $script:Advapi32::CloseServiceHandle($ServiceHandle)
                 continue
             }
 
-            foreach ($Ace in $ServiceDacl) {
+            foreach ($Ace in $SecurityInfo.Dacl) {
 
                 # Ignore ACEs that do not match our identity.
                 if ($CurrentUserSids -notcontains $Ace.SecurityIdentifier) { continue }
@@ -686,13 +720,19 @@ function Get-ModifiableService {
                     continue
                 }
 
+                $Permissions = $Ace.AccessMask -as $script:ServiceAccessRight
+
                 foreach ($ModificationPermission in $ModificationPermissions) {
-                    if ((([UInt32] $ModificationPermission) -band $Ace.AccessRights) -eq $ModificationPermission) {
+
+                    if ($Permissions -contains $ModificationPermission) {
+
                         $Result = $ServiceObject.PSObject.Copy()
-                        $Result | Add-Member -MemberType "NoteProperty" -Name "AccessRights" -Value $Ace.AccessRights
+                        $Result | Add-Member -MemberType "NoteProperty" -Name "AccessRights" -Value $Permissions
                         $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $(Convert-SidToName -Sid $Ace.SecurityIdentifier)
                         $Result
                     }
+
+                    break
                 }
             }
 

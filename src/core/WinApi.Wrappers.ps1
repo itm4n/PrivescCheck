@@ -129,18 +129,99 @@ function Get-FileHandle {
 
         [UInt32] $AccessRights = $script:FileAccessRight::GenericRead,
 
-        [UInt32] $ShareMode = $script:FileShareMode::None
+        [UInt32] $ShareMode = $script:FileShareMode::Read + $script:FileShareMode::Write + $script:FileShareMode::Delete,
+
+        [Switch] $Directory = $false
     )
 
     process {
+        $FlagsAndAttributes = 0
 
-        $FileHandle = $script:Kernel32::CreateFile($Path, $AccessRights, $ShareMode, [IntPtr]::Zero, 3, 0, [IntPtr]::Zero)
+        # A directory must be opened with the flag FILE_FLAG_BACKUP_SEMANTICS
+        if ($Directory) { $FlagsAndAttributes = $FlagsAndAttributes -bor 0x02000000 }
+
+        $FileHandle = $script:Kernel32::CreateFile($Path, $AccessRights, $ShareMode, [IntPtr]::Zero, 3, $FlagsAndAttributes, [IntPtr]::Zero)
         if ($FileHandle -eq -1) {
             $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
             Write-Warning "CreateFile('$($Path)') - $(Format-Error $LastError)"
         }
 
         return $FileHandle
+    }
+}
+
+function Get-RegistryKeyHandle {
+    <#
+    .SYNOPSIS
+    Wrapper - Open a file using the 'RegOpenKeyEx' Windows API.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet is a wrapper for the 'RegOpenKeyEx' Windows API. It attempts to open a registry key using a user-supplied path.
+
+    .PARAMETER Path
+    A mandatory parameter representing the path of a registry key to open.
+
+    .PARAMETER AccessRights
+    An optional set of registry key access rights. If not specified, this parameter defaults to $script:RegistryKeyAccessRight::GenericRead.
+
+    .EXAMPLE
+    PS C:\> $KeyHandle = Get-RegistryKeyHandle -Path "HKLM\SYSTEM\CurrentControlSet\Control\Lsa"
+    PS C:\> $script:Kernel32::CloseHandle($KeyHandle)
+
+    .EXAMPLE
+    PS C:\> $KeyHandle = Get-RegistryKeyHandle -Path "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Lsa"
+    PS C:\> $script:Kernel32::CloseHandle($KeyHandle)
+
+    .EXAMPLE
+    PS C:\> $KeyHandle = Get-RegistryKeyHandle -Path 'HKLM\SYSTEM\CurrentControlSet\Control\Lsa' -AccessRights $script:RegistryKeyAccessRight::ReadControl
+    PS C:\> $script:Kernel32::CloseHandle($KeyHandle)
+    #>
+
+    [OutputType([IntPtr])]
+    [CmdletBinding()]
+    param (
+        [Parameter(Position=0, Mandatory=$true)]
+        [ValidateNotNullOrEmpty()]
+        [String] $Path,
+
+        [UInt32] $AccessRights = $script:RegistryKeyAccessRight::GenericRead
+    )
+
+    begin {
+        $RootKeyShortNames = @{
+            "HKEY_CLASSES_ROOT" = "HKCR"
+            "HKEY_CURRENT_CONFIG" = "HKCC"
+            "HKEY_CURRENT_USER" = "HKCU"
+            "HKEY_LOCAL_MACHINE" = "HKLM"
+            "HKEY_USERS" = "HKU"
+        }
+    }
+
+    process {
+        $RootKeyShortNames.Keys | ForEach-Object { $Path = $Path -replace $_, $RootKeyShortNames[$_] }
+        $RootKeyName = $Path.Split('\')[0]
+        $RootKeyPath = ($Path -replace $RootKeyName, "").Trim('\')
+
+        switch ($RootKeyName) {
+            "HKCR" { $RootKeyValue = 0x80000000 }
+            "HKCU" { $RootKeyValue = 0x80000001 }
+            "HKLM" { $RootKeyValue = 0x80000002 }
+            "HKU"  { $RootKeyValue = 0x80000003 }
+            "HKCC" { $RootKeyValue = 0x80000005 }
+            default { throw "Unhandled root key: $($RootKeyName)" }
+        }
+
+        $RegistryKeyHandle = [IntPtr]::Zero
+        $Status = $script:Advapi32::RegOpenKeyEx($RootKeyValue, $RootKeyPath, 0, $AccessRights, [ref] $RegistryKeyHandle)
+        if ($Status -ne $script:SystemErrorCode::ERROR_SUCCESS) {
+            $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+            Write-Warning "RegOpenKeyEx('$($Path)') - $(Format-Error $LastError)"
+        }
+
+        return $RegistryKeyHandle
     }
 }
 
@@ -1396,7 +1477,7 @@ function Get-ObjectSecurityInfo {
         [IntPtr] $Handle,
 
         [Parameter(Mandatory=$true)]
-        [ValidateSet("File", "Directory", "Service")]
+        [ValidateSet("File", "Directory", "RegistryKey", "Service")]
         [String] $Type
     )
 

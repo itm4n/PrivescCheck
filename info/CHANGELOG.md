@@ -5,6 +5,7 @@
 ### Added
 
 - Wrapper function for querying an object's security information in a generic way.
+- Implement a generic way of analyzing an object's DACL.
 
 ### Changed
 
