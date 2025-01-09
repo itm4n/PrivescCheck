@@ -2,6 +2,10 @@
 
 ## 2025-01-09
 
+### Changed
+
+- Rename helper function 'Get-ModificationRight' to 'Get-ObjectAccessRight', and make it even more generic so that it can be used to check any access right, not just modification rights (which is still the default).
+
 ### Removed
 
 - The cmdlet 'Get-ModifiableService' was replaced by the more generic helper function 'Get-ModificationRight'.

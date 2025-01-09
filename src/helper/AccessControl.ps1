@@ -1,7 +1,7 @@
-function Get-ModificationRight {
+function Get-ObjectAccessRight {
     <#
     .SYNOPSIS
-    Helper - Enumerates modification rights the current user has on an object.
+    Helper - Enumerates access rights the current user has on an object.
 
     Author: @itm4n
     License: BSD 3-Clause
@@ -10,43 +10,53 @@ function Get-ModificationRight {
     This cmdlet retrieves the ACL of an object and returns the ACEs that grant modification permissions to the current user. It should be noted that, in case of deny ACEs, restricted rights are removed from the permission list of the ACEs.
 
     .PARAMETER Path
-    The full path of a securable object.
+    A mandatory parameter representing the name of an object.
 
     .PARAMETER Type
-    The target object type (e.g. "File").
+    A mandatory parameter representing the type of object being queried (e.g. "File", "Directory", "RegistryKey", "Service", etc.).
+
+    .PARAMETER AccessRights
+    An optional parameter representing a list of target access rights to test. If not specified, this cmdlet checks for modification rights specific to the input object type.
 
     .EXAMPLE
-    PS C:\> Get-ModificationRight -Path C:\Temp\foo123.txt -Type File
+    PS C:\> Get-ObjectAccessRight -Name "C:\Workspace\foo123.txt" -Type File
 
-    ModifiablePath    : C:\Temp\foo123.txt
-    IdentityReference : NT AUTHORITY\Authenticated Users
-    Permissions       : Delete, WriteAttributes, Synchronize, ReadControl, ReadData, AppendData, WriteExtendedAttributes,
-                        ReadAttributes, WriteData, ReadExtendedAttributes, Execute
-
-    .EXAMPLE
-    PS C:\> Get-ModificationRight -Path C:\Temp\deny-delete.txt -Type File
-
-    ModifiablePath    : C:\Temp\deny-delete.txt
-    IdentityReference : NT AUTHORITY\Authenticated Users
-    Permissions       : WriteAttributes, Synchronize, ReadControl, ReadData, AppendData, WriteExtendedAttributes,
-                        ReadAttributes, WriteData, ReadExtendedAttributes, Execute
+    ModifiablePath    : C:\Workspace\foo123.txt
+    IdentityReference : NT AUTHORITY\Authenticated Users (S-1-5-11)
+    Permissions       : {ReadData, WriteData, AppendData, ReadExtendedAttributes...}
 
     .EXAMPLE
-    PS C:\> Get-ModificationRight -Path C:\Temp\deny-write.txt -Type File
+    PS C:\> Get-ObjectAccessRight -Name "C:\Workspace" -Type Directory
 
-    ModifiablePath    : C:\Temp\deny-write.txt
-    IdentityReference : NT AUTHORITY\Authenticated Users
-    Permissions       : Delete, Synchronize, ReadControl, ReadData, ReadAttributes, ReadExtendedAttributes, Execute
+    ModifiablePath    : C:\Workspace
+    IdentityReference : NT AUTHORITY\Authenticated Users (S-1-5-11)
+    Permissions       : {ListDirectory, AddFile, AddSubdirectory, ReadExtendedAttributes...}
+
+    .EXAMPLE
+    PS C:\> Get-ObjectAccessRight -Name "VulnerableService" -Type Service
+
+    ModifiablePath    : VulnerableService
+    IdentityReference : BUILTIN\Users (S-1-5-32-545)
+    Permissions       : {ChangeConfig}
+
+    .EXAMPLE
+    PS C:\> Get-ObjectAccessRight -Name "wuauserv" -Type Service -AccessRights @($script:ServiceAccessRight::Start)
+
+    ModifiablePath    : wuauserv
+    IdentityReference : NT AUTHORITY\Authenticated Users (S-1-5-11)
+    Permissions       : {QueryConfig, QueryStatus, EnumerateDependents, Start...}
     #>
 
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)]
-        [String] $Path,
+        [String] $Name,
 
         [Parameter(Mandatory=$true)]
         [ValidateSet("File", "Directory", "RegistryKey", "Service")]
-        [String] $Type
+        [String] $Type,
+
+        [UInt32[]] $AccessRights = $null
     )
 
     begin {
@@ -99,29 +109,34 @@ function Get-ModificationRight {
     process {
         switch ($Type) {
             "File" {
-                $AccessRights = $script:FileAccessRight
-                $ModificationRights = $FileModificationRights
-                $Handle = Get-FileHandle -Path $Path -AccessRights $script:FileAccessRight::ReadControl
+                $ObjectAccessRights = $script:FileAccessRight
+                $TargetAccessRights = $(if ($PSBoundParameters['AccessRights']) { $AccessRights } else { $FileModificationRights })
+                $Handle = Get-FileHandle -Path $Name -AccessRights $script:FileAccessRight::ReadControl
             }
             "Directory" {
-                $AccessRights = $script:DirectoryAccessRight
-                $ModificationRights = $DirectoryModificationRights
-                $Handle = Get-FileHandle -Path $Path -AccessRights $script:DirectoryAccessRight::ReadControl -Directory
+                $ObjectAccessRights = $script:DirectoryAccessRight
+                $TargetAccessRights = $(if ($PSBoundParameters['AccessRights']) { $AccessRights } else { $DirectoryModificationRights })
+                $Handle = Get-FileHandle -Path $Name -AccessRights $script:DirectoryAccessRight::ReadControl -Directory
             }
             "RegistryKey" {
-                $AccessRights = $script:RegistryKeyAccessRight
-                $ModificationRights = $RegistryKeyModificationRights
-                $Handle = Get-RegistryKeyHandle -Path $Path -AccessRights $script:RegistryKeyAccessRight::ReadControl
+                $ObjectAccessRights = $script:RegistryKeyAccessRight
+                $TargetAccessRights = $(if ($PSBoundParameters['AccessRights']) { $AccessRights } else { $RegistryKeyModificationRights })
+                $Handle = Get-RegistryKeyHandle -Path $Name -AccessRights $script:RegistryKeyAccessRight::ReadControl
             }
             "Service" {
-                $AccessRights = $script:ServiceAccessRight
-                $ModificationRights = $ServiceModificationRights
-                $Handle = Get-ServiceHandle -Name $Path -AccessRights $script:ServiceAccessRight::ReadControl
+                $ObjectAccessRights = $script:ServiceAccessRight
+                $TargetAccessRights = $(if ($PSBoundParameters['AccessRights']) { $AccessRights } else { $ServiceModificationRights })
+                $Handle = Get-ServiceHandle -Name $Name -AccessRights $script:ServiceAccessRight::ReadControl
             }
             default {
                 throw "Unhandled object type: $($Type)"
             }
         }
+
+        # Sanity check. Just in case we add other object types in the future, we want to
+        # make sure its permission set (access right enum) is properly set. Especially,
+        # we assume that it has an 'AllAccess' member because it used further in the code.
+        if ($null -eq $ObjectAccessRights::AllAccess) { throw "Permission set for object type '$($Type)' does not have an 'AllAccess' member." }
 
         # First things first, try to get the ACL of the object given its path.
         $SecurityInfo = Get-ObjectSecurityInfo -Handle $Handle -Type $Type
@@ -150,8 +165,8 @@ function Get-ModificationRight {
                 if ($CurrentUserDenySids -notcontains $DenyAce.SecurityIdentifier) { continue }
                 if ($CurrentUserSids -notcontains $DenyAce.SecurityIdentifier) { continue }
 
-                $AccessRights.GetEnumValues() |
-                    Where-Object { ($DenyAce.AccessMask -band $AccessRights::$_.value__) -eq $AccessRights::$_.value__ } |
+                $ObjectAccessRights.GetEnumValues() |
+                    Where-Object { ($DenyAce.AccessMask -band $ObjectAccessRights::$_.value__) -eq $ObjectAccessRights::$_.value__ } |
                         ForEach-Object { $Restrictions += $_ }
             }
         }
@@ -167,14 +182,14 @@ function Get-ModificationRight {
 
                 # Here, we simply extract the permissions granted by the current ACE
                 $Permissions = @()
-                $AccessRights.GetEnumValues() |
-                    Where-Object { ($AllowAce.AccessMask -band $AccessRights::$_.value__) -eq $AccessRights::$_.value__ } |
+                $ObjectAccessRights.GetEnumValues() |
+                    Where-Object { ($AllowAce.AccessMask -band $ObjectAccessRights::$_.value__) -eq $ObjectAccessRights::$_.value__ } |
                         ForEach-Object { $Permissions += $_ }
 
                 # If the ACE grants 'AllAccess', then all access rights match. In such a case,
                 # instead of reporting all access rights + AllAccess, we modify the list and
                 # set AllAccess only.
-                if ($Permissions -contains $AccessRights::AllAccess) { $Permissions = @( $AccessRights::AllAccess )}
+                if ($Permissions -contains $ObjectAccessRights::AllAccess) { $Permissions = @( $ObjectAccessRights::AllAccess )}
 
                 # ... and we remove any right that would be restricted due to deny ACEs.
                 if ($Restrictions.Count -gt 0) {
@@ -187,7 +202,7 @@ function Get-ModificationRight {
 
                 # We compare the list of permissions (minus the potential restrictions) against a list of
                 # predefined modification rights. If there is no match, we ignore the ACE.
-                $GrantedModificationRights = $Permissions | Where-Object { $ModificationRights -contains $_ }
+                $GrantedModificationRights = $Permissions | Where-Object { $TargetAccessRights -contains $_ }
                 if ($null -eq $GrantedModificationRights) { continue }
 
                 $ResolvedIdentity = Convert-SidToName -Sid $AllowAce.SecurityIdentifier
@@ -199,7 +214,7 @@ function Get-ModificationRight {
                 }
 
                 $Result = New-Object -TypeName PSObject
-                $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $Path
+                $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $Name
                 $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $IdentityReference
                 $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value $Permissions
                 $Result
@@ -230,7 +245,9 @@ function Get-ModificationRight {
                 }
             }
             default {
-                throw "Unhandled object type: $($Type)"
+                # Sanity check. We want to make sure to add a 'CloseHandle' function whenever
+                # a new object type is added to this helper.
+                throw "No handle closing handler defined for object type: $($Type)"
             }
         }
     }
@@ -294,10 +311,10 @@ function Get-ModifiablePath {
 
             $ModifiablePath = $null
             if ($CandidateItem -is [System.IO.DirectoryInfo]) {
-                $ModifiablePath = Get-ModificationRight -Path $CandidateItem.FullName -Type Directory
+                $ModifiablePath = Get-ObjectAccessRight -Name $CandidateItem.FullName -Type Directory
             }
             else {
-                $ModifiablePath = Get-ModificationRight -Path $CandidateItem.FullName -Type File
+                $ModifiablePath = Get-ObjectAccessRight -Name $CandidateItem.FullName -Type File
             }
 
             if ($ModifiablePath) { $ModifiablePath; break }
@@ -337,7 +354,7 @@ function Get-ModifiableRegistryPath {
 
     process {
         $Path | ForEach-Object {
-            Get-ModificationRight -Path $_ -Type RegistryKey
+            Get-ObjectAccessRight -Name $_ -Type RegistryKey
         }
     }
 }

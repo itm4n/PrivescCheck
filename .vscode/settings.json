@@ -242,6 +242,7 @@
         "wlbsctrl",
         "WPAD",
         "Wpts",
-        "Wtsapi"
+        "Wtsapi",
+        "wuauserv"
     ]
 }

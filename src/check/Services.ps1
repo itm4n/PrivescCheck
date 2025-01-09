@@ -275,7 +275,7 @@ function Invoke-ServicePermissionCheck {
 
         Get-ServiceFromRegistry -FilterLevel 1 | ForEach-Object {
             $ServiceObject = $_
-            Get-ModificationRight -Path $ServiceObject.Name -Type Service | ForEach-Object {
+            Get-ObjectAccessRight -Name $ServiceObject.Name -Type Service | ForEach-Object {
                 $Result = $ServiceObject.PSObject.Copy()
                 $Result | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $(Get-ServiceStatus -Name $ServiceObject.Name)
                 $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStart" -Value $(Test-ServiceDiscretionaryAccessControlList -Service $ServiceObject -Permissions "Start")
