@@ -245,20 +245,24 @@ function Invoke-ServicePermissionCheck {
     License: BSD 3-Clause
 
     .DESCRIPTION
-    This is based on the original "Get-ModifiableService" from PowerUp.
+    This cmdlet enumerates Windows services and checks their DACL to see if the current user has any modification right on them.
 
     .EXAMPLE
     PS C:\> Invoke-ServicePermissionCheck
 
-    Name           : DVWS
-    ImagePath      : C:\DVWS\Vuln Service\service.exe
-    User           : LocalSystem
-    Status         : Stopped
-    UserCanStart   : True
-    UserCanStop    : True
-
-    .LINK
-    https://github.com/PowerShellMafia/PowerSploit/blob/master/Privesc/PowerUp.ps1
+    Name              : UnquotedService
+    DisplayName       :
+    User              : LocalSystem
+    ImagePath         : C:\Workspace\Test Service\cmd.exe /c net user add
+    StartMode         : Manual
+    Type              : Win32OwnProcess
+    RegistryKey       : HKLM\SYSTEM\CurrentControlSet\Services
+    RegistryPath      : HKLM\SYSTEM\CurrentControlSet\Services\UnquotedService
+    Status            : Stopped
+    UserCanStart      : False
+    UserCanStop       : False
+    IdentityReference : BUILTIN\Users (S-1-5-32-545)
+    Permissions       : ChangeConfig
     #>
 
     [CmdletBinding()]
@@ -269,14 +273,17 @@ function Invoke-ServicePermissionCheck {
     process {
         $AllResults = @()
 
-        Get-ServiceFromRegistry -FilterLevel 1 | Get-ModifiableService | ForEach-Object {
-
-            $Result = $_.PSObject.Copy()
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $(Get-ServiceStatus -Name $_.Name)
-            $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStart" -Value $(Test-ServiceDiscretionaryAccessControlList -Service $_ -Permissions "Start")
-            $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStop" -Value $(Test-ServiceDiscretionaryAccessControlList -Service $_ -Permissions "Stop")
-
-            $AllResults += $Result
+        Get-ServiceFromRegistry -FilterLevel 1 | ForEach-Object {
+            $ServiceObject = $_
+            Get-ModificationRight -Path $ServiceObject.Name -Type Service | ForEach-Object {
+                $Result = $ServiceObject.PSObject.Copy()
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $(Get-ServiceStatus -Name $ServiceObject.Name)
+                $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStart" -Value $(Test-ServiceDiscretionaryAccessControlList -Service $ServiceObject -Permissions "Start")
+                $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStop" -Value $(Test-ServiceDiscretionaryAccessControlList -Service $ServiceObject -Permissions "Stop")
+                $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $_.IdentityReference
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value ($_.Permissions -join ", ")
+                $AllResults += $Result
+            }
         }
 
         $CheckResult = New-Object -TypeName PSObject

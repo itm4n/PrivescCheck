@@ -94,26 +94,6 @@ function Get-ModificationRight {
 
         $CurrentUserSids = Get-CurrentUserSid
         $CurrentUserDenySids = Get-CurrentUserDenySid
-
-        $ResolvedIdentities = @{}
-
-        function Convert-NameToSid {
-
-            param([String] $Name)
-
-            if (($Name -match '^S-1-5.*') -or ($Name -match '^S-1-15-.*')) { $Name; return }
-
-            if (-not ($ResolvedIdentities[$Name])) {
-                $Identity = New-Object System.Security.Principal.NTAccount($Name)
-                try {
-                    $ResolvedIdentities[$Name] = $Identity.Translate([System.Security.Principal.SecurityIdentifier]) | Select-Object -ExpandProperty Value
-                }
-                catch {
-                    $null = $_
-                }
-            }
-            $ResolvedIdentities[$Name]
-        }
     }
 
     process {
@@ -658,85 +638,6 @@ function Get-ExploitableUnquotedPath {
                     }
                 }
             }
-        }
-    }
-}
-
-function Get-ModifiableService {
-    <#
-    .SYNOPSIS
-    Helper - Get services on which the current user has modification permissions.
-
-    Author: @itm4n
-    License: BSD 3-Clause
-
-    .DESCRIPTION
-    This cmdlet retrieves the DACL of a service, and checks whether the current user has modification permissions on it such as 'ChangeConfig' or 'WriteOwner'.
-
-    .PARAMETER Service
-    A mandatory service object returned by 'Get-ServiceFromRegistry' (or 'Get-Service').
-
-    .EXAMPLE
-    PS C:\> Get-ServiceFromRegistry -FilterLevel 2 | Get-ModifiableService
-    #>
-
-    [CmdletBinding()]
-    param (
-        [Parameter(Position=0, Mandatory=$true, ValueFromPipeline=$true, ValueFromPipelineByPropertyName=$true)]
-        [ValidateNotNullOrEmpty()]
-        [Object[]] $Service
-    )
-
-    begin {
-        $ModificationPermissions = @(
-            $script:ServiceAccessRight::ChangeConfig,
-            $script:ServiceAccessRight::WriteDac,
-            $script:ServiceAccessRight::WriteOwner,
-            $script:ServiceAccessRight::AllAccess
-        )
-
-        $CurrentUserSids = Get-CurrentUserSid
-    }
-
-    process {
-        foreach ($ServiceObject in $Service) {
-            $ServiceHandle = Get-ServiceHandle -Name $ServiceObject.Name -AccessRights $script:ServiceAccessRight::ReadControl
-            if ($ServiceHandle -eq [IntPtr]::Zero) { continue }
-
-            $SecurityInfo = Get-ObjectSecurityInfo -Handle $ServiceHandle -Type Service
-            if ($null -eq $SecurityInfo) {
-                $null = $script:Advapi32::CloseServiceHandle($ServiceHandle)
-                continue
-            }
-
-            foreach ($Ace in $SecurityInfo.Dacl) {
-
-                # Ignore ACEs that do not match our identity.
-                if ($CurrentUserSids -notcontains $Ace.SecurityIdentifier) { continue }
-
-                # Ignore deny ACEs
-                if ($Ace.AceType -ne "AccessAllowed") {
-                    Write-Warning "Unhandled ACE type found ('$($Ace.AceType)') for service '$($ServiceObject.Name)'."
-                    continue
-                }
-
-                $Permissions = $Ace.AccessMask -as $script:ServiceAccessRight
-
-                foreach ($ModificationPermission in $ModificationPermissions) {
-
-                    if ($Permissions -contains $ModificationPermission) {
-
-                        $Result = $ServiceObject.PSObject.Copy()
-                        $Result | Add-Member -MemberType "NoteProperty" -Name "AccessRights" -Value $Permissions
-                        $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $(Convert-SidToName -Sid $Ace.SecurityIdentifier)
-                        $Result
-                    }
-
-                    break
-                }
-            }
-
-            $null = $script:Advapi32::CloseServiceHandle($ServiceHandle)
         }
     }
 }

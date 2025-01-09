@@ -1,5 +1,12 @@
 # Changelog
 
+## 2025-01-09
+
+### Removed
+
+- The cmdlet 'Get-ModifiableService' was replaced by the more generic helper function 'Get-ModificationRight'.
+- The helper function 'Convert-NameToSid' embedded within 'Get-ModificationRight' was removed as it is no longer needed.
+
 ## 2025-01-08
 
 ### Added
