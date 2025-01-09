@@ -315,56 +315,22 @@ function Invoke-ServiceControlManagerPermissionCheck {
         [UInt32] $BaseSeverity
     )
 
-    begin {
-        $CurrentUserSids = Get-CurrentUserSid
-        $AllResults = @()
-        $ServiceControlManagerHandle = [IntPtr]::Zero
-
-        $PermissionReference = @(
-            $script:ServiceControlManagerAccessRight::CreateService,
-            $script:ServiceControlManagerAccessRight::ModifyBootConfig,
-            $script:ServiceControlManagerAccessRight::AllAccess,
-            $script:ServiceControlManagerAccessRight::GenericWrite
-        )
-    }
-
     process {
-        $ServiceControlManagerHandle = Get-ServiceHandle -Name "SCM" -SCM
-        if ($ServiceControlManagerHandle -eq [IntPtr]::Zero) { return }
+        $AllResults = @()
 
-        Get-ServiceDiscretionaryAccessControlList -Handle $ServiceControlManagerHandle -SCM |
-            Where-Object { $($_ | Select-Object -ExpandProperty "AceType") -match "AccessAllowed" } |
-                ForEach-Object {
-                    $CurrentAce = $_
+        Get-ObjectAccessRight -Name "SCM" -Type ServiceControlManager | Foreach-Object {
 
-                    $Permissions = [Enum]::GetValues($script:ServiceControlManagerAccessRight) | Where-Object {
-                        ($CurrentAce.AccessMask -band ($script:ServiceControlManagerAccessRight::$_)) -eq ($script:ServiceControlManagerAccessRight::$_)
-                    }
+            $Result = New-Object -TypeName PSObject
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value "ServiceControlManager"
+            $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $_.IdentityReference
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value $_.Permissions
+            $AllResults += $Result
+        }
 
-                    if (Compare-Object -ReferenceObject $Permissions -DifferenceObject $PermissionReference -IncludeEqual -ExcludeDifferent) {
-
-                        $IdentityReference = $($CurrentAce | Select-Object -ExpandProperty "SecurityIdentifier").ToString()
-
-                        if ($CurrentUserSids -contains $IdentityReference) {
-
-                            $Result = New-Object -TypeName PSObject
-                            $Result | Add-Member -MemberType "NoteProperty" -Name "AceType" -Value $($CurrentAce | Select-Object -ExpandProperty "AceType")
-                            $Result | Add-Member -MemberType "NoteProperty" -Name "AccessRights" -Value $($CurrentAce | Select-Object -ExpandProperty "AccessRights")
-                            $Result | Add-Member -MemberType "NoteProperty" -Name "IdentitySid" -Value $IdentityReference
-                            $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityName" -Value $(Convert-SidToName -Sid $IdentityReference)
-                            $AllResults += $Result
-                        }
-                    }
-                }
-
-                $CheckResult = New-Object -TypeName PSObject
-                $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
-                $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AllResults) { $BaseSeverity } else { $script:SeverityLevel::None })
-                $CheckResult
-    }
-
-    end {
-        if ($ServiceControlManagerHandle -ne [IntPtr]::Zero) { $null = $script:Advapi32::CloseServiceHandle($ServiceControlManagerHandle) }
+        $CheckResult = New-Object -TypeName PSObject
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AllResults) { $BaseSeverity } else { $script:SeverityLevel::None })
+        $CheckResult
     }
 }
 

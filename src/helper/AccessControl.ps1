@@ -45,6 +45,17 @@ function Get-ObjectAccessRight {
     ModifiablePath    : wuauserv
     IdentityReference : NT AUTHORITY\Authenticated Users (S-1-5-11)
     Permissions       : {QueryConfig, QueryStatus, EnumerateDependents, Start...}
+
+    .EXAMPLE
+    PS C:\> Get-ObjectAccessRight -Name SCM -Type ServiceControlManager -AccessRights @($script:ServiceControlManagerAccessRight::Connect)
+
+    ModifiablePath    : SCM
+    IdentityReference : NT AUTHORITY\Authenticated Users (S-1-5-11)
+    Permissions       : {Connect}
+
+    ModifiablePath    : SCM
+    IdentityReference : NT AUTHORITY\INTERACTIVE (S-1-5-4)
+    Permissions       : {Connect, EnumerateService, QueryLockStatus, GenericRead}
     #>
 
     [CmdletBinding()]
@@ -53,7 +64,7 @@ function Get-ObjectAccessRight {
         [String] $Name,
 
         [Parameter(Mandatory=$true)]
-        [ValidateSet("File", "Directory", "RegistryKey", "Service")]
+        [ValidateSet("File", "Directory", "RegistryKey", "Service", "ServiceControlManager")]
         [String] $Type,
 
         [UInt32[]] $AccessRights = $null
@@ -99,7 +110,17 @@ function Get-ObjectAccessRight {
             $script:ServiceAccessRight::ChangeConfig,
             $script:ServiceAccessRight::WriteDac,
             $script:ServiceAccessRight::WriteOwner,
+            $script:ServiceAccessRight::GenericWrite,
             $script:ServiceAccessRight::AllAccess
+        )
+
+        $ServiceControlManagerModificationRights = @(
+            $script:ServiceControlManagerAccessRight::CreateService,
+            $script:ServiceControlManagerAccessRight::ModifyBootConfig,
+            $script:ServiceControlManagerAccessRight::WriteDac,
+            $script:ServiceControlManagerAccessRight::WriteOwner,
+            $script:ServiceControlManagerAccessRight::GenericWrite,
+            $script:ServiceControlManagerAccessRight::AllAccess
         )
 
         $CurrentUserSids = Get-CurrentUserSid
@@ -127,6 +148,11 @@ function Get-ObjectAccessRight {
                 $ObjectAccessRights = $script:ServiceAccessRight
                 $TargetAccessRights = $(if ($PSBoundParameters['AccessRights']) { $AccessRights } else { $ServiceModificationRights })
                 $Handle = Get-ServiceHandle -Name $Name -AccessRights $script:ServiceAccessRight::ReadControl
+            }
+            "ServiceControlManager" {
+                $ObjectAccessRights = $script:ServiceControlManagerAccessRight
+                $TargetAccessRights = $(if ($PSBoundParameters['AccessRights']) { $AccessRights } else { $ServiceControlManagerModificationRights })
+                $Handle = Get-ServiceHandle -Name "SCM" -SCM -AccessRights $script:ServiceAccessRight::ReadControl
             }
             default {
                 throw "Unhandled object type: $($Type)"
@@ -247,6 +273,11 @@ function Get-ObjectAccessRight {
                 }
             }
             "Service" {
+                if ($Handle -ne [IntPtr]::Zero) {
+                    $null = $script:Advapi32::CloseServiceHandle($Handle)
+                }
+            }
+            "ServiceControlManager" {
                 if ($Handle -ne [IntPtr]::Zero) {
                     $null = $script:Advapi32::CloseServiceHandle($Handle)
                 }

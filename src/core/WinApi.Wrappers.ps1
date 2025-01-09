@@ -318,96 +318,6 @@ function Get-ServiceHandle {
     }
 }
 
-function Get-ServiceDiscretionaryAccessControlList {
-    <#
-    .SYNOPSIS
-    Wrapper - Get the DACL of a service (or the Service Control Manager itself)
-
-    Author: @itm4n
-    License: BSD 3-Clause
-
-    .DESCRIPTION
-    This cmdlet takes a service handle returned by 'Get-ServiceHandle' as an input and returns its DACL. If it can't query a service's DACL, it returns null.
-
-    .PARAMETER Handle
-    A mandatory service handle input returned by 'Get-ServiceHandle'.
-
-    .PARAMETER SCM
-    An optional switch specifying whether the service being queried is the Service Control Manager itself.
-
-    .EXAMPLE
-    PS C:\> $ServiceHandle = Get-ServiceHandle -Name "IKEEXT"
-    PS C:\> $ServiceDacl = Get-ServiceDiscretionaryAccessControlList -Handle $ServiceHandle
-    PS C:\> $null = $script:Advapi32::CloseServiceHandle($ServiceHandle)
-    PS C:\> $ServiceDacl
-
-    AccessRights       : QueryConfig, QueryStatus, EnumerateDependents, Interrogate, GenericExecute
-    BinaryLength       : 20
-    AceQualifier       : AccessAllowed
-    IsCallback         : False
-    OpaqueLength       : 0
-    AccessMask         : 131581
-    SecurityIdentifier : S-1-5-18
-    AceType            : AccessAllowed
-    AceFlags           : None
-    IsInherited        : False
-    InheritanceFlags   : None
-    PropagationFlags   : None
-    AuditFlags         : None
-
-    ...
-
-    .EXAMPLE
-    PS C:\> $ServiceControlManagerHandle = Get-ServiceHandle -Name "SCM"
-    PS C:\> $ServiceDacl = Get-ServiceDiscretionaryAccessControlList -Handle $ServiceControlManagerHandle -SCM
-    PS C:\> $null = $script:Advapi32::CloseServiceHandle($ServiceControlManagerHandle)
-    PS C:\> $ServiceDacl
-
-    AccessRights       : Connect
-    BinaryLength       : 20
-    AceQualifier       : AccessAllowed
-    IsCallback         : False
-    OpaqueLength       : 0
-    AccessMask         : 1
-    SecurityIdentifier : S-1-5-11
-    AceType            : AccessAllowed
-    AceFlags           : None
-    IsInherited        : False
-    InheritanceFlags   : None
-    PropagationFlags   : None
-    AuditFlags         : None
-
-    ...
-    #>
-
-    [CmdletBinding()]
-    param (
-        [Parameter(Position=0, Mandatory=$true)]
-        [ValidateNotNullOrEmpty()]
-        [IntPtr] $Handle,
-
-        [Switch] $SCM = $false
-    )
-
-    begin {
-        if ($SCM) {
-            $AccessRightEnum = $script:ServiceControlManagerAccessRight
-        }
-        else {
-            $AccessRightEnum = $script:ServiceAccessRight
-        }
-    }
-
-    process {
-        $SecurityInfo = Get-ObjectSecurityInfo -Handle $Handle -Type Service
-        if ($null -eq $SecurityInfo) { return }
-
-        $SecurityInfo.Dacl | ForEach-Object {
-            Add-Member -InputObject $_ -MemberType "NoteProperty" -Name "AccessRights" -Value ($_.AccessMask -as $AccessRightEnum) -PassThru
-        }
-    }
-}
-
 function Get-ServiceStatus {
     <#
     .SYNOPSIS
@@ -1477,7 +1387,7 @@ function Get-ObjectSecurityInfo {
         [IntPtr] $Handle,
 
         [Parameter(Mandatory=$true)]
-        [ValidateSet("File", "Directory", "RegistryKey", "Service")]
+        [ValidateSet("File", "Directory", "RegistryKey", "Service", "ServiceControlManager")]
         [String] $Type
     )
 
@@ -1489,12 +1399,12 @@ function Get-ObjectSecurityInfo {
     process {
 
         switch ($Type) {
-            "File"          { $ObjectType = $script:SE_OBJECT_TYPE::SE_FILE_OBJECT; $AccessRights = $script:FileAccessRight }
-            "Directory"     { $ObjectType = $script:SE_OBJECT_TYPE::SE_FILE_OBJECT; $AccessRights = $script:DirectoryAccessRight }
-            "Service"       { $ObjectType = $script:SE_OBJECT_TYPE::SE_SERVICE; $AccessRights = $script:ServiceAccessRight }
-            "SCM"           { $ObjectType = $script:SE_OBJECT_TYPE::SE_SERVICE; $AccessRights = $script:ServiceControlManagerAccessRight }
-            "RegistryKey"   { $ObjectType = $script:SE_OBJECT_TYPE::SE_REGISTRY_KEY; $AccessRights = $script:RegistryKeyAccessRight }
-            default         { throw "Unhandled object type: $($Type)" }
+            "File"                  { $ObjectType = $script:SE_OBJECT_TYPE::SE_FILE_OBJECT; $AccessRights = $script:FileAccessRight }
+            "Directory"             { $ObjectType = $script:SE_OBJECT_TYPE::SE_FILE_OBJECT; $AccessRights = $script:DirectoryAccessRight }
+            "RegistryKey"           { $ObjectType = $script:SE_OBJECT_TYPE::SE_REGISTRY_KEY; $AccessRights = $script:RegistryKeyAccessRight }
+            "Service"               { $ObjectType = $script:SE_OBJECT_TYPE::SE_SERVICE; $AccessRights = $script:ServiceAccessRight }
+            "ServiceControlManager" { $ObjectType = $script:SE_OBJECT_TYPE::SE_SERVICE; $AccessRights = $script:ServiceControlManagerAccessRight }
+            default                 { throw "Unhandled object type: $($Type)" }
         }
 
         $SecurityInfo = 7 # DACL_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION | OWNER_SECURITY_INFORMATION

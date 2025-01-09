@@ -5,6 +5,7 @@
 ### Changed
 
 - Rename helper function 'Get-ModificationRight' to 'Get-ObjectAccessRight', and make it even more generic so that it can be used to check any access right, not just modification rights (which is still the default).
+- The helper function 'Get-ObjectAccessRight' now handles access right checks for the Service Control Manager.
 
 ### Removed
 
@@ -12,6 +13,7 @@
 - The helper function 'Convert-NameToSid' embedded within 'Get-ModificationRight' was removed as it is no longer needed.
 - The helper function 'Get-ModifiableRegistryPath' was replaced by 'Get-ObjectAccessRight'.
 - The helper function 'Test-ServiceDiscretionaryAccessControlList' was replaced by 'Get-ObjectAccessRight'.
+- The helper function 'Get-ServiceDiscretionaryAccessControlList' was replaced by 'Get-ObjectAccessRight'.
 
 ## 2025-01-08
 
