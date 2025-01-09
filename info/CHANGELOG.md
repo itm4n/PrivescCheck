@@ -10,6 +10,8 @@
 
 - The cmdlet 'Get-ModifiableService' was replaced by the more generic helper function 'Get-ModificationRight'.
 - The helper function 'Convert-NameToSid' embedded within 'Get-ModificationRight' was removed as it is no longer needed.
+- The helper function 'Get-ModifiableRegistryPath' was replaced by 'Get-ObjectAccessRight'.
+- The helper function 'Test-ServiceDiscretionaryAccessControlList' was replaced by 'Get-ObjectAccessRight'.
 
 ## 2025-01-08
 

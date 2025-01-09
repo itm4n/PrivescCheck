@@ -64,7 +64,7 @@ function Invoke-ServiceRegistryPermissionCheck {
 
         foreach ($Service in $AllServices) {
 
-            Get-ModifiableRegistryPath -Path "$($Service.RegistryPath)" | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) } | Foreach-Object {
+            Get-ObjectAccessRight -Name $Service.RegistryPath -Type RegistryKey | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) } | Foreach-Object {
 
                 $VulnerableService = New-Object -TypeName PSObject
                 $VulnerableService | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $Service.Name
@@ -74,8 +74,8 @@ function Invoke-ServiceRegistryPermissionCheck {
                 $VulnerableService | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $_.IdentityReference
                 $VulnerableService | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value ($_.Permissions -join ", ")
                 $VulnerableService | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $(Get-ServiceStatus -Name $Service.Name)
-                $VulnerableService | Add-Member -MemberType "NoteProperty" -Name "UserCanStart" -Value $(Test-ServiceDiscretionaryAccessControlList -Service $Service -Permissions "Start")
-                $VulnerableService | Add-Member -MemberType "NoteProperty" -Name "UserCanStop" -Value $(Test-ServiceDiscretionaryAccessControlList -Service $Service -Permissions "Stop")
+                $VulnerableService | Add-Member -MemberType "NoteProperty" -Name "UserCanStart" -Value $($null -ne (Get-ObjectAccessRight -Name $Service.Name -Type Service -AccessRights @($script:ServiceAccessRight::Start)))
+                $VulnerableService | Add-Member -MemberType "NoteProperty" -Name "UserCanStop" -Value $($null -ne (Get-ObjectAccessRight -Name $Service.Name -Type Service -AccessRights @($script:ServiceAccessRight::Stop)))
                 $AllResults += $VulnerableService
             }
         }
@@ -138,8 +138,8 @@ function Invoke-ServiceUnquotedPathCheck {
             $Result | Add-Member -MemberType "NoteProperty" -Name "ImagePath" -Value $Service.ImagePath
             $Result | Add-Member -MemberType "NoteProperty" -Name "User" -Value $Service.User
             $Result | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $(Get-ServiceStatus -Name $Service.Name)
-            $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStart" -Value $(Test-ServiceDiscretionaryAccessControlList -Service $Service -Permissions "Start")
-            $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStop" -Value $(Test-ServiceDiscretionaryAccessControlList -Service $Service -Permissions "Stop")
+            $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStart" -Value $($null -ne (Get-ObjectAccessRight -Name $Service.Name -Type Service -AccessRights @($script:ServiceAccessRight::Start)))
+            $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStop" -Value $($null -ne (Get-ObjectAccessRight -Name $Service.Name -Type Service -AccessRights @($script:ServiceAccessRight::Stop)))
 
             foreach ($ExploitablePath in $ExploitablePaths) {
                 $ResultItem = $Result.PSObject.Copy()
@@ -212,8 +212,8 @@ function Invoke-ServiceImagePermissionCheck {
 
             $Result = $Service.PSObject.Copy()
             $Result | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $(Get-ServiceStatus -Name $Service.Name)
-            $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStart" -Value $(Test-ServiceDiscretionaryAccessControlList -Service $Service -Permissions "Start")
-            $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStop" -Value $(Test-ServiceDiscretionaryAccessControlList -Service $Service -Permissions "Stop")
+            $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStart" -Value $($null -ne (Get-ObjectAccessRight -Name $Service.Name -Type Service -AccessRights @($script:ServiceAccessRight::Start)))
+            $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStop" -Value $($null -ne (Get-ObjectAccessRight -Name $Service.Name -Type Service -AccessRights @($script:ServiceAccessRight::Stop)))
 
             foreach ($ModifiablePath in $ModifiablePaths) {
 
@@ -278,8 +278,8 @@ function Invoke-ServicePermissionCheck {
             Get-ObjectAccessRight -Name $ServiceObject.Name -Type Service | ForEach-Object {
                 $Result = $ServiceObject.PSObject.Copy()
                 $Result | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $(Get-ServiceStatus -Name $ServiceObject.Name)
-                $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStart" -Value $(Test-ServiceDiscretionaryAccessControlList -Service $ServiceObject -Permissions "Start")
-                $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStop" -Value $(Test-ServiceDiscretionaryAccessControlList -Service $ServiceObject -Permissions "Stop")
+                $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStart" -Value $($null -ne (Get-ObjectAccessRight -Name $ServiceObject.Name -Type Service -AccessRights @($script:ServiceAccessRight::Start)))
+                $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStop" -Value $($null -ne (Get-ObjectAccessRight -Name $ServiceObject.Name -Type Service -AccessRights @($script:ServiceAccessRight::Stop)))
                 $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $_.IdentityReference
                 $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value ($_.Permissions -join ", ")
                 $AllResults += $Result

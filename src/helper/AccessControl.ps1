@@ -138,6 +138,13 @@ function Get-ObjectAccessRight {
         # we assume that it has an 'AllAccess' member because it used further in the code.
         if ($null -eq $ObjectAccessRights::AllAccess) { throw "Permission set for object type '$($Type)' does not have an 'AllAccess' member." }
 
+        # Sanity check. Make sure the input access right set to test is valid.
+        $TargetAccessRights | ForEach-Object {
+            if ($ObjectAccessRights.GetEnumValues() -notcontains $_) {
+                Write-Warning "Permission set for object type '$($Type)' does not contain an access right named '$($_)'."
+            }
+        }
+
         # First things first, try to get the ACL of the object given its path.
         $SecurityInfo = Get-ObjectSecurityInfo -Handle $Handle -Type $Type
         if ($null -eq $SecurityInfo) { return }
@@ -324,41 +331,6 @@ function Get-ModifiablePath {
     }
 }
 
-function Get-ModifiableRegistryPath {
-    <#
-    .SYNOPSIS
-    Helper - Checks the permissions of a given registry key and returns the ones that the current user can modify. It's based on the same technique as the one used by @harmj0y in "Get-ModifiablePath".
-
-    Author: @itm4n
-    License: BSD 3-Clause
-
-    .DESCRIPTION
-    Any registry path that the current user has modification rights on is returned in a custom object that contains the modifiable path, associated permission set, and the IdentityReference with the specified rights. The SID of the current user and any group he/she are a part of are used as the comparison set against the parsed path DACLs.
-
-    .PARAMETER Path
-    A registry key path. Required
-
-    .EXAMPLE
-    PS C:\> Get-ModifiableRegistryPath -Path "HKLM\SOFTWARE\Microsoft\Tracing"
-
-    ModifiablePath    : HKLM\SOFTWARE\Microsoft\Tracing
-    IdentityReference : BUILTIN\Users
-    Permissions       : Notify, ReadControl, EnumerateSubKeys, CreateSubKey, SetValue, QueryValue
-    #>
-
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory=$true, ValueFromPipeline=$true, ValueFromPipelineByPropertyName=$true)]
-        [String[]] $Path
-    )
-
-    process {
-        $Path | ForEach-Object {
-            Get-ObjectAccessRight -Name $_ -Type RegistryKey
-        }
-    }
-}
-
 function Get-ModifiableComClassEntryRegistryPath {
     <#
     .SYNOPSIS
@@ -385,7 +357,7 @@ function Get-ModifiableComClassEntryRegistryPath {
     )
 
     process {
-        Get-ModifiableRegistryPath -Path $ComClassEntry.FullPath | ForEach-Object {
+        Get-ObjectAccessRight -Name $ComClassEntry.FullPath -Type RegistryKey | ForEach-Object {
             $Result = $ComClassEntry.PSObject.Copy()
             $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $_.ModifiablePath
             $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $_.IdentityReference
@@ -740,131 +712,5 @@ function Get-ModifiableRootFolder {
         $Result | Add-Member -MemberType "NoteProperty" -Name "Vulnerable" -Value $Vulnerable
         $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
         $Result
-    }
-}
-
-function Test-ServiceDiscretionaryAccessControlList {
-    <#
-    .SYNOPSIS
-    Helper - Test whether the current user has a specific permission, or set of permissions, on a service.
-
-    Author: @itm4n
-    License: BSD 3-Clause
-
-    .DESCRIPTION
-    This cmdlet retrieves the DACL of a service, and checks whether the current user has a specific permission, or set of permissions on it.
-
-    .PARAMETER Service
-    A mandatory Service object returned by 'Get-ServiceFromRegistry' (or 'Get-Service').
-
-    .PARAMETER Permissions
-    A manual set of permission to test again. One of: 'QueryConfig', 'ChangeConfig', 'QueryStatus', 'EnumerateDependents', 'Start', 'Stop', 'PauseContinue', 'Interrogate', UserDefinedControl', 'Delete', 'ReadControl', 'WriteDac', 'WriteOwner', 'Synchronize', 'AccessSystemSecurity', 'GenericExecute', 'GenericWrite', 'GenericRead', 'AllAccess'
-
-    .PARAMETER PermissionSet
-    A pre-defined permission set to test a specified service against. 'ChangeConfig', 'Restart', or 'AllAccess'.
-
-    .PARAMETER CheckAll
-    An optional switch specifying whether or not all the permissions in the permission set must be present.
-    #>
-
-    [OutputType([Boolean])]
-    [CmdletBinding()]
-    param(
-        [Parameter(Position=0, Mandatory=$true)]
-        [ValidateNotNullOrEmpty()]
-        [Object] $Service,
-
-        [ValidateSet('QueryConfig', 'ChangeConfig', 'QueryStatus', 'EnumerateDependents', 'Start', 'Stop', 'PauseContinue', 'Interrogate', 'UserDefinedControl', 'Delete', 'ReadControl', 'WriteDac', 'WriteOwner', 'Synchronize', 'AccessSystemSecurity', 'GenericExecute', 'GenericWrite', 'GenericRead', 'AllAccess')]
-        [String[]] $Permissions,
-
-        [ValidateSet('ChangeConfig', 'Restart', 'AllAccess')]
-        [String] $PermissionSet = 'ChangeConfig',
-
-        [Switch] $CheckAll = $false
-    )
-
-    begin {
-        $AccessAllowed = $false
-        $CheckAllPermissionsInSet = $false
-        $ServiceHandle = [IntPtr]::Zero
-
-        if ($CheckAll) { $CheckAllPermissionsInSet = $true }
-
-        if ($PSBoundParameters['Permissions']) {
-            $TargetPermissions = @()
-            $Permissions | Sort-Object -Unique | ForEach-Object { $TargetPermissions += $_ -as $script:ServiceAccessRight }
-        }
-        else {
-            if ($PermissionSet -eq 'ChangeConfig') {
-                $TargetPermissions = @(
-                    $script:ServiceAccessRight::ChangeConfig,
-                    $script:ServiceAccessRight::WriteDac,
-                    $script:ServiceAccessRight::WriteOwner,
-                    $script:ServiceAccessRight::AllAccess
-                )
-            }
-            elseif ($PermissionSet -eq 'Restart') {
-                $TargetPermissions = @(
-                    $script:ServiceAccessRight::Start,
-                    $script:ServiceAccessRight::Stop
-                )
-                # Restart requires both 'Start' and 'Stop' so check all permissions in the set
-                # in this case.
-                $CheckAllPermissionsInSet = $true
-            }
-            elseif ($PermissionSet -eq 'AllAccess') {
-                $TargetPermissions = @(
-                    $script:ServiceAccessRight::AllAccess
-                )
-            }
-        }
-
-        $CurrentUserSids = Get-CurrentUserSid
-    }
-
-    process {
-        $ServiceHandle = Get-ServiceHandle -Name $Service.Name -AccessRights $script:ServiceAccessRight::ReadControl
-        if ($ServiceHandle -eq [IntPtr]::Zero) { return }
-
-        $ServiceDacl = Get-ServiceDiscretionaryAccessControlList -Handle $ServiceHandle
-        if ($null -eq $ServiceDacl) { return }
-
-        $MatchingAces = @()
-
-        foreach ($Ace in $ServiceDacl) {
-
-            # Ignore ACEs that do not match our identity.
-            if ($CurrentUserSids -notcontains $Ace.SecurityIdentifier) { continue }
-
-            # Ignore deny ACEs
-            if ($Ace.AceType -ne "AccessAllowed") {
-                Write-Warning "Unhandled ACE type found ('$($Ace.AceType)') for service '$($Service.Name)'."
-                continue
-            }
-
-            foreach ($TargetPermission in $TargetPermissions) {
-                if ((([UInt32] $TargetPermission) -band $Ace.AccessRights) -eq $TargetPermission) {
-                    $MatchingAces += $Ace
-                }
-            }
-        }
-
-        $TargetPermissionMask = 0
-        $TargetPermissions | ForEach-Object { $TargetPermissionMask = $TargetPermissionMask -bor ([UInt32] $_) }
-
-        $FoundPermissionMask = 0
-        $MatchingAces | ForEach-Object { $FoundPermissionMask = $FoundPermissionMask -bor ($_.AccessRights -band $TargetPermissionMask) }
-
-        if ($CheckAllPermissionsInSet) {
-            if ($FoundPermissionMask -eq $TargetPermissionMask) { $AccessAllowed = $true }
-        }
-        else {
-            if ($FoundPermissionMask -gt 0) { $AccessAllowed = $true }
-        }
-    }
-
-    end {
-        if ($ServiceHandle -ne [IntPtr]::Zero) { $null = $script:Advapi32::CloseServiceHandle($ServiceHandle) }
-        return $AccessAllowed
     }
 }
