@@ -176,22 +176,6 @@ function Convert-DateToString {
     }
 }
 
-function Convert-SidStringToSid {
-
-    [CmdletBinding()]
-    param(
-        [String] $Sid
-    )
-
-    try {
-        $IdentityUser = New-Object System.Security.Principal.NTAccount($(Convert-SidToName -Sid $Sid))
-        $IdentityUser.Translate([System.Security.Principal.SecurityIdentifier])
-    }
-    catch {
-        Write-Warning "$($MyInvocation.MyCommand) | Failed to translate SID: $($Sid)"
-    }
-}
-
 function Convert-SidToName {
     <#
     .SYNOPSIS

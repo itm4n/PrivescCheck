@@ -14,6 +14,7 @@
 - The helper function 'Get-ModifiableRegistryPath' was replaced by 'Get-ObjectAccessRight'.
 - The helper function 'Test-ServiceDiscretionaryAccessControlList' was replaced by 'Get-ObjectAccessRight'.
 - The helper function 'Get-ServiceDiscretionaryAccessControlList' was replaced by 'Get-ObjectAccessRight'.
+- The helper function 'Convert-SidStringToSid' is not used and was therefore removed.
 
 ## 2025-01-08
 
