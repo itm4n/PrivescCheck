@@ -9,7 +9,7 @@ function Get-ObjectAccessRight {
     .DESCRIPTION
     This cmdlet retrieves the ACL of an object and returns the ACEs that grant modification permissions to the current user. It should be noted that, in case of deny ACEs, restricted rights are removed from the permission list of the ACEs.
 
-    .PARAMETER Path
+    .PARAMETER Name
     A mandatory parameter representing the name of an object.
 
     .PARAMETER Type
