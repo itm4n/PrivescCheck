@@ -33,7 +33,6 @@ function Format-Error {
         $ErrorObject = [ComponentModel.Win32Exception] $Code
         $ErrorMessage = "$($ErrorObject.Message)"
         if ($ErrorObject.NativeErrorCode -ge 0) { $ErrorMessage += " ($($ErrorObject.NativeErrorCode))" }
-        $ErrorMessage += " - HRESULT: $('0x{0:x8}' -f $ErrorObject.HResult)"
         return $ErrorMessage
     }
 }
@@ -185,7 +184,7 @@ function Get-FileHandle {
         $FileHandle = $script:Kernel32::CreateFile($Path, $AccessRights, $ShareMode, [IntPtr]::Zero, 3, $FlagsAndAttributes, [IntPtr]::Zero)
         if ($FileHandle -eq -1) {
             $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-            Write-Warning "CreateFile('$($Path)') - $(Format-Error $LastError)"
+            Write-Error "CreateFile('$($Path)') - $(Format-Error $LastError)"
         }
 
         return $FileHandle
