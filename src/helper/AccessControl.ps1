@@ -64,7 +64,7 @@ function Get-ObjectAccessRight {
         [String] $Name,
 
         [Parameter(Mandatory=$true)]
-        [ValidateSet("File", "Directory", "RegistryKey", "Service", "ServiceControlManager")]
+        [ValidateSet("File", "Directory", "RegistryKey", "Service", "ServiceControlManager", "Process", "Thread")]
         [String] $Type,
 
         [UInt32[]] $AccessRights = $null
@@ -123,6 +123,37 @@ function Get-ObjectAccessRight {
             $script:ServiceControlManagerAccessRight::AllAccess
         )
 
+        $ProcessModificationRights = @(
+            $script:ProcessAccessRight::TERMINATE,
+            $script:ProcessAccessRight::CREATE_THREAD,
+            $script:ProcessAccessRight::SET_SESSIONID,
+            $script:ProcessAccessRight::SET_SESSIONID,
+            $script:ProcessAccessRight::VM_READ,
+            $script:ProcessAccessRight::VM_WRITE,
+            $script:ProcessAccessRight::DUP_HANDLE,
+            $script:ProcessAccessRight::CREATE_PROCESS,
+            $script:ProcessAccessRight::SET_INFORMATION,
+            $script:ProcessAccessRight::SUSPEND_RESUME,
+            $script:ProcessAccessRight::SET_LIMITED_INFORMATION,
+            $script:ProcessAccessRight::Delete,
+            $script:ProcessAccessRight::WriteDac,
+            $script:ProcessAccessRight::WriteOwner,
+            $script:ProcessAccessRight::AllAccess
+        )
+
+        $ThreadModificationRights = @(
+            $script:ThreadAccessRight::Terminate,
+            $script:ThreadAccessRight::SuspendResume,
+            $script:ThreadAccessRight::SetContext,
+            $script:ThreadAccessRight::SetInformation,
+            $script:ThreadAccessRight::Impersonate,
+            $script:ThreadAccessRight::DirectImpersonation,
+            $script:ThreadAccessRight::Delete,
+            $script:ThreadAccessRight::WriteDac,
+            $script:ThreadAccessRight::WriteOwner,
+            $script:ThreadAccessRight::AllAccess
+        )
+
         $CurrentUserSids = Get-CurrentUserSid
         $CurrentUserDenySids = Get-CurrentUserDenySid
     }
@@ -153,6 +184,16 @@ function Get-ObjectAccessRight {
                 $ObjectAccessRights = $script:ServiceControlManagerAccessRight
                 $TargetAccessRights = $(if ($PSBoundParameters['AccessRights']) { $AccessRights } else { $ServiceControlManagerModificationRights })
                 $Handle = Get-ServiceHandle -Name "SCM" -SCM -AccessRights $script:ServiceAccessRight::ReadControl
+            }
+            "Process" {
+                $ObjectAccessRights = $script:ProcessAccessRight
+                $TargetAccessRights = $(if ($PSBoundParameters['AccessRights']) { $AccessRights } else { $ProcessModificationRights })
+                $Handle = Get-ProcessHandle -ProcessId $Name -AccessRights $script:ProcessAccessRight::ReadControl -ErrorAction SilentlyContinue
+            }
+            "Thread" {
+                $ObjectAccessRights = $script:ThreadAccessRight
+                $TargetAccessRights = $(if ($PSBoundParameters['AccessRights']) { $AccessRights } else { $ThreadModificationRights })
+                $Handle = Get-ThreadHandle -ThreadId $Name -AccessRights $script:ThreadAccessRight::ReadControl -ErrorAction SilentlyContinue
             }
             default {
                 throw "Unhandled object type: $($Type)"
@@ -248,6 +289,8 @@ function Get-ObjectAccessRight {
 
                 $Result = New-Object -TypeName PSObject
                 $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $Name
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Owner" -Value $SecurityInfo.Owner
+                $Result | Add-Member -MemberType "NoteProperty" -Name "OwnerSid" -Value $SecurityInfo.OwnerSid
                 $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $IdentityReference
                 $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value $Permissions
                 $Result
@@ -257,34 +300,16 @@ function Get-ObjectAccessRight {
 
     end {
         switch ($Type) {
-            "File" {
-                if (($Handle -ne [IntPtr]::Zero) -and ($Handle -ne -1)) {
-                    $null = $script:Kernel32::CloseHandle($Handle)
-                }
-            }
-            "Directory" {
-                if (($Handle -ne [IntPtr]::Zero) -and ($Handle -ne -1)) {
-                    $null = $script:Kernel32::CloseHandle($Handle)
-                }
-            }
-            "RegistryKey" {
-                if ($Handle -ne [IntPtr]::Zero) {
-                    $null = $script:Kernel32::CloseHandle($Handle)
-                }
-            }
-            "Service" {
-                if ($Handle -ne [IntPtr]::Zero) {
-                    $null = $script:Advapi32::CloseServiceHandle($Handle)
-                }
-            }
-            "ServiceControlManager" {
-                if ($Handle -ne [IntPtr]::Zero) {
-                    $null = $script:Advapi32::CloseServiceHandle($Handle)
-                }
-            }
+            "File"                  { if (($Handle -ne [IntPtr]::Zero) -and ($Handle -ne -1)) { $null = $script:Kernel32::CloseHandle($Handle) } }
+            "Directory"             { if (($Handle -ne [IntPtr]::Zero) -and ($Handle -ne -1)) { $null = $script:Kernel32::CloseHandle($Handle) } }
+            "RegistryKey"           { if ($Handle -ne [IntPtr]::Zero) { $null = $script:Kernel32::CloseHandle($Handle) } }
+            "Service"               { if ($Handle -ne [IntPtr]::Zero) { $null = $script:Advapi32::CloseServiceHandle($Handle) } }
+            "ServiceControlManager" { if ($Handle -ne [IntPtr]::Zero) { $null = $script:Advapi32::CloseServiceHandle($Handle) } }
+            "Process"               { if ($Handle -ne [IntPtr]::Zero) { $null = $script:Kernel32::CloseHandle($Handle) } }
+            "Thread"                { if ($Handle -ne [IntPtr]::Zero) { $null = $script:Kernel32::CloseHandle($Handle) } }
             default {
                 # Sanity check. We want to make sure to add a 'CloseHandle' function whenever
-                # a new object type is added to this helper.
+                # a new object type is added to this helper to avoid handle leaks.
                 throw "No handle closing handler defined for object type: $($Type)"
             }
         }

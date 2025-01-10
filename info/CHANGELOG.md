@@ -1,5 +1,12 @@
 # Changelog
 
+## 2025-01-10
+
+### Added
+
+- Helper function for enumerating all processes and threads.
+- Check for process and thread permissions.
+
 ## 2025-01-09
 
 ### Changed

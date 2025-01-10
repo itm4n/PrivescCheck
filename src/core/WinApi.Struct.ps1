@@ -3,6 +3,12 @@ $script:LARGE_INTEGER = New-Structure $Module WinApiModule.LARGE_INTEGER @{
     HighPart                    = New-StructureField 1 Int32
 }
 
+$script:UNICODE_STRING = New-Structure $Module WinApiModule.UNICODE_STRING @{
+    Length                      = New-StructureField 0 UInt16
+    MaximumLength               = New-StructureField 1 UInt16
+    Buffer                      = New-StructureField 2 IntPtr
+}
+
 $script:LUID = New-Structure $Module WinApiModule.LUID @{
     LowPart                     = New-StructureField 0 UInt32
     HighPart                    = New-StructureField 1 Int32
@@ -56,6 +62,63 @@ $script:TOKEN_ORIGIN = New-Structure $Module WinApiModule.TOKEN_ORIGIN @{
 $script:TOKEN_SOURCE = New-Structure $Module WinApiModule.TOKEN_SOURCE @{
     SourceName                  = New-StructureField 0 Byte[] -MarshalAs @('ByValArray', 8)
     SourceIdentifier            = New-StructureField 1 $script:LUID
+}
+
+$script:CLIENT_ID = New-Structure $Module WinApiModule.CLIENT_ID @{
+    UniqueProcess               = New-StructureField 0 IntPtr
+    UniqueThread                = New-StructureField 1 IntPtr
+}
+
+$script:SYSTEM_THREAD_INFORMATION = New-Structure $Module WinApiModule.SYSTEM_THREAD_INFORMATION @{
+    KernelTime                  = New-StructureField 0 $script:LARGE_INTEGER
+    UserTime                    = New-StructureField 1 $script:LARGE_INTEGER
+    CreateTime                  = New-StructureField 2 $script:LARGE_INTEGER
+    WaitTime                    = New-StructureField 3 UInt32
+    StartAddress                = New-StructureField 4 IntPtr
+    ClientId                    = New-StructureField 5 $script:CLIENT_ID
+    Priority                    = New-StructureField 6 Int32
+    BasePriority                = New-StructureField 7 Int32
+    ContextSwitches             = New-StructureField 8 UInt32
+    ThreadState                 = New-StructureField 9 UInt32
+    WaitReason                  = New-StructureField 10 UInt32
+}
+
+$script:SYSTEM_PROCESS_INFORMATION = New-Structure $Module WinApiModule.SYSTEM_PROCESS_INFORMATION @{
+    NextEntryOffset             = New-StructureField 0 UInt32
+    NumberOfThreads             = New-StructureField 1 UInt32
+    WorkingSetPrivateSize       = New-StructureField 2 $script:LARGE_INTEGER
+    HardFaultCount              = New-StructureField 3 UInt32
+    NumberOfThreadsHighWatermark = New-StructureField 4 UInt32
+    CycleTime                   = New-StructureField 5 UInt64
+    CreateTime                  = New-StructureField 6 $script:LARGE_INTEGER
+    UserTime                    = New-StructureField 7 $script:LARGE_INTEGER
+    KernelTime                  = New-StructureField 8 $script:LARGE_INTEGER
+    ImageName                   = New-StructureField 9 $script:UNICODE_STRING
+    BasePriority                = New-StructureField 10 Int32
+    UniqueProcessId             = New-StructureField 11 IntPtr
+    InheritedFromUniqueProcessId = New-StructureField 12 IntPtr
+    HandleCount                 = New-StructureField 13 UInt32
+    SessionId                   = New-StructureField 14 UInt32
+    UniqueProcessKey            = New-StructureField 15 UIntPtr
+    PeakVirtualSize             = New-StructureField 16 UIntPtr
+    VirtualSize                 = New-StructureField 17 UIntPtr
+    PageFaultCount              = New-StructureField 18 UInt32
+    PeakWorkingSetSize          = New-StructureField 19 UIntPtr
+    WorkingSetSize              = New-StructureField 20 UIntPtr
+    QuotaPeakPagedPoolUsage     = New-StructureField 21 UIntPtr
+    QuotaPagedPoolUsage         = New-StructureField 22 UIntPtr
+    QuotaPeakNonPagedPoolUsage  = New-StructureField 23 UIntPtr
+    QuotaNonPagedPoolUsage      = New-StructureField 24 UIntPtr
+    PagefileUsage               = New-StructureField 25 UIntPtr
+    PeakPagefileUsage           = New-StructureField 26 UIntPtr
+    PrivatePageCount            = New-StructureField 27 UIntPtr
+    ReadOperationCount          = New-StructureField 28 $script:LARGE_INTEGER
+    WriteOperationCount         = New-StructureField 29 $script:LARGE_INTEGER
+    OtherOperationCount         = New-StructureField 30 $script:LARGE_INTEGER
+    ReadTransferCount           = New-StructureField 31 $script:LARGE_INTEGER
+    WriteTransferCount          = New-StructureField 32 $script:LARGE_INTEGER
+    OtherTransferCount          = New-StructureField 33 $script:LARGE_INTEGER
+    Threads                     = New-StructureField 34 IntPtr
 }
 
 $script:SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX = New-Structure $Module WinApiModule.SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX @{
@@ -303,12 +366,6 @@ $script:CREDENTIAL = New-Structure $Module WinApiModule.CREDENTIAL @{
     TargetAlias                 = New-StructureField 10 String
     UserName                    = New-StructureField 11 String
 } -Charset Unicode
-
-$script:UNICODE_STRING = New-Structure $Module WinApiModule.UNICODE_STRING @{
-    Length                      = New-StructureField 0 UInt16
-    MaximumLength               = New-StructureField 1 UInt16
-    Buffer                      = New-StructureField 2 IntPtr
-}
 
 $script:GENERIC_MAPPING = New-Structure $Module WinApiModule.GENERIC_MAPPING @{
     GenericRead                 = New-StructureField 0 UInt32

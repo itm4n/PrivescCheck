@@ -1072,3 +1072,73 @@ function Invoke-TpmDeviceInformationCheck {
         Get-TpmDeviceInformation
     }
 }
+
+function Invoke-ProcessAndThreadPermissionCheck {
+    <#
+    .SYNOPSIS
+    Check permissions of processes and threads.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet enumerates all processes and threads, and checks whether the current user has any privileged access rights on objects which they do not own.
+    #>
+
+    [CmdletBinding()]
+    param (
+        [UInt32] $BaseSeverity
+    )
+
+    begin {
+        $AllResults = @()
+        $CurrentUserSids = Get-CurrentUserSid
+    }
+
+    process {
+
+        $Processes = Get-SystemInformationProcessAndThread
+
+        foreach ($Process in $Processes) {
+
+            # Check the permissions of the process first. If we have any privileged access
+            # right, stop there and return the result.
+            $ProcessModificationRights = Get-ObjectAccessRight -Name $Process.ProcessId -Type Process
+            if (($null -ne $ProcessModificationRights) -and ($CurrentUserSids -notcontains $ProcessModificationRights.OwnerSid)) {
+                $Result = New-Object -TypeName PSObject
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Id" -Value $Process.ProcessId
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Type" -Value "Process"
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Owner" -Value $ProcessModificationRights.Owner
+                $Result | Add-Member -MemberType "NoteProperty" -Name "OwnerSid" -Value $ProcessModificationRights.OwnerSid
+                $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $ProcessModificationRights.IdentityReference
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value ($ProcessModificationRights.Permissions -join ", ")
+                $AllResults += $Result
+                continue
+            }
+
+            foreach ($Thread in $Process.Threads) {
+
+                # Check the permissions of each thread in the process. Report any object on
+                # which the current has privileged access rights and is not the owner.
+                $ThreadModificationRights = Get-ObjectAccessRight -Name $Thread.ThreadId -Type Thread
+                if (($null -ne $ThreadModificationRights) -and ($CurrentUserSids -notcontains $ThreadModificationRights.OwnerSid)) {
+                    $ThreadModificationRights
+
+                    $Result = New-Object -TypeName PSObject
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "Id" -Value $Thread.ThreadId
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "Type" -Value "Thread"
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "Owner" -Value $ThreadModificationRights.Owner
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "OwnerSid" -Value $ThreadModificationRights.OwnerSid
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $ThreadModificationRights.IdentityReference
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value ($ThreadModificationRights.Permissions -join ", ")
+                    $AllResults += $Result
+                }
+            }
+        }
+
+        $CheckResult = New-Object -TypeName PSObject
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AllResults) { $BaseSeverity } else { $script:SeverityLevel::None })
+        $CheckResult
+    }
+}

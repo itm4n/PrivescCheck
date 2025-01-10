@@ -38,6 +38,48 @@ function Format-Error {
     }
 }
 
+function Get-ProcessHandle {
+
+    [OutputType([IntPtr])]
+    [CmdletBinding()]
+    param (
+        [UInt32] $ProcessId = 0,
+        [UInt32] $AccessRights = $script:ProcessAccessRight::QUERY_INFORMATION
+    )
+
+    process {
+        $ProcessHandle = $script:Kernel32::OpenProcess($AccessRights, $false, $ProcessId)
+
+        if ($ProcessHandle -eq [IntPtr]::Zero) {
+            $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+            Write-Error "OpenProcess($($ProcessId), $(($AccessRights -as $script:ProcessAccessRight) -join ' | ')) - $(Format-Error $LastError)"
+        }
+
+        return $ProcessHandle
+    }
+}
+
+function Get-ThreadHandle {
+
+    [OutputType([IntPtr])]
+    [CmdletBinding()]
+    param (
+        [UInt32] $ThreadId = 0,
+        [UInt32] $AccessRights = $script:ThreadAccessRight::QueryInformation
+    )
+
+    process {
+        $ThreadHandle = $script:Kernel32::OpenThread($AccessRights, $false, $ThreadId)
+
+        if ($ThreadHandle -eq [IntPtr]::Zero) {
+            $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+            Write-Error "OpenThread($($ThreadId), $(($AccessRights -as $script:ThreadAccessRight) -join ' | ')) - $(Format-Error $LastError)"
+        }
+
+        return $ThreadHandle
+    }
+}
+
 function Get-ProcessTokenHandle {
     <#
     .SYNOPSIS
@@ -1139,6 +1181,95 @@ function Get-SystemInformationData {
     $SystemInformationPtr
 }
 
+function Get-SystemInformationProcessAndThread {
+    <#
+    .SYNOPSIS
+    Wrapper - Get system information about all processes and threads.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet calls the helper function 'Get-SystemInformationData' and parse the returned buffer to enumerate all processes and threads. It returns a list of custom PS objects representing processes. For each process object, a list of thread objects is returned in the member 'Threads'.
+
+    .EXAMPLE
+    PS C:\> Get-SystemInformationProcessAndThread
+
+    ImageName       :
+    ProcessId       : 0
+    ParentProcessId : 0
+    HandleCount     : 0
+    SessionId       : 0
+    Threads         : {@{ProcessId=0; ThreadId=0; State=Running}, @{ProcessId=0; ThreadId=32; State=Standby}, @{ProcessId=0; ThreadId=36; State=Initialized}, @{ProcessId=0; ThreadId=0; State=Running}...}
+
+    ImageName       : System
+    ProcessId       : 4
+    ParentProcessId : 0
+    HandleCount     : 3737
+    SessionId       : 0
+    Threads         : {@{ProcessId=4; ThreadId=12; State=Wait}, @{ProcessId=4; ThreadId=16; State=Wait}, @{ProcessId=4; ThreadId=20; State=Wait}, @{ProcessId=4; ThreadId=24; State=Wait}...}
+
+    ImageName       : Registry
+    ProcessId       : 172
+    ParentProcessId : 4
+    HandleCount     : 0
+    SessionId       : 0
+    Threads         : {@{ProcessId=172; ThreadId=176; State=Wait}, @{ProcessId=172; ThreadId=756; State=Wait}, @{ProcessId=172; ThreadId=760; State=Wait}, @{ProcessId=172; ThreadId=764; State=Wait}}
+
+    ...
+    #>
+
+    [CmdletBinding()]
+    param ()
+
+    begin {
+        $ProcessInformationPtr = [IntPtr]::Zero
+    }
+
+    process {
+        # SystemProcessInformation = 5
+        $ProcessInformationPtr = Get-SystemInformationData -InformationClass 5
+        if ($ProcessInformationPtr -eq [IntPtr]::Zero) { return }
+
+        $CurrentProcessInformationPtr = $ProcessInformationPtr
+        do {
+            $Threads = @()
+            $ProcessInformation = [System.Runtime.InteropServices.Marshal]::PtrToStructure($CurrentProcessInformationPtr, [type] $script:SYSTEM_PROCESS_INFORMATION)
+
+            $CurrentThreadInformationPtr = [IntPtr] ($CurrentProcessInformationPtr.ToInt64() + [System.Runtime.InteropServices.Marshal]::OffsetOf([type] $script:SYSTEM_PROCESS_INFORMATION, "Threads"))
+            for ($i = 0; $i -lt $ProcessInformation.NumberOfThreads; $i++) {
+                $ThreadInformation = [System.Runtime.InteropServices.Marshal]::PtrToStructure($CurrentThreadInformationPtr, [type] $script:SYSTEM_THREAD_INFORMATION)
+
+                $ThreadInfo = New-Object -TypeName PSObject
+                $ThreadInfo | Add-Member -MemberType "NoteProperty" -Name "ProcessId" -Value $ThreadInformation.ClientId.UniqueProcess
+                $ThreadInfo | Add-Member -MemberType "NoteProperty" -Name "ThreadId" -Value $ThreadInformation.ClientId.UniqueThread
+                $ThreadInfo | Add-Member -MemberType "NoteProperty" -Name "State" -Value ($ThreadInformation.ThreadState -as $script:ThreadState)
+                $Threads += $ThreadInfo
+
+                $CurrentThreadInformationPtr = [IntPtr] ($CurrentThreadInformationPtr.ToInt64() + [Runtime.InteropServices.Marshal]::SizeOf([type] $script:SYSTEM_THREAD_INFORMATION))
+            }
+
+            $ProcInfo = New-Object -TypeName PSObject
+            $ProcInfo | Add-Member -MemberType "NoteProperty" -Name "ImageName" -Value ([Runtime.InteropServices.Marshal]::PtrToStringUni($ProcessInformation.ImageName.Buffer))
+            $ProcInfo | Add-Member -MemberType "NoteProperty" -Name "ProcessId" -Value $ProcessInformation.UniqueProcessId
+            $ProcInfo | Add-Member -MemberType "NoteProperty" -Name "ParentProcessId" -Value $ProcessInformation.InheritedFromUniqueProcessId
+            $ProcInfo | Add-Member -MemberType "NoteProperty" -Name "HandleCount" -Value $ProcessInformation.HandleCount
+            $ProcInfo | Add-Member -MemberType "NoteProperty" -Name "SessionId" -Value $ProcessInformation.SessionId
+            $ProcInfo | Add-Member -MemberType "NoteProperty" -Name "Threads" -Value $Threads
+            $ProcInfo
+
+            if ($ProcessInformation.NextEntryOffset -eq 0) { break }
+
+            $CurrentProcessInformationPtr = [IntPtr] ($CurrentProcessInformationPtr.ToInt64() + $ProcessInformation.NextEntryOffset)
+        } while ($true)
+
+    }
+
+    end {
+        if ($ProcessInformationPtr -ne [IntPtr]::Zero) { [System.Runtime.InteropServices.Marshal]::FreeHGlobal($ProcessInformationPtr) }
+    }
+}
+
 function Get-SystemInformationExtendedHandle {
     <#
     .SYNOPSIS
@@ -1387,7 +1518,7 @@ function Get-ObjectSecurityInfo {
         [IntPtr] $Handle,
 
         [Parameter(Mandatory=$true)]
-        [ValidateSet("File", "Directory", "RegistryKey", "Service", "ServiceControlManager")]
+        [ValidateSet("File", "Directory", "RegistryKey", "Service", "ServiceControlManager", "Process", "Thread")]
         [String] $Type
     )
 
@@ -1399,11 +1530,13 @@ function Get-ObjectSecurityInfo {
     process {
 
         switch ($Type) {
-            "File"                  { $ObjectType = $script:SE_OBJECT_TYPE::SE_FILE_OBJECT; $AccessRights = $script:FileAccessRight }
-            "Directory"             { $ObjectType = $script:SE_OBJECT_TYPE::SE_FILE_OBJECT; $AccessRights = $script:DirectoryAccessRight }
-            "RegistryKey"           { $ObjectType = $script:SE_OBJECT_TYPE::SE_REGISTRY_KEY; $AccessRights = $script:RegistryKeyAccessRight }
-            "Service"               { $ObjectType = $script:SE_OBJECT_TYPE::SE_SERVICE; $AccessRights = $script:ServiceAccessRight }
-            "ServiceControlManager" { $ObjectType = $script:SE_OBJECT_TYPE::SE_SERVICE; $AccessRights = $script:ServiceControlManagerAccessRight }
+            "File"                  { $ObjectType = $script:SE_OBJECT_TYPE::SE_FILE_OBJECT;     $AccessRights = $script:FileAccessRight }
+            "Directory"             { $ObjectType = $script:SE_OBJECT_TYPE::SE_FILE_OBJECT;     $AccessRights = $script:DirectoryAccessRight }
+            "RegistryKey"           { $ObjectType = $script:SE_OBJECT_TYPE::SE_REGISTRY_KEY;    $AccessRights = $script:RegistryKeyAccessRight }
+            "Service"               { $ObjectType = $script:SE_OBJECT_TYPE::SE_SERVICE;         $AccessRights = $script:ServiceAccessRight }
+            "ServiceControlManager" { $ObjectType = $script:SE_OBJECT_TYPE::SE_SERVICE;         $AccessRights = $script:ServiceControlManagerAccessRight }
+            "Process"               { $ObjectType = $script:SE_OBJECT_TYPE::SE_KERNEL_OBJECT;   $AccessRights = $script:ProcessAccessRight }
+            "Thread"                { $ObjectType = $script:SE_OBJECT_TYPE::SE_KERNEL_OBJECT;   $AccessRights = $script:ThreadAccessRight }
             default                 { throw "Unhandled object type: $($Type)" }
         }
 

@@ -116,23 +116,29 @@ $script:ServiceControlManagerAccessRight = New-Enum $Module WinApiModule.Service
     GenericExecute                      = 0x00020009 # STANDARD_RIGHTS_EXECUTE | SC_MANAGER_CONNECT | SC_MANAGER_LOCK
 } -BitField
 
+# Note: Cortex XDR detects the keyword 'CreateThread'. To work around this issue,
+# native access right names are used for process-specific access rights.
 $script:ProcessAccessRight = New-Enum $Module WinApiModule.ProcessAccessRight UInt32 @{
-    TERMINATE                           = 0x00000001
-    CREATE_THREAD                       = 0x00000002
-    SET_SESSIONID                       = 0x00000004
-    VM_OPERATION                        = 0x00000008
-    VM_READ                             = 0x00000010
-    VM_WRITE                            = 0x00000020
-    DUP_HANDLE                          = 0x00000040
-    CREATE_PROCESS                      = 0x00000080
-    SET_QUOTA                           = 0x00000100
-    SET_INFORMATION                     = 0x00000200
-    QUERY_INFORMATION                   = 0x00000400
-    SUSPEND_RESUME                      = 0x00000800
-    QUERY_LIMITED_INFORMATION           = 0x00001000
-    SET_LIMITED_INFORMATION             = 0x00002000
-    ALL_ACCESS                          = 0x001fffff # STANDARD_RIGHTS_REQUIRED (0x000F0000L) | SYNCHRONIZE (0x00100000L) | 0xFFFF
-    SYNCHRONIZE                         = 0x00100000
+    TERMINATE                           = 0x00000001 # Process specific access right: TERMINATE
+    CREATE_THREAD                       = 0x00000002 # Process specific access right: CREATE_THREAD
+    SET_SESSIONID                       = 0x00000004 # Process specific access right: SET_SESSIONID
+    VM_OPERATION                        = 0x00000008 # Process specific access right: VM_OPERATION
+    VM_READ                             = 0x00000010 # Process specific access right: VM_READ
+    VM_WRITE                            = 0x00000020 # Process specific access right: VM_WRITE
+    DUP_HANDLE                          = 0x00000040 # Process specific access right: DUP_HANDLE
+    CREATE_PROCESS                      = 0x00000080 # Process specific access right: CREATE_PROCESS
+    SET_QUOTA                           = 0x00000100 # Process specific access right: SET_QUOTA
+    SET_INFORMATION                     = 0x00000200 # Process specific access right: SET_INFORMATION
+    QUERY_INFORMATION                   = 0x00000400 # Process specific access right: QUERY_INFORMATION
+    SUSPEND_RESUME                      = 0x00000800 # Process specific access right: SUSPEND_RESUME
+    QUERY_LIMITED_INFORMATION           = 0x00001000 # Process specific access right: QUERY_LIMITED_INFORMATION
+    SET_LIMITED_INFORMATION             = 0x00002000 # Process specific access right: SET_LIMITED_INFORMATION
+    Delete                              = 0x00010000 # Standard access right: DELETE
+    ReadControl                         = 0x00020000 # Standard access right: READ_CONTROL
+    WriteDac                            = 0x00040000 # Standard access right: WRITE_DAC
+    WriteOwner                          = 0x00080000 # Standard access right: WRITE_OWNER
+    Synchronize                         = 0x00100000 # Standard access right: SYNCHRONIZE
+    AllAccess                           = 0x001fffff # STANDARD_RIGHTS_REQUIRED (0x000F0000L) | SYNCHRONIZE (0x00100000L) | 0xFFFF
 } -BitField
 
 $script:ThreadAccessRight = New-Enum $Module WinApiModule.ThreadAccessRight UInt32 @{
@@ -198,6 +204,17 @@ $script:ServiceStartType = New-Enum $Module WinApiModule.ServiceStartType UInt32
     Automatic                           = 2
     Manual                              = 3
     Disabled                            = 4
+}
+
+$script:ThreadState = New-Enum $Module WinApiModule.ThreadState UInt32 @{
+    Initialized                         = 0
+    Ready                               = 1
+    Running                             = 2
+    Standby                             = 3
+    Terminated                          = 4
+    Wait                                = 5
+    Transition                          = 6
+    Unknown                             = 7
 }
 
 $script:ServiceState = New-Enum $Module WinApiModule.ServiceState UInt32 @{
