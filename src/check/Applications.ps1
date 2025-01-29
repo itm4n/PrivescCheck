@@ -296,7 +296,7 @@ function Invoke-RootFolderPermissionCheck {
 
     begin {
         # $IgnoredRootFolders = @( "Windows", "Users", "Program Files", "Program Files (x86)", "PerfLogs")
-        $IgnoredRootFolders = @( "`$Recycle.Bin", "`$WinREAgent", "Documents and Settings", "PerfLogs", "Program Files", "Program Files (x86)", "ProgramData", "Recovery", "System Volume Information", "Users", "Windows" )
+        $IgnoredRootFolders = @( "`$Recycle.Bin", "`$WinREAgent", "Documents and Settings", "PerfLogs", "Program Files", "Program Files (x86)", "ProgramData", "Recovery", "System Volume Information", "Users", "Windows", "Windows.old" )
         # $MaxFileCount = 8
         $AllResults = @()
     }
