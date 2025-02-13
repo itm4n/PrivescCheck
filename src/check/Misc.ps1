@@ -861,7 +861,7 @@ function Invoke-ExploitableLeakedHandleCheck {
                 "Process" {
                     # Determine the process' ID using the duplicated handle.
                     $TargetProcessId = $script:Kernel32::GetProcessId($InheritedHandleDuplicated)
-                    if ($HandleProcessId -eq 0) {
+                    if ($TargetProcessId -eq 0) {
                         $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
                         Write-Warning "GetProcessId KO - $(Format-Error $LastError)"
                         continue
@@ -879,7 +879,7 @@ function Invoke-ExploitableLeakedHandleCheck {
                 }
                 "Thread" {
                     $TargetThreadId = $script:Kernel32::GetThreadId($InheritedHandleDuplicated)
-                    if ($HandleThreadId -eq 0) {
+                    if ($TargetThreadId -eq 0) {
                         $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
                         Write-Warning "GetThreadId KO - $(Format-Error $LastError)"
                         continue
