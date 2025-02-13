@@ -1,5 +1,16 @@
 # Changelog
 
+## 2025-02-13
+
+### Added
+
+- PowerShell security feature check.
+
+### Removed
+
+- PowerShell execution policy check.
+- PowerShell Transcription check.
+
 ## 2025-01-10
 
 ### Added

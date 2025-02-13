@@ -341,51 +341,78 @@ function Invoke-LapsCheck {
     }
 }
 
-function Invoke-PowershellTranscriptionCheck {
+function Invoke-PowerShellSecurityFeatureCheck {
     <#
     .SYNOPSIS
-    Checks whether PowerShell Transcription is configured/enabled
+    Check whether PowerShell security features and configured and enabled.
 
     Author: @itm4n
     License: BSD 3-Clause
 
     .DESCRIPTION
-    Powershell Transcription is used to log PowerShell scripts execution. It can be configured thanks to the Group Policy Editor. The settings are stored in the following registry key: HKLM\SOFTWARE\Policies\Microsoft\Windows\PowerShell\Transcription
-
-    .EXAMPLE
-    PS C:\> Invoke-PowershellTranscriptionCheck | fl
-
-    EnableTranscripting    : 1
-    EnableInvocationHeader : 1
-    OutputDirectory        : C:\Transcripts
-
-    .NOTES
-    If PowerShell Transcription is configured, the settings can be found here:
-
-    C:\>reg query HKLM\SOFTWARE\Policies\Microsoft\Windows\PowerShell\Transcription
-
-    HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows\PowerShell\Transcription
-        EnableTranscripting    REG_DWORD    0x1
-        OutputDirectory    REG_SZ    C:\Transcripts
-        EnableInvocationHeader    REG_DWORD    0x1
-
-    To enable PowerShell Transcription:
-    Group Policy Editor > Administrative Templates > Windows Components > Windows PowerShell > PowerShell Transcription
-    Set an output directory and set the policy as Enabled
+    This cmdlet retrieves information about the PowerShell security features, and determines whether the configuration is vulnerable.
     #>
 
     [CmdletBinding()]
-    param()
+    param (
+        [UInt32] $BaseSeverity
+    )
 
-    $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows\PowerShell\Transcription"
-    $RegItem = Get-ItemProperty -Path "Registry::$($RegKey)" -ErrorAction SilentlyContinue
+    begin {
+        $Vulnerable = $false
+        $MachineConfiguration = Get-PowerShellSecurityFeature -Scope Machine
+        $UserConfiguration = Get-PowerShellSecurityFeature -Scope User
+    }
 
-    if ($RegItem) {
+    process {
         $Result = New-Object -TypeName PSObject
-        $Result | Add-Member -MemberType "NoteProperty" -Name "EnableTranscripting" -Value $(if ($null -eq $RegItem.EnableTranscripting) { "(null)" } else { $RegItem.EnableTranscripting })
-        $Result | Add-Member -MemberType "NoteProperty" -Name "EnableInvocationHeader" -Value $(if ($null -eq $RegItem.EnableInvocationHeader) { "(null)" } else { $RegItem.EnableInvocationHeader })
-        $Result | Add-Member -MemberType "NoteProperty" -Name "OutputDirectory" -Value $(if ($null -eq $RegItem.OutputDirectory) { "(null)" } else { $RegItem.OutputDirectory })
-        $Result
+        $UserConfiguration | ForEach-Object {
+            $PropertyName = $_.Name
+            if ($null -ne $_.Data) {
+                $PropertyToCheck = $_
+            }
+            else {
+                $PropertyToCheck = $MachineConfiguration |Where-Object { $_.Name -eq $PropertyName }
+            }
+
+            if ($null -ne $PropertyToCheck.Data) {
+                switch ($PropertyToCheck.Type) {
+                    "REG_DWORD" { $PropertyValue = [Bool] $PropertyToCheck.Data }
+                    "REG_SZ" { $PropertyValue = [String] $PropertyToCheck.Data }
+                    "REG_MULTI_SZ" { $PropertyValue = $PropertyToCheck.Data -join ", " }
+                }
+            }
+
+            $Result | Add-Member -MemberType "NoteProperty" -Name $PropertyName -Value $PropertyValue
+        }
+
+        $Description = ""
+
+        if ($Result.ExecutionPolicy -eq "Unrestricted") {
+            $Vulnerable = $true
+            $Description = "$($Description)All scripts are allowed to run. "
+        }
+
+        if ($null -eq $Result.ScriptBlockLoggingEnabled -or $Result.ScriptBlockLoggingEnabled -eq $false) {
+            $Vulnerable = $true
+            $Description = "$($Description)Script block logging is not enabled. "
+        }
+
+        if ($null -eq $Result.ModuleLoggingEnabled -or $Result.ModuleLoggingEnabled -eq $false) {
+            $Vulnerable = $true
+            $Description = "$($Description)Module logging is not enabled. "
+        }
+
+        if ([String]::IsNullOrEmpty($Description)) {
+            $Description = "No particular issue was observed."
+        }
+
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+
+        $CheckResult = New-Object -TypeName PSObject
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Result
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevel::None })
+        $CheckResult
     }
 }
 
@@ -993,55 +1020,6 @@ function Invoke-HiddenFilenameExtensionCheck {
         $CheckResult = New-Object -TypeName PSObject
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Config
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($IsVulnerable) { $BaseSeverity } else { $script:SeverityLevel::None })
-        $CheckResult
-    }
-}
-
-function Invoke-PowerShellExecutionPolicyCheck {
-    <#
-    .SYNOPSIS
-    Check whether a PowerShell execution policy is enforced
-
-    Author: @itm4n
-    License: BSD 3-Clause
-
-    .DESCRIPTION
-    This cmdlet checks whether a PowerShell execution policy is enforced, and, if so, ensures that the setting is set to 'AllSigned' or 'RemoteSigned'.
-    #>
-
-    [CmdletBinding()]
-    param(
-        [UInt32] $BaseSeverity
-    )
-
-    begin {
-        $Vulnerable = $false
-    }
-
-    process {
-
-        if (-not (Test-IsDomainJoined)) {
-            $PolicyResult = New-Object -TypeName PSObject
-            $PolicyResult | Add-Member -MemberType "NoteProperty" -Name "Description" -Value "The machine is not domain-joined, this check is irrelevant."
-        }
-        else {
-            $PolicyResult = Get-PowerShellExecutionPolicyFromRegistry
-
-            if ($null -eq $PolicyResult) {
-                $Vulnerable = $true
-                $PolicyResult = New-Object -TypeName PSObject
-                $PolicyResult | Add-Member -MemberType "NoteProperty" -Name "Description" -Value "No PowerShell execution policy is enforced."
-            }
-            else {
-                if ($PolicyResult.ExecutionPolicy -eq "Unrestricted") {
-                    $Vulnerable = $true
-                }
-            }
-        }
-
-        $CheckResult = New-Object -TypeName PSObject
-        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $PolicyResult
-        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevel::None })
         $CheckResult
     }
 }
