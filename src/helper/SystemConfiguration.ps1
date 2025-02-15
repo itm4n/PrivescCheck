@@ -1256,6 +1256,92 @@ function Get-NameResolutionProtocolConfiguration {
     }
 }
 
+function Get-IPv6GlobalConfiguration {
+    <#
+    .SYNOPSIS
+    Helper - Get the global status of the IPv6 configuration.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet determines whether IPv6 is disabled globally, or more precisely, it reads the value 'DisabledComponents' in the registry, and determines the state of each configurable feature. This function is entirely based on the information provided in the official documentation (see reference in the LINK section).
+
+    .EXAMPLE
+    PS C:\> Get-IPv6GlobalConfiguration
+
+    Key                                 : HKLM\SYSTEM\CurrentControlSet\Services\Tcpip6\Parameters
+    Value                               : DisabledComponents
+    Data                                : (null)
+    Default                             : 0
+    PreferIPv4OverIPv6                  : False
+    DisableIPv6OnAllTunnelInterfaces    : False
+    DisableIPv6OnAllNonTunnelInterfaces : False
+    Description                         : IPv6 is preferred over IPv4 (default). IPv6 is enabled on all tunnel interfaces
+                                          (default). IPv6 is enabled on all non-tunnel interfaces (default).
+
+    .LINK
+    https://learn.microsoft.com/en-us/troubleshoot/windows-server/networking/configure-ipv6-in-windows
+    #>
+
+    [CmdletBinding()]
+    param ()
+
+    begin {
+        $ValueDescriptions = @{
+            "PreferIPv4OverIPv6" = @(
+                "IPv6 is preferred over IPv4 (default).",
+                "IPv4 is preferred over IPv6."
+            )
+            "DisableIPv6OnAllTunnelInterfaces" = @(
+                "IPv6 is enabled on all tunnel interfaces (default).",
+                "IPv6 is disabled on all tunnel interfaces."
+            )
+            "DisableIPv6OnAllNonTunnelInterfaces" = @(
+                "IPv6 is enabled on all non-tunnel interfaces (default)."
+                "IPv6 is disabled on all non-tunnel interfaces."
+            )
+        }
+    }
+
+    process {
+        $RegKey = "HKLM\SYSTEM\CurrentControlSet\Services\Tcpip6\Parameters"
+        $RegValue = "DisabledComponents"
+        $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+
+        if ($null -eq $RegData) { $TargetValue = 0 } else { $TargetValue = $RegData }
+
+        $ValueDescription = ""
+
+        $PreferIPv4OverIPv6 = 0
+        if (($TargetValue -band 0x20) -eq 0x20) { $PreferIPv4OverIPv6 = 1 }
+        $ValueDescription = "$($ValueDescription)$($ValueDescriptions["PreferIPv4OverIPv6"][$PreferIPv4OverIPv6]) "
+
+        $DisableIPv6OnAllTunnelInterfaces = 0
+        if (($TargetValue -band 0x01) -eq 0x01) { $DisableIPv6OnAllTunnelInterfaces = 1 }
+        $ValueDescription = "$($ValueDescription)$($ValueDescriptions["DisableIPv6OnAllTunnelInterfaces"][$DisableIPv6OnAllTunnelInterfaces]) "
+
+        $DisableIPv6OnAllNonTunnelInterfaces = 0
+        if (($TargetValue -band 0x10) -eq 0x10) { $DisableIPv6OnAllNonTunnelInterfaces = 1 }
+        $ValueDescription = "$($ValueDescription)$($ValueDescriptions["DisableIPv6OnAllNonTunnelInterfaces"][$DisableIPv6OnAllNonTunnelInterfaces]) "
+
+        if ($TargetValue -eq 0xff) {
+            $ValueDescription = "IPv6 is disabled."
+        }
+
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $RegData
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Default" -Value 0
+        $Result | Add-Member -MemberType "NoteProperty" -Name "PreferIPv4OverIPv6" -Value ([Bool] $PreferIPv4OverIPv6)
+        $Result | Add-Member -MemberType "NoteProperty" -Name "DisableIPv6OnAllTunnelInterfaces" -Value ([Bool] $DisableIPv6OnAllTunnelInterfaces)
+        $Result | Add-Member -MemberType "NoteProperty" -Name "DisableIPv6OnAllNonTunnelInterfaces" -Value ([Bool] $DisableIPv6OnAllNonTunnelInterfaces)
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $ValueDescription
+        $Result
+    }
+}
+
 function Get-PowerShellSecurityFeature {
     <#
     .SYNOPSIS

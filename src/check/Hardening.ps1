@@ -1098,6 +1098,57 @@ function Invoke-NameResolutionProtocolCheck {
     }
 }
 
+function Invoke-Ipv6ConfigurationCheck {
+    <#
+    .SYNOPSIS
+    Check whether IPv6 is disabled globally.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet relies on the helper function 'Get-IPv6GlobalConfiguration' to get the global state of IPv6, and reports the configuration as vulnerable if it is not disabled.
+
+    .EXAMPLE
+    PS C:\> Invoke-Ipv6ConfigurationCheck
+
+    Key                                 : HKLM\SYSTEM\CurrentControlSet\Services\Tcpip6\Parameters
+    Value                               : DisabledComponents
+    Data                                : 32
+    Default                             : 0
+    PreferIPv4OverIPv6                  : True
+    DisableIPv6OnAllTunnelInterfaces    : False
+    DisableIPv6OnAllNonTunnelInterfaces : False
+    Description                         : IPv4 is preferred over IPv6. IPv6 is enabled on all tunnel interfaces (default).
+                                          IPv6 is enabled on all non-tunnel interfaces (default).
+    #>
+
+    [CmdletBinding()]
+    param (
+        [UInt32] $BaseSeverity
+    )
+
+    begin {
+        $Configuration = Get-IPv6GlobalConfiguration
+    }
+
+    process {
+        $Vulnerable = $false
+        if ((-not $Configuration.PreferIPv4OverIPv6) -or (-not $Configuration.DisableIPv6OnAllTunnelInterfaces) -or (-not $DisableIPv6OnAllNonTunnelInterfaces)) {
+            $Vulnerable = $true
+        }
+
+        if ($null -eq $Configuration.Data) {
+            $Configuration.Data = "(null)"
+        }
+
+        $CheckResult = New-Object -TypeName PSObject
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Configuration
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevel::None })
+        $CheckResult
+    }
+}
+
 function Invoke-DefaultLocalAdministratorAccountCheck {
     <#
     .SYNOPSIS

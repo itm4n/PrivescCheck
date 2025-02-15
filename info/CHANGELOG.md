@@ -5,6 +5,7 @@
 ### Added
 
 - Check for VNC server passwords.
+- Check for IPv6 configuration.
 
 ## 2025-02-13
 
