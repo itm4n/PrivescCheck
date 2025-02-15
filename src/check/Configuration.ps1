@@ -1184,3 +1184,100 @@ function Invoke-MsiAutomaticRepairUacPromptCheck {
         $CheckResult
     }
 }
+
+function Invoke-CredentialDelegationCheck {
+    <#
+    .SYNOPSIS
+    Check whether Credential Delegation is enabled. If so, passwords are very likely to be stored in clear-text in memory.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet retrieves information relative to Credential Delegation from the registry. If one of the "Allow" policies was enabled, the configuration is considered vulnerable. Indeed, if credential delegation is enabled, LSASS stores a clear-text version of a user's password so that it can automatically sends it to a remote server, which means that it is stored in memory. More information about this configuration can be found in the references (see LINK section).
+
+    .EXAMPLE
+    PS C:\> Invoke-CredentialDelegationCheck
+
+    Policy              : Allow delegating default credentials with NTLM-only server authentication
+    Setting             : AllowDefCredentialsWhenNTLMOnly
+    Enabled             : True
+    ConcatenateDefaults : True
+    Services            : TERMSRV/*
+
+    Policy              : Allow delegating default credentials
+    Setting             : AllowDefaultCredentials
+    Enabled             : False
+    ConcatenateDefaults : False
+    Services            : (null)
+
+    Policy              : Deny delegating default credentials
+    Setting             : DenyDefaultCredentials
+    Enabled             : False
+    ConcatenateDefaults : False
+    Services            : (null)
+
+    .LINK
+    https://clement.notin.org/blog/2019/07/03/credential-theft-without-admin-or-touching-lsass-with-kekeo-by-abusing-credssp-tspkg-rdp-sso/
+    #>
+
+    [CmdletBinding()]
+    param (
+        [UInt32] $BaseSeverity
+    )
+
+    begin {
+        $RootKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows\CredentialsDelegation"
+        $CredentialDelegationSettings = @(
+            @(
+                "Allow delegating default credentials with NTLM-only server authentication",
+                "AllowDefCredentialsWhenNTLMOnly",
+                "ConcatenateDefaults_AllowDefNTLMOnly"
+            ),
+            @(
+                "Allow delegating default credentials",
+                "AllowDefaultCredentials",
+                "ConcatenateDefaults_AllowDefault"
+            ),
+            @(
+                "Deny delegating default credentials",
+                "DenyDefaultCredentials",
+                "ConcatenateDefaults_DenyDefault"
+            )
+        )
+    }
+
+    process {
+        $AllResults = @()
+
+        foreach ($Setting in $CredentialDelegationSettings) {
+
+            $Policy = $Setting[0]
+            $SettingName = $Setting[1]
+            $SettingDefaultName = $Setting[2]
+
+            $SettingEnabled = (Get-ItemProperty -Path "Registry::$($RootKey)" -Name $SettingName -ErrorAction SilentlyContinue).$SettingName
+            $ConcatenateDefaults = (Get-ItemProperty -Path "Registry::$($RootKey)" -Name $SettingDefaultName -ErrorAction SilentlyContinue).$SettingDefaultName
+
+            $ServiceKey = Join-Path -Path $RootKey -ChildPath $SettingName
+            $ServiceData = (Get-Item -Path "Registry::$($ServiceKey)" -ErrorAction SilentlyContinue).Property | ForEach-Object {
+                (Get-ItemProperty -Path "Registry::$($ServiceKey)" -Name $_ -ErrorAction SilentlyContinue).$_
+            }
+
+            $Result = New-Object -TypeName PSObject
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Policy" -Value $Policy
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Setting" -Value $SettingName
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Enabled" -Value ([Bool] $SettingEnabled)
+            $Result | Add-Member -MemberType "NoteProperty" -Name "ConcatenateDefaults" -Value ([Bool] $ConcatenateDefaults)
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Services" -Value $(if ($null -ne $ServiceData) { $ServiceData -join ", " } else { "(null)" })
+            $AllResults += $Result
+        }
+
+        $Vulnerable = $null -ne ($AllResults | Where-Object { $_.Enabled -and ($_.Setting -like "Allow*") })
+
+        $CheckResult = New-Object -TypeName PSObject
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevel::None })
+        $CheckResult
+    }
+}

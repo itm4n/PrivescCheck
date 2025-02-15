@@ -6,6 +6,7 @@
 
 - Check for VNC server passwords.
 - Check for IPv6 configuration.
+- Check for Credential Delegation.
 
 ## 2025-02-13
 
