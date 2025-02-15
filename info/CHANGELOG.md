@@ -1,5 +1,11 @@
 # Changelog
 
+## 2025-02-15
+
+### Added
+
+- Check for VNC server passwords.
+
 ## 2025-02-13
 
 ### Added

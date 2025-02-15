@@ -725,3 +725,189 @@ function Invoke-SccmCacheFolderCredentialCheck {
         $CheckResult
     }
 }
+
+function Invoke-VncCredentialCheck {
+    <#
+    .SYNOPSIS
+    Check whether a VNC server is installed, and if so attempt to read and decrypt the password.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet identifies common VNC server software, and attempts to extract credential information from known locations on the disk or in the registry. It should be noted that some of the VNC servers restrict access to their registry keys to administrators.
+
+    .EXAMPLE
+    PS C:\> Invoke-VncCredentialCheck
+
+    Name            : RealVNC
+    Path            : C:\Program Files\RealVNC
+    PasswordPath    : HKLM\SOFTWARE\RealVNC\vncserver
+    PasswordSetting : Password
+    PasswordData    : (null)
+    Password        : (null)
+    AccessError     : Requested registry access is not allowed.
+
+    Name            : TightVNC
+    Path            : C:\Program Files\TightVNC
+    PasswordPath    : HKCU\Software\TightVNC\Server
+    PasswordSetting : Password
+    PasswordData    : 6E4E44FD4B6EDDB3
+    Password        : T1ghtVNC
+    AccessError     : (null)
+
+    Name            : TightVNC
+    Path            : C:\Program Files\TightVNC
+    PasswordPath    : HKCU\Software\TightVNC\Server
+    PasswordSetting : PasswordViewOnly
+    PasswordData    : 6E4E44FD4B6EDDB3
+    Password        : T1ghtVNC
+    AccessError     : (null)
+
+    Name            : UltraVNC
+    Path            : C:\Program Files\uvnc bvba\UltraVNC
+    PasswordPath    : ultravnc.ini
+    PasswordSetting : passwd
+    PasswordData    : 4599459F23BD1B914E
+    Password        : Ultr4VNC
+    AccessError     : (null)
+
+    Name            : UltraVNC
+    Path            : C:\Program Files\uvnc bvba\UltraVNC
+    PasswordPath    : ultravnc.ini
+    PasswordSetting : passwd2
+    PasswordData    : 4599459F23BD1B914E
+    Password        : Ultr4VNC
+    AccessError     : (null)
+
+    Name            : TigerVNC
+    Path            : C:\Program Files\TigerVNC
+    PasswordPath    : HKLM\SOFTWARE\TigerVNC\WinVNC4
+    PasswordSetting : Password
+    PasswordData    : (null)
+    Password        : (null)
+    AccessError     : Requested registry access is not allowed.
+
+    .NOTES
+    The list of registry paths and file paths was mostly built based on the information provided in the GitHub repository 'PasswordDecrypts' (see reference in the LINK section). All VNC servers tested in this check were also installed locally in a test environment to double-check the paths and correct them if needed. The routine to decrypt VNC passwords was taken from the repository 'VNC-Hunt' (see reference in the LINK section).
+
+    .LINK
+    https://github.com/frizb/PasswordDecrypts
+    https://github.com/The-Viper-One/VNC-Hunt/blob/main/VNC-Hunt.ps1
+    #>
+
+    [CmdletBinding()]
+    param (
+        [UInt32] $BaseSeverity
+    )
+
+    begin {
+        $AllResults = @()
+        $VncSettingHashTable = @{
+            "RealVNC"  = @( "Registry", "HKLM\SOFTWARE\RealVNC\vncserver", "Password" )
+            "TigerVNC" = @( "Registry", "HKLM\SOFTWARE\TigerVNC\WinVNC4",  "Password" )
+            "TightVNC" = @( "Registry", "HKCU\Software\TightVNC\Server",   "Password,PasswordViewOnly" )
+            "UltraVNC" = @( "File",     "ultravnc.ini",                    "passwd,passwd2" )
+        }
+
+        function VncPasswordDecrypt {
+            param ([String] $Encoded)
+
+            try {
+                $EncryptedBytes = [Byte[]] -split ($Encoded -replace '..', '0x$& ')
+                $FixedKey = [Byte[]] (0xe8, 0x4a, 0xd6, 0x60, 0xc4, 0x72, 0x1a, 0xe0)
+
+                if ($EncryptedBytes.Length % 8 -ne 0) {
+                    $PaddedBytesLength = [Math]::Ceiling($EncryptedBytes.Length / 8) * 8
+                    $PaddedBytes = New-Object Byte[] ($PaddedBytesLength)
+                    [Array]::Copy($EncryptedBytes, $PaddedBytes, $EncryptedBytes.Length)
+                    $EncryptedBytes = $PaddedBytes
+                }
+
+                $DesProvider = [System.Security.Cryptography.DES]::Create()
+                $DesProvider.Key = $FixedKey
+                $DesProvider.Mode = [System.Security.Cryptography.CipherMode]::ECB
+                $DesProvider.Padding = [System.Security.Cryptography.PaddingMode]::None
+
+                $DesDecryptor = $DesProvider.CreateDecryptor()
+                $DecryptedBytes = $DesDecryptor.TransformFinalBlock($EncryptedBytes, 0, $EncryptedBytes.Length)
+                $DecryptedPassword = ([System.Text.Encoding]::ASCII.GetString($DecryptedBytes)).Trim([char]0)
+                $DecryptedPassword = $DecryptedPassword.Substring(0, [Math]::Min($DecryptedPassword.Length, 8))
+
+                return $DecryptedPassword
+            }
+            catch {
+                Write-Warning "Failed to decrypt value '$($Encoded)': $($_.Exception.Message)"
+            }
+
+            return $null
+        }
+    }
+
+    process {
+        foreach ($VncSoftware in $VncSettingHashTable.Keys) {
+            $SettingType = $VncSettingHashTable[$VncSoftware][0]
+            $SettingPath = $VncSettingHashTable[$VncSoftware][1]
+            $InstallPath = Get-InstalledApplication | Where-Object { $_.Name -eq $VncSoftware } | Select-Object -ExpandProperty FullName
+            $TargetPath = ""
+            switch ($SettingType) {
+                "Registry" {
+                    $TargetPath = "Registry::$($SettingPath)"
+                }
+                "File" {
+                    if (-not [String]::IsNullOrEmpty($InstallPath)) {
+                        $TargetPath = Join-Path -Path $InstallPath -ChildPath $SettingPath
+                    }
+                }
+                default {
+                    throw "Unhandled setting type for '$($VncSoftware)': $($SettingType)"
+                }
+            }
+
+            if ([String]::IsNullOrEmpty($TargetPath)) { continue }
+            if (-not (Test-Path -Path $TargetPath)) { continue }
+
+            foreach ($SettingValue in $VncSettingHashTable[$VncSoftware][2].Split(',')) {
+                $AccessError = $null
+                switch ($SettingType) {
+                    "Registry" {
+                        $SettingData = (Get-ItemProperty -Path $TargetPath -Name $SettingValue -ErrorAction SilentlyContinue -ErrorVariable AccessError).$SettingValue
+                        if (($null -ne $SettingData) -and ($SettingData -is [Byte[]])) {
+                            $SettingData = ($SettingData | ForEach-Object { $_.ToString("X2") }) -join ""
+                        }
+                    }
+                    "File" {
+                        $Pattern = "$($SettingValue)="
+                        $SettingData = (Get-Content -Path $TargetPath -ErrorAction SilentlyContinue -ErrorVariable AccessError | Select-String -Pattern $Pattern)
+                        if ($null -ne $SettingData) {
+                            $SettingData = $SettingData -replace $Pattern,""
+                        }
+                    }
+                }
+
+                $DecryptedPassword = ""
+                if (-not [String]::IsNullOrEmpty($SettingData)) {
+                    # Make sure the encoded password contains 16 bytes at most
+                    if ($SettingData -match "^[a-fA-F0-9]{0,32}$") {
+                        $DecryptedPassword = VncPasswordDecrypt -Encoded $SettingData
+                    }
+                }
+
+                $Result = New-Object -TypeName PSObject
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $VncSoftware
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $InstallPath
+                $Result | Add-Member -MemberType "NoteProperty" -Name "PasswordPath" -Value $SettingPath
+                $Result | Add-Member -MemberType "NoteProperty" -Name "PasswordSetting" -Value $SettingValue
+                $Result | Add-Member -MemberType "NoteProperty" -Name "PasswordData" -Value $(if ([String]::IsNullOrEmpty($SettingData)) { "(null)" } else { $SettingData })
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Password" -Value $(if ([String]::IsNullOrEmpty($DecryptedPassword)) { "(null)" } else { $DecryptedPassword })
+                $Result | Add-Member -MemberType "NoteProperty" -Name "AccessError" -Value $(if ([String]::IsNullOrEmpty($AccessError)) { "(null)" } else { $AccessError.Exception.Message })
+                $AllResults += $Result
+            }
+        }
+
+        $CheckResult = New-Object -TypeName PSObject
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AllResults) { $BaseSeverity } else { $script:SeverityLevel::None })
+        $CheckResult
+    }
+}
