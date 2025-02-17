@@ -388,6 +388,11 @@ function Invoke-PowerShellSecurityFeatureCheck {
 
         $Description = ""
 
+        if ([String]::IsNullOrEmpty($Result.ExecutionPolicy)) {
+            $Vulnerable = $true
+            $Description = "$($Description)No execution policy is enforced. "
+        }
+
         if ($Result.ExecutionPolicy -eq "Unrestricted") {
             $Vulnerable = $true
             $Description = "$($Description)All scripts are allowed to run. "
@@ -403,7 +408,7 @@ function Invoke-PowerShellSecurityFeatureCheck {
             $Description = "$($Description)Module logging is not enabled. "
         }
 
-        if ([String]::IsNullOrEmpty($Description)) {
+        if (-not $Vulnerable) {
             $Description = "No particular issue was observed."
         }
 
