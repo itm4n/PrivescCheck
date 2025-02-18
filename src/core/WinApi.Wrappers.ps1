@@ -1467,6 +1467,64 @@ function Convert-DosDeviceToDevicePath {
     [System.Runtime.InteropServices.Marshal]::FreeHGlobal($TargetPathPtr)
 }
 
+function Convert-SddlToRawSecurityDescriptor {
+    <#
+    .SYNOPSIS
+    Wrapper - Convert an SDDL string to a security descriptor.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet is a wrapper for the API 'ConvertStringSecurityDescriptorToSecurityDescriptor'. It takes an SDDL string as an input, and converts it to a security descriptor object that can be easily manipulated in PowerShell.
+
+    .PARAMETER Sddl
+    A mandatory input SDDL string.
+
+    .EXAMPLE
+    PS C:\> Convert-SddlToRawSecurityDescriptor -Sddl "O:BAG:BAD:P(A;CIOI;GRGX;;;BU)(A;CIOI;GA;;;BA)(A;CIOI;GA;;;SY)(A;CIOI;GA;;;CO)S:P(AU;FA;GR;;;WD)
+
+    ControlFlags           : DiscretionaryAclPresent, SystemAclPresent, DiscretionaryAclProtected, SystemAclProtected,
+                             SelfRelative
+    Owner                  : S-1-5-32-544
+    Group                  : S-1-5-32-544
+    SystemAcl              : {System.Security.AccessControl.CommonAce}
+    DiscretionaryAcl       : {System.Security.AccessControl.CommonAce, System.Security.AccessControl.CommonAce,
+                             System.Security.AccessControl.CommonAce, System.Security.AccessControl.CommonAce}
+    ResourceManagerControl : 0
+    BinaryLength           : 176
+    #>
+
+    [OutputType([Security.AccessControl.RawSecurityDescriptor])]
+    [CmdletBinding()]
+    param (
+        [ValidateNotNullOrEmpty()]
+        [Parameter(Mandatory=$true)]
+        [String] $Sddl
+    )
+
+    process {
+        $SecurityDescriptorPtr = [IntPtr]::Zero
+        $SecurityDescriptorSize = 0
+        $Success = $script:Advapi32::ConvertStringSecurityDescriptorToSecurityDescriptor($Sddl, 1, [ref] $SecurityDescriptorPtr, [ref] $SecurityDescriptorSize)
+
+        if (-not $Success) {
+            $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+            Write-Error "ConvertStringSecurityDescriptorToSecurityDescriptor - $(Format-Error $LastError)"
+            return $null
+        }
+
+        $SecurityDescriptorBytes = New-Object Byte[]($SecurityDescriptorSize)
+        [Runtime.InteropServices.Marshal]::Read
+        for ($i = 0; $i -lt $SecurityDescriptorSize; $i++) {
+            $Offset = [IntPtr] ($SecurityDescriptorPtr.ToInt64() + $i)
+            $SecurityDescriptorBytes[$i] = [Runtime.InteropServices.Marshal]::ReadByte($Offset)
+        }
+
+        New-Object Security.AccessControl.RawSecurityDescriptor -ArgumentList $SecurityDescriptorBytes, 0
+    }
+}
+
 function Get-ObjectSecurityInfo {
     <#
     .SYNOPSIS

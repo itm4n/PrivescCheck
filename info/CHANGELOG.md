@@ -1,5 +1,11 @@
 # Changelog
 
+## 3035-02-18
+
+### Added
+
+- Wrapper for converting an SDDL to a security descriptor object.
+
 ## 2025-02-15
 
 ### Added
