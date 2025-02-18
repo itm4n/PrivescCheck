@@ -1150,6 +1150,147 @@ function Get-WlanProfileList {
     }
 }
 
+function Get-ComScheduledTask {
+    <#
+    .SYNOPSIS
+    Helper - Enumerate registered scheduled tasks using COM.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet enumerates all registered scheduled tasks through the 'Schedule.Service' COM object. The result is not guaranteed to be exhaustive as the list of returned objects may differ depending on the current user's security context. Some scheduled tasks might require administrator privileges to be read.
+    #>
+
+    [CmdletBinding()]
+    param ()
+
+    begin {
+        function Get-ComScheduledTaskHelper {
+            param ([Object] $Service, [String] $Path)
+            ($Folder = $Service.GetFolder($Path)).GetTasks(1)
+            $Folder.GetFolders(0) | ForEach-Object {
+                Get-ComScheduledTaskHelper -Service $Service -Path $(Join-Path -Path $Path -ChildPath $_.Name )
+            }
+        }
+    }
+
+    process {
+        $ScheduleService = New-Object -ComObject("Schedule.Service")
+        $ScheduleService.Connect()
+        Get-ComScheduledTaskHelper -Path "\" -Service $ScheduleService
+    }
+}
+
+function Get-RegisteredScheduledTask {
+    <#
+    .SYNOPSIS
+    Helper - Enumerate registered scheduled tasks
+
+    .DESCRIPTION
+    This cmdlet lists all accessible scheduled tasks and extracts information about the principal it runs as, as well as the actions executed when the task is triggered.
+
+    .EXAMPLE
+    PS C:\> Get-RegisteredScheduledTask
+
+    ...
+
+    Name              : XblGameSaveTask
+    Path              : \Microsoft\XblGameSave\XblGameSaveTask
+    FilePath          : C:\WINDOWS\System32\Tasks\Microsoft\XblGameSave\XblGameSaveTask
+    Enabled           : True
+    RunAs             : @{Id=LocalSystem; UserId=S-1-5-18; User=NT AUTHORITY\SYSTEM; LogonType=; GroupId=; Group=; DisplayName=; RunLevel=; ProcessTokenSidType=; RequiredPrivileges=}
+    ExecActions       : {@{Command=%windir%\System32\XblGameSaveTask.exe; Arguments=standby; WorkingDirectory=}}
+    ComHandlerActions : {}
+    SecurityInfo      : @{Owner=BUILTIN\Administrators; OwnerSid=S-1-5-32-544; Group=S-1-5-21-4024195226-107334468-2656468696-513; GroupSid=S-1-5-21-4024195226-107334468-2656468696-513; Dacl=System.Object[];
+                        Sddl=O:BAG:S-1-5-21-4024195226-107334468-2656468696-513D:AI(A;ID;0x1f019f;;;BA)(A;ID;0x1f019f;;;SY)(A;ID;FR;;;AU)(A;ID;FR;;;LS)(A;ID;FR;;;NS)(A;ID;FA;;;BA)}
+
+    ...
+
+    .LINK
+    https://learn.microsoft.com/en-us/windows/win32/taskschd/task-scheduler-schema
+    #>
+
+    [CmdletBinding()]
+    param ()
+
+    process {
+        if ($null -eq $script:GlobalCache.ScheduledTaskList) {
+
+            Write-Verbose "Initializing cache: ScheduledTaskList"
+            $script:GlobalCache.ScheduledTaskList = @()
+
+            foreach ($ComTask in (Get-ComScheduledTask)) {
+
+                $TaskXml = [xml] $ComTask.Xml
+
+                $TaskPrincipals = @()
+                $TaskXml.GetElementsByTagName("Principals").ChildNodes | ForEach-Object {
+
+                    $TaskPrincipal = New-Object -TypeName PSObject
+                    $TaskPrincipal | Add-Member -MemberType "NoteProperty" -Name "Id" -Value $_.GetAttribute("id")
+                    $TaskPrincipal | Add-Member -MemberType "NoteProperty" -Name "UserId" -Value $_.UserId
+                    $TaskPrincipal | Add-Member -MemberType "NoteProperty" -Name "User" -Value (Convert-SidToName -Sid $_.UserId)
+                    $TaskPrincipal | Add-Member -MemberType "NoteProperty" -Name "LogonType" -Value $_.LogonType
+                    $TaskPrincipal | Add-Member -MemberType "NoteProperty" -Name "GroupId" -Value $_.GroupId
+                    $TaskPrincipal | Add-Member -MemberType "NoteProperty" -Name "Group" -Value (Convert-SidToName -Sid $_.GroupId)
+                    $TaskPrincipal | Add-Member -MemberType "NoteProperty" -Name "DisplayName" -Value $_.DisplayName
+                    $TaskPrincipal | Add-Member -MemberType "NoteProperty" -Name "RunLevel" -Value $_.RunLevel
+                    $TaskPrincipal | Add-Member -MemberType "NoteProperty" -Name "ProcessTokenSidType" -Value $_.ProcessTokenSidType
+                    $TaskPrincipal | Add-Member -MemberType "NoteProperty" -Name "RequiredPrivileges" -Value $_.RequiredPrivileges
+                    $TaskPrincipals += $TaskPrincipal
+                }
+
+                $TaskActions = $TaskXml.GetElementsByTagName("Actions")
+                $RunAsPrincipal = $TaskPrincipals | Where-Object { $_.Id -eq $TaskActions.GetAttribute("Context") }
+
+                $ExecActions = @()
+                $ComHandlerActions = @()
+
+                $TaskActions.ChildNodes | ForEach-Object {
+
+                    $Action = $_
+
+                    switch ($Action.Name) {
+                        "Exec" {
+                            $ExecAction = New-Object -TypeName PSObject
+                            $ExecAction | Add-Member -MemberType "NoteProperty" -Name "Command" -Value $Action.Command
+                            $ExecAction | Add-Member -MemberType "NoteProperty" -Name "Arguments" -Value $Action.Arguments
+                            $ExecAction | Add-Member -MemberType "NoteProperty" -Name "WorkingDirectory" -Value $Action.WorkingDirectory
+                            $ExecActions += $ExecAction
+                        }
+                        "ComHandler" {
+                            $ComHandlerAction = New-Object -TypeName PSObject
+                            $ComHandlerAction | Add-Member -MemberType "NoteProperty" -Name "ClassId" -Value $Action.ClassId
+                            $ComHandlerAction | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $Action.Data
+                            $ComHandlerActions += $ComHandlerAction
+                        }
+                        "SendEmail" {
+                            # We are not interested in this type of action.
+                        }
+                        "ShowMessage" {
+                            # We are not interested in this type of action.
+                        }
+                    }
+                }
+
+                $Result = New-Object -TypeName PSObject
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $ComTask.Name
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $ComTask.Path
+                $Result | Add-Member -MemberType "NoteProperty" -Name "FilePath" -Value (Join-Path -Path $(Join-Path -Path $env:windir -ChildPath "System32\Tasks") -ChildPath $ComTask.Path)
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Enabled" -Value $ComTask.Enabled
+                $Result | Add-Member -MemberType "NoteProperty" -Name "RunAs" -Value $RunAsPrincipal
+                $Result | Add-Member -MemberType "NoteProperty" -Name "ExecActions" -Value $ExecActions
+                $Result | Add-Member -MemberType "NoteProperty" -Name "ComHandlerActions" -Value $ComHandlerActions
+                $Result | Add-Member -MemberType "NoteProperty" -Name "SecurityInfo" -Value (Get-ScheduledTaskSecurityInfo -Task $ComTask)
+                $script:GlobalCache.ScheduledTaskList += $Result
+            }
+        }
+
+        $script:GlobalCache.ScheduledTaskList
+    }
+}
+
 function Get-ScheduledTaskList {
     <#
     .SYNOPSIS

@@ -6,6 +6,7 @@
 
 - Wrapper for converting an SDDL to a security descriptor object.
 - Helper for obtaining security information about a registered scheduled task.
+- New helper for obtaining information about registered scheduled tasks.
 
 ### Modified
 
