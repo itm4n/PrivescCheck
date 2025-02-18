@@ -5,6 +5,7 @@
 ### Added
 
 - Wrapper for converting an SDDL to a security descriptor object.
+- Helper for obtaining security information about a registered scheduled task.
 
 ## 2025-02-15
 

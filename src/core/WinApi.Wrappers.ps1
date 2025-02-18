@@ -1597,7 +1597,7 @@ function Get-ObjectSecurityInfo {
             default                 { throw "Unhandled object type: $($Type)" }
         }
 
-        $SecurityInfo = 7 # DACL_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION | OWNER_SECURITY_INFORMATION
+        $SecurityInfo = $script:SecurityInformation::Owner + $script:SecurityInformation::Group + $script:SecurityInformation::Dacl
         $SidOwnerPtr = [IntPtr]::Zero
         $SidGroupPtr = [IntPtr]::Zero
         $DaclPtr = [IntPtr]::Zero
@@ -1673,6 +1673,60 @@ function Get-ObjectSecurityInfo {
     end {
         if ($SecurityDescriptorPtr -ne [IntPtr]::Zero) { $null = $script:Kernel32::LocalFree($SecurityDescriptorPtr) }
         if ($SecurityDescriptorNewPtr -ne [IntPtr]::Zero) { $null = $script:Kernel32::LocalFree($SecurityDescriptorNewPtr) }
+    }
+}
+
+function Get-ScheduledTaskSecurityInfo {
+    <#
+    .SYNOPSIS
+    Helper - Get security information about a scheduled task.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet retrieves information about a scheduled task (owner, group, DACL). It is assumed that input object is a COM object representing a registered scheduled task. The content of the output object is consistent with the content of the object returned by the generic Get-ObjectSecurityInfo cmdlet.
+
+    .PARAMETER Task
+    A mandatory COM object representing a registered scheduled task.
+
+    .EXAMPLE
+    PS C:\> $ss = New-Object -ComObject('Schedule.Service')
+    PS C:\> $ss.Connect()
+    PS C:\> $root = $ss.GetFolder("\")
+    PS C:\> $tasks = root.GetTasks(0)
+    PS C:\> $task = $tasks | Select-Object -First 1
+    PS C:\> Get-ScheduledTaskSecurityInfo -Task $task
+
+    Owner    : DESKTOP-TVHGOIE\Admin
+    OwnerSid : S-1-5-21-2452670728-2894995751-1045154116-1001
+    Group    : DESKTOP-TVHGOIE\None
+    GroupSid : S-1-5-21-2452670728-2894995751-1045154116-513
+    Dacl     : {System.Security.AccessControl.CommonAce, System.Security.AccessControl.CommonAce,
+               System.Security.AccessControl.CommonAce, System.Security.AccessControl.CommonAce}
+    Sddl     : O:S-1-5-21-2452670728-2894995751-1045154116-1001G:S-1-5-21-2452670728-2894995751-1045154116-513D:(A;ID;0x1f0
+               19f;;;BA)(A;ID;0x1f019f;;;SY)(A;ID;FA;;;S-1-5-21-2452670728-2894995751-1045154116-1001)(A;;FR;;;S-1-5-21-245
+               2670728-2894995751-1045154116-1001)
+    #>
+
+    [CmdletBinding()]
+    param (
+        [Object] $Task
+    )
+
+    process {
+        $SecurityInfo = $script:SecurityInformation::Owner + $script:SecurityInformation::Group + $script:SecurityInformation::Dacl
+        $TaskSddl = $Task.GetSecurityDescriptor($SecurityInfo)
+        $TaskSecurityDescriptor = Convert-SddlToRawSecurityDescriptor -Sddl $TaskSddl
+
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Owner" -Value (Convert-SidToName -Sid $TaskSecurityDescriptor.Owner)
+        $Result | Add-Member -MemberType "NoteProperty" -Name "OwnerSid" -Value $TaskSecurityDescriptor.Owner
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Group" -Value (Convert-SidToName -Sid $TaskSecurityDescriptor.Group)
+        $Result | Add-Member -MemberType "NoteProperty" -Name "GroupSid" -Value $TaskSecurityDescriptor.Group
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Dacl" -Value $TaskSecurityDescriptor.DiscretionaryAcl
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Sddl" -Value $TaskSddl
+        $Result
     }
 }
 
