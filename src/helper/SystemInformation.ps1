@@ -1183,7 +1183,7 @@ function Get-ScheduledTaskList {
             [string] $TaskPath
         )
 
-        ($CurrentFolder = $Service.GetFolder($TaskPath)).GetTasks(0)
+        ($CurrentFolder = $Service.GetFolder($TaskPath)).GetTasks(1)
         $CurrentFolder.GetFolders(0) | ForEach-Object {
             Get-ScheduledTaskCustom -Service $Service -TaskPath $(Join-Path -Path $TaskPath -ChildPath $_.Name )
         }
