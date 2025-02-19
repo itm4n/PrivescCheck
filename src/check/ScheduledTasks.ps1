@@ -12,15 +12,16 @@ function Invoke-ScheduledTaskImagePermissionCheck {
     .EXAMPLE
     PS C:\> Invoke-ScheduledTaskImagePermissionCheck
 
-    TaskName           : DummyTask
-    TaskPath           : \CustomTasks\DummyTask
-    TaskFile           : C:\Windows\System32\Tasks\CustomTasks\DummyTask
-    RunAs              : NT AUTHORITY\SYSTEM
-    Command            : C:\APPS\MyTask.exe
-    CurrentUserIsOwner : False
-    ModifiablePath     : C:\APPS\
-    IdentityReference  : NT AUTHORITY\Authenticated Users
-    Permissions        : {Delete, WriteAttributes, Synchronize, ReadControl...}
+    Name              : VulnerableTask
+    Path              : \VulnerableTask
+    FilePath          : C:\WINDOWS\System32\Tasks\VulnerableTask
+    RunAs             : NT AUTHORITY\SYSTEM
+    Command           : "C:\tools\invalid path\MyTask.exe"
+    ModifiablePath    : C:\tools
+    IdentityReference : NT AUTHORITY\Authenticated Users (S-1-5-11)
+    Permissions       : ListDirectory, AddFile, AddSubdirectory, ReadExtendedAttributes, WriteExtendedAttributes,
+                        Traverse, ReadAttributes, WriteAttributes, Delete, ReadControl, Synchronize, GenericRead,
+                        GenericExecute, GenericWrite
     #>
 
     [CmdletBinding()]
@@ -30,23 +31,41 @@ function Invoke-ScheduledTaskImagePermissionCheck {
 
     begin {
         $AllResults = @()
+        $CurrentUserSids = Get-CurrentUserSid
         $FsRedirectionValue = Disable-Wow64FileSystemRedirection
     }
 
     process {
-        $ScheduledTasks = Get-ScheduledTaskList | Where-Object { (-not $_.CurrentUserIsOwner) -and (-not [String]::IsNullOrEmpty($_.Program)) }
 
-        foreach ($ScheduledTask in $ScheduledTasks) {
+        foreach ($ScheduledTask in (Get-RegisteredScheduledTask | Where-Object { $_.Enabled })) {
 
-            $ModifiablePaths = Get-ModifiablePath -Path $ScheduledTask.Program | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
-            if ($null -eq $ModifiablePaths) { continue }
-            foreach ($ModifiablePath in $ModifiablePaths) {
+            # Ignore tasks that a are run as the current user
+            if ($CurrentUserSids -contains $ScheduledTask.RunAs.UserId) { continue }
 
-                $Result = $ScheduledTask.PsObject.Copy()
-                $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $ModifiablePath.ModifiablePath
-                $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $ModifiablePath.IdentityReference
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value ($ModifiablePath.Permissions -join ", ")
-                $AllResults += $Result
+            $RunAsPrincipalName = $ScheduledTask.RunAs.User
+            if ([String]::IsNullOrEmpty($RunAsPrincipalName)) {
+                $RunAsPrincipalName = $ScheduledTask.RunAs.Group
+            }
+
+            foreach ($ExecAction in $ScheduledTask.ExecActions) {
+
+                $Command = $ExecAction.Command.Trim("`"")
+                $ModifiablePaths = Get-ModifiablePath -Path $Command | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
+                if ($null -eq $ModifiablePaths) { continue }
+
+                foreach ($ModifiablePath in $ModifiablePaths) {
+
+                    $Result = New-Object -TypeName PSObject
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $ScheduledTask.Name
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $ScheduledTask.Path
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "FilePath" -Value $ScheduledTask.FilePath
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "RunAs" -Value $RunAsPrincipalName
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "Command" -Value "$($ExecAction.Command) $($ExecAction.Arguments)"
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $ModifiablePath.ModifiablePath
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $ModifiablePath.IdentityReference
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value ($ModifiablePath.Permissions -join ", ")
+                    $AllResults += $Result
+                }
             }
         }
 
@@ -97,21 +116,39 @@ function Invoke-ScheduledTaskUnquotedPathCheck {
 
     begin {
         $AllResults = @()
+        $CurrentUserSids = Get-CurrentUserSid
         $FsRedirectionValue = Disable-Wow64FileSystemRedirection
     }
 
     process {
-        Get-ScheduledTaskList | Where-Object { $_.CurrentUserIsOwner -eq $false} | ForEach-Object {
 
-            $CurrentTask = $_
+        foreach ($ScheduledTask in (Get-RegisteredScheduledTask | Where-Object { $_.Enabled })) {
 
-            Get-ExploitableUnquotedPath -Path $CurrentTask.Command | ForEach-Object {
+            # Ignore tasks that a are run as the current user
+            if ($CurrentUserSids -contains $ScheduledTask.RunAs.UserId) { continue }
 
-                $Result = $CurrentTask.PsObject.Copy()
-                $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $_.ModifiablePath
-                $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $_.IdentityReference
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value $_.Permissions
-                $AllResults += $Result
+            $RunAsPrincipalName = $ScheduledTask.RunAs.User
+            if ([String]::IsNullOrEmpty($RunAsPrincipalName)) {
+                $RunAsPrincipalName = $ScheduledTask.RunAs.Group
+            }
+
+            foreach ($ExecAction in $ScheduledTask.ExecActions) {
+
+                $UnquotedPaths = Get-ExploitableUnquotedPath -Path $ExecAction.Command
+
+                foreach ($UnquotedPath in $UnquotedPaths) {
+
+                    $Result = New-Object -TypeName PSObject
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $ScheduledTask.Name
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $ScheduledTask.Path
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "FilePath" -Value $ScheduledTask.FilePath
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "RunAs" -Value $RunAsPrincipalName
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "Command" -Value "$($ExecAction.Command) $($ExecAction.Arguments)"
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $UnquotedPath.ModifiablePath
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $UnquotedPath.IdentityReference
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value ($UnquotedPath.Permissions -join ", ")
+                    $AllResults += $Result
+                }
             }
         }
 

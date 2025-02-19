@@ -1,6 +1,16 @@
 # Changelog
 
-## 3035-02-18
+## 2025-02-19
+
+### Modified
+
+- Update existing scheduled task checks so that they use the new helper 'Get-RegisteredScheduledTask'.
+
+### Removed
+
+- Previous helper ('Get-ScheduledTaskList') for enumerating scheduled tasks was removed.
+
+## 2025-02-18
 
 ### Added
 
