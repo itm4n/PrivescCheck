@@ -15,6 +15,9 @@ function Get-ObjectAccessRight {
     .PARAMETER Type
     A mandatory parameter representing the type of object being queried (e.g. "File", "Directory", "RegistryKey", "Service", etc.).
 
+    .PARAMETER SecurityInformation
+    An optional parameter containing a security information object. If not specified, the helper function 'Get-ObjectSecurityInfo' is invoked to retrieve security information about the input object.
+
     .PARAMETER AccessRights
     An optional parameter representing a list of target access rights to test. If not specified, this cmdlet checks for modification rights specific to the input object type.
 
@@ -66,6 +69,8 @@ function Get-ObjectAccessRight {
         [Parameter(Mandatory=$true)]
         [ValidateSet("File", "Directory", "RegistryKey", "Service", "ServiceControlManager", "Process", "Thread")]
         [String] $Type,
+
+        [Object] $SecurityInformation,
 
         [UInt32[]] $AccessRights = $null
     )
@@ -212,8 +217,15 @@ function Get-ObjectAccessRight {
             }
         }
 
-        # First things first, try to get the ACL of the object given its path.
-        $SecurityInfo = Get-ObjectSecurityInfo -Handle $Handle -Type $Type
+        # If the input object's security information is not supplied, retrieve it first
+        # using the helper function 'Get-ObjectSecurityInfo'.
+        if ($null -eq $SecurityInformation) {
+            $SecurityInfo = Get-ObjectSecurityInfo -Handle $Handle -Type $Type
+        }
+        else {
+            $SecurityInfo = $SecurityInformation
+        }
+
         if ($null -eq $SecurityInfo) { return }
 
         $DenyAces = $SecurityInfo.Dacl | Where-Object { $_.AceType -eq "AccessDenied" }
