@@ -76,8 +76,6 @@ function Get-ObjectAccessRight {
     )
 
     begin {
-        $Handle = [IntPtr]::Zero
-
         $FileModificationRights = @(
             $script:FileAccessRight::WriteData,
             $script:FileAccessRight::AppendData,
@@ -164,31 +162,36 @@ function Get-ObjectAccessRight {
     }
 
     process {
+        # Make sure to initialize the handle value to 0 each time an object is processed
+        # to avoid reuse of previously closed handle in case of error when attempting to
+        # open the current object.
+        $Handle = [IntPtr]::Zero
+
         switch ($Type) {
             "File" {
                 $ObjectAccessRights = $script:FileAccessRight
                 $TargetAccessRights = $(if ($PSBoundParameters['AccessRights']) { $AccessRights } else { $FileModificationRights })
-                $Handle = Get-FileHandle -Path $Name -AccessRights $script:FileAccessRight::ReadControl
+                $Handle = Get-FileHandle -Path $Name -AccessRights $script:FileAccessRight::ReadControl -ErrorAction SilentlyContinue
             }
             "Directory" {
                 $ObjectAccessRights = $script:DirectoryAccessRight
                 $TargetAccessRights = $(if ($PSBoundParameters['AccessRights']) { $AccessRights } else { $DirectoryModificationRights })
-                $Handle = Get-FileHandle -Path $Name -AccessRights $script:DirectoryAccessRight::ReadControl -Directory
+                $Handle = Get-FileHandle -Path $Name -AccessRights $script:DirectoryAccessRight::ReadControl -Directory -ErrorAction SilentlyContinue
             }
             "RegistryKey" {
                 $ObjectAccessRights = $script:RegistryKeyAccessRight
                 $TargetAccessRights = $(if ($PSBoundParameters['AccessRights']) { $AccessRights } else { $RegistryKeyModificationRights })
-                $Handle = Get-RegistryKeyHandle -Path $Name -AccessRights $script:RegistryKeyAccessRight::ReadControl
+                $Handle = Get-RegistryKeyHandle -Path $Name -AccessRights $script:RegistryKeyAccessRight::ReadControl -ErrorAction SilentlyContinue
             }
             "Service" {
                 $ObjectAccessRights = $script:ServiceAccessRight
                 $TargetAccessRights = $(if ($PSBoundParameters['AccessRights']) { $AccessRights } else { $ServiceModificationRights })
-                $Handle = Get-ServiceHandle -Name $Name -AccessRights $script:ServiceAccessRight::ReadControl
+                $Handle = Get-ServiceHandle -Name $Name -AccessRights $script:ServiceAccessRight::ReadControl -ErrorAction SilentlyContinue
             }
             "ServiceControlManager" {
                 $ObjectAccessRights = $script:ServiceControlManagerAccessRight
                 $TargetAccessRights = $(if ($PSBoundParameters['AccessRights']) { $AccessRights } else { $ServiceControlManagerModificationRights })
-                $Handle = Get-ServiceHandle -Name "SCM" -SCM -AccessRights $script:ServiceAccessRight::ReadControl
+                $Handle = Get-ServiceHandle -Name "SCM" -SCM -AccessRights $script:ServiceAccessRight::ReadControl -ErrorAction SilentlyContinue
             }
             "Process" {
                 $ObjectAccessRights = $script:ProcessAccessRight
@@ -211,7 +214,8 @@ function Get-ObjectAccessRight {
 
         # Sanity check. Just in case we add other object types in the future, we want to
         # make sure its permission set (access right enum) is properly set. Especially,
-        # we assume that it has an 'AllAccess' member because it used further in the code.
+        # we assume that it has an 'AllAccess' member because it is used further in the
+        # code.
         if ($null -eq $ObjectAccessRights::AllAccess) { throw "Permission set for object type '$($Type)' does not have an 'AllAccess' member." }
 
         # Sanity check. Make sure the input access right set to test is valid.
@@ -224,6 +228,10 @@ function Get-ObjectAccessRight {
         # If the input object's security information is not supplied, retrieve it first
         # using the helper function 'Get-ObjectSecurityInfo'.
         if ($null -eq $SecurityInformation) {
+            # If we failed to open the target object with appropriate privileges, the
+            # resulting handle will be invalid. We must account for this and return
+            # immediately, otherwise we might end up with an undefined behavior.
+            if (($null -eq $Handle) -or ($Handle -eq [IntPtr]::Zero) -or ($Handle -eq -1)) { return }
             $SecurityInfo = Get-ObjectSecurityInfo -Handle $Handle -Type $Type
         }
         else {

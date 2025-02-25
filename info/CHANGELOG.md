@@ -9,6 +9,11 @@
 ### Modified
 
 - The helper 'Get-ObjectAccessRight' was updated to handle scheduled task objects.
+- Improved error handling when opening kernel object handles.
+
+### Fixed
+
+- The helper 'Get-ObjectAccessRight' helper did not check for invalid handles, which resulted in undefined behaviors.
 
 ## 2025-02-19
 

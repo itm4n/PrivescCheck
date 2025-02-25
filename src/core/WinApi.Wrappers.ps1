@@ -259,7 +259,7 @@ function Get-RegistryKeyHandle {
         $Status = $script:Advapi32::RegOpenKeyEx($RootKeyValue, $RootKeyPath, 0, $AccessRights, [ref] $RegistryKeyHandle)
         if ($Status -ne $script:SystemErrorCode::ERROR_SUCCESS) {
             $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-            Write-Warning "RegOpenKeyEx('$($Path)') - $(Format-Error $LastError)"
+            Write-Error "RegOpenKeyEx('$($Path)') - $(Format-Error $LastError)"
         }
 
         return $RegistryKeyHandle
@@ -336,7 +336,7 @@ function Get-ServiceHandle {
         $ServiceControlManagerHandle = $script:Advapi32::OpenSCManager($null, $SERVICES_ACTIVE_DATABASE, $ServiceControlManagerAccessRights)
         if ($ServiceControlManagerHandle -eq [IntPtr]::Zero) {
             $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-            Write-Warning "OpenSCManager(null, '$($SERVICES_ACTIVE_DATABASE)', $($ServiceControlManagerAccessRights -as $script:ServiceControlManagerAccessRight)) - $(Format-Error $LastError)"
+            Write-Error "OpenSCManager(null, '$($SERVICES_ACTIVE_DATABASE)', $($ServiceControlManagerAccessRights -as $script:ServiceControlManagerAccessRight)) - $(Format-Error $LastError)"
             return [IntPtr]::Zero
         }
 
@@ -348,7 +348,7 @@ function Get-ServiceHandle {
         $ServiceHandle = $script:advapi32::OpenService($ServiceControlManagerHandle, $Name, $ServiceAccessRights)
         if ($ServiceHandle -eq [IntPtr]::Zero) {
             $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-            Write-Warning "OpenService($('0x{0:x}' -f $ServiceControlManagerHandle), '$($Name)', $($ServiceAccessRights -as $script:ServiceAccessRight)) - $(Format-Error $LastError)"
+            Write-Error "OpenService($('0x{0:x}' -f $ServiceControlManagerHandle), '$($Name)', $($ServiceAccessRights -as $script:ServiceAccessRight)) - $(Format-Error $LastError)"
         }
 
         return $ServiceHandle
@@ -413,7 +413,7 @@ function Get-ServiceStatus {
         # open the target service first. The access right SERVICE_QUERY_STATUS is
         # mandatory for querying a service's status.
         if ($null -ne $PSBoundParameters['Name']) {
-            $Handle = Get-ServiceHandle -Name $Name -AccessRights $script:ServiceAccessRight::QueryStatus
+            $Handle = Get-ServiceHandle -Name $Name -AccessRights $script:ServiceAccessRight::QueryStatus -ErrorAction SilentlyContinue
             if ($Handle -eq [IntPtr]::Zero) { return }
         }
     }
