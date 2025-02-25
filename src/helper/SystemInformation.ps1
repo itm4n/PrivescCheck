@@ -653,7 +653,7 @@ function Get-ServiceFromRegistry {
     License: BSD 3-Clause
 
     .DESCRIPTION
-    This uses the registry to enumerate the services by looking for the subkeys of "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services". This allows any user to get information about all the services. So, even if non-privileged users can't access the details of a service through the Service Control Manager, they can do so simply by accessing the registry.
+    This cmdlet uses the registry to enumerate the services in the registry key "HKLM\SYSTEM\CurrentControlSet\Services". This allows any user to get information about all the services. So, even if non-privileged users can't access the details of a service through the Service Control Manager, they can do so simply by accessing the registry.
 
     .PARAMETER FilterLevel
     This parameter can be used to filter out the result returned by the function based on the
