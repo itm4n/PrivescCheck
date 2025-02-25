@@ -67,7 +67,7 @@ function Get-ObjectAccessRight {
         [String] $Name,
 
         [Parameter(Mandatory=$true)]
-        [ValidateSet("File", "Directory", "RegistryKey", "Service", "ServiceControlManager", "Process", "Thread")]
+        [ValidateSet("File", "Directory", "RegistryKey", "Service", "ServiceControlManager", "Process", "Thread", "ScheduledTask")]
         [String] $Type,
 
         [Object] $SecurityInformation,
@@ -200,6 +200,10 @@ function Get-ObjectAccessRight {
                 $TargetAccessRights = $(if ($PSBoundParameters['AccessRights']) { $AccessRights } else { $ThreadModificationRights })
                 $Handle = Get-ThreadHandle -ThreadId $Name -AccessRights $script:ThreadAccessRight::ReadControl -ErrorAction SilentlyContinue
             }
+            "ScheduledTask" {
+                $ObjectAccessRights = $script:FileAccessRight
+                $TargetAccessRights = $(if ($PSBoundParameters['AccessRights']) { $AccessRights } else { $FileModificationRights })
+            }
             default {
                 throw "Unhandled object type: $($Type)"
             }
@@ -319,6 +323,7 @@ function Get-ObjectAccessRight {
             "ServiceControlManager" { if ($Handle -ne [IntPtr]::Zero) { $null = $script:Advapi32::CloseServiceHandle($Handle) } }
             "Process"               { if ($Handle -ne [IntPtr]::Zero) { $null = $script:Kernel32::CloseHandle($Handle) } }
             "Thread"                { if ($Handle -ne [IntPtr]::Zero) { $null = $script:Kernel32::CloseHandle($Handle) } }
+            "ScheduledTask"         { }
             default {
                 # Sanity check. We want to make sure to add a 'CloseHandle' function whenever
                 # a new object type is added to this helper to avoid handle leaks.

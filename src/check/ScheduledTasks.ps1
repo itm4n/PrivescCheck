@@ -39,13 +39,15 @@ function Invoke-ScheduledTaskImagePermissionCheck {
 
         foreach ($ScheduledTask in (Get-RegisteredScheduledTask | Where-Object { $_.Enabled })) {
 
-            # Ignore tasks that a are run as the current user
-            if ($CurrentUserSids -contains $ScheduledTask.RunAs.UserId) { continue }
-
+            $RunAsPrincipalSid = $ScheduledTask.RunAs.UserId
             $RunAsPrincipalName = $ScheduledTask.RunAs.User
-            if ([String]::IsNullOrEmpty($RunAsPrincipalName)) {
+            if ([String]::IsNullOrEmpty($RunAsPrincipalSid)) {
+                $RunAsPrincipalSid = $ScheduledTask.RunAs.GroupId
                 $RunAsPrincipalName = $ScheduledTask.RunAs.Group
             }
+
+            # Ignore tasks that a are run as the current user
+            if ($CurrentUserSids -contains $RunAsPrincipalSid) { continue }
 
             foreach ($ExecAction in $ScheduledTask.ExecActions) {
 
@@ -83,18 +85,15 @@ function Invoke-ScheduledTaskImagePermissionCheck {
 function Invoke-ScheduledTaskUnquotedPathCheck {
     <#
     .SYNOPSIS
-
     Enumerates scheduled tasks with an exploitable unquoted path
 
     Author: @itm4n
     License: BSD 3-Clause
 
     .DESCRIPTION
-
     This script first enumerates all the tasks that are visible to the current user. Then, it checks the 'Command' value to see if it is not surrounded by quotes (unquoted path). If so, it checks whether the path contains spaces and if one of the intermediate directories is exploitable. Note that, as a low privileged user, not all the tasks are visible.
 
     .EXAMPLE
-
     PS C:\> Invoke-ScheduledTaskUnquotedPathCheck
 
     TaskName           : VulnTask
@@ -124,8 +123,15 @@ function Invoke-ScheduledTaskUnquotedPathCheck {
 
         foreach ($ScheduledTask in (Get-RegisteredScheduledTask | Where-Object { $_.Enabled })) {
 
+            $RunAsPrincipalSid = $ScheduledTask.RunAs.UserId
+            $RunAsPrincipalName = $ScheduledTask.RunAs.User
+            if ([String]::IsNullOrEmpty($RunAsPrincipalSid)) {
+                $RunAsPrincipalSid = $ScheduledTask.RunAs.GroupId
+                $RunAsPrincipalName = $ScheduledTask.RunAs.Group
+            }
+
             # Ignore tasks that a are run as the current user
-            if ($CurrentUserSids -contains $ScheduledTask.RunAs.UserId) { continue }
+            if ($CurrentUserSids -contains $RunAsPrincipalSid) { continue }
 
             $RunAsPrincipalName = $ScheduledTask.RunAs.User
             if ([String]::IsNullOrEmpty($RunAsPrincipalName)) {
@@ -160,5 +166,77 @@ function Invoke-ScheduledTaskUnquotedPathCheck {
 
     end {
         Restore-Wow64FileSystemRedirection -OldValue $FsRedirectionValue
+    }
+}
+
+function Invoke-ScheduledTaskPermissionCheck {
+    <#
+    .SYNOPSIS
+    Find scheduled tasks configured with a weak DACL.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet first obtains the list of all readable scheduled tasks, and then determines whether their DACL grants modification rights to the current user.
+
+    .EXAMPLE
+    PS C:\> Invoke-ScheduledTaskPermissionCheck
+
+    Name              : MareBackup
+    Path              : \Microsoft\Windows\Application Experience\MareBackup
+    FilePath          : C:\WINDOWS\System32\Tasks\Microsoft\Windows\Application Experience\MareBackup
+    RunAs             : NT AUTHORITY\SYSTEM
+    ModifiablePath    : \Microsoft\Windows\Application Experience\MareBackup
+    IdentityReference : BUILTIN\Users (S-1-5-32-545)
+    Permissions       : AllAccess
+    #>
+
+    [CmdletBinding()]
+    param (
+        [UInt32] $BaseSeverity
+    )
+
+    begin {
+        $AllResults = @()
+        $CurrentUserSids = Get-CurrentUserSid
+    }
+
+    process {
+
+        foreach ($ScheduledTask in (Get-RegisteredScheduledTask)) {
+
+            $RunAsPrincipalSid = $ScheduledTask.RunAs.UserId
+            $RunAsPrincipalName = $ScheduledTask.RunAs.User
+            if ([String]::IsNullOrEmpty($RunAsPrincipalSid)) {
+                $RunAsPrincipalSid = $ScheduledTask.RunAs.GroupId
+                $RunAsPrincipalName = $ScheduledTask.RunAs.Group
+            }
+
+            # Ignore tasks that a are run as the current user
+            if ($CurrentUserSids -contains $RunAsPrincipalSid) { continue }
+
+            # Ignore tasks owned by the current user
+            if ($CurrentUserSids -contains $ScheduledTask.SecurityInfo.OwnerSid) { continue }
+            if ($CurrentUserSids -contains $ScheduledTask.SecurityInfo.GroupSid) { continue }
+
+            Get-ObjectAccessRight -Name $ScheduledTask.Path -Type ScheduledTask -SecurityInformation $ScheduledTask.SecurityInfo | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) } | Foreach-Object {
+
+                $Result = New-Object -TypeName PSObject
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $ScheduledTask.Name
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $ScheduledTask.Path
+                $Result | Add-Member -MemberType "NoteProperty" -Name "FilePath" -Value $ScheduledTask.FilePath
+                $Result | Add-Member -MemberType "NoteProperty" -Name "RunAs" -Value $RunAsPrincipalName
+                $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $_.ModifiablePath
+                $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $_.IdentityReference
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value ($_.Permissions -join ", ")
+                $AllResults += $Result
+            }
+        }
+
+        $CheckResult = New-Object -TypeName PSObject
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AllResults) { $BaseSeverity } else { $script:SeverityLevel::None })
+        $CheckResult
     }
 }

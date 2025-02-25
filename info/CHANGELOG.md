@@ -1,5 +1,15 @@
 # Changelog
 
+## 2025-02-25
+
+### Added
+
+- Function for checking scheduled task permissions.
+
+### Modified
+
+- The helper 'Get-ObjectAccessRight' was updated to handle scheduled task objects.
+
 ## 2025-02-19
 
 ### Modified
