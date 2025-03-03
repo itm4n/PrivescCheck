@@ -413,28 +413,55 @@ function Write-HtmlReport {
     )
 
     $JavaScript = @"
+const svgSortIcon = ``<svg viewBox="0 0 16 16" fill="none"
+xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier"
+stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round"
+stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path d="M8 0L2
+6V7H14V6L8 0Z" fill="#ffffff"></path> <path d="M8 16L2 10V9H14V10L8 16Z"
+fill="#ffffff"></path> </g></svg>``;
+// Sort icon by Noah Jacobus: https://www.svgrepo.com/svg/535650/sort
+const svgFilterIcon = ``<svg viewBox="0 0 24 24" fill="none"
+xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier"
+stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round"
+stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path
+fill-rule="evenodd" clip-rule="evenodd" d="M4.2673 6.24223C2.20553 4.40955
+3.50184 1 6.26039 1H17.7396C20.4981 1 21.7945 4.40955 19.7327 6.24223L15.3356
+10.1507C15.1221 10.3405 15 10.6125 15 10.8981V21.0858C15 22.8676 12.8457
+23.7599 11.5858 22.5L9.58578 20.5C9.21071 20.1249 8.99999 19.6162 8.99999
+19.0858V10.8981C8.99999 10.6125 8.87785 10.3405 8.66436 10.1507L4.2673
+6.24223ZM6.26039 3C5.34088 3 4.90877 4.13652 5.59603 4.74741L9.99309
+8.6559C10.6336 9.22521 11 10.0412 11 10.8981V19.0858L13 21.0858V10.8981C13
+10.0412 13.3664 9.22521 14.0069 8.6559L18.404 4.74741C19.0912 4.13652 18.6591 3
+17.7396 3H6.26039Z" fill="#FFFFFF"></path> </g></svg>``;
+// Filter Icon by Konstantin Filatov: https://www.svgrepo.com/svg/521661/filter
 var cells = document.getElementsByTagName('td');
 
 for (var i = 0; i < cells.length; i++) {
     var bg_color = null;
     var bg_color_row = null;
+    let severity = null;
     if (cells[i].innerHTML == "Low") {
         bg_color = "bg_blue";
         bg_color_row = "bg_blue_light";
+        severity = 1;
     } else if (cells[i].innerHTML == "Medium") {
         bg_color = "bg_orange";
         bg_color_row = "bg_orange_light";
+        severity = 2;
     } else if (cells[i].innerHTML == "High") {
         bg_color = "bg_red";
         bg_color_row = "bg_red_light";
+        severity = 3;
     } else if (cells[i].innerHTML == "None") {
         bg_color = "bg_grey";
         bg_color_row = "bg_grey_light";
+        severity = 0;
     }
 
     if (bg_color) {
         if (bg_color_row) { cells[i].parentElement.classList.add(bg_color_row); }
         cells[i].innerHTML = "<span class=\"label " + bg_color + "\">" + cells[i].innerHTML + "</span>";
+        cells[i].dataset.severity = severity;
     }
 
     // If a cell is too large, we need to make it scrollable. But 'td' elements are not
@@ -442,6 +469,125 @@ for (var i = 0; i < cells.length; i++) {
     // it scrollable.
     cells[i].innerHTML = "<div class=\"scroll\">" + cells[i].innerHTML + "</div>";
 }
+
+
+function sortTable(columnIndex) {
+    const table = document.getElementsByTagName("table")[0];
+    const tbody = table.querySelector("tbody");
+    const rows = Array.from(tbody.querySelectorAll("tr")).slice(1);
+    const isAscending = table.dataset.sortOrder === "asc";
+
+    rows.sort((rowA, rowB) => {
+        const cellA = rowA.cells[columnIndex].dataset.severity || rowA.cells[columnIndex].textContent.trim();
+        const cellB = rowB.cells[columnIndex].dataset.severity || rowB.cells[columnIndex].textContent.trim();
+
+        return isAscending ? cellA.localeCompare(cellB) : cellB.localeCompare(cellA);
+    });
+
+    for (const row of rows) {
+        row.remove();
+    }
+
+    tbody.append(...rows);
+
+    table.dataset.sortOrder = isAscending ? "desc" : "asc";
+}
+
+
+function createPopupMenu(button, options) {
+    if (!button) return;
+
+    const popup = document.createElement("div");
+    popup.style.position = "absolute";
+    popup.style.background = "white";
+    popup.style.border = "1px solid #ccc";
+    popup.style.padding = "10px";
+    popup.style.boxShadow = "0 2px 10px rgba(0,0,0,0.2)";
+    popup.style.display = "none";
+    popup.style.zIndex = "1000";
+    popup.style.borderRadius = "5px";
+    popup.style["font-size"] = "0.8em";
+
+    options.forEach(option => {
+        const label = document.createElement("label");
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.value = option.value;
+        checkbox.checked = option.checked || false;
+        label.appendChild(checkbox);
+        label.appendChild(document.createTextNode(" " + option.label));
+        popup.appendChild(label);
+        popup.appendChild(document.createElement("br"));
+    });
+
+    const btnOk = document.createElement("button");
+    btnOk.textContent = "OK";
+    btnOk.style.marginRight = "5px";
+    btnOk.style.marginTop = "3px";
+    btnOk.onclick = () => {
+        const selected = Array.from(popup.querySelectorAll("input[type=checkbox]"))
+            .filter(cb => cb.checked)
+            .map(cb => cb.value);
+        for (const row of document.getElementsByTagName("tr")) {
+            const severity = row.querySelector("span.label")?.closest("td").dataset.severity;
+            row.style.display = (selected.includes(severity) || (!severity)) ? "" : "none";
+        };
+        popup.style.display = "none";
+    };
+
+    const btnCancel = document.createElement("button");
+    btnCancel.textContent = "Cancel";
+    btnCancel.onclick = () => {
+        popup.style.display = "none";
+    };
+
+    popup.appendChild(btnOk);
+    popup.appendChild(btnCancel);
+    document.body.appendChild(popup);
+
+    button.addEventListener("click", (event) => {
+        const rect = button.getBoundingClientRect();
+        popup.style.top = ```${rect.bottom + window.scrollY}px``;
+        popup.style.left = ```${rect.left + window.scrollX}px``;
+        popup.style.display = popup.style.display === "none" ? "block" : "none";
+    });
+}
+
+// Add tool icons to column headers
+const headerCells = document.querySelectorAll('th');
+for (const [idx, cell] of headerCells.entries()) {
+    // Add sort button on columns category, DisplayName and Severity
+    if ([0,1,3].includes(idx)) {
+        const sortButton = document.createElement("a");
+        sortButton.href = '#';
+        sortButton.title = "Sort";
+        sortButton.innerHTML = svgSortIcon;
+        sortButton.classList.add("tool-button");
+
+        sortButton.addEventListener("click", (e) => sortTable(idx));
+
+        cell.append(" ");
+        cell.append(sortButton);
+    }
+
+    // Add filter button on severity column
+    if (idx === 3) {
+        const filterButton = document.createElement("a");
+        filterButton.href = '#';
+        filterButton.title = "Filter";
+        filterButton.innerHTML = svgFilterIcon;
+        createPopupMenu(filterButton, [
+            { label: "None", value: 0, checked: true },
+            { label: "Low", value: 1, checked: true },
+            { label: "Medium", value: 2, checked: true },
+            { label: "High", value: 3, checked: true },
+        ]);
+        cell.append(" ");
+        cell.append(filterButton);
+    }
+
+}
+
 "@
 
     $Css = @"
@@ -459,6 +605,7 @@ th {
     background: grey;
     text-align: center;
     padding: 5px 0;
+    white-space: nowrap;
 }
 
 tr {
@@ -500,6 +647,8 @@ tbody td:nth-child(5) {
     border-radius: 4px;
     font-weight: bold;
 }
+
+a svg { height: 1em; color: white; }
 
 .bg_green { background-color: green; }
 .bg_blue { background-color: royalblue; }
