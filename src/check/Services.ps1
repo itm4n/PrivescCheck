@@ -432,3 +432,91 @@ function Invoke-VulnerableDriverCheck {
         $CheckResult
     }
 }
+
+function Invoke-ServiceCredentialCheck {
+    <#
+    .SYNOPSIS
+    Find services configured with hardcoded credentials.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet enumerates services and attempts to determine whether they are configured with hardcoded credentials based on the account name.
+
+    .EXAMPLE
+    PS C:\> Invoke-ServiceCredentialCheck
+
+    Name         : ServiceWithCreds
+    DisplayName  :
+    User         : .\admin
+    ImagePath    : C:\Windows\System32\cmd.exe
+    StartMode    : Manual
+    Type         : Win32OwnProcess
+    RegistryKey  : HKLM\SYSTEM\CurrentControlSet\Services
+    RegistryPath : HKLM\SYSTEM\CurrentControlSet\Services\ServiceWithCreds
+    #>
+
+    [CmdletBinding()]
+    param (
+        [UInt32] $BaseSeverity
+    )
+
+    begin {
+        $ServiceAccountList = @(
+            "LocalSystem",
+            "LocalService",
+            "NetworkService"
+        )
+
+        $WellKnownSidValues = [System.Security.Principal.WellKnownSidType[]] [System.Enum]::GetValues([System.Security.Principal.WellKnownSidType])
+        $WellKnownSids = @()
+
+        function Test-IsWellKnownSid {
+            param ([System.Security.Principal.SecurityIdentifier] $Sid)
+            if ($WellKnownSids -contains $Sid) { return $true }
+            foreach ($WellKnownSidValue in $WellKnownSidValues) {
+                if ($Sid.IsWellKnown($WellKnownSidValue)) { $WellKnownSids += $Sid; return $true }
+            }
+            return $false
+        }
+    }
+
+    process {
+
+        $AllResults = @()
+        $FilteredServices = Get-ServiceFromRegistry -FilterLevel 2 | Where-Object { ($null -ne $_.User) -and ($ServiceAccountList -notcontains $_.User) }
+
+        foreach ($Service in $FilteredServices) {
+
+            # We'll attempt to convert the service account name to an SID next, but the
+            # ".\ACCOUNT_NAME" format is not recognized. Therefore, in that case we need
+            # to replace the dot with the actual computer's name.
+            $ServiceAccountName = $Service.User
+            if ($ServiceAccountName -like ".\*") {
+                $ServiceAccountName = $ServiceAccountName -replace "\.\\","$($env:COMPUTERNAME)\"
+            }
+
+            # Try to convert the service account name to an SID. We'll use that information
+            # to exclude well known service accounts.
+            $ServiceAccountSid = Convert-NameToSid -Name $ServiceAccountName
+            if ($null -eq $ServiceAccountSid) {
+                Write-Warning "Failed to translate identity '$($ServiceAccountName)' for service '$($Service.Name)'."
+                continue
+            }
+
+            # Filter out well known SIDs, such as S-1-5-18 for LocalSystem.
+            if (Test-IsWellKnownSid -Sid $ServiceAccountSid) { continue }
+
+            # Filter out virtual service accounts. Their SID starts with "S-1-5-80".
+            if ($ServiceAccountSid.Value -like "S-1-5-80-*") { continue }
+
+            $AllResults += $Service
+        }
+
+        $CheckResult = New-Object -TypeName PSObject
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AllResults) { $BaseSeverity } else { $script:SeverityLevel::None })
+        $CheckResult
+    }
+}
