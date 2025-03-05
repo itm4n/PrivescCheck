@@ -5,6 +5,7 @@
 ### Added
 
 - Check for scheduled tasks configured with hardcoded credentials.
+- Helper function for converting an account name to an SID.
 
 ## 2025-03-04
 

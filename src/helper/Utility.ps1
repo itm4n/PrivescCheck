@@ -177,25 +177,6 @@ function Convert-DateToString {
 }
 
 function Convert-SidToName {
-    <#
-    .SYNOPSIS
-    Helper - Converts a SID string to its corresponding username
-
-    Author: @itm4n
-    License: BSD 3-Clause
-
-    .DESCRIPTION
-    This helper function takes a user SID as an input parameter and returns the account name associated to this SID. If an account name cannot be found, nothing is returned.
-
-    .PARAMETER Sid
-    A user account SID, e.g.: S-1-5-18.
-
-    .EXAMPLE
-    An example
-    PS C:\> Convert-SidToName -Sid S-1-5-18"
-
-    NT AUTHORITY\SYSTEM
-    #>
 
     [OutputType([String])]
     [CmdletBinding()]
@@ -204,12 +185,26 @@ function Convert-SidToName {
     )
 
     try {
-        $SidObj = New-Object System.Security.Principal.SecurityIdentifier($Sid)
-        $SidObj.Translate([System.Security.Principal.NTAccount]) | Select-Object -ExpandProperty Value
+        return (New-Object System.Security.Principal.SecurityIdentifier($Sid)).Translate([System.Security.Principal.NTAccount]).Value
     }
     catch {
-        # In case of failure, return the SID.
-        $Sid
+        return $Sid
+    }
+}
+
+function Convert-NameToSid {
+
+    [OutputType([System.Security.Principal.SecurityIdentifier])]
+    [CmdletBinding()]
+    param (
+        [String] $Name
+    )
+
+    try {
+        return (New-Object System.Security.Principal.NTAccount($Name)).Translate([System.Security.Principal.SecurityIdentifier])
+    }
+    catch {
+        return $null
     }
 }
 
