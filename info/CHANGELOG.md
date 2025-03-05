@@ -1,5 +1,11 @@
 # Changelog
 
+## 2025-03-05
+
+### Added
+
+- Check for scheduled tasks configured with hardcoded credentials.
+
 ## 2025-03-04
 
 ### Added

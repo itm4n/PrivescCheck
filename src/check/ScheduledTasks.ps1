@@ -240,3 +240,53 @@ function Invoke-ScheduledTaskPermissionCheck {
         $CheckResult
     }
 }
+
+function Invoke-ScheduledTaskCredentialCheck {
+    <#
+    .SYNOPSIS
+    Find scheduled task with hardcoded credentials.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet enumerates readable scheduled tasks and returns all entries with a 'LogonType' value of 'Password'.
+
+    .EXAMPLE
+    PS C:\> Invoke-ScheduledTaskCredentialCheck
+
+    Name               : TaskWithCreds
+    Path               : \TaskWithCreds
+    FilePath           : C:\WINDOWS\System32\Tasks\TaskWithCreds
+    RunAs              : DESKTOP-TVHGOIE\Admin
+    RunLevel           :
+    RequiredPrivileges :
+    #>
+
+    [CmdletBinding()]
+    param (
+        [UInt32] $BaseSeverity
+    )
+
+    process {
+
+        $AllResults = @()
+
+        foreach ($ScheduledTask in (Get-RegisteredScheduledTask | Where-Object { $_.RunAs.LogonType -eq "Password" })) {
+
+            $Result = New-Object -TypeName PSObject
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $ScheduledTask.Name
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $ScheduledTask.Path
+            $Result | Add-Member -MemberType "NoteProperty" -Name "FilePath" -Value $ScheduledTask.FilePath
+            $Result | Add-Member -MemberType "NoteProperty" -Name "RunAs" -Value $ScheduledTask.RunAs.User
+            $Result | Add-Member -MemberType "NoteProperty" -Name "RunLevel" -Value $ScheduledTask.RunAs.RunLevel
+            $Result | Add-Member -MemberType "NoteProperty" -Name "RequiredPrivileges" -Value $ScheduledTask.RunAs.RequiredPrivileges
+            $AllResults += $Result
+        }
+
+        $CheckResult = New-Object -TypeName PSObject
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AllResults) { $BaseSeverity } else { $script:SeverityLevel::None })
+        $CheckResult
+    }
+}
