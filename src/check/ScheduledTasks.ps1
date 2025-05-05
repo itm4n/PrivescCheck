@@ -217,8 +217,8 @@ function Invoke-ScheduledTaskPermissionCheck {
             if ($CurrentUserSids -contains $RunAsPrincipalSid) { continue }
 
             # Ignore tasks owned by the current user
-            if ($CurrentUserSids -contains $ScheduledTask.SecurityInfo.OwnerSid) { continue }
-            if ($CurrentUserSids -contains $ScheduledTask.SecurityInfo.GroupSid) { continue }
+            # if ($CurrentUserSids -contains $ScheduledTask.SecurityInfo.OwnerSid) { continue }
+            # if ($CurrentUserSids -contains $ScheduledTask.SecurityInfo.GroupSid) { continue }
 
             Get-ObjectAccessRight -Name $ScheduledTask.Path -Type ScheduledTask -SecurityInformation $ScheduledTask.SecurityInfo | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) } | Foreach-Object {
 
