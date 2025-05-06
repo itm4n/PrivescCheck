@@ -438,7 +438,7 @@ function Get-ModifiableComClassEntryRegistryPath {
     )
 
     process {
-        Get-ObjectAccessRight -Name $ComClassEntry.FullPath -Type RegistryKey | ForEach-Object {
+        Get-ObjectAccessRight -Name $ComClassEntry.HandlerRegPath -Type RegistryKey | ForEach-Object {
             $Result = $ComClassEntry.PSObject.Copy()
             $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $_.ModifiablePath
             $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $_.IdentityReference
@@ -486,15 +486,15 @@ function Get-ModifiableComClassEntryImagePath {
     process {
         $CandidatePaths = @()
 
-        switch ($ComClassEntry.DataType) {
+        switch ($ComClassEntry.HandlerDataType) {
             "FileName" {
-                Resolve-ModulePath -Name $ComClassEntry.Data | ForEach-Object { $CandidatePaths += $_ }
+                Resolve-ModulePath -Name $ComClassEntry.HandlerData | ForEach-Object { $CandidatePaths += $_ }
             }
             "FilePath" {
-                $CandidatePaths += [System.Environment]::ExpandEnvironmentVariables($ComClassEntry.Data).Trim('"')
+                $CandidatePaths += [System.Environment]::ExpandEnvironmentVariables($ComClassEntry.HandlerData).Trim('"')
             }
             "CommandLine" {
-                $CommandLineResolved = [string[]] (Resolve-CommandLine -CommandLine $ComClassEntry.Data)
+                $CommandLineResolved = [string[]] (Resolve-CommandLine -CommandLine $ComClassEntry.HandlerData)
                 if ($null -eq $CommandLineResolved) { continue }
 
                 $CandidatePaths += $CommandLineResolved[0]
@@ -510,7 +510,7 @@ function Get-ModifiableComClassEntryImagePath {
                 }
             }
             default {
-                Write-Warning "Unknown server data type: $($ComClassEntry.DataType)"
+                Write-Warning "Unknown server data type: $($ComClassEntry.HandlerDataType)"
                 continue
             }
         }

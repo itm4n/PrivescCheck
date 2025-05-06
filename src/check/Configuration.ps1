@@ -921,7 +921,7 @@ function Invoke-ComServerRegistryPermissionCheck {
 
     process {
         Get-ComClassFromRegistry |
-            Where-Object { ($_.Value -like "*server*") -and ($null -ne $_.Path) } |
+            Where-Object { ($_.HandlerType -like "*server*") -and ($null -ne $_.HandlerRegPath) } |
                 Invoke-CommandMultithread -InitialSessionState $(Get-InitialSessionState) -Command "Get-ModifiableComClassEntryRegistryPath" -InputParameter "ComClassEntry" |
                     ForEach-Object { $AllResults += $_ }
 
@@ -953,13 +953,13 @@ function Invoke-ComServerImagePermissionCheck {
         $AllResults = @()
         # Create a synchronized list that we will use to store file paths which were
         # tested and are not vulnerable. This list will be populated by the threads,
-        # hence why we need to use thread-safe collection object.
+        # hence why we need to use a thread-safe collection object.
         $AlreadyCheckedPaths = [System.Collections.ArrayList]::Synchronized((New-Object System.Collections.ArrayList))
     }
 
     process {
         Get-ComClassFromRegistry |
-            Where-Object { ($_.Value -like "*server*") -and ($null -ne $_.Path) -and ($null -ne $_.Data) } |
+            Where-Object { ($_.HandlerType -like "*server*") -and ($null -ne $_.RegPath) -and ($null -ne $_.HandlerData) } |
                 Invoke-CommandMultithread -InitialSessionState $(Get-InitialSessionState) -Command "Get-ModifiableComClassEntryImagePath" -InputParameter "ComClassEntry" -OptionalParameter @{ "CheckedPaths" = $AlreadyCheckedPaths } |
                     ForEach-Object { $AllResults += $_ }
 
@@ -994,18 +994,18 @@ function Invoke-ComServerGhostDllHijackingCheck {
     }
 
     process {
-        $RegisteredClasses = Get-ComClassFromRegistry | Where-Object { ($_.Value -like "*server*") -and ($null -ne $_.Data) }
+        $RegisteredClasses = Get-ComClassFromRegistry | Where-Object { ($_.HandlerType -like "*server*") -and ($null -ne $_.HandlerData) }
 
         foreach ($RegisteredClass in $RegisteredClasses) {
 
             $CandidatePaths = @()
 
-            switch ($RegisteredClass.DataType) {
+            switch ($RegisteredClass.HandlerDataType) {
                 "FileName" {
-                    $CandidatePaths += [System.Environment]::ExpandEnvironmentVariables($RegisteredClass.Data).Trim('"')
+                    $CandidatePaths += [System.Environment]::ExpandEnvironmentVariables($RegisteredClass.HandlerData).Trim('"')
                 }
                 "CommandLine" {
-                    $CommandLineResolved = [string[]] (Resolve-CommandLine -CommandLine $RegisteredClass.Data)
+                    $CommandLineResolved = [string[]] (Resolve-CommandLine -CommandLine $RegisteredClass.HandlerData)
                     if ($null -eq $CommandLineResolved) { continue }
 
                     $CandidatePaths += $CommandLineResolved[0]
@@ -1070,18 +1070,18 @@ function Invoke-ComServerMissingModuleFileCheck {
     }
 
     process {
-        $RegisteredClasses = Get-ComClassFromRegistry | Where-Object { ($_.Value -like "*server*") -and ($null -ne $_.Path) -and ($null -ne $_.Data) }
+        $RegisteredClasses = Get-ComClassFromRegistry | Where-Object { ($_.HandlerType -like "*server*") -and ($null -ne $_.HandlerData) }
 
         foreach ($RegisteredClass in $RegisteredClasses) {
 
             $CandidatePaths = @()
 
-            switch ($RegisteredClass.DataType) {
+            switch ($RegisteredClass.HandlerDataType) {
                 "FilePath" {
-                    $CandidatePaths += [System.Environment]::ExpandEnvironmentVariables($RegisteredClass.Data).Trim('"')
+                    $CandidatePaths += [System.Environment]::ExpandEnvironmentVariables($RegisteredClass.HandlerData).Trim('"')
                 }
                 "CommandLine" {
-                    $CommandLineResolved = [string[]] (Resolve-CommandLine -CommandLine $RegisteredClass.Data)
+                    $CommandLineResolved = [string[]] (Resolve-CommandLine -CommandLine $RegisteredClass.HandlerData)
                     if ($null -eq $CommandLineResolved) { continue }
 
                     $CandidatePaths += $CommandLineResolved[0]

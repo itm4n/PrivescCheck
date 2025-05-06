@@ -16,8 +16,17 @@ function Get-ComClassEntryFromRegistry {
         if ($Clsid -like "{*}") { $ClassId = $Clsid.Trim('{').Trim('}') }
 
         $ClassRegPath = "$($RootKey)\{$($ClassId)}"
-        $ServerProperties = Get-ChildItem -Path "Registry::$($ClassRegPath)" -ErrorAction SilentlyContinue | Where-Object { $ComTypes -contains $_.PSChildName }
+        $ObjectProperties = Get-Item -Path "Registry::$($ClassRegPath)" -ErrorAction SilentlyContinue
+        $ObjectSubProperties = Get-ChildItem -Path "Registry::$($ClassRegPath)" -ErrorAction SilentlyContinue
+        $ServerProperties = $ObjectSubProperties | Where-Object { $ComTypes -contains $_.PSChildName }
         if ($null -eq $ServerProperties) { return }
+
+        $ObjectName = $ObjectProperties | Get-ItemProperty -Name "(default)" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty "(default)"
+        $AppId = $ObjectProperties | Get-ItemProperty -Name "AppId" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty "AppId" | ForEach-Object { ([Guid] $_).Guid.ToUpper() }
+        $ProgIds = [String[]] @()
+        $ProgIds += $ObjectSubProperties | Where-Object { "ProgID" -eq $_.PSChildName } | Get-ItemProperty -Name "(default)" | Select-Object -ExpandProperty "(default)"
+        $ProgIds += $ObjectSubProperties | Where-Object { "VersionIndependentProgID" -eq $_.PSChildName } | Get-ItemProperty -Name "(default)" | Select-Object -ExpandProperty "(default)"
+        $TypeLibId = $ObjectSubProperties | Where-Object { "TypeLib" -eq $_.PSChildName } | Get-ItemProperty -Name "(default)" | Select-Object -ExpandProperty "(default)" | ForEach-Object { ([Guid] $_).Guid.ToUpper() }
 
         foreach ($ServerProperty in $ServerProperties) {
 
@@ -48,11 +57,15 @@ function Get-ComClassEntryFromRegistry {
 
             $Result = New-Object -TypeName PSObject
             $Result | Add-Member -MemberType "NoteProperty" -Name "Id" -Value $ClassId
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $ClassRegPath
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $ServerProperty.PSChildName
-            $Result | Add-Member -MemberType "NoteProperty" -Name "FullPath" -Value $(Join-Path -Path $Result.Path -ChildPath $Result.Value)
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $ServerData
-            $Result | Add-Member -MemberType "NoteProperty" -Name "DataType" -Value $ServerDataType
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $ObjectName
+            if ($null -ne $AppId) { $Result | Add-Member -MemberType "NoteProperty" -Name "AppId" -Value $AppId }
+            if ($ProgIds.Count -gt 0) { $Result | Add-Member -MemberType "NoteProperty" -Name "ProgIds" -Value $ProgIds }
+            if ($null -ne $TypeLibId) { $Result | Add-Member -MemberType "NoteProperty" -Name "TypeLibId" -Value $TypeLibId }
+            $Result | Add-Member -MemberType "NoteProperty" -Name "RegPath" -Value $ClassRegPath
+            $Result | Add-Member -MemberType "NoteProperty" -Name "HandlerType" -Value $ServerProperty.PSChildName
+            $Result | Add-Member -MemberType "NoteProperty" -Name "HandlerRegPath" -Value $(Join-Path -Path $Result.RegPath -ChildPath $Result.HandlerType)
+            $Result | Add-Member -MemberType "NoteProperty" -Name "HandlerDataType" -Value $ServerDataType
+            $Result | Add-Member -MemberType "NoteProperty" -Name "HandlerData" -Value $ServerData
             $Result
         }
     }
@@ -67,24 +80,23 @@ function Get-ComClassFromRegistry {
     License: BSD 3-Clause
 
     .DESCRIPTION
-    This cmdlet enumerates the registry keys under HKLM\SOFTWARE\Classes\CLSID to list registered COM classes.
+    This cmdlet enumerates the registry keys under HKLM\SOFTWARE\Classes\CLSID to list registered COM classes. Depending on the configuration of each COM object, this cmdlet will return optional attributes, such as "AppId", "ProgIds", and "TypeLibId".
 
     .EXAMPLE
     PS C:\> Get-ComClassFromRegistry
 
     ...
 
-    Id       : {046AEAD9-5A27-4D3C-8A67-F82552E0A91B}
-    Path     : HKLM\SOFTWARE\Classes\CLSID\{046AEAD9-5A27-4D3C-8A67-F82552E0A91B}
-    Value    : LocalServer32
-    Data     : C:\Windows\System32\rundll32.exe shell32.dll,SHCreateLocalServerRunDll {046AEAD9-5A27-4D3C-8A67-F82552E0A91B}
-    DataType : CommandLine
-
-    Id       : {04731B67-D933-450a-90E6-4ACD2E9408FE}
-    Path     : HKLM\SOFTWARE\Classes\CLSID\{04731B67-D933-450a-90E6-4ACD2E9408FE}
-    Value    : InProcServer32
-    Data     : C:\Windows\system32\Windows.Storage.Search.dll
-    DataType : FilePath
+    Id              : F8D253D9-89A4-4daa-87B6-1168369F0B21
+    Name            : UpdateServiceManager Class
+    AppId           : B366DEBE-645B-43A5-B865-DDD82C345492
+    ProgIds         : {Microsoft.Update.ServiceManager.1, Microsoft.Update.ServiceManager}
+    TypeLibId       : B596CC9F-56E5-419E-A622-E01BB457431E
+    RegPath         : HKLM\SOFTWARE\Classes\CLSID\{F8D253D9-89A4-4daa-87B6-1168369F0B21}
+    HandlerType     : InprocServer32
+    HandlerRegPath  : HKLM\SOFTWARE\Classes\CLSID\{F8D253D9-89A4-4daa-87B6-1168369F0B21}\InprocServer32
+    HandlerDataType : FilePath
+    HandlerData     : C:\Windows\System32\wuapi.dll
 
     ...
 
