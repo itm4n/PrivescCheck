@@ -921,7 +921,7 @@ function Invoke-ComServerRegistryPermissionCheck {
 
     process {
         Get-ComClassFromRegistry |
-            Where-Object { ($_.HandlerType -like "*server*") -and ($null -ne $_.HandlerRegPath) } |
+            Where-Object { $null -ne $_.HandlerRegPath } |
                 Invoke-CommandMultithread -InitialSessionState $(Get-InitialSessionState) -Command "Get-ModifiableComClassEntryRegistryPath" -InputParameter "ComClassEntry" |
                     ForEach-Object { $AllResults += $_ }
 
@@ -959,7 +959,7 @@ function Invoke-ComServerImagePermissionCheck {
 
     process {
         Get-ComClassFromRegistry |
-            Where-Object { ($_.HandlerType -like "*server*") -and ($null -ne $_.RegPath) -and ($null -ne $_.HandlerData) } |
+            Where-Object { ($_.HandlerType -like "*server*") -and ($null -ne $_.HandlerData) } |
                 Invoke-CommandMultithread -InitialSessionState $(Get-InitialSessionState) -Command "Get-ModifiableComClassEntryImagePath" -InputParameter "ComClassEntry" -OptionalParameter @{ "CheckedPaths" = $AlreadyCheckedPaths } |
                     ForEach-Object { $AllResults += $_ }
 

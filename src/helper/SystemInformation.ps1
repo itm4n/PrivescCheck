@@ -3,70 +3,130 @@ function Get-ComClassEntryFromRegistry {
     [CmdletBinding()]
     param (
         [Parameter(Mandatory=$true)]
-        [String] $Clsid
+        [Guid] $Clsid
     )
 
     begin {
         $RootKey = "HKLM\SOFTWARE\Classes\CLSID"
-        $ComTypes = @( "InprocHandler", "InprocHandler32", "InprocServer", "InprocServer32", "LocalServer", "LocalServer32" )
+        $FilteredComSubProperties = @( "InprocHandler", "InprocHandler32", "InprocServer", "InprocServer32", "LocalServer", "LocalServer32" )
+        $IgnoredComSubProperties = @( "Instance", "PersistentHandler", "Shell", "PersistentAddinsRegistered", "MergedFolder", "TreatAs", "shellex", "ProgId" )
     }
 
     process {
-        $ClassId = $Clsid
-        if ($Clsid -like "{*}") { $ClassId = $Clsid.Trim('{').Trim('}') }
-
+        $ClassId = $Clsid.ToString()
         $ClassRegPath = "$($RootKey)\{$($ClassId)}"
-        $ObjectProperties = Get-Item -Path "Registry::$($ClassRegPath)" -ErrorAction SilentlyContinue
-        $ObjectSubProperties = Get-ChildItem -Path "Registry::$($ClassRegPath)" -ErrorAction SilentlyContinue
-        $ServerProperties = $ObjectSubProperties | Where-Object { $ComTypes -contains $_.PSChildName }
-        if ($null -eq $ServerProperties) { return }
 
-        $ObjectName = $ObjectProperties | Get-ItemProperty -Name "(default)" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty "(default)"
-        $AppId = $ObjectProperties | Get-ItemProperty -Name "AppId" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty "AppId" | ForEach-Object { ([Guid] $_).Guid.ToUpper() }
-        $ProgIds = [String[]] @()
-        $ProgIds += $ObjectSubProperties | Where-Object { "ProgID" -eq $_.PSChildName } | Get-ItemProperty -Name "(default)" | Select-Object -ExpandProperty "(default)"
-        $ProgIds += $ObjectSubProperties | Where-Object { "VersionIndependentProgID" -eq $_.PSChildName } | Get-ItemProperty -Name "(default)" | Select-Object -ExpandProperty "(default)"
-        $TypeLibId = $ObjectSubProperties | Where-Object { "TypeLib" -eq $_.PSChildName } | Get-ItemProperty -Name "(default)" | Select-Object -ExpandProperty "(default)" | ForEach-Object { ([Guid] $_).Guid.ToUpper() }
+        # Assume the input CLSID is correct and therefore that that the registry
+        # path is correct as well. If it is not, we'll let Get-Item throw an
+        # error. This will let us know that there is an issue upstream in the
+        # code because there is no reason we would pass an invalid CLSID.
+        $ClassProperties = Get-Item -Path "Registry::$($ClassRegPath)"
+        if ($null -eq $ClassProperties) { continue }
 
-        foreach ($ServerProperty in $ServerProperties) {
+        # There might be CLSID entries in the registry that do not have values or
+        # sub-keys. We can filter those out by checking the "value count" and the
+        # "sub key count". Note that the value count could also be "1" in case
+        # the "(default)" value is set; we should ignore that case too.
+        if (($ClassProperties.ValueCount -le 1) -and ($ClassProperties.SubKeyCount -eq 0)) {
+            continue
+        }
 
-            $ServerData = $ServerProperty.GetValue($null, $null, "DoNotExpandEnvironmentNames")
-            $ServerDataType = $null
+        # If the COM class has sub-properties, i.e. if the CLSID registry key has
+        # sub-keys, list them.
+        if ($ClassProperties.SubKeyCount -ne 0) {
+            $ClassSubProperties = Get-ChildItem -Path "Registry::$($ClassRegPath)" -ErrorAction SilentlyContinue
+        }
+        else {
+            $ClassSubProperties = $null
+        }
 
-            if ($ServerProperty.PSChildName -like "Inproc*") {
-                # The data contains the name or path of a DLL.
-                # $PathToAnalyze = $ServerData
-                $PathToAnalyze = [System.Environment]::ExpandEnvironmentVariables($ServerData)
-                # The following regex matches any string surrounded by double quotes, but not
-                # containing double quotes within it. This should match quoted paths such as
-                # "C:\windows\system32\combase.dll"
-                if ($ServerData -match "^`"[^`"]+`"`$") {
-                    $PathToAnalyze = $PathToAnalyze.Trim('"')
+
+        $ClassAppId = $ClassProperties | Get-ItemProperty -Name "AppId" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty "AppId" | ForEach-Object { ([Guid] $_).Guid.ToUpper() }
+
+        # Enumerate the COM class properties we are the most interested in.
+        $ClassServerProperties = $ClassSubProperties | Where-Object { $FilteredComSubProperties -contains $_.PSChildName }
+
+        if ($null -eq $ClassServerProperties) {
+            # If we don't find the COM class properties we want, check whether the COM
+            # class is "APPID hosted". If there is an AppId, we might find other
+            # interesting things under the "AppID" registry key.
+            if ($null -eq $ClassAppId) {
+                # Determine whether the COM class is of interest to us by enumerating the
+                # properties we are not interested in. If we find any, ignore it.
+                $IgnoredSubProperties = $ClassSubProperties | Where-Object { $IgnoredComSubProperties -contains $_.PSChildName }
+                if ($null -ne $IgnoredSubProperties) {
+                    continue
                 }
-                if ([System.IO.Path]::IsPathRooted($PathToAnalyze)) {
-                    $ServerDataType = "FilePath"
-                }
-                else {
-                    $ServerDataType = "FileName"
-                }
+
+                # At this stage, there is probably still a few COM classes we don't know what
+                # to do with. Just print a warning a message and continue.
+                Write-Warning "Unhandled COM class with CLSID '$($ClassId)' with properties: $(($ClassSubProperties | Select-Object -ExpandProperty "PSChildName") -join ",")"
+                continue
             }
-            elseif ($ServerProperty.PSChildName -like "Local*") {
-                # The data contains the path of an executable or a command line.
-                $ServerDataType = "CommandLine"
-            }
+        }
 
-            $Result = New-Object -TypeName PSObject
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Id" -Value $ClassId
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $ObjectName
-            if ($null -ne $AppId) { $Result | Add-Member -MemberType "NoteProperty" -Name "AppId" -Value $AppId }
-            if ($ProgIds.Count -gt 0) { $Result | Add-Member -MemberType "NoteProperty" -Name "ProgIds" -Value $ProgIds }
-            if ($null -ne $TypeLibId) { $Result | Add-Member -MemberType "NoteProperty" -Name "TypeLibId" -Value $TypeLibId }
-            $Result | Add-Member -MemberType "NoteProperty" -Name "RegPath" -Value $ClassRegPath
-            $Result | Add-Member -MemberType "NoteProperty" -Name "HandlerType" -Value $ServerProperty.PSChildName
-            $Result | Add-Member -MemberType "NoteProperty" -Name "HandlerRegPath" -Value $(Join-Path -Path $Result.RegPath -ChildPath $Result.HandlerType)
-            $Result | Add-Member -MemberType "NoteProperty" -Name "HandlerDataType" -Value $ServerDataType
-            $Result | Add-Member -MemberType "NoteProperty" -Name "HandlerData" -Value $ServerData
+        $ClassName = $ClassProperties | Get-ItemProperty -Name "(default)" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty "(default)"
+        $ClassTypeLibId = $ClassSubProperties | Where-Object { "TypeLib" -eq $_.PSChildName } | Get-ItemProperty -Name "(default)" | Select-Object -ExpandProperty "(default)" | ForEach-Object { ([Guid] $_).Guid.ToUpper() }
+
+        $ClassProgIds = [String[]] @()
+        $ClassProgIds += $ClassSubProperties | Where-Object { "ProgID" -eq $_.PSChildName } | Get-ItemProperty -Name "(default)" | Select-Object -ExpandProperty "(default)"
+        $ClassProgIds += $ClassSubProperties | Where-Object { "VersionIndependentProgID" -eq $_.PSChildName } | Get-ItemProperty -Name "(default)" | Select-Object -ExpandProperty "(default)"
+
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Id" -Value $ClassId
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $ClassName
+        if ($null -ne $ClassAppId) { $Result | Add-Member -MemberType "NoteProperty" -Name "AppId" -Value $ClassAppId }
+        if ($ClassProgIds.Count -gt 0) { $Result | Add-Member -MemberType "NoteProperty" -Name "ProgIds" -Value $ClassProgIds }
+        if ($null -ne $ClassTypeLibId) { $Result | Add-Member -MemberType "NoteProperty" -Name "TypeLibId" -Value $ClassTypeLibId }
+        $Result | Add-Member -MemberType "NoteProperty" -Name "RegPath" -Value $ClassRegPath
+
+        if ($null -eq $ClassServerProperties) {
+            # At this stage, if the COM class doesn't have any "server properties", it
+            # should at least have an AppID, in which case we consider it is "AppId
+            # hosted".
+            if ($null -eq $ClassAppId) {
+                Write-Error "COM class with ID $($ClassId) has no handler property / AppID | Properties: $(($ClassSubProperties | Select-Object -ExpandProperty "PSChildName") -join ",")"
+            }
+            $Result | Add-Member -MemberType "NoteProperty" -Name "HandlerType" -Value "AppIdHosted"
             $Result
+        }
+        else {
+            # COM classes may have more than one handler type, so make sure we check all
+            # of them.
+            foreach ($ServerProperty in $ClassServerProperties) {
+
+                $ServerData = $ServerProperty.GetValue($null, $null, "DoNotExpandEnvironmentNames")
+                $ServerDataType = $null
+
+                if ($ServerProperty.PSChildName -like "Inproc*") {
+                    # The data contains the name or path of a DLL.
+                    # $PathToAnalyze = $ServerData
+                    $PathToAnalyze = [System.Environment]::ExpandEnvironmentVariables($ServerData)
+                    # The following regex matches any string surrounded by double quotes, but not
+                    # containing double quotes within it. This should match quoted paths such as
+                    # "C:\windows\system32\combase.dll"
+                    if ($ServerData -match "^`"[^`"]+`"`$") {
+                        $PathToAnalyze = $PathToAnalyze.Trim('"')
+                    }
+                    if ([System.IO.Path]::IsPathRooted($PathToAnalyze)) {
+                        $ServerDataType = "FilePath"
+                    }
+                    else {
+                        $ServerDataType = "FileName"
+                    }
+                }
+                elseif ($ServerProperty.PSChildName -like "Local*") {
+                    # The data contains the path of an executable or a command line.
+                    $ServerDataType = "CommandLine"
+                }
+
+                $ResultWithServerData = $Result.PSObject.Copy()
+                $ResultWithServerData | Add-Member -MemberType "NoteProperty" -Name "HandlerType" -Value $ServerProperty.PSChildName
+                $ResultWithServerData | Add-Member -MemberType "NoteProperty" -Name "HandlerRegPath" -Value $(Join-Path -Path $Result.RegPath -ChildPath $ResultWithServerData.HandlerType)
+                $ResultWithServerData | Add-Member -MemberType "NoteProperty" -Name "HandlerDataType" -Value $ServerDataType
+                $ResultWithServerData | Add-Member -MemberType "NoteProperty" -Name "HandlerData" -Value $ServerData
+                $ResultWithServerData
+            }
         }
     }
 }
@@ -118,13 +178,25 @@ function Get-ComClassFromRegistry {
 
             $script:GlobalCache.RegisteredComList = @()
 
-            Get-ChildItem -Path "Registry::$($RootKey)" -ErrorAction SilentlyContinue |
-                Select-Object -ExpandProperty "PSChildName" |
-                    Invoke-CommandMultithread -InitialSessionState $(Get-InitialSessionState) -Command "Get-ComClassEntryFromRegistry" -InputParameter "Clsid" |
-                        ForEach-Object {
-                            $script:GlobalCache.RegisteredComList += $_
-                            $_
-                        }
+            # First, enumerate all CLSID registry key entries with a 'valid' name, i.e. a name
+            # that can be parsed as a GUID.
+            $ComClassRegistryClsid = Get-ChildItem -Path "Registry::$($RootKey)" | ForEach-Object {
+                $RegKey = $_
+                try {
+                    [Guid] $RegKey.PSChildName
+                }
+                catch {
+                    Write-Warning "Found a CLSID registry key with an invalid name: $($RegKey.Name)"
+                }
+            }
+
+            # Then, for each valid CLSID, enumerate the COM class properties.
+            $ComClassRegistryClsid |
+                Invoke-CommandMultithread -InitialSessionState $(Get-InitialSessionState) -Command "Get-ComClassEntryFromRegistry" -InputParameter "Clsid" |
+                    ForEach-Object {
+                        $script:GlobalCache.RegisteredComList += $_
+                        $_
+                    }
         }
         else {
             $script:GlobalCache.RegisteredComList
