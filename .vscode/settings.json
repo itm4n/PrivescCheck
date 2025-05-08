@@ -3,6 +3,7 @@
     "files.trimTrailingWhitespace": true,
     "cSpell.words": [
         "ACCOUNTDISABLE",
+        "Addins",
         "ADSI",
         "Advapi",
         "Alloc",
@@ -192,6 +193,7 @@
         "SDDL",
         "SECE",
         "SESSIONID",
+        "shellex",
         "SHELLEXTENSION",
         "SHELLNEWVALUE",
         "shlwapi",
