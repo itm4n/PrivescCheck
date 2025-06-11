@@ -726,6 +726,42 @@ function Invoke-SccmCacheFolderCredentialCheck {
     }
 }
 
+function Invoke-SmaAgentConnectivityCredentialCheck {
+    <#
+    .SYNOPSIS
+    Check for Symantec Account Connectivity Credentials (ACCs).
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet simply invokes the Get-SymantecManagementAgentInformation command to determine whether a Symantec Management Agent is installed and ACCs are stored locally.
+
+    .LINK
+    https://www.mdsec.co.uk/2024/12/extracting-account-connectivity-credentials-accs-from-symantec-management-agent-aka-altiris/
+    #>
+
+    [CmdletBinding()]
+    param (
+        [UInt32] $BaseSeverity
+    )
+
+    process {
+        $AgentInfo = Get-SymantecManagementAgentInformation
+        $Vulnerable = $false
+        if ($AgentInfo) {
+            if ($AgentInfo.AccUserNamePath -and $AgentInfo.AccUserPasswordPath) {
+                $Vulnerable = $true
+            }
+        }
+
+        $CheckResult = New-Object -TypeName PSObject
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AgentInfo
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevel::None })
+        $CheckResult
+    }
+}
+
 function Invoke-VncCredentialCheck {
     <#
     .SYNOPSIS

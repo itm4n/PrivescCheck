@@ -1,5 +1,11 @@
 # Changelog
 
+## 2025-06-11
+
+### Added
+
+- Check for Symantec Account Connectivity Credentials (ACCs)
+
 ## 2025-03-05
 
 ### Added

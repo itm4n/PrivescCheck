@@ -702,6 +702,103 @@ function Get-SccmCacheFileCredential {
     }
 }
 
+function Get-SymantecManagementAgentInformation {
+    <#
+    .SYNOPSIS
+    Gather information about the Symantec Management Agent.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet collects information about the Symantec Management Agent (a.k.a. Altiris Agent) from the registry and the local filesystem. If no Symantec Management Agent is installed, this cmdlet returns Null.
+
+    .EXAMPLE
+    PS C:\> Get-SymantecManagementAgentInformation
+
+    AgentVersion             : 8.8.1280.0
+    InstallDirectory         : C:\Program Files\Altiris\Altiris Agent
+    DefaultServer            : srv02.foundation.local
+    ServerNames              : srv02.foundation.local
+    ServerUrls               : http://srv02.foundation.local:80/altiris
+    ClientPolicyFilePath     : C:\Program Files\Altiris\Altiris Agent\Client Policies\srv02.foundation.local.xml
+    MachineGuidRegistry      : {59067291-0E3D-44DE-85FD-BDE4B5632648}
+    MachineGuidInventoryFile : {59067291-0E3D-44DE-85FD-BDE4B5632648}
+    TypeGuidInventoryFile    : {493435F7-3B17-4C4C-B07F-C23E7AB7781F}
+    AccPolicyGuid            : {142F2372-E64D-43C0-A207-17DB2C0552C4}
+    AccUserNamePath          : aexs://AgentCore\Policy\{142F2372-E64D-43C0-A207-17DB2C0552C4}\{8A8A64CA-15B4-4371-A4A3-F24ECFF35754}
+    AccUserPasswordPath      : aexs://AgentCore\Policy\{142F2372-E64D-43C0-A207-17DB2C0552C4}\{854B3571-6DC3-45E8-B7D1-1647E9D81516}
+    #>
+
+    [CmdletBinding()]
+    param ()
+
+    process {
+        $AgentPresent = $false
+        $RegistryItem = Get-Item -Path "registry::HKLM\SOFTWARE\Altiris\Altiris Agent" -ErrorAction SilentlyContinue
+        if ($null -ne $RegistryItem) {
+
+            $AgentPresent = $true
+            $RegistryMachineGuid = ($RegistryItem | Get-ItemProperty -Name "MachineGuid").MachineGuid
+            $RegistryAgentVersion = ($RegistryItem | Get-ItemProperty -Name "Version").Version
+            $RegistryInstallDirectory = ($RegistryItem | Get-ItemProperty -Name "InstallDir").InstallDir
+
+            $RegistryItem = Get-Item -Path "registry::HKLM\SOFTWARE\Altiris\Altiris Agent\Servers" -ErrorAction SilentlyContinue
+            if ($null -ne $RegistryItem) {
+                $DefaultServerName = $RegistryItem | Get-ItemProperty -Name "(default)" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty "(default)"
+            }
+
+            $ServerNames = @()
+            $ServerUrls = @()
+
+            Get-ChildItem -Path "registry::HKLM\SOFTWARE\Altiris\Altiris Agent\Servers" -ErrorAction SilentlyContinue | ForEach-Object {
+                $ServerNames += $_.PSChildName
+                $ServerUrls += $_ | Get-ItemProperty -Name "Web" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty "Web"
+            }
+        }
+
+        if (-not [String]::IsNullOrEmpty($RegistryInstallDirectory)) {
+            $InventoryFilePath = Join-Path -Path $RegistryInstallDirectory -ChildPath "AeXLastBasicInventory.xml"
+            $XmlResources = Select-Xml -Path $InventoryFilePath -XPath "/message/body/inventory/resources/resource" -ErrorAction SilentlyContinue
+            foreach ($Resource in $XmlResources) {
+                if ($null -ne $Resource.Node.typeGuid -and $null -ne $Resource.Node.guid) {
+                    $InventoryMachineGuid = $Resource.Node.guid
+                    $InventoryTypeGuid = $Resource.Node.typeGuid
+                    break
+                }
+            }
+        }
+
+        if ((-not [String]::IsNullOrEmpty($RegistryInstallDirectory)) -and (-not [String]::IsNullOrEmpty($DefaultServerName))) {
+            $ClientPolicyFilePath = Join-Path -Path $RegistryInstallDirectory -ChildPath "Client Policies\$($DefaultServerName).xml"
+            $XmlAccessCredentials = Select-Xml -Path $ClientPolicyFilePath -XPath "/Policies/Policy/ClientPolicy/Communications/PkgAccessCredentials" -ErrorAction SilentlyContinue
+            if ($null -ne $XmlAccessCredentials) {
+                $AccCredentials = $XmlAccessCredentials.Node
+                $AccUserName = $AccCredentials.UserName
+                $AccUserPassword = $AccCredentials.UserPassword
+                $AccClientPolicyGuid = $XmlAccessCredentials.Node.ParentNode.ParentNode.ParentNode.guid
+            }
+        }
+
+        if ($AgentPresent) {
+            $Result = New-Object -TypeName PSObject
+            $Result | Add-Member -MemberType "NoteProperty" -Name "AgentVersion" -Value $RegistryAgentVersion
+            $Result | Add-Member -MemberType "NoteProperty" -Name "InstallDirectory" -Value $RegistryInstallDirectory
+            $Result | Add-Member -MemberType "NoteProperty" -Name "DefaultServer" -Value $DefaultServerName
+            $Result | Add-Member -MemberType "NoteProperty" -Name "ServerNames" -Value ($ServerNames -join "; ")
+            $Result | Add-Member -MemberType "NoteProperty" -Name "ServerUrls" -Value ($ServerUrls -join "; ")
+            $Result | Add-Member -MemberType "NoteProperty" -Name "ClientPolicyFilePath" -Value $ClientPolicyFilePath
+            $Result | Add-Member -MemberType "NoteProperty" -Name "MachineGuidRegistry" -Value $RegistryMachineGuid
+            $Result | Add-Member -MemberType "NoteProperty" -Name "MachineGuidInventoryFile" -Value $InventoryMachineGuid
+            $Result | Add-Member -MemberType "NoteProperty" -Name "TypeGuidInventoryFile" -Value $InventoryTypeGuid
+            $Result | Add-Member -MemberType "NoteProperty" -Name "AccPolicyGuid" -Value $AccClientPolicyGuid
+            $Result | Add-Member -MemberType "NoteProperty" -Name "AccUserNamePath" -Value $AccUserName
+            $Result | Add-Member -MemberType "NoteProperty" -Name "AccUserPasswordPath" -Value $AccUserPassword
+            $Result
+        }
+    }
+}
+
 function Get-RemoteDesktopUserSession {
     <#
     .SYNOPSIS
