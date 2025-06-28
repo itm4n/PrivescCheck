@@ -1101,36 +1101,39 @@ function Invoke-ProcessAndThreadPermissionCheck {
 
         foreach ($Process in $Processes) {
 
-            # Check the permissions of the process first. If we have any privileged access
-            # right, stop there and return the result.
-            $ProcessModificationRights = Get-ObjectAccessRight -Name $Process.ProcessId -Type Process
-            if (($null -ne $ProcessModificationRights) -and ($CurrentUserSids -notcontains $ProcessModificationRights.OwnerSid)) {
+            # Check the permissions of the process first. Filter out processes owned by the
+            # current user.
+            $ProcessModificationRightsFound = $false
+            $ProcessModificationRights = Get-ObjectAccessRight -Name $Process.ProcessId -Type Process | Where-Object { $CurrentUserSids -notcontains $_.OwnerSid }
+            foreach ($ProcessModificationRight in $ProcessModificationRights) {
                 $Result = New-Object -TypeName PSObject
                 $Result | Add-Member -MemberType "NoteProperty" -Name "Id" -Value $Process.ProcessId
                 $Result | Add-Member -MemberType "NoteProperty" -Name "Type" -Value "Process"
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Owner" -Value $ProcessModificationRights.Owner
-                $Result | Add-Member -MemberType "NoteProperty" -Name "OwnerSid" -Value $ProcessModificationRights.OwnerSid
-                $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $ProcessModificationRights.IdentityReference
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value ($ProcessModificationRights.Permissions -join ", ")
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Owner" -Value $ProcessModificationRight.Owner
+                $Result | Add-Member -MemberType "NoteProperty" -Name "OwnerSid" -Value $ProcessModificationRight.OwnerSid
+                $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $ProcessModificationRight.IdentityReference
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value ($ProcessModificationRight.Permissions -join ", ")
                 $AllResults += $Result
-                continue
+                $ProcessModificationRightsFound = $true
             }
+
+            # We found modification rights on the process, so no need to check thread
+            # permissions.
+            if ($ProcessModificationRightsFound) { continue }
 
             foreach ($Thread in $Process.Threads) {
 
-                # Check the permissions of each thread in the process. Report any object on
-                # which the current has privileged access rights and is not the owner.
-                $ThreadModificationRights = Get-ObjectAccessRight -Name $Thread.ThreadId -Type Thread
-                if (($null -ne $ThreadModificationRights) -and ($CurrentUserSids -notcontains $ThreadModificationRights.OwnerSid)) {
-                    $ThreadModificationRights
-
+                # Check the permissions of each thread in the process. Filter out threads owned
+                # by the current user.
+                $ThreadModificationRights = Get-ObjectAccessRight -Name $Thread.ThreadId -Type Thread | Where-Object { $CurrentUserSids -notcontains $_.OwnerSid }
+                foreach ($ThreadModificationRight in $ThreadModificationRights) {
                     $Result = New-Object -TypeName PSObject
                     $Result | Add-Member -MemberType "NoteProperty" -Name "Id" -Value $Thread.ThreadId
                     $Result | Add-Member -MemberType "NoteProperty" -Name "Type" -Value "Thread"
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "Owner" -Value $ThreadModificationRights.Owner
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "OwnerSid" -Value $ThreadModificationRights.OwnerSid
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $ThreadModificationRights.IdentityReference
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value ($ThreadModificationRights.Permissions -join ", ")
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "Owner" -Value $ThreadModificationRight.Owner
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "OwnerSid" -Value $ThreadModificationRight.OwnerSid
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $ThreadModificationRight.IdentityReference
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value ($ThreadModificationRight.Permissions -join ", ")
                     $AllResults += $Result
                 }
             }

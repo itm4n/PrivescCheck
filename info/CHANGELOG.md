@@ -1,5 +1,11 @@
 # Changelog
 
+## 2025-07-28
+
+### Fixed
+
+- Fix an improper handling of process and thread permissions (see issue #71).
+
 ## 2025-06-11
 
 ### Added
