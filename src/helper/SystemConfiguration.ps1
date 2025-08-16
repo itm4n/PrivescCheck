@@ -69,11 +69,11 @@ function Get-WindowsDefenderExclusion {
             "EventLog" {
 
                 $RegKeyExclusionPattern = "HKLM\\SOFTWARE\\(Policies\\)?Microsoft\\Windows Defender\\Exclusions\\(Processes|Extensions|Paths)\\(.+)"
-                $Events = Get-WinEvent -LogName $LogName | Where-Object { $_.Id -eq $EventId }
+                $WinEvents = Get-WinEvent -LogName $LogName | Where-Object { $_.Id -eq $EventId }
 
-                foreach ($Event in $Events) {
+                foreach ($WinEvent in $WinEvents) {
 
-                    if ($Event.Message -match $RegKeyExclusionPattern) {
+                    if ($WinEvent.Message -match $RegKeyExclusionPattern) {
                         $Type = $ExclusionNames[$Matches[2]]
                         $Value = $Matches[3] -replace ' = .*'
 
