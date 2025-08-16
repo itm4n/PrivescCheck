@@ -1462,3 +1462,112 @@ function Get-PowerShellSecurityFeature {
         }
     }
 }
+
+function Get-ClickOnceTrustPromptBehaviorConfiguration {
+    <#
+    .SYNOPSIS
+    Helper - Get the configuration of the ClickOnce trust prompt.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet enumerates the ClickOnce trust prompt behavior values from the registry. For each zone, it checks whether the default value is applied, which may occur if no value is configured for the zone, or the default value was explicitly set.
+
+    .EXAMPLE
+    PS C:\> Get-ClickOnceTrustPromptBehaviorConfiguration
+
+    Zone        : TrustedSites
+    Value       :
+    IsDefault   : True
+    Default     : Enabled
+    Description : The ClickOnce trust prompt is displayed so that end users can grant trust to ClickOnce applications.
+
+    Zone        : MyComputer
+    Value       :
+    IsDefault   : True
+    Default     : Enabled
+    Description : The ClickOnce trust prompt is displayed so that end users can grant trust to ClickOnce applications.
+
+    Zone        : UntrustedSites
+    Value       :
+    IsDefault   : True
+    Default     : Disabled
+    Description : The ClickOnce trust prompt isn't displayed. Only ClickOnce applications that are signed with an
+                  explicitly trusted certificate will be installed.
+
+    Zone        : Internet
+    Value       : Enabled
+    IsDefault   : False
+    Default     : AuthenticodeRequired
+    Description : The ClickOnce trust prompt is displayed so that end users can grant trust to ClickOnce applications.
+
+    Zone        : LocalIntranet
+    Value       :
+    IsDefault   : True
+    Default     : Enabled
+    Description : The ClickOnce trust prompt is displayed so that end users can grant trust to ClickOnce applications.
+
+    .NOTES
+    Enable the ClickOnce trust prompt
+    reg add HKLM\SOFTWARE\MICROSOFT\.NETFramework\Security\TrustManager\PromptingLevel /v MyComputer /t REG_SZ /d Enabled /f
+    reg add HKLM\SOFTWARE\MICROSOFT\.NETFramework\Security\TrustManager\PromptingLevel /v LocalIntranet /t REG_SZ /d Enabled /f
+    reg add HKLM\SOFTWARE\MICROSOFT\.NETFramework\Security\TrustManager\PromptingLevel /v Internet /t REG_SZ /d AuthenticodeRequired /f
+    reg add HKLM\SOFTWARE\MICROSOFT\.NETFramework\Security\TrustManager\PromptingLevel /v TrustedSites /t REG_SZ /d Enabled /f
+    reg add HKLM\SOFTWARE\MICROSOFT\.NETFramework\Security\TrustManager\PromptingLevel /v UntrustedSites /t REG_SZ /d Disabled /f
+
+    .LINK
+    https://learn.microsoft.com/en-us/visualstudio/deployment/how-to-configure-the-clickonce-trust-prompt-behavior
+    #>
+
+    [CmdletBinding()]
+    param ()
+
+    begin {
+        $RegKeyPath = "HKLM\SOFTWARE\MICROSOFT\.NETFramework\Security\TrustManager\PromptingLevel"
+        $DefaultValues = @{
+            "MyComputer" = "Enabled"
+            "LocalIntranet" = "Enabled"
+            "TrustedSites" = "Enabled"
+            "Internet" = "AuthenticodeRequired"
+            "UntrustedSites" = "Disabled"
+        }
+        $ValueDescriptions = @{
+            "Enabled" = "The ClickOnce trust prompt is displayed so that end users can grant trust to ClickOnce applications."
+            "AuthenticodeRequired" = "The ClickOnce trust prompt is only displayed if ClickOnce applications are signed with a certificate that identifies the publisher. Otherwise, the ClickOnce application won't be installed."
+            "Disabled"= "The ClickOnce trust prompt isn't displayed. Only ClickOnce applications that are signed with an explicitly trusted certificate will be installed."
+        }
+    }
+
+    process {
+
+        foreach ($ValueName in $DefaultValues.Keys) {
+
+            $IsDefault = $false
+
+            $RegKeyData = (Get-ItemProperty -Path "Registry::$($RegKeyPath)" -Name $ValueName -ErrorAction SilentlyContinue).$ValueName
+
+            if ($RegKeyData -eq $DefaultValues[$ValueName]) {
+                $IsDefault = $true
+            }
+
+            if ([string]::IsNullOrEmpty($RegKeyData)) {
+                $IsDefault = $true
+                $RegKeyDataDescription = $ValueDescriptions[$DefaultValues[$ValueName]]
+            } else {
+                if ($RegKeyData -eq $DefaultValues[$ValueName]) {
+                    $IsDefault = $true
+                }
+                $RegKeyDataDescription = $ValueDescriptions[$RegKeyData]
+            }
+
+            $Result = New-Object -TypeName PSObject
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Zone" -Value $ValueName
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegKeyData
+            $Result | Add-Member -MemberType "NoteProperty" -Name "IsDefault" -Value $IsDefault
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Default" -Value $DefaultValues[$ValueName]
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $RegKeyDataDescription
+            $Result
+        }
+    }
+}

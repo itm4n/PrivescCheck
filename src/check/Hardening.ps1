@@ -1219,3 +1219,64 @@ function Invoke-DefaultLocalAdministratorAccountCheck {
         $CheckResult
     }
 }
+
+function Invoke-ClickOnceTrustPromptBehaviorCheck {
+    <#
+    .SYNOPSIS
+    Check whether the ClickOnce trust prompt is disabled for the "Internet" zone.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    By default, users can choose whether they allow the execution of ClickOnce applications, as long as they are not in the "UntrustedSites" zone. For the "Internet" zone, though, those applications must be signed. However, an attacker could hijack a legitimate application through DLL side loading. To prevent this, it is advised to set the behavior to "Disabled".
+
+    .LINK
+    https://posts.specterops.io/less-smartscreen-more-caffeine-ab-using-clickonce-for-trusted-code-execution-1446ea8051c5
+    #>
+
+    [CmdletBinding()]
+    param (
+        [UInt32] $BaseSeverity
+    )
+
+    begin {
+        $Results = @()
+        $Vulnerable = $false
+    }
+
+    process {
+
+        foreach ($Setting in $(Get-ClickOnceTrustPromptBehaviorConfiguration)) {
+
+            $EffectiveValue = ""
+            if ([string]::IsNullOrEmpty($Setting.Value)) {
+                $EffectiveValue = $Setting.Default
+            } else {
+                $EffectiveValue = $Setting.Value
+            }
+
+            if (($Setting.Zone -eq "Internet") -and ($EffectiveValue -ne "Disabled")) {
+                $Vulnerable = $true
+            }
+
+            $DisplayValue = $EffectiveValue
+            if ($Setting.IsDefault) {
+                $DisplayValue = "$($DisplayValue) (default)"
+            }
+
+            $Result = New-Object -TypeName PSObject
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Zone" -Value $Setting.Zone
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $DisplayValue
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Setting.Description
+            $Results += $Result
+        }
+    }
+
+    end {
+        $CheckResult = New-Object -TypeName PSObject
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Results
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevel::None })
+        $CheckResult
+    }
+}

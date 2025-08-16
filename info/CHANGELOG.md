@@ -1,5 +1,11 @@
 # Changelog
 
+## 2025-08-16
+
+### Added
+
+- Check for ClickOnce trust prompt behavior (especially the 'Internet' zone).
+
 ## 2025-06-28
 
 ### Fixed
