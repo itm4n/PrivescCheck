@@ -2,6 +2,10 @@
 
 ## 2025-08-17
 
+### Added
+
+- Check for BIOS release date (<180 days).
+
 ### Fixed
 
 - Get-HotFix could hang indefinitely. This was addressed by implementing a wrapper with a timeout.

@@ -74,9 +74,10 @@ function Invoke-HotFixCheck {
             $UpdateSearcher = $Session.CreateUpdateSearcher()
             $TotalHistoryCount = $UpdateSearcher.GetTotalHistoryCount()
             foreach ($UpdateItem in $($UpdateSearcher.QueryHistory(0, $TotalHistoryCount))) {
-                if ($UpdateItem.Title -match "\(KB\d{6,7}\)"){
+                if ($UpdateItem.Title -match "\(KB\d{6,7}\)") {
                     $Id = $Matches[0].Replace("(", "").Replace(")", "")
-                } else {
+                }
+                else {
                     continue
                 }
                 $Result = New-Object -TypeName PSObject
@@ -113,12 +114,12 @@ function Invoke-HotFixCheck {
                 Write-Warning "Failed to determine install date of update package $($HotFix.HotFixID)"
             }
 
-            $HotFixObject = $HotFix | Select-Object HotFixID,Description,InstalledBy
+            $HotFixObject = $HotFix | Select-Object HotFixID, Description, InstalledBy
             $HotFixObject | Add-Member -MemberType "NoteProperty" -Name "InstalledOn" -Value $InstalledOn
             $HotFixList += $HotFixObject
         }
 
-        $HotFixListSorted = $HotFixList | Sort-Object -Property InstalledOn,HotFixID -Descending
+        $HotFixListSorted = $HotFixList | Sort-Object -Property InstalledOn, HotFixID -Descending
         $LatestHotfix = $HotFixListSorted | Select-Object -First 1
 
         if ($null -ne $LatestHotfix) {
@@ -131,6 +132,67 @@ function Invoke-HotFixCheck {
 
         $CheckResult = New-Object -TypeName PSObject
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $HotFixListSorted
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevel::None })
+        $CheckResult
+    }
+}
+
+function Invoke-BiosUpdateCheck {
+    <#
+    .SYNOPSIS
+    Check whether the BIOS was updated in the last 180 days.
+
+    .DESCRIPTION
+    This cmdlet uses the Get-SystemInformation helper to retrieve the BIOS release date and check whether it is older than 180 days.
+
+    .EXAMPLE
+    PS C:\> Invoke-BiosUpdateCheck
+
+    BiosReleaseDate : 2025-02-21
+    Description     : The BIOS was installed or updated 178 ago (<180).
+
+    .NOTES
+    General notes
+    #>
+
+    [CmdletBinding()]
+    param (
+        [UInt32] $BaseSeverity
+    )
+
+    begin {
+        $MaxDays = 180
+    }
+
+    process {
+        $Vulnerable = $false
+        $SystemInformation = Get-SystemInformation
+
+        if ([string]::IsNullOrEmpty($SystemInformation.BiosReleaseDate)) {
+            Write-Warning "Failed to retrieve BIOS release date."
+            $Description = "Failed to retrieve BIOS release date."
+        }
+        else {
+            $BiosReleaseDate = Convert-StringToDate -Date $SystemInformation.BiosReleaseDate
+            $TimeSpan = New-TimeSpan -Start $BiosReleaseDate -End $(Get-Date)
+            $TotalDays = [math]::Ceiling($TimeSpan.TotalDays)
+            $Description = "The BIOS was installed or updated $($TotalDays) days ago"
+
+            if ($TotalDays -gt $MaxDays) {
+                $Description += " (>$($MaxDays))."
+                $Vulnerable = $true
+            }
+            else {
+                $Description += " (<$($MaxDays))."
+            }
+        }
+
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "BiosReleaseDate" -Value $SystemInformation.BiosReleaseDate
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+
+        $CheckResult = New-Object -TypeName PSObject
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Result
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevel::None })
         $CheckResult
     }
