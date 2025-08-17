@@ -176,6 +176,29 @@ function Convert-DateToString {
     }
 }
 
+function Convert-StringToDate {
+
+    [OutputType([datetime])]
+    [CmdletBinding()]
+    param(
+        [String] $Date,
+        [Switch] $IncludeTime
+    )
+
+    begin {
+        if ($IncludeTime) {
+            $DateFormat = "yyyy-MM-dd - HH:mm:ss"
+        }
+        else {
+            $DateFormat = "yyyy-MM-dd"
+        }
+    }
+
+    process {
+        [datetime]::ParseExact($Date, $DateFormat, $null)
+    }
+}
+
 function Convert-SidToName {
 
     [OutputType([String])]
