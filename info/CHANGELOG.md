@@ -1,5 +1,11 @@
 # Changelog
 
+## 2025-08-17
+
+### Fixed
+
+- Get-HotFix could hang indefinitely. This was addressed by implementing a wrapper with a timeout.
+
 ## 2025-08-16
 
 ### Added

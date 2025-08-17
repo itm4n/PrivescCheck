@@ -93,7 +93,12 @@ function Invoke-HotFixCheck {
 
     process {
 
-        foreach ($HotFix in (Get-HotFix)) {
+        $HotFixHistory = Get-HotFixWithTimeout -ErrorAction SilentlyContinue
+        if ($null -eq $HotFixHistory) {
+            Write-Warning "Failed to retrieve hotfix history."
+        }
+
+        foreach ($HotFix in $HotFixHistory) {
 
             if ($null -eq $HotFix.InstalledOn) {
                 if ($null -eq $HotFixDates) { $HotFixDates = Get-HotFixDate }

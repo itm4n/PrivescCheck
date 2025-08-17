@@ -1374,3 +1374,46 @@ function Get-RegisteredScheduledTask {
         $script:GlobalCache.ScheduledTaskList
     }
 }
+
+function Get-HotFixWithTimeout {
+    <#
+    .SYNOPSIS
+    Helper - Get update history with a timeout in case it hangs.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    The Get-HotFix cmdlet can hang indefinitely. As an alternative, it is possible to invoke the Win32_QuickFixEngineering WMI class directly, but the result is the same. To address this issue, the class is instantiated in a separate Job, and a timeout is set. If the job doesn't complete before the timeout, an exception is thrown. It should be noted that the use of Get-CimInstance is preferred here because its invocation can be immediately cancelled, contrary to Get-WmiObject. Because Get-CimInstance is not supported in PSv2, a warning message is displayed in this case as a grace period of 2 minutes seems to be enforced when attempting to cancel the Get-WmiObject invocation.
+
+    .PARAMETER Timeout
+    Timeout value, in seconds.
+    #>
+
+    [CmdletBinding()]
+    param (
+        [UInt32] $Timeout = 10
+    )
+
+    process {
+        if ($PSVersionTable.PSVersion.Major -gt 2) {
+            $GetUpdateHistoryJob = Start-Job {Get-CimInstance -Class "Win32_QuickFixEngineering" -ErrorAction SilentlyContinue | Select-Object Description,HotFixID,InstalledBy,InstalledOn}
+        }
+        else {
+            Write-Warning "PSv2 detected, timeout is not supported. Get-HotFixWithTimeout could hang for up to 2 minutes (+ timeout)."
+            $GetUpdateHistoryJob = Start-Job {Get-WmiObject -Class "Win32_QuickFixEngineering" -ErrorAction SilentlyContinue | Select-Object Description,HotFixID,InstalledBy,InstalledOn}
+        }
+
+        if ($null -eq $GetUpdateHistoryJob) {
+            throw "Failed to create job to retrieve hotfix history."
+        }
+
+        if (Wait-Job -Job $GetUpdateHistoryJob -Timeout $Timeout) {
+            Receive-Job -Job $GetUpdateHistoryJob
+        } else {
+            Stop-Job -Job $GetUpdateHistoryJob -ErrorAction SilentlyContinue
+            Remove-Job -Job $GetUpdateHistoryJob -Force -ErrorAction SilentlyContinue
+            throw "Timed out waiting for hotfix history retrieval."
+        }
+    }
+}
