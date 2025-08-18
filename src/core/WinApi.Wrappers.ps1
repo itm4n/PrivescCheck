@@ -24,7 +24,7 @@ function Format-Error {
     [OutputType([String])]
     [CmdletBinding()]
     param (
-        [Parameter(Position=0, Mandatory=$true)]
+        [Parameter(Position = 0, Mandatory = $true)]
         [ValidateNotNullOrEmpty()]
         [Int32] $Code
     )
@@ -164,7 +164,7 @@ function Get-FileHandle {
     [OutputType([IntPtr])]
     [CmdletBinding()]
     param (
-        [Parameter(Position=0, Mandatory=$true)]
+        [Parameter(Position = 0, Mandatory = $true)]
         [ValidateNotNullOrEmpty()]
         [String] $Path,
 
@@ -224,7 +224,7 @@ function Get-RegistryKeyHandle {
     [OutputType([IntPtr])]
     [CmdletBinding()]
     param (
-        [Parameter(Position=0, Mandatory=$true)]
+        [Parameter(Position = 0, Mandatory = $true)]
         [ValidateNotNullOrEmpty()]
         [String] $Path,
 
@@ -233,11 +233,11 @@ function Get-RegistryKeyHandle {
 
     begin {
         $RootKeyShortNames = @{
-            "HKEY_CLASSES_ROOT" = "HKCR"
+            "HKEY_CLASSES_ROOT"   = "HKCR"
             "HKEY_CURRENT_CONFIG" = "HKCC"
-            "HKEY_CURRENT_USER" = "HKCU"
-            "HKEY_LOCAL_MACHINE" = "HKLM"
-            "HKEY_USERS" = "HKU"
+            "HKEY_CURRENT_USER"   = "HKCU"
+            "HKEY_LOCAL_MACHINE"  = "HKLM"
+            "HKEY_USERS"          = "HKU"
         }
     }
 
@@ -250,7 +250,7 @@ function Get-RegistryKeyHandle {
             "HKCR" { $RootKeyValue = 0x80000000 }
             "HKCU" { $RootKeyValue = 0x80000001 }
             "HKLM" { $RootKeyValue = 0x80000002 }
-            "HKU"  { $RootKeyValue = 0x80000003 }
+            "HKU" { $RootKeyValue = 0x80000003 }
             "HKCC" { $RootKeyValue = 0x80000005 }
             default { throw "Unhandled root key: $($RootKeyName)" }
         }
@@ -463,9 +463,9 @@ function Get-TokenInformationData {
     [OutputType([IntPtr])]
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [IntPtr] $TokenHandle,
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [UInt32] $InformationClass
     )
 
@@ -530,44 +530,44 @@ function Get-TokenInformationGroup {
     [CmdletBinding()]
     param(
         [UInt32] $ProcessId = 0,
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [ValidateSet("Groups", "RestrictedSids", "LogonSid", "Capabilities", "DeviceGroups", "RestrictedDeviceGroups")]
         [String] $InformationClass
     )
 
     $InformationClasses = @{
-        Groups                  = 2
-        RestrictedSids          = 11
-        LogonSid                = 28
-        Capabilities            = 30
-        DeviceGroups            = 37
-        RestrictedDeviceGroups  = 38
+        Groups                 = 2
+        RestrictedSids         = 11
+        LogonSid               = 28
+        Capabilities           = 30
+        DeviceGroups           = 37
+        RestrictedDeviceGroups = 38
     }
 
     $SupportedGroupAttributes = @{
-        Enabled             = 0x00000004
-        EnabledByDefault    = 0x00000002
-        Integrity           = 0x00000020
-        IntegrityEnabled    = 0x00000040
-        LogonId             = 0xC0000000
-        Mandatory           = 0x00000001
-        Owner               = 0x00000008
-        Resource            = 0x20000000
-        UseForDenyOnly      = 0x00000010
+        Enabled          = 0x00000004
+        EnabledByDefault = 0x00000002
+        Integrity        = 0x00000020
+        IntegrityEnabled = 0x00000040
+        LogonId          = 0xC0000000
+        Mandatory        = 0x00000001
+        Owner            = 0x00000008
+        Resource         = 0x20000000
+        UseForDenyOnly   = 0x00000010
     }
 
     $SupportedTypes = @{
-        User            = 0x00000001
-        Group           = 0x00000002
-        Domain          = 0x00000003
-        Alias           = 0x00000004
-        WellKnownGroup  = 0x00000005
-        DeletedAccount  = 0x00000006
-        Invalid         = 0x00000007
-        Unknown         = 0x00000008
-        Computer        = 0x00000009
-        Label           = 0x0000000A
-        LogonSession    = 0x0000000B
+        User           = 0x00000001
+        Group          = 0x00000002
+        Domain         = 0x00000003
+        Alias          = 0x00000004
+        WellKnownGroup = 0x00000005
+        DeletedAccount = 0x00000006
+        Invalid        = 0x00000007
+        Unknown        = 0x00000008
+        Computer       = 0x00000009
+        Label          = 0x0000000A
+        LogonSession   = 0x0000000B
     }
 
     $TokenHandle = Get-ProcessTokenHandle -ProcessId $ProcessId
@@ -649,42 +649,42 @@ function Get-TokenInformationPrivilege {
     )
 
     $PrivilegeDescriptions = @{
-        SeAssignPrimaryTokenPrivilege               = "Replace a process-level token";
-        SeAuditPrivilege                            = "Generate security audits";
-        SeBackupPrivilege                           = "Back up files and directories";
-        SeChangeNotifyPrivilege                     = "Bypass traverse checking";
-        SeCreateGlobalPrivilege                     = "Create global objects";
-        SeCreatePagefilePrivilege                   = "Create a pagefile";
-        SeCreatePermanentPrivilege                  = "Create permanent shared objects";
-        SeCreateSymbolicLinkPrivilege               = "Create symbolic links";
-        SeCreateTokenPrivilege                      = "Create a token object";
-        SeDebugPrivilege                            = "Debug programs";
-        SeDelegateSessionUserImpersonatePrivilege   = "Impersonate other users";
-        SeEnableDelegationPrivilege                 = "Enable computer and user accounts to be trusted for delegation";
-        SeImpersonatePrivilege                      = "Impersonate a client after authentication";
-        SeIncreaseBasePriorityPrivilege             = "Increase scheduling priority";
-        SeIncreaseQuotaPrivilege                    = "Adjust memory quotas for a process";
-        SeIncreaseWorkingSetPrivilege               = "Increase a process working set";
-        SeLoadDriverPrivilege                       = "Load and unload device drivers";
-        SeLockMemoryPrivilege                       = "Lock pages in memory";
-        SeMachineAccountPrivilege                   = "Add workstations to domain";
-        SeManageVolumePrivilege                     = "Manage the files on a volume";
-        SeProfileSingleProcessPrivilege             = "Profile single process";
-        SeRelabelPrivilege                          = "Modify an object label";
-        SeRemoteShutdownPrivilege                   = "Force shutdown from a remote system";
-        SeRestorePrivilege                          = "Restore files and directories";
-        SeSecurityPrivilege                         = "Manage auditing and security log";
-        SeShutdownPrivilege                         = "Shut down the system";
-        SeSyncAgentPrivilege                        = "Synchronize directory service data";
-        SeSystemEnvironmentPrivilege                = "Modify firmware environment values";
-        SeSystemProfilePrivilege                    = "Profile system performance";
-        SeSystemtimePrivilege                       = "Change the system time";
-        SeTakeOwnershipPrivilege                    = "Take ownership of files or other objects";
-        SeTcbPrivilege                              = "Act as part of the operating system";
-        SeTimeZonePrivilege                         = "Change the time zone";
-        SeTrustedCredManAccessPrivilege             = "Access Credential Manager as a trusted caller";
-        SeUndockPrivilege                           = "Remove computer from docking station";
-        SeUnsolicitedInputPrivilege                 = "N/A";
+        SeAssignPrimaryTokenPrivilege             = "Replace a process-level token";
+        SeAuditPrivilege                          = "Generate security audits";
+        SeBackupPrivilege                         = "Back up files and directories";
+        SeChangeNotifyPrivilege                   = "Bypass traverse checking";
+        SeCreateGlobalPrivilege                   = "Create global objects";
+        SeCreatePagefilePrivilege                 = "Create a pagefile";
+        SeCreatePermanentPrivilege                = "Create permanent shared objects";
+        SeCreateSymbolicLinkPrivilege             = "Create symbolic links";
+        SeCreateTokenPrivilege                    = "Create a token object";
+        SeDebugPrivilege                          = "Debug programs";
+        SeDelegateSessionUserImpersonatePrivilege = "Impersonate other users";
+        SeEnableDelegationPrivilege               = "Enable computer and user accounts to be trusted for delegation";
+        SeImpersonatePrivilege                    = "Impersonate a client after authentication";
+        SeIncreaseBasePriorityPrivilege           = "Increase scheduling priority";
+        SeIncreaseQuotaPrivilege                  = "Adjust memory quotas for a process";
+        SeIncreaseWorkingSetPrivilege             = "Increase a process working set";
+        SeLoadDriverPrivilege                     = "Load and unload device drivers";
+        SeLockMemoryPrivilege                     = "Lock pages in memory";
+        SeMachineAccountPrivilege                 = "Add workstations to domain";
+        SeManageVolumePrivilege                   = "Manage the files on a volume";
+        SeProfileSingleProcessPrivilege           = "Profile single process";
+        SeRelabelPrivilege                        = "Modify an object label";
+        SeRemoteShutdownPrivilege                 = "Force shutdown from a remote system";
+        SeRestorePrivilege                        = "Restore files and directories";
+        SeSecurityPrivilege                       = "Manage auditing and security log";
+        SeShutdownPrivilege                       = "Shut down the system";
+        SeSyncAgentPrivilege                      = "Synchronize directory service data";
+        SeSystemEnvironmentPrivilege              = "Modify firmware environment values";
+        SeSystemProfilePrivilege                  = "Profile system performance";
+        SeSystemtimePrivilege                     = "Change the system time";
+        SeTakeOwnershipPrivilege                  = "Take ownership of files or other objects";
+        SeTcbPrivilege                            = "Act as part of the operating system";
+        SeTimeZonePrivilege                       = "Change the time zone";
+        SeTrustedCredManAccessPrivilege           = "Access Credential Manager as a trusted caller";
+        SeUndockPrivilege                         = "Remove computer from docking station";
+        SeUnsolicitedInputPrivilege               = "N/A";
     }
 
     $TokenHandle = Get-ProcessTokenHandle -ProcessId $ProcessId
@@ -714,7 +714,7 @@ function Get-TokenInformationPrivilege {
         Write-Verbose "LookupPrivilegeName() OK - Length: $Length"
 
         $Name = New-Object -TypeName System.Text.StringBuilder
-        $Name.EnsureCapacity($Length + 1) |Out-Null
+        $Name.EnsureCapacity($Length + 1) | Out-Null
         $Success = $script:Advapi32::LookupPrivilegeName($null, [ref] $CurrentPrivilege.Luid, $Name, [ref] $Length)
 
         if (-not $Success) {
@@ -1032,7 +1032,7 @@ function Get-ObjectName {
     [OutputType([String])]
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [IntPtr] $ObjectHandle
     )
 
@@ -1151,7 +1151,7 @@ function Get-SystemInformationData {
     [OutputType([IntPtr])]
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [UInt32] $InformationClass
     )
 
@@ -1342,7 +1342,7 @@ function Get-SystemInformationExtendedHandle {
         # If an object type index is set, ignore handles that are not of this type.
         if (($TypeIndex -ne 0) -and ($CurrentHandleInfo.ObjectTypeIndex -ne $TypeIndex)) { continue }
 
-        $Result = $CurrentHandleInfo | Select-Object Object,UniqueProcessId,HandleValue,GrantedAccess,HandleAttributes,ObjectTypeIndex
+        $Result = $CurrentHandleInfo | Select-Object Object, UniqueProcessId, HandleValue, GrantedAccess, HandleAttributes, ObjectTypeIndex
         $Result | Add-Member -MemberType "NoteProperty" -Name "ObjectType" -Value $($ObjectTypes | Where-Object { $_.Index -eq $CurrentHandleInfo.ObjectTypeIndex } | Select-Object -ExpandProperty Name)
         $Result
     }
@@ -1355,7 +1355,7 @@ function Convert-PSidToStringSid {
     [OutputType([String])]
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [IntPtr] $PSid
     )
 
@@ -1378,7 +1378,7 @@ function Convert-PSidToNameAndType {
 
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [IntPtr] $PSid
     )
 
@@ -1419,7 +1419,7 @@ function Convert-PSidToRid {
     [OutputType([UInt32])]
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [IntPtr] $PSid
     )
 
@@ -1448,7 +1448,7 @@ function Convert-DosDeviceToDevicePath {
     [OutputType([String])]
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [String] $DosDevice
     )
 
@@ -1499,7 +1499,7 @@ function Convert-SddlToRawSecurityDescriptor {
     [CmdletBinding()]
     param (
         [ValidateNotNullOrEmpty()]
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [String] $Sddl
     )
 
@@ -1571,10 +1571,10 @@ function Get-ObjectSecurityInfo {
 
     [CmdletBinding()]
     param (
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [IntPtr] $Handle,
 
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [ValidateSet("File", "Directory", "RegistryKey", "Service", "ServiceControlManager", "Process", "Thread")]
         [String] $Type
     )
@@ -1587,14 +1587,14 @@ function Get-ObjectSecurityInfo {
     process {
 
         switch ($Type) {
-            "File"                  { $ObjectType = $script:SE_OBJECT_TYPE::SE_FILE_OBJECT;     $AccessRights = $script:FileAccessRight }
-            "Directory"             { $ObjectType = $script:SE_OBJECT_TYPE::SE_FILE_OBJECT;     $AccessRights = $script:DirectoryAccessRight }
-            "RegistryKey"           { $ObjectType = $script:SE_OBJECT_TYPE::SE_REGISTRY_KEY;    $AccessRights = $script:RegistryKeyAccessRight }
-            "Service"               { $ObjectType = $script:SE_OBJECT_TYPE::SE_SERVICE;         $AccessRights = $script:ServiceAccessRight }
-            "ServiceControlManager" { $ObjectType = $script:SE_OBJECT_TYPE::SE_SERVICE;         $AccessRights = $script:ServiceControlManagerAccessRight }
-            "Process"               { $ObjectType = $script:SE_OBJECT_TYPE::SE_KERNEL_OBJECT;   $AccessRights = $script:ProcessAccessRight }
-            "Thread"                { $ObjectType = $script:SE_OBJECT_TYPE::SE_KERNEL_OBJECT;   $AccessRights = $script:ThreadAccessRight }
-            default                 { throw "Unhandled object type: $($Type)" }
+            "File" { $ObjectType = $script:SE_OBJECT_TYPE::SE_FILE_OBJECT; $AccessRights = $script:FileAccessRight }
+            "Directory" { $ObjectType = $script:SE_OBJECT_TYPE::SE_FILE_OBJECT; $AccessRights = $script:DirectoryAccessRight }
+            "RegistryKey" { $ObjectType = $script:SE_OBJECT_TYPE::SE_REGISTRY_KEY; $AccessRights = $script:RegistryKeyAccessRight }
+            "Service" { $ObjectType = $script:SE_OBJECT_TYPE::SE_SERVICE; $AccessRights = $script:ServiceAccessRight }
+            "ServiceControlManager" { $ObjectType = $script:SE_OBJECT_TYPE::SE_SERVICE; $AccessRights = $script:ServiceControlManagerAccessRight }
+            "Process" { $ObjectType = $script:SE_OBJECT_TYPE::SE_KERNEL_OBJECT; $AccessRights = $script:ProcessAccessRight }
+            "Thread" { $ObjectType = $script:SE_OBJECT_TYPE::SE_KERNEL_OBJECT; $AccessRights = $script:ThreadAccessRight }
+            default { throw "Unhandled object type: $($Type)" }
         }
 
         $SecurityInfo = $script:SecurityInformation::Owner + $script:SecurityInformation::Group + $script:SecurityInformation::Dacl
@@ -2033,7 +2033,7 @@ function Resolve-ModulePath {
     #>
     [CmdletBinding()]
     param (
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [String] $Name
     )
 
@@ -2123,9 +2123,9 @@ function Resolve-PathRelativeTo {
 
     [CmdletBinding()]
     param (
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [String] $From,
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [String] $To
     )
 
@@ -2246,5 +2246,207 @@ function Get-LocalUserInformation {
 
     end {
         if ($BufferPtr -ne [IntPtr]::Zero) { $null = $script:Netapi32::NetApiBufferFree($BufferPtr) }
+    }
+}
+
+function Get-NtObjectSymbolicLinkTarget {
+    <#
+    .SYNOPSIS
+    Wrapper for NtOpenSymbolicLinkObject + NtQuerySymbolicLinkObject
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet is a wrapper for NtOpenSymbolicLinkObject + NtQuerySymbolicLinkObject. It opens a symbolic link object and queries its target.
+
+    .PARAMETER Path
+    The path of symbolic link object.
+
+    .EXAMPLE
+    PS C:\> Get-NtObjectSymbolicLinkTarget -Path \GLOBAL??\BitLocker
+
+    Name                Target
+    ----                ------
+    \GLOBAL??\BitLocker \Device\BitLocker
+    #>
+
+    [CmdletBinding()]
+    param (
+        [String] $Path
+    )
+
+    begin {
+        $ObjectHandle = [IntPtr]::Zero
+    }
+
+    process {
+        $ObjectName = $Path
+        $ObjectNameBuffer = [Activator]::CreateInstance($script:UNICODE_STRING)
+        $script:Ntdll::RtlInitUnicodeString([ref] $ObjectNameBuffer, $ObjectName) | Out-Null
+
+        $ObjectAttributes = [Activator]::CreateInstance($script:OBJECT_ATTRIBUTES)
+        $ObjectAttributes.Length = $script:OBJECT_ATTRIBUTES::GetSize()
+        $ObjectAttributes.RootDirectory = [IntPtr]::Zero
+        $ObjectAttributes.Attributes = $OBJ_ATTRIBUTE::OBJ_CASE_INSENSITIVE
+        $ObjectAttributes.ObjectName = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($script:UNICODE_STRING::GetSize())
+        [System.Runtime.InteropServices.Marshal]::StructureToPtr($ObjectNameBuffer, $ObjectAttributes.ObjectName, $true)
+
+        $ObjectAttributes.SecurityDescriptor = [IntPtr]::Zero
+        $ObjectAttributes.SecurityQualityOfService = [IntPtr]::Zero
+
+        $AccessMask = [UInt32]"0x80000000" # GENERIC_READ, workaround for 0x80000000 which PowerShell doesn't translate properly to an unsigned int.
+        $Status = $script:Ntdll::NtOpenSymbolicLinkObject([ref] $ObjectHandle, $AccessMask, [ref] $ObjectAttributes)
+
+        if ($Status -ne 0) {
+            $LastError = $script:Ntdll::RtlNtStatusToDosError($Status)
+            Write-Warning "NtOpenSymbolicLinkObject('$($Path)') - $(Format-Error $LastError)"
+            $null = [System.Runtime.InteropServices.Marshal]::FreeHGlobal($ObjectAttributes.ObjectName)
+            return
+        }
+
+        $null = [System.Runtime.InteropServices.Marshal]::FreeHGlobal($ObjectAttributes.ObjectName)
+
+        $TargetBufferSize = 260 * 2
+        $TargetBuffer = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($TargetBufferSize)
+        $Target = [Activator]::CreateInstance($script:UNICODE_STRING)
+        $Target.Length = 0
+        $Target.MaximumLength = $TargetBufferSize
+        $Target.Buffer = $TargetBuffer
+
+        $ReturnedLength = 0
+
+        $Status = $script:Ntdll::NtQuerySymbolicLinkObject($ObjectHandle, [ref] $Target, [ref] $ReturnedLength)
+
+        if ($Status -ne 0) {
+            $LastError = $script:Ntdll::RtlNtStatusToDosError($Status)
+            Write-Warning "NtQuerySymbolicLinkObject('$($Path)') - $(Format-Error $LastError)"
+            $null = [System.Runtime.InteropServices.Marshal]::FreeHGlobal($TargetBuffer)
+            return
+        }
+
+        $Name = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($Target.Buffer)
+        $null = [System.Runtime.InteropServices.Marshal]::FreeHGlobal($TargetBuffer)
+
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $Path
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Target" -Value $Name
+        $Result
+    }
+
+    end {
+        if ($ObjectHandle -ne [IntPtr]::Zero) {
+            $null = $script:Ntdll::NtClose($ObjectHandle)
+        }
+    }
+}
+
+function Get-NtObjectItem {
+    <#
+    .SYNOPSIS
+    Wrapper for NtOpenDirectoryObject + NtQueryDirectoryObject
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet is a wrapper for NtOpenDirectoryObject + NtQueryDirectoryObject. It enumerates the objects within an object directory.
+
+    .PARAMETER Path
+    The path of an object directory (e.g. '\Device').
+
+    .PARAMETER Recurse
+    Use this switch to enable recursive enumeration.
+
+    .EXAMPLE
+    PS C:\> Get-NtObjectItem -Path \Device
+
+    Type         FullName                                       Name                                   Target
+    ----         --------                                       ----                                   ------
+    Device       \Device\00000030                               00000030
+    Device       \Device\NDMP2                                  NDMP2
+    Device       \Device\NTPNP_PCI0002                          NTPNP_PCI0002
+    Device       \Device\00000040                               00000040
+    Device       \Device\NDMP3                                  NDMP3
+    Device       \Device\NTPNP_PCI0003                          NTPNP_PCI0003
+    Device       \Device\wdnisdrv                               wdnisdrv
+    SymbolicLink \Device\{916cd272-1025-4d9b-9cd4-d983a9a03269} {916cd272-1025-4d9b-9cd4-d983a9a03269} \Device\NDMP7
+    Device       \Device\NDMP4                                  NDMP4
+    SymbolicLink \Device\Ip                                     Ip                                     \Device\Tdx
+    ...
+    #>
+
+    [CmdletBinding()]
+    param (
+        [Parameter(Position = 0, Mandatory = $true)]
+        [String] $Path,
+
+        [Switch] $Recurse
+    )
+
+    process {
+        $ObjectName = $Path
+        $ObjectNameBuffer = [Activator]::CreateInstance($script:UNICODE_STRING)
+        $script:Ntdll::RtlInitUnicodeString([ref] $ObjectNameBuffer, $ObjectName) | Out-Null
+
+        $ObjectAttributes = [Activator]::CreateInstance($script:OBJECT_ATTRIBUTES)
+        $ObjectAttributes.Length = $script:OBJECT_ATTRIBUTES::GetSize()
+        $ObjectAttributes.RootDirectory = [IntPtr]::Zero
+        $ObjectAttributes.Attributes = $OBJ_ATTRIBUTE::OBJ_CASE_INSENSITIVE
+        $ObjectAttributes.ObjectName = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($script:UNICODE_STRING::GetSize())
+        [System.Runtime.InteropServices.Marshal]::StructureToPtr($ObjectNameBuffer, $ObjectAttributes.ObjectName, $true)
+
+        $ObjectAttributes.SecurityDescriptor = [IntPtr]::Zero
+        $ObjectAttributes.SecurityQualityOfService = [IntPtr]::Zero
+
+        $ObjectHandle = [IntPtr]::Zero
+
+        $Status = $script:Ntdll::NtOpenDirectoryObject([ref] $ObjectHandle, 3, [ref] $ObjectAttributes)
+
+        if ($Status -ne 0) {
+            $LastError = $script:Ntdll::RtlNtStatusToDosError($Status)
+            Write-Warning "NtOpenDirectoryObject('$($Path)') - $(Format-Error $LastError)"
+            [System.Runtime.InteropServices.Marshal]::FreeHGlobal($ObjectAttributes.ObjectName) | Out-Null
+            return
+        }
+
+        [System.Runtime.InteropServices.Marshal]::FreeHGlobal($ObjectAttributes.ObjectName) | Out-Null
+
+        $BufferSize = 1024
+        $Buffer = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($BufferSize)
+
+        [uint32] $Context = 0
+        [uint32] $Length = 0
+
+        while ($true) {
+
+            $Status = $script:Ntdll::NtQueryDirectoryObject($ObjectHandle, $Buffer, $BufferSize, $true, $Context -eq 0, [ref] $Context, [ref] $Length)
+
+            if ($Status -ne 0) { break }
+
+            $ObjectDirectoryInformation = [System.Runtime.InteropServices.Marshal]::PtrToStructure($Buffer, [type] $script:OBJECT_DIRECTORY_INFORMATION)
+            $TypeName = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($ObjectDirectoryInformation.TypeName.Buffer)
+            $Name = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($ObjectDirectoryInformation.Name.Buffer)
+            $FullName = $(Join-Path -Path $Path -ChildPath $Name)
+
+            $Target = ""
+            if ($TypeName -eq "SymbolicLink") {
+                $Target = Get-NtObjectSymbolicLinkTarget -Path $FullName
+            }
+
+            $Result = New-Object -TypeName PSObject
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Type" -Value $TypeName
+            $Result | Add-Member -MemberType "NoteProperty" -Name "FullName" -Value $FullName
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $Name
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Target" -Value $Target.Target
+            $Result
+
+            if (($TypeName -eq "Directory") -and $Recurse) {
+                Get-NtObjectItem -Path $FullName -Recurse
+            }
+        }
+
+        $null = [System.Runtime.InteropServices.Marshal]::FreeHGlobal($Buffer) | Out-Null
+        $null = $script:Ntdll::NtClose($ObjectHandle)
     }
 }

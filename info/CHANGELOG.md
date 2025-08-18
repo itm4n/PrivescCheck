@@ -1,5 +1,12 @@
 # Changelog
 
+## 2025-08-18
+
+### Added
+
+- Wrapper cmdlet for enumerating object directories.
+- Wrapper cmdlet for resolving symbolic link objects.
+
 ## 2025-08-17
 
 ### Added

@@ -2,7 +2,7 @@ function Get-ComClassEntryFromRegistry {
 
     [CmdletBinding()]
     param (
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [Guid] $Clsid
     )
 
@@ -192,11 +192,11 @@ function Get-ComClassFromRegistry {
 
             # Then, for each valid CLSID, enumerate the COM class properties.
             $ComClassRegistryClsid |
-                Invoke-CommandMultithread -InitialSessionState $(Get-InitialSessionState) -Command "Get-ComClassEntryFromRegistry" -InputParameter "Clsid" |
-                    ForEach-Object {
-                        $script:GlobalCache.RegisteredComList += $_
-                        $_
-                    }
+            Invoke-CommandMultithread -InitialSessionState $(Get-InitialSessionState) -Command "Get-ComClassEntryFromRegistry" -InputParameter "Clsid" |
+            ForEach-Object {
+                $script:GlobalCache.RegisteredComList += $_
+                $_
+            }
         }
         else {
             $script:GlobalCache.RegisteredComList
@@ -229,58 +229,19 @@ function Get-VolumeShadowCopyInformation {
     [CmdletBinding()]
     param()
 
-    $ObjectName = "\Device"
-    $ObjectNameBuffer = [Activator]::CreateInstance($script:UNICODE_STRING)
-    $script:Ntdll::RtlInitUnicodeString([ref] $ObjectNameBuffer, $ObjectName) | Out-Null
+    process {
+        $Devices = Get-NtObjectItem -Path "\Device"
 
-    $ObjectAttributes = [Activator]::CreateInstance($script:OBJECT_ATTRIBUTES)
-    $ObjectAttributes.Length = $script:OBJECT_ATTRIBUTES::GetSize()
-    $ObjectAttributes.RootDirectory = [IntPtr]::Zero
-    $ObjectAttributes.Attributes = $OBJ_ATTRIBUTE::OBJ_CASE_INSENSITIVE
-    $ObjectAttributes.ObjectName = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($script:UNICODE_STRING::GetSize())
-    [System.Runtime.InteropServices.Marshal]::StructureToPtr($ObjectNameBuffer, $ObjectAttributes.ObjectName, $true)
+        foreach ($Device in $Devices) {
 
-    $ObjectAttributes.SecurityDescriptor = [IntPtr]::Zero
-    $ObjectAttributes.SecurityQualityOfService = [IntPtr]::Zero
-
-    $ObjectHandle = [IntPtr]::Zero
-
-    $Status = $script:Ntdll::NtOpenDirectoryObject([ref] $ObjectHandle, 3, [ref] $ObjectAttributes)
-
-    if ($Status -ne 0) {
-        $LastError = $script:Ntdll::RtlNtStatusToDosError($Status)
-        Write-Verbose "NtOpenDirectoryObject - $(Format-Error $LastError)"
-        [System.Runtime.InteropServices.Marshal]::FreeHGlobal($ObjectAttributes.ObjectName) | Out-Null
-        return
-    }
-
-    [System.Runtime.InteropServices.Marshal]::FreeHGlobal($ObjectAttributes.ObjectName) | Out-Null
-
-    $BufferSize = 1024
-    $Buffer = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($BufferSize)
-
-    [uint32] $Context = 0
-    [uint32] $Length = 0
-
-    while ($true) {
-
-        $Status = $script:Ntdll::NtQueryDirectoryObject($ObjectHandle, $Buffer, $BufferSize, $true, $Context -eq 0, [ref] $Context, [ref] $Length)
-
-        if ($Status -ne 0) { break }
-
-        $ObjectDirectoryInformation = [System.Runtime.InteropServices.Marshal]::PtrToStructure($Buffer, [type] $script:OBJECT_DIRECTORY_INFORMATION)
-        $TypeName = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($ObjectDirectoryInformation.TypeName.Buffer)
-        $Name = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($ObjectDirectoryInformation.Name.Buffer)
-
-        if ($TypeName -eq "Device" -and $Name -like "*VolumeShadowCopy*") {
-            $Result = New-Object -TypeName PSObject
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Volume" -Value $Name
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $(Join-Path -Path "\\?\GLOBALROOT\Device\" -ChildPath $Name)
-            $Result
+            if (($Device.Type -eq "Device") -and ($Device.Name -like "*VolumeShadowCopy*")) {
+                $Result = New-Object -TypeName PSObject
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Volume" -Value $Device.Name
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $(Join-Path -Path "\\?\GLOBALROOT\Device\" -ChildPath $Device.Name)
+                $Result
+            }
         }
     }
-
-    [System.Runtime.InteropServices.Marshal]::FreeHGlobal($Buffer) | Out-Null
 }
 
 function Get-UEFIStatus {
@@ -412,9 +373,9 @@ function Get-MachineRole {
 
     begin {
         $FriendlyNames = @{
-            "WinNT"     = "Workstation";
-            "LanmanNT"  = "Domain Controller";
-            "ServerNT"  = "Server";
+            "WinNT"    = "Workstation";
+            "LanmanNT" = "Domain Controller";
+            "ServerNT" = "Server";
         }
     }
 
@@ -584,10 +545,10 @@ function Get-TpmDeviceType {
         # for 'NSM' and 'STM', which are padded with a space! Interestingly enough,
         # this is not defined by the TCG, but rather by the ID requestor (ie the
         # vendor).
-        $DiscreteTpmVendorIds = @("ATML","CSCO","FLYS","IFX","NSG","NSM ","NTC","NTZ","SNS","STM ")
-        $IntegratedTpmVendorIds = @("BRCM","INTC","ROCC","SMSC","TXN")
-        $FirmwareTpmVendorIds = @("AMD","HISI","HPE","INTC","LEN","QCOM","SECE","SMSN")
-        $VirtualTpmVendorIds = @("IBM","GOOG","MSFT")
+        $DiscreteTpmVendorIds = @("ATML", "CSCO", "FLYS", "IFX", "NSG", "NSM ", "NTC", "NTZ", "SNS", "STM ")
+        $IntegratedTpmVendorIds = @("BRCM", "INTC", "ROCC", "SMSC", "TXN")
+        $FirmwareTpmVendorIds = @("AMD", "HISI", "HPE", "INTC", "LEN", "QCOM", "SECE", "SMSN")
+        $VirtualTpmVendorIds = @("IBM", "GOOG", "MSFT")
         $TpmType = $script:TPM_DEVICE_TYPE::Unknown
     }
 
@@ -772,7 +733,7 @@ function Get-ServiceFromRegistry {
 
     [CmdletBinding()]
     param(
-        [ValidateSet(0,1,2,3)]
+        [ValidateSet(0, 1, 2, 3)]
         [UInt32] $FilterLevel = 1
     )
 
@@ -781,7 +742,7 @@ function Get-ServiceFromRegistry {
 
         function Get-ServiceFromRegistryHelper {
             param (
-                [Parameter(Mandatory=$true)]
+                [Parameter(Mandatory = $true)]
                 [ValidateNotNullOrEmpty()]
                 [String] $Name
             )
@@ -876,7 +837,7 @@ function Get-KernelDriver {
 
         Write-Verbose "Initializing cache: DriverList"
 
-        $Services = Get-ServiceFromRegistry -FilterLevel 1 | Where-Object { @('KernelDriver','FileSystemDriver','RecognizerDriver') -contains $_.Type }
+        $Services = Get-ServiceFromRegistry -FilterLevel 1 | Where-Object { @('KernelDriver', 'FileSystemDriver', 'RecognizerDriver') -contains $_.Type }
 
         foreach ($Service in $Services) {
 
@@ -939,41 +900,41 @@ function Get-NetworkAdapter {
     )
 
     $InterfaceTypes = @{
-        'Other' = 1
-        'Ethernet' = 6
+        'Other'     = 1
+        'Ethernet'  = 6
         'TokenRing' = 9
-        'PPP' = 23
-        'Loopback' = 24
-        'ATM' = 37
+        'PPP'       = 23
+        'Loopback'  = 24
+        'ATM'       = 37
         'IEEE80211' = 71
-        'Tunnel' = 131
-        'IEEE1394' = 144
+        'Tunnel'    = 131
+        'IEEE1394'  = 144
     }
 
     $InterfacesStatuses = @{
-        'Up' = 1
-        'Down' = 2
-        'Testing' = 3
-        'Unknown' = 4
-        'Dormant' = 5
-        'NotPresent' = 6
+        'Up'             = 1
+        'Down'           = 2
+        'Testing'        = 3
+        'Unknown'        = 4
+        'Dormant'        = 5
+        'NotPresent'     = 6
         'LowerLayerDown' = 7
     }
 
     $ConnectionTypes = @{
         'Dedicated' = 1
-        'Passive' = 2
-        'Demand' = 3
-        'Maximum' = 4
+        'Passive'   = 2
+        'Demand'    = 3
+        'Maximum'   = 4
     }
 
     $TunnelTypes = @{
-        'None' = 0
-        'Other' = 1
-        'Direct' = 2
-        '6to4' = 11
-        'ISATAP' = 13
-        'TEREDO' = 14
+        'None'    = 0
+        'Other'   = 1
+        'Direct'  = 2
+        '6to4'    = 11
+        'ISATAP'  = 13
+        'TEREDO'  = 14
         'IPHTTPS' = 15
     }
 
@@ -1397,11 +1358,11 @@ function Get-HotFixWithTimeout {
 
     process {
         if ($PSVersionTable.PSVersion.Major -gt 2) {
-            $GetUpdateHistoryJob = Start-Job {Get-CimInstance -Class "Win32_QuickFixEngineering" -ErrorAction SilentlyContinue | Select-Object Description,HotFixID,InstalledBy,InstalledOn}
+            $GetUpdateHistoryJob = Start-Job { Get-CimInstance -Class "Win32_QuickFixEngineering" -ErrorAction SilentlyContinue | Select-Object Description, HotFixID, InstalledBy, InstalledOn }
         }
         else {
             Write-Warning "PSv2 detected, timeout is not supported. Get-HotFixWithTimeout could hang for up to 2 minutes (+ timeout)."
-            $GetUpdateHistoryJob = Start-Job {Get-WmiObject -Class "Win32_QuickFixEngineering" -ErrorAction SilentlyContinue | Select-Object Description,HotFixID,InstalledBy,InstalledOn}
+            $GetUpdateHistoryJob = Start-Job { Get-WmiObject -Class "Win32_QuickFixEngineering" -ErrorAction SilentlyContinue | Select-Object Description, HotFixID, InstalledBy, InstalledOn }
         }
 
         if ($null -eq $GetUpdateHistoryJob) {
@@ -1410,7 +1371,8 @@ function Get-HotFixWithTimeout {
 
         if (Wait-Job -Job $GetUpdateHistoryJob -Timeout $Timeout) {
             Receive-Job -Job $GetUpdateHistoryJob
-        } else {
+        }
+        else {
             Stop-Job -Job $GetUpdateHistoryJob -ErrorAction SilentlyContinue
             Remove-Job -Job $GetUpdateHistoryJob -Force -ErrorAction SilentlyContinue
             throw "Timed out waiting for hotfix history retrieval."
