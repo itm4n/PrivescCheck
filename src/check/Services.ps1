@@ -571,9 +571,7 @@ function Invoke-NamedKernelDeviceCheck {
     #>
 
     [CmdletBinding()]
-    param (
-        [UInt32] $BaseSeverity
-    )
+    param ()
 
     begin {
         $IgnoredDosDevices = @("NUL", "CON", "AUX", "COM1", "COM2", "COM3", "COM4", "PRN", "LPT1", "LPT2", "LPT3", "CLOCK$")
@@ -581,7 +579,7 @@ function Invoke-NamedKernelDeviceCheck {
     }
 
     process {
-        $AllResults = @()
+
         $DeviceSymbolicLinks = Get-NtObjectItem -Path "\GLOBAL??" | Where-Object { ($_.Type -eq "SymbolicLink") -and ($_.Target -like "\Device\*") }
 
         foreach ($DeviceSymbolicLink in $DeviceSymbolicLinks) {
@@ -606,13 +604,8 @@ function Invoke-NamedKernelDeviceCheck {
                 $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $ModifiablePath.ModifiablePath
                 $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $ModifiablePath.IdentityReference
                 $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value ($ModifiablePath.Permissions -join ", ")
-                $AllResults += $Result
+                $Result
             }
         }
-
-        $CheckResult = New-Object -TypeName PSObject
-        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
-        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AllResults) { $BaseSeverity } else { $script:SeverityLevel::None })
-        $CheckResult
     }
 }
