@@ -111,11 +111,11 @@ function Invoke-SystemStartupHistoryCheck {
 
         $EventNumber = 1
 
-        foreach ($Event in $StartupEvents) {
+        foreach ($StartupEvent in $StartupEvents) {
 
             $Result = New-Object -TypeName PSObject
             $Result | Add-Member -MemberType "NoteProperty" -Name "Index" -Value $EventNumber
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Time" -Value "$(Convert-DateToString -Date $Event.TimeGenerated -IncludeTime)"
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Time" -Value "$(Convert-DateToString -Date $StartupEvent.TimeGenerated -IncludeTime)"
 
             [void] $SystemStartupHistoryResult.Add($Result)
             $EventNumber += 1
