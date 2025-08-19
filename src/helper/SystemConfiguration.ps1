@@ -37,9 +37,9 @@ function Get-WindowsDefenderExclusion {
         $EventId = 5007
 
         $ExclusionNames = @{
-            "Paths" = "Path"
+            "Paths"      = "Path"
             "Extensions" = "Extension"
-            "Processes" = "Process"
+            "Processes"  = "Process"
         }
     }
 
@@ -311,7 +311,7 @@ function Get-PointAndPrintConfiguration {
         # Policy: Package Point and print - Approved servers
         # https://admx.help/?Category=Windows_10_2016&Policy=Microsoft.Policies.Printing::PackagePointAndPrintServerList
         $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PackagePointAndPrint\ListOfServers"
-        $RegData = Get-Item -Path ($RegKey -replace "HKLM\\","HKLM:\") -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Property
+        $RegData = Get-Item -Path ($RegKey -replace "HKLM\\", "HKLM:\") -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Property
 
         $Item = New-Object -TypeName PSObject
         $Item | Add-Member -MemberType "NoteProperty" -Name "Policy" -Value "Package Point and print - Approved servers > PackagePointAndPrintServerList"
@@ -360,7 +360,7 @@ function Get-SmbConfiguration {
 
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [ValidateSet("Server", "Client")]
         [string] $Role
     )
@@ -371,7 +371,7 @@ function Get-SmbConfiguration {
         switch ($Role) {
             "Server" { $ClassName = "MSFT_SmbServerConfiguration" }
             "Client" { $ClassName = "MSFT_SmbClientConfiguration" }
-            default  { throw "Unknown role: $($Role)" }
+            default { throw "Unknown role: $($Role)" }
         }
     }
 
@@ -380,12 +380,12 @@ function Get-SmbConfiguration {
             if ($PSVersionTable.PSVersion.Major -gt 2) {
                 $CimClass = Get-CimClass -ClassName $ClassName -Namespace $Namespace
                 $Invocation = Invoke-CimMethod -CimClass $CimClass -MethodName "GetConfiguration"
-                $Invocation.Output | Select-Object -Property * -ExcludeProperty "CimClass","CimInstanceProperties","CimSystemProperties","PSComputerName"
+                $Invocation.Output | Select-Object -Property * -ExcludeProperty "CimClass", "CimInstanceProperties", "CimSystemProperties", "PSComputerName"
             }
             else {
                 $WmiObject = Get-WmiObject -Class $ClassName -Namespace $Namespace -List
                 $Invocation = $WmiObject.GetConfiguration()
-                $Invocation.Output | Select-Object -Property * -ExcludeProperty "__Genus","__Class","__Superclass","__Dynasty","__Relpath","__Property_Count","__Derivation","__Server","__Namespace","__Path","Properties","SystemProperties","Qualifiers","ClassPath","Site","Container"
+                $Invocation.Output | Select-Object -Property * -ExcludeProperty "__Genus", "__Class", "__Superclass", "__Dynasty", "__Relpath", "__Property_Count", "__Derivation", "__Server", "__Namespace", "__Path", "Properties", "SystemProperties", "Qualifiers", "ClassPath", "Site", "Container"
             }
         }
         catch {
@@ -428,10 +428,10 @@ function Get-BitLockerConfiguration {
         $FveConfig = @{
             UseAdvancedStartup = 0
             EnableBDEWithNoTPM = 0
-            UseTPM = 1
-            UseTPMPIN = 0
-            UseTPMKey = 0
-            UseTPMKeyPIN = 0
+            UseTPM             = 1
+            UseTPMPIN          = 0
+            UseTPMKey          = 0
+            UseTPMKeyPIN       = 0
         }
 
         $FveUseAdvancedStartup = @(
@@ -471,10 +471,10 @@ function Get-BitLockerConfiguration {
         $FveConfigValues = @{
             UseAdvancedStartup = $FveUseAdvancedStartup
             EnableBDEWithNoTPM = $FveEnableBDEWithNoTPM
-            UseTPM = $FveUseTPM
-            UseTPMPIN = $FveUseTPMPIN
-            UseTPMKey = $FveUseTPMKey
-            UseTPMKeyPIN = $FveUseTPMKeyPIN
+            UseTPM             = $FveUseTPM
+            UseTPMPIN          = $FveUseTPMPIN
+            UseTPMKey          = $FveUseTPMKey
+            UseTPMKeyPIN       = $FveUseTPMKeyPIN
         }
     }
 
@@ -657,10 +657,10 @@ function Get-AppLockerRule {
             # AppLocker path variables
             # https://learn.microsoft.com/en-us/windows/security/application-security/application-control/windows-defender-application-control/applocker/understanding-the-path-rule-condition-in-applocker
             $VariableHashmap = @{
-                "%WINDIR%"          = @( "%SystemRoot%" )
-                "%SYSTEM32%"        = @( "%SystemDirectory%" )
-                "%OSDRIVE%"         = @( "%SystemDrive%" )
-                "%PROGRAMFILES%"    = @( "%ProgramFiles%", "%ProgramFiles(x86)%" )
+                "%WINDIR%"       = @( "%SystemRoot%" )
+                "%SYSTEM32%"     = @( "%SystemDirectory%" )
+                "%OSDRIVE%"      = @( "%SystemDrive%" )
+                "%PROGRAMFILES%" = @( "%ProgramFiles%", "%ProgramFiles(x86)%" )
             }
 
             $VariableFound = $false
@@ -668,7 +668,7 @@ function Get-AppLockerRule {
                 if ($Path -like "$($Variable)*") {
                     $VariableFound = $true
                     foreach ($TranslatedVariable in $VariableHashmap[$Variable]) {
-                        $Path -replace $Variable,$TranslatedVariable
+                        $Path -replace $Variable, $TranslatedVariable
                     }
                     break
                 }
@@ -997,14 +997,14 @@ function Get-NetworkFirewallActiveProfile {
 
     [CmdletBinding()]
     param (
-        [Parameter(Mandatory=$true)]
-        [ValidateSet("Domain","Private","Public")]
+        [Parameter(Mandatory = $true)]
+        [ValidateSet("Domain", "Private", "Public")]
         $Profile
     )
 
     begin {
-        $Attributes = @("Enabled","DefaultInboundAction","DefaultOutboundAction","AllowInboundRules","AllowLocalFirewallRules","AllowLocalIPsecRules","AllowUserApps","AllowUserPorts","AllowUnicastResponseToMulticast","NotifyOnListen","LogFileName","LogMaxSizeKilobytes","LogAllowed","LogBlocked","LogIgnored","DisabledInterfaceAliases")
-        $ActionList = @("Allow","Block")
+        $Attributes = @("Enabled", "DefaultInboundAction", "DefaultOutboundAction", "AllowInboundRules", "AllowLocalFirewallRules", "AllowLocalIPsecRules", "AllowUserApps", "AllowUserPorts", "AllowUnicastResponseToMulticast", "NotifyOnListen", "LogFileName", "LogMaxSizeKilobytes", "LogAllowed", "LogBlocked", "LogIgnored", "DisabledInterfaceAliases")
+        $ActionList = @("Allow", "Block")
         $NetworkAdapters = Get-NetworkAdapter
 
         $PolicyStoreType = $script:FW_STORE_TYPE::DYNAMIC
@@ -1025,7 +1025,7 @@ function Get-NetworkFirewallActiveProfile {
         foreach ($Attribute in $Attributes) {
 
             switch ($Attribute) {
-                "Enabled"   { $ProfileConfig = $script:FW_PROFILE_CONFIG::ENABLE_FW }
+                "Enabled" { $ProfileConfig = $script:FW_PROFILE_CONFIG::ENABLE_FW }
                 "DefaultInboundAction" { $ProfileConfig = $script:FW_PROFILE_CONFIG::DEFAULT_INBOUND_ACTION }
                 "DefaultOutboundAction" { $ProfileConfig = $script:FW_PROFILE_CONFIG::DEFAULT_OUTBOUND_ACTION }
                 "AllowInboundRules" { $ProfileConfig = $script:FW_PROFILE_CONFIG::SHIELDED }
@@ -1042,7 +1042,7 @@ function Get-NetworkFirewallActiveProfile {
                 "LogBlocked" { $ProfileConfig = $script:FW_PROFILE_CONFIG::LOG_DROPPED_PACKETS }
                 "LogIgnored" { $ProfileConfig = $script:FW_PROFILE_CONFIG::LOG_IGNORED_RULES }
                 "DisabledInterfaceAliases" { $ProfileConfig = $script:FW_PROFILE_CONFIG::DISABLED_INTERFACES }
-                default     { $ProfileConfig = $script:Invalid }
+                default { $ProfileConfig = $script:Invalid }
             }
 
             $BufferSize = 0
@@ -1182,8 +1182,8 @@ function Get-NameResolutionProtocolConfiguration {
 
     [CmdletBinding()]
     param (
-        [Parameter(Mandatory=$true)]
-        [ValidateSet("LLMNR","NetBIOS","mDNS")]
+        [Parameter(Mandatory = $true)]
+        [ValidateSet("LLMNR", "NetBIOS", "mDNS")]
         [String] $Protocol
     )
 
@@ -1289,11 +1289,11 @@ function Get-IPv6GlobalConfiguration {
 
     begin {
         $ValueDescriptions = @{
-            "PreferIPv4OverIPv6" = @(
+            "PreferIPv4OverIPv6"                  = @(
                 "IPv6 is preferred over IPv4 (default).",
                 "IPv4 is preferred over IPv6."
             )
-            "DisableIPv6OnAllTunnelInterfaces" = @(
+            "DisableIPv6OnAllTunnelInterfaces"    = @(
                 "IPv6 is enabled on all tunnel interfaces (default).",
                 "IPv6 is disabled on all tunnel interfaces."
             )
@@ -1376,7 +1376,7 @@ function Get-PowerShellSecurityFeature {
 
     [CmdletBinding()]
     param (
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [ValidateSet("Machine", "User")]
         [string] $Scope
     )
@@ -1526,16 +1526,16 @@ function Get-ClickOnceTrustPromptBehaviorConfiguration {
     begin {
         $RegKeyPath = "HKLM\SOFTWARE\MICROSOFT\.NETFramework\Security\TrustManager\PromptingLevel"
         $DefaultValues = @{
-            "MyComputer" = "Enabled"
-            "LocalIntranet" = "Enabled"
-            "TrustedSites" = "Enabled"
-            "Internet" = "AuthenticodeRequired"
+            "MyComputer"     = "Enabled"
+            "LocalIntranet"  = "Enabled"
+            "TrustedSites"   = "Enabled"
+            "Internet"       = "AuthenticodeRequired"
             "UntrustedSites" = "Disabled"
         }
         $ValueDescriptions = @{
-            "Enabled" = "The ClickOnce trust prompt is displayed so that end users can grant trust to ClickOnce applications."
+            "Enabled"              = "The ClickOnce trust prompt is displayed so that end users can grant trust to ClickOnce applications."
             "AuthenticodeRequired" = "The ClickOnce trust prompt is only displayed if ClickOnce applications are signed with a certificate that identifies the publisher. Otherwise, the ClickOnce application won't be installed."
-            "Disabled"= "The ClickOnce trust prompt isn't displayed. Only ClickOnce applications that are signed with an explicitly trusted certificate will be installed."
+            "Disabled"             = "The ClickOnce trust prompt isn't displayed. Only ClickOnce applications that are signed with an explicitly trusted certificate will be installed."
         }
     }
 
@@ -1554,7 +1554,8 @@ function Get-ClickOnceTrustPromptBehaviorConfiguration {
             if ([string]::IsNullOrEmpty($RegKeyData)) {
                 $IsDefault = $true
                 $RegKeyDataDescription = $ValueDescriptions[$DefaultValues[$ValueName]]
-            } else {
+            }
+            else {
                 if ($RegKeyData -eq $DefaultValues[$ValueName]) {
                     $IsDefault = $true
                 }
@@ -1569,5 +1570,142 @@ function Get-ClickOnceTrustPromptBehaviorConfiguration {
             $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $RegKeyDataDescription
             $Result
         }
+    }
+}
+
+function Get-LanManagerConfiguration {
+    <#
+    .SYNOPSIS
+    Helper - Get NTLM configuration
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet enumerates key security aspects of the NT LAN Manager configuration.
+
+    .EXAMPLE
+    PS C:\> Get-LanManagerConfiguration
+
+    NtlmMinServerSec                        : 536870912
+    NtlmMinServerSecDescription             : Require 128-bit encryption
+    NtlmMinClientSec                        : 536870912
+    NtlmMinClientSecDescription             : Require 128-bit encryption
+    RestrictReceivingNTLMTraffic            : 0
+    RestrictReceivingNTLMTrafficDescription : Allow all
+    RestrictSendingNTLMTraffic              : 0
+    RestrictSendingNTLMTrafficDescription   : Allow all
+    LmCompatibilityLevel                    : 3
+    LmCompatibilityLevelDescription         : Send NTLMv2 response only
+
+    .NOTES
+    - Network security: LAN Manager authentication level
+        - Computer Configuration\Windows Settings\Security Settings\Local Policies\Security Options
+        - HKLM\System\CurrentControlSet\Control\Lsa\LmCompatibilityLevel
+            - Send LM & NTLM responses                                      - 0 -> VULN
+            - Send LM & NTLM - use NTLMv2 session security if negotiated    - 1 -> VULN
+            - Send NTLM response only                                       - 2 -> VULN
+            - Send NTLMv2 response only                                     - 3
+            - Send NTLMv2 response only. Refuse LM                          - 4
+            - Send NTLMv2 response only. Refuse LM & NTLM                   - 5
+            - Default: Send NTLMv2 response only - 3
+    - Network security: Minimum session security for NTLM SSP based (including secure RPC) servers
+        - Computer Configuration\Windows Settings\Security Settings\Local Policies\Security Options
+        - HKLM\SYSTEM\CurrentControlSet\Control\Lsa\MSV1_0\NtlmMinServerSec
+            - Require 128-bit encryption        - 0x20000000
+            - Require NTLMv2 session security   - 0x80000
+            - Not Defined                       - 0
+            - Default: Require 128-bit encryption
+    - Network security: Minimum session security for NTLM SSP based (including secure RPC) clients
+        - Computer Configuration\Windows Settings\Security Settings\Local Policies\Security Options
+        - HKLM\SYSTEM\CurrentControlSet\Control\Lsa\MSV1_0\NtlmMinClientSec
+            - Require 128-bit encryption        - 0x20000000
+            - Require NTLMv2 session security   - 0x80000
+            - Not Defined                       - 0
+            - Default: Require 128-bit encryption
+    - Network security: Restrict NTLM: Incoming NTLM traffic
+        - Computer Configuration\Windows Settings\Security Settings\Local Policies\Security Options
+        - HKLM\SYSTEM\CurrentControlSet\Control\Lsa\MSV1_0\RestrictReceivingNTLMTraffic
+            - Allow all                 - 0
+            - Deny all domain accounts  - 1
+            - Deny all accounts         - 2
+            - Not defined = Allow all
+            - Default: Not defined
+    - Network security: Restrict NTLM: Outgoing NTLM traffic to remote servers
+        - Computer Configuration\Windows Settings\Security Settings\Local Policies\Security Options
+        - HKLM\SYSTEM\CurrentControlSet\Control\Lsa\MSV1_0\RestrictSendingNTLMTraffic
+            - Allow all     - 0
+            - Audit all     - 1
+            - Deny all      - 2
+            - Not defined = Allow all
+            - Default: Not defined
+    #>
+
+    [CmdletBinding()]
+    param ()
+
+    begin {
+        $LsaRegKeyPath = "HKLM\SYSTEM\CurrentControlSet\Control\Lsa"
+        $MsvRegKeyPath = "HKLM\SYSTEM\CurrentControlSet\Control\Lsa\MSV1_0"
+
+        $LmCompatibilityLevelDefault = 3
+        $LmCompatibilityLevelDescriptions = @(
+            "Send LM & NTLM responses",
+            "Send LM & NTLM - use NTLMv2 session security if negotiated",
+            "Send NTLM response only",
+            "Send NTLMv2 response only",
+            "Send NTLMv2 response only. Refuse LM",
+            "Send NTLMv2 response only. Refuse LM & NTLM"
+        )
+
+        $NtlmMinServerSecDefault = 0x20000000
+        $NtlmMinClientSecDefault = 0x20000000
+        $NtlmMinSecDescriptions = @{
+            0          = "Not defined"
+            0x80000    = "Require NTLMv2 session security"
+            0x20000000 = "Require 128-bit encryption"
+        }
+
+        $RestrictReceivingNTLMTrafficDefault = 0
+        $RestrictReceivingNTLMTrafficDescriptions = @(
+            "Allow all",
+            "Deny all domain accounts",
+            "Deny all accounts"
+        )
+
+        $RestrictSendingNTLMTrafficDefault = 0
+        $RestrictSendingNTLMTrafficDescriptions = @(
+            "Allow all",
+            "Audit all",
+            "Deny all"
+        )
+
+        $AllValues = @{
+            "LmCompatibilityLevel"         = @($LsaRegKeyPath, $LmCompatibilityLevelDefault, $LmCompatibilityLevelDescriptions)
+            "NtlmMinServerSec"             = @($MsvRegKeyPath, $NtlmMinServerSecDefault, $NtlmMinSecDescriptions)
+            "NtlmMinClientSec"             = @($MsvRegKeyPath, $NtlmMinClientSecDefault, $NtlmMinSecDescriptions)
+            "RestrictReceivingNTLMTraffic" = @($MsvRegKeyPath, $RestrictReceivingNTLMTrafficDefault, $RestrictReceivingNTLMTrafficDescriptions)
+            "RestrictSendingNTLMTraffic"   = @($MsvRegKeyPath, $RestrictSendingNTLMTrafficDefault, $RestrictSendingNTLMTrafficDescriptions)
+        }
+    }
+
+    process {
+
+        $Result = New-Object -TypeName PSObject
+
+        foreach ($Value in $AllValues.Keys) {
+
+            $RegKeyPath = $AllValues[$Value][0]
+            $RegData = (Get-ItemProperty -Path "Registry::$($RegKeyPath)" -Name $Value -ErrorAction SilentlyContinue).$Value
+
+            if ($null -eq $RegData) {
+                $RegData = $AllValues[$Value][1]
+            }
+
+            $Result | Add-Member -MemberType "NoteProperty" -Name "$($Value)" -Value $RegData
+            $Result | Add-Member -MemberType "NoteProperty" -Name "$($Value)Description" -Value $AllValues[$Value][2][$RegData]
+        }
+
+        $Result
     }
 }

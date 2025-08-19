@@ -1281,3 +1281,58 @@ function Invoke-CredentialDelegationCheck {
         $CheckResult
     }
 }
+
+function Invoke-NtlmDowngradeAttackCheck {
+    <#
+    .SYNOPSIS
+    Check whether the machine is vulnerable to an NTLMv1 downgrade attack.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet checks various security aspects of the LAN Manager configuration to determine whether it's vulnerable to an NTLMv1 downgrade attack. If so, a local attacker could capture the NTLMv1 authentication of the machine account (or another authenticated user), and then crack it offline to recover its NT hash in just a few hours.
+
+    .EXAMPLE
+    PS C:\> Invoke-NtlmDowngradeAttackCheck
+
+    LmCompatibilityLevel                  : 2
+    LmCompatibilityLevelDescription       : Send NTLM response only
+    NtlmMinClientSec                      : 536870912
+    NtlmMinClientSecDescription           : Require 128-bit encryption
+    RestrictSendingNTLMTraffic            : 0
+    RestrictSendingNTLMTrafficDescription : Allow all
+
+    #>
+
+    [CmdletBinding()]
+    param (
+        [UInt32] $BaseSeverity
+    )
+
+    process {
+        $Vulnerable = $false
+        $NtlmConfig = Get-LanManagerConfiguration
+
+        # Auth level must be lower than "Send NTLMv2 response only".
+        if ($NtlmConfig.LmCompatibilityLevel -lt 3) {
+
+            # Min client sec must not include "Require NTLMv2 session security".
+            if (($NtlmConfig.NtlmMinClientSec -band 0x80000) -ne 0x80000) {
+
+                # Outgoing NTLM traffic must not be set to "Deny all".
+                if ($NtlmConfig.RestrictSendingNTLMTraffic -ne 2) {
+
+                    $Vulnerable = $true
+                }
+            }
+        }
+
+        $Result = $NtlmConfig | Select-Object LmCompatibilityLevel,LmCompatibilityLevelDescription,NtlmMinClientSec,NtlmMinClientSecDescription,RestrictSendingNTLMTraffic,RestrictSendingNTLMTrafficDescription
+
+        $CheckResult = New-Object -TypeName PSObject
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Result
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevel::None })
+        $CheckResult
+    }
+}
