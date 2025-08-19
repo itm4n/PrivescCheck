@@ -5,6 +5,7 @@
 ### Added
 
 - Check for named Kernel devices with a DACL that grants write access to low-privileged users.
+- Check for DPAPI master key files.
 
 ### Modified
 

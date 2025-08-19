@@ -129,7 +129,7 @@ function Invoke-WinLogonCredentialCheck {
                     $Result = New-Object -TypeName PSObject
                     $Result | Add-Member -MemberType "NoteProperty" -Name "FilePath" -Value $File.FullName
                     $Result | Add-Member -MemberType "NoteProperty" -Name "Domains" -Value ($Results.AltDefaultDomainName -join ", ")
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "Usernames" -Value ($Results.AltDefaultUserName -join  ", ")
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "Usernames" -Value ($Results.AltDefaultUserName -join ", ")
                     $Result | Add-Member -MemberType "NoteProperty" -Name "Passwords" -Value ($Results.AltDefaultPassword -join ", ")
                     $Result | Add-Member -MemberType "NoteProperty" -Name "AutoAdminLogon" -Value ($Results.AltAutoAdminLogon -join ", ")
                     $AllResults += $Result
@@ -161,6 +161,75 @@ function Invoke-WinLogonCredentialCheck {
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AllResults) { $BaseSeverity } else { $script:SeverityLevel::None })
         $CheckResult
+    }
+}
+
+function Invoke-CredentialMasterKeyCheck {
+    <#
+    .SYNOPSIS
+    Get information about the current user's master keys.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet enumerates Windows master key files (DPAPI) stored in the current user's folder.
+
+    .EXAMPLE
+    PS C:\> Invoke-CredentialMasterKeyCheck
+
+    FullName       : C:\Users\Admin\AppData\Roaming\Microsoft\Protect\S-1-5-21-2452670728-2894995751-1045154116-1001\22ad4fd9-40ea-4306-9ff8-7c7e1779133c
+    Id             : 22ad4fd9-40ea-4306-9ff8-7c7e1779133c
+    LastAccessTime : 2025-08-19 - 15:10:52
+    LastWriteTime  : 2025-03-12 - 14:11:58
+
+    ...
+
+    .NOTES
+    This check is direct port of the equivalent check implemented in WinPEAS.
+
+    .LINK
+    https://github.com/peass-ng/PEASS-ng/blob/master/winPEAS/winPEASexe/winPEAS/KnownFileCreds/KnownFileCredsInfo.cs
+    #>
+
+    [CmdletBinding()]
+    param ()
+
+    begin {
+        $MasterKeyFolderBasePaths = @(
+            $(Join-Path -Path $env:LOCALAPPDATA -ChildPath "Microsoft\Protect"),
+            $(Join-Path -Path $env:APPDATA -ChildPath "Microsoft\Protect")
+        )
+    }
+
+    process {
+
+        foreach ($MasterKeyFolderBasePath in $MasterKeyFolderBasePaths) {
+
+            $MasterKeyFolders = Get-ChildItem -Force -Path $MasterKeyFolderBasePath -ErrorAction SilentlyContinue
+
+            foreach ($MasterKeyFolder in $MasterKeyFolders) {
+
+                $MasterKeyFolderFiles = Get-ChildItem -Force -Path $MasterKeyFolder.FullName
+
+                foreach ($MasterKeyFolderFile in $MasterKeyFolderFiles) {
+
+                    try {
+                        $FileNameGuid = [Guid] $MasterKeyFolderFile.Name
+
+                        $Result = New-Object -TypeName PSObject
+                        $Result | Add-Member -MemberType "NoteProperty" -Name "FullName" -Value $MasterKeyFolderFile.FullName
+                        $Result | Add-Member -MemberType "NoteProperty" -Name "Id" -Value $FileNameGuid
+                        $Result | Add-Member -MemberType "NoteProperty" -Name "LastAccessTime" -Value $(Convert-DateToString -Date $MasterKeyFolderFile.LastAccessTime -IncludeTime)
+                        $Result | Add-Member -MemberType "NoteProperty" -Name "LastWriteTime" -Value $(Convert-DateToString -Date $MasterKeyFolderFile.LastWriteTime -IncludeTime)
+                        $Result
+                    }
+                    catch {
+                        continue
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -242,7 +311,7 @@ function Invoke-CredentialFileCheck {
 
                 $Result = New-Object -TypeName PSObject
                 $Result | Add-Member -MemberType "NoteProperty" -Name "FullName" -Value $CredentialFile.FullName
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description.Trim([char]0)
                 $Result | Add-Member -MemberType "NoteProperty" -Name "MasterKey" -Value $GuidMasterKey
                 $Result | Add-Member -MemberType "NoteProperty" -Name "LastAccessTime" -Value $(Convert-DateToString -Date $CredentialFile.LastAccessTime -IncludeTime)
                 $Result | Add-Member -MemberType "NoteProperty" -Name "LastWriteTime" -Value $(Convert-DateToString -Date $CredentialFile.LastWriteTime -IncludeTime)
@@ -375,7 +444,7 @@ function Invoke-GPPCredentialCheck {
                 try {
 
                     $AesObject = New-Object System.Security.Cryptography.AesCryptoServiceProvider
-                    [byte[]] $AesKey = @(0x4e,0x99,0x06,0xe8,0xfc,0xb6,0x6c,0xc9,0xfa,0xf4,0x93,0x10,0x62,0x0f,0xfe,0xe8,0xf4,0x96,0xe8,0x06,0xcc,0x05,0x79,0x90,0x20,0x9b,0x09,0xa4,0x33,0xb6,0x6c,0x1b)
+                    [byte[]] $AesKey = @(0x4e, 0x99, 0x06, 0xe8, 0xfc, 0xb6, 0x6c, 0xc9, 0xfa, 0xf4, 0x93, 0x10, 0x62, 0x0f, 0xfe, 0xe8, 0xf4, 0x96, 0xe8, 0x06, 0xcc, 0x05, 0x79, 0x90, 0x20, 0x9b, 0x09, 0xa4, 0x33, 0xb6, 0x6c, 0x1b)
 
                     $AesIV = New-Object Byte[]($AesObject.IV.Length)
                     $AesObject.IV = $AesIV
@@ -409,7 +478,7 @@ function Invoke-GPPCredentialCheck {
 
         if (Test-Path -Path $GppPath -ErrorAction SilentlyContinue) {
 
-            $CachedGPPFiles = Get-ChildItem -Path $GppPath -Recurse -Include 'Groups.xml','Services.xml','ScheduledTasks.xml','DataSources.xml','Drives.xml','Printers.xml' -Force -ErrorAction SilentlyContinue
+            $CachedGPPFiles = Get-ChildItem -Path $GppPath -Recurse -Include 'Groups.xml', 'Services.xml', 'ScheduledTasks.xml', 'DataSources.xml', 'Drives.xml', 'Printers.xml' -Force -ErrorAction SilentlyContinue
 
             foreach ($File in $CachedGPPFiles) {
 
@@ -712,7 +781,7 @@ function Invoke-SccmNaaCredentialCheck {
     )
 
     process {
-        $Entries = Get-SccmNetworkAccessAccountCredential | Sort-Object -Property NetworkAccessUsername,NetworkAccessPassword -Unique
+        $Entries = Get-SccmNetworkAccessAccountCredential | Sort-Object -Property NetworkAccessUsername, NetworkAccessPassword -Unique
 
         $CheckResult = New-Object -TypeName PSObject
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Entries
@@ -863,9 +932,9 @@ function Invoke-VncCredentialCheck {
         $AllResults = @()
         $VncSettingHashTable = @{
             "RealVNC"  = @( "Registry", "HKLM\SOFTWARE\RealVNC\vncserver", "Password" )
-            "TigerVNC" = @( "Registry", "HKLM\SOFTWARE\TigerVNC\WinVNC4",  "Password" )
-            "TightVNC" = @( "Registry", "HKCU\Software\TightVNC\Server",   "Password,PasswordViewOnly" )
-            "UltraVNC" = @( "File",     "ultravnc.ini",                    "passwd,passwd2" )
+            "TigerVNC" = @( "Registry", "HKLM\SOFTWARE\TigerVNC\WinVNC4", "Password" )
+            "TightVNC" = @( "Registry", "HKCU\Software\TightVNC\Server", "Password,PasswordViewOnly" )
+            "UltraVNC" = @( "File", "ultravnc.ini", "passwd,passwd2" )
         }
 
         function VncPasswordDecrypt {
@@ -938,7 +1007,7 @@ function Invoke-VncCredentialCheck {
                         $Pattern = "$($SettingValue)="
                         $SettingData = (Get-Content -Path $TargetPath -ErrorAction SilentlyContinue -ErrorVariable AccessError | Select-String -Pattern $Pattern)
                         if ($null -ne $SettingData) {
-                            $SettingData = $SettingData -replace $Pattern,""
+                            $SettingData = $SettingData -replace $Pattern, ""
                         }
                     }
                 }
