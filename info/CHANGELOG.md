@@ -10,6 +10,7 @@
 ### Modified
 
 - Rewrite of the DPAPI credential file enumeration check (based on the one implemented in WinPEAS).
+- Rewrite of the named pipe permission check.
 
 ## 2025-08-18
 

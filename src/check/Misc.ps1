@@ -38,7 +38,7 @@ function Invoke-SystemInformationCheck {
     # version is greater than 22000, it is Windows 11.
     $ProductName = $OsVersion.ProductName
     if (($OsVersion.Major -ge 10) -and ($OsVersion.Build -ge 22000)) {
-        $ProductName = $ProductName -replace "Windows 10","Windows 11"
+        $ProductName = $ProductName -replace "Windows 10", "Windows 11"
     }
 
     $Result = New-Object -TypeName PSObject
@@ -399,7 +399,7 @@ function Invoke-EndpointProtectionCheck {
 
             if (Test-Path -Path $_.FileName -ErrorAction SilentlyContinue) {
 
-                $DllDetails = (Get-Item $_.FileName).VersionInfo | Select-Object -Property CompanyName,FileDescription,FileName,InternalName,LegalCopyright,OriginalFileName,ProductName
+                $DllDetails = (Get-Item $_.FileName).VersionInfo | Select-Object -Property CompanyName, FileDescription, FileName, InternalName, LegalCopyright, OriginalFileName, ProductName
                 Find-ProtectionSoftware -Object $DllDetails | ForEach-Object {
 
                     $Result = New-Object -TypeName PSObject
@@ -412,7 +412,7 @@ function Invoke-EndpointProtectionCheck {
         }
 
         # Check running processes
-        Get-Process | Select-Object -Property ProcessName,Name,Path,Company,Product,Description | ForEach-Object {
+        Get-Process | Select-Object -Property ProcessName, Name, Path, Company, Product, Description | ForEach-Object {
 
             Find-ProtectionSoftware -Object $_ | ForEach-Object {
 
@@ -450,7 +450,7 @@ function Invoke-EndpointProtectionCheck {
             }
         }
 
-        $Results | Sort-Object -Property ProductName,Source
+        $Results | Sort-Object -Property ProductName, Source
     }
 }
 
@@ -624,83 +624,59 @@ function Invoke-HijackableDllCheck {
 function Invoke-NamedPipePermissionCheck {
     <#
     .SYNOPSIS
-    List modifiable named pipes that are not owned by the current user.
+    Get information about named pipes low-privileged users can write to.
 
     Author: @itm4n
     License: BSD 3-Clause
 
     .DESCRIPTION
-    List modifiable named pipes that are not owned by the current user.
+    This cmdlet enumerates named pipes with a DACL that grants write access to the current user.
 
     .EXAMPLE
-    An example
+    PS C:\> Invoke-NamedPipePermissionCheck
+
+    FullName          : \\.\pipe\eventlog
+    Owner             : NT AUTHORITY\LOCAL SERVICE (S-1-5-19)
+    IdentityReference : Everyone (S-1-1-0)
+    Permissions       : ReadData, WriteData, ReadExtendedAttributes, WriteExtendedAttributes, ReadAttributes, WriteAttributes, ReadControl, Synchronize, GenericRead
+
+    FullName          : \\.\pipe\WinFsp.{14E7137D-22B4-437A-B0C1-D21D1BDF3767}
+    Owner             : NT AUTHORITY\SYSTEM (S-1-5-18)
+    IdentityReference : Everyone (S-1-1-0)
+    Permissions       : ReadData, WriteData, ReadExtendedAttributes, ReadAttributes, WriteAttributes, ReadControl, Synchronize, GenericRead
+
+    FullName          : \\.\pipe\ROUTER
+    Owner             : NT AUTHORITY\SYSTEM (S-1-5-18)
+    IdentityReference : Everyone (S-1-1-0)
+    Permissions       : ReadData, WriteData, ReadExtendedAttributes, WriteExtendedAttributes, ReadAttributes, WriteAttributes, ReadControl, Synchronize, GenericRead
+
+    FullName          : \\.\pipe\ProtectedPrefix\LocalService\FTHPIPE
+    Owner             : NT AUTHORITY\LOCAL SERVICE (S-1-5-19)
+    IdentityReference : NT AUTHORITY\INTERACTIVE (S-1-5-4)
+    Permissions       : ReadData, WriteData, AppendData, ReadExtendedAttributes, WriteExtendedAttributes, ReadAttributes, WriteAttributes, ReadControl, Synchronize, GenericRead, GenericWrite
+
     #>
 
     [CmdletBinding()]
-    param()
-
-    begin {
-        $UserIdentity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
-        $CurrentUserSids = Get-CurrentUserSid
-        $NamedPipeHandles = @()
-
-        $PermissionReference = @(
-            $script:FileAccessRight::Delete,
-            $script:FileAccessRight::WriteDac,
-            $script:FileAccessRight::WriteOwner,
-            $script:FileAccessRight::FileWriteEa,
-            $script:FileAccessRight::FileWriteAttributes,
-            $script:FileAccessRight::AllAccess
-        )
-    }
+    param ()
 
     process {
-        ForEach ($NamedPipe in $(Get-ChildItem -Path "\\.\pipe\")) {
 
-            $NamedPipeHandle = Get-FileHandle -Path $NamedPipe.FullName -AccessRights $script:FileAccessRight::ReadControl
-            if ($NamedPipeHandle -eq -1) { continue }
+        $PipeItems = Get-ChildItem -Path "\\.\pipe\"
 
-            $NamedPipeHandles += $NamedPipeHandle
+        foreach ($PipeItem in $PipeItems) {
 
-            $NamedPipeDacl = Get-ObjectSecurityInfo -Handle $NamedPipeHandle -Type File
-            if ($null -eq $NamedPipeDacl) { continue }
+            $ModifiablePaths = Get-ObjectAccessRight -Name $PipeItem.FullName -Type File
 
-            # Ignore named pipes owned by the current user.
-            if ($UserIdentity.User.Value -match $NamedPipeDacl.OwnerSid) { continue }
+            foreach ($ModifiablePath in $ModifiablePaths) {
 
-            foreach ($Ace in $NamedPipeDacl.Dacl) {
-
-                if ($Ace.AceType -notmatch "AccessAllowed") { continue }
-
-                $Permissions = $script:FileAccessRight.GetEnumValues() |
-                    Where-Object {
-                        ($Ace.AccessMask -band ($script:FileAccessRight::$_)) -eq ($script:FileAccessRight::$_)
-                    }
-
-                if (Compare-Object -ReferenceObject $Permissions -DifferenceObject $PermissionReference -IncludeEqual -ExcludeDifferent) {
-
-                    $IdentityReference = $($Ace | Select-Object -ExpandProperty "SecurityIdentifier").ToString()
-
-                    if ($CurrentUserSids -contains $IdentityReference) {
-
-                        $Result = New-Object -TypeName PSObject
-                        $Result | Add-Member -MemberType "NoteProperty" -Name "Pipe" -Value $NamedPipe.FullName
-                        $Result | Add-Member -MemberType "NoteProperty" -Name "Owner" -Value $NamedPipeDacl.Owner
-                        $Result | Add-Member -MemberType "NoteProperty" -Name "Group" -Value $NamedPipeDacl.Group
-                        $Result | Add-Member -MemberType "NoteProperty" -Name "AceType" -Value ($Ace | Select-Object -ExpandProperty "AceType")
-                        $Result | Add-Member -MemberType "NoteProperty" -Name "AccessRights" -Value ($Ace.AccessMask -as $script:FileAccessRight)
-                        $Result | Add-Member -MemberType "NoteProperty" -Name "SecurityIdentifier" -Value $IdentityReference
-                        $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityName" -Value (Convert-SidToName -Sid $IdentityReference)
-                        $Result
-                    }
-                }
+                $Result = New-Object -TypeName PSObject
+                $Result | Add-Member -MemberType "NoteProperty" -Name "FullName" -Value $PipeItem.FullName
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Owner" -Value "$($ModifiablePath.Owner) ($($ModifiablePath.OwnerSid))"
+                $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $ModifiablePath.IdentityReference
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value $($ModifiablePath.Permissions -join ", ")
+                $Result
             }
-        }
-    }
-
-    end {
-        foreach ($NamedPipeHandle in $NamedPipeHandles) {
-            $null = $script:Kernel32::CloseHandle($NamedPipeHandle)
         }
     }
 }
@@ -778,8 +754,8 @@ function Invoke-ExploitableLeakedHandleCheck {
         $ObjectTypeOfInterest = @( "Process", "Thread", "File" )
         $AccessMasks = @{
             "Process" = $script:ProcessAccessRight::CREATE_PROCESS -bor $script:ProcessAccessRight::CREATE_THREAD -bor $script:ProcessAccessRight::DUP_HANDLE -bor $script:ProcessAccessRight::VM_OPERATION -bor $script:ProcessAccessRight::VM_READ -bor $script:ProcessAccessRight::VM_WRITE
-            "Thread" = $script:ThreadAccessRight::DirectImpersonation -bor $script:ThreadAccessRight::SetContext
-            "File" = $script:FileAccessRight::WriteData -bor $script:FileAccessRight::AppendData -bor $script:FileAccessRight::WriteOwner -bor $script:FileAccessRight::WriteDac
+            "Thread"  = $script:ThreadAccessRight::DirectImpersonation -bor $script:ThreadAccessRight::SetContext
+            "File"    = $script:FileAccessRight::WriteData -bor $script:FileAccessRight::AppendData -bor $script:FileAccessRight::WriteOwner -bor $script:FileAccessRight::WriteDac
         }
 
         $DUPLICATE_SAME_ACCESS = 2
@@ -1021,11 +997,11 @@ function Invoke-MsiExtractBinaryData {
 
     [CmdletBinding()]
     param (
-        [Parameter(Position=0, Mandatory=$true)]
+        [Parameter(Position = 0, Mandatory = $true)]
         [string] $Path,
-        [Parameter(Position=1, Mandatory=$true)]
+        [Parameter(Position = 1, Mandatory = $true)]
         [string] $Name,
-        [Parameter(Position=2, Mandatory=$true)]
+        [Parameter(Position = 2, Mandatory = $true)]
         [string] $OutputPath
     )
 
