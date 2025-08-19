@@ -11,6 +11,7 @@
 
 - Rewrite of the DPAPI credential file enumeration check (based on the one implemented in WinPEAS).
 - Rewrite of the named pipe permission check.
+- Changed MSI custom action check type from "Extended" to "Experimental". This effectively removes it for standard scans because it is not longer relevant. It could be removed entirely in a future release.
 
 ## 2025-08-18
 
