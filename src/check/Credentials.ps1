@@ -167,65 +167,87 @@ function Invoke-WinLogonCredentialCheck {
 function Invoke-CredentialFileCheck {
     <#
     .SYNOPSIS
-    List the Credential files that are stored in the current user AppData folders.
+    List the Credential files that are stored in the current user AppData folder.
 
     Author: @itm4n
     License: BSD 3-Clause
 
     .DESCRIPTION
-    Credentials stored in the Credential Manager are actually saved as files in the current user's home folder. The sensitive information is saved in an encrypted format which differs depending on the credential type.
+    This cmdlet enumerates Windows credential files (DPAPI) stored in the current user's folder.
 
     .EXAMPLE
     PS C:\> Invoke-CredentialFileCheck
 
-    FullPath
-    ------
-    C:\Users\lab-user\AppData\Local\Microsoft\Credentials\DFBE70A7E5CC19A398EBF1B96859CE5D
-    C:\Users\lab-user\AppData\Roaming\Microsoft\Credentials\9751D70B4AC36953347138F9A5C2D23B
-    C:\Users\lab-user\AppData\Roaming\Microsoft\Credentials\9970C9D5A29B2D83514BEFD30A4D48B4
+    ...
+
+    FullName          : C:\Users\Admin\AppData\Local\Microsoft\Credentials\DFBE70A7E5CC19A398EBF1B96859CE5D
+    DescriptionLength : 48
+    Description       : Local Credential Data
+    MasterKey         : 59295359-b4f0-4485-8905-6937ec813891
+    LastAccessTime    : 19/08/2025 14:37:36
+    LastWriteTime     : 29/07/2025 16:18:33
+    Size              : 11136
+
+    FullName          : C:\Users\Admin\AppData\Roaming\Microsoft\Credentials\E1F5FC2753A2BE3CC4AFD4D34FBA53AA
+    DescriptionLength : 58
+    Description       : Enterprise Credential Data
+    MasterKey         : 59295359-b4f0-4485-8905-6937ec813891
+    LastAccessTime    : 19/08/2025 14:37:36
+    LastWriteTime     : 17/06/2025 10:53:23
+    Size              : 458
+
+    ...
+
+    .NOTES
+    The previous version of this check simply listed credential files without any kind of useful information. This new version is a direct port of the equivalent check implemented in WinPEAS, which itself was inspired by Mimikatz.
+
+    .LINK
+    https://github.com/peass-ng/PEASS-ng/blob/master/winPEAS/winPEASexe/winPEAS/KnownFileCreds/KnownFileCredsInfo.cs
     #>
 
     [CmdletBinding()]
-    param()
+    param ()
 
-    $CredentialsFound = $false
-
-    $Paths = New-Object -TypeName System.Collections.ArrayList
-    [void] $Paths.Add($(Join-Path -Path $env:LOCALAPPDATA -ChildPath "Microsoft\Credentials"))
-    [void] $Paths.Add($(Join-Path -Path $env:APPDATA -ChildPath "Microsoft\Credentials"))
-
-    foreach ($Path in [String[]] $Paths) {
-
-        Get-ChildItem -Force -Path $Path -ErrorAction SilentlyContinue | ForEach-Object {
-
-            $Result = New-Object -TypeName PSObject
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Type" -Value "Credentials"
-            $Result | Add-Member -MemberType "NoteProperty" -Name "FullPath" -Value $_.FullName
-            $Result
-
-            if (-not $CredentialsFound) { $CredentialsFound = $true }
-        }
+    begin {
+        $CredentialFolderPaths = @(
+            $(Join-Path -Path $env:LOCALAPPDATA -ChildPath "Microsoft\Credentials"),
+            $(Join-Path -Path $env:APPDATA -ChildPath "Microsoft\Credentials")
+        )
     }
 
-    if ($CredentialsFound) {
+    process {
 
-        $CurrentUser = Invoke-UserCheck
+        foreach ($CredentialFolderPath in $CredentialFolderPaths) {
 
-        if ($CurrentUser -and $CurrentUser.SID) {
+            $CredentialFiles = Get-ChildItem -Force -Path $CredentialFolderPath -ErrorAction SilentlyContinue
 
-            $Paths = New-Object -TypeName System.Collections.ArrayList
-            [void] $Paths.Add($(Join-Path -Path $env:LOCALAPPDATA -ChildPath "Microsoft\Protect\$($CurrentUser.SID)"))
-            [void] $Paths.Add($(Join-Path -Path $env:APPDATA -ChildPath "Microsoft\Protect\$($CurrentUser.SID)"))
+            foreach ($CredentialFile in $CredentialFiles) {
 
-            foreach ($Path in [String[]] $Paths) {
-
-                Get-ChildItem -Force -Path $Path -ErrorAction SilentlyContinue | Where-Object {$_.Name.Length -eq 36 } | ForEach-Object {
-
-                    $Result = New-Object -TypeName PSObject
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "Type" -Value "Protect"
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "FullPath" -Value $_.FullName
-                    $Result
+                if ($CredentialFile.Length -lt (64)) {
+                    continue
                 }
+
+                $CredentialFileBytes = [System.IO.File]::ReadAllBytes($CredentialFile.FullName)
+                $GuidMasterKeyBytes = New-Object Byte[] (16)
+                [Array]::Copy($CredentialFileBytes, 36, $GuidMasterKeyBytes, 0, 16)
+                $GuidMasterKey = [Guid] $GuidMasterKeyBytes
+
+                $StringLengthBytes = New-Object Byte[] (4)
+                [Array]::Copy($CredentialFileBytes, 56, $StringLengthBytes, 0, 4)
+                $DescriptionLength = [System.BitConverter]::ToInt32($StringLengthBytes, 0)
+
+                $DescriptionBytes = New-Object Byte[] ($DescriptionLength)
+                [Array]::Copy($CredentialFileBytes, 60, $DescriptionBytes, 0, $DescriptionLength - 4)
+                $Description = [System.Text.Encoding]::Unicode.GetString($DescriptionBytes)
+
+                $Result = New-Object -TypeName PSObject
+                $Result | Add-Member -MemberType "NoteProperty" -Name "FullName" -Value $CredentialFile.FullName
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+                $Result | Add-Member -MemberType "NoteProperty" -Name "MasterKey" -Value $GuidMasterKey
+                $Result | Add-Member -MemberType "NoteProperty" -Name "LastAccessTime" -Value $(Convert-DateToString -Date $CredentialFile.LastAccessTime -IncludeTime)
+                $Result | Add-Member -MemberType "NoteProperty" -Name "LastWriteTime" -Value $(Convert-DateToString -Date $CredentialFile.LastWriteTime -IncludeTime)
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Size" -Value $CredentialFile.Length
+                $Result
             }
         }
     }

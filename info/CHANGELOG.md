@@ -6,6 +6,10 @@
 
 - Check for named Kernel devices with a DACL that grants write access to low-privileged users.
 
+### Modified
+
+- Rewrite of the DPAPI credential file enumeration check (based on the one implemented in WinPEAS).
+
 ## 2025-08-18
 
 ### Added
