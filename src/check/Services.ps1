@@ -20,7 +20,7 @@ function Invoke-InstalledServiceCheck {
     [CmdletBinding()]
     param()
 
-    Get-ServiceFromRegistry -FilterLevel 3 | Select-Object -Property Name,DisplayName,ImagePath,User,StartMode
+    Get-ServiceFromRegistry -FilterLevel 3 | Select-Object -Property Name, DisplayName, ImagePath, User, StartMode
 }
 
 function Invoke-ServiceRegistryPermissionCheck {
@@ -364,7 +364,7 @@ function Invoke-ThirdPartyDriverCheck {
 
             $VersionInfo = $ImageFile | Select-Object -ExpandProperty VersionInfo
 
-            $Result = $Driver | Select-Object Name,ImagePath,StartMode,Type
+            $Result = $Driver | Select-Object Name, ImagePath, StartMode, Type
             $Result | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $(Get-ServiceStatus -Name $Driver.Name)
             $Result | Add-Member -MemberType "NoteProperty" -Name "ProductName" -Value $(if ($VersionInfo.ProductName) { $VersionInfo.ProductName.trim() } else { "Unknown" })
             $Result | Add-Member -MemberType "NoteProperty" -Name "Company" -Value $(if ($VersionInfo.CompanyName) { $VersionInfo.CompanyName.trim() } else { "Unknown" })
@@ -419,7 +419,7 @@ function Invoke-VulnerableDriverCheck {
     process {
         Get-KernelDriver | Get-KnownVulnerableKernelDriver | ForEach-Object {
 
-            $ServiceObjectResult = $_ | Select-Object Name,DisplayName,ImagePath,StartMode,Type
+            $ServiceObjectResult = $_ | Select-Object Name, DisplayName, ImagePath, StartMode, Type
             $ServiceObjectResult | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $(Get-ServiceStatus -Name $_.Name)
             $ServiceObjectResult | Add-Member -MemberType "NoteProperty" -Name "Hash" -Value $_.FileHash
             $ServiceObjectResult | Add-Member -MemberType "NoteProperty" -Name "Url" -Value $_.Url
@@ -494,7 +494,7 @@ function Invoke-ServiceCredentialCheck {
             # to replace the dot with the actual computer's name.
             $ServiceAccountName = $Service.User
             if ($ServiceAccountName -like ".\*") {
-                $ServiceAccountName = $ServiceAccountName -replace "\.\\","$($env:COMPUTERNAME)\"
+                $ServiceAccountName = $ServiceAccountName -replace "\.\\", "$($env:COMPUTERNAME)\"
             }
 
             # Try to convert the service account name to an SID. We'll use that information
@@ -512,6 +512,102 @@ function Invoke-ServiceCredentialCheck {
             if ($ServiceAccountSid.Value -like "S-1-5-80-*") { continue }
 
             $AllResults += $Service
+        }
+
+        $CheckResult = New-Object -TypeName PSObject
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AllResults) { $BaseSeverity } else { $script:SeverityLevel::None })
+        $CheckResult
+    }
+}
+
+function Invoke-NamedKernelDeviceCheck {
+    <#
+    .SYNOPSIS
+    Get information about named kernel devices low-privileged users can write to.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet enumerates named kernel devices and identifies the ones that grant write access to the current user.
+
+    .EXAMPLE
+    PS C:\> Invoke-NamedKernelDeviceCheck
+
+    ...
+
+    Name              : \GLOBAL??\ahcache
+    Target            : \Device\ahcache
+    ModifiablePath    : \\?\GLOBALROOT\Device\ahcache
+    IdentityReference : Everyone (S-1-1-0)
+    Permissions       : ReadData, WriteData, AppendData, ReadExtendedAttributes, WriteExtendedAttributes, Execute,
+                        ReadAttributes, WriteAttributes, ReadControl, Synchronize, GenericRead, GenericExecute,
+                        GenericWrite
+
+    Name              : \GLOBAL??\PEAuth
+    Target            : \Device\PEAuth
+    ModifiablePath    : \\?\GLOBALROOT\Device\PEAuth
+    IdentityReference : Everyone (S-1-1-0)
+    Permissions       : AllAccess
+
+    Name              : \GLOBAL??\WMIDataDevice
+    Target            : \Device\WMIDataDevice
+    ModifiablePath    : \\?\GLOBALROOT\Device\WMIDataDevice
+    IdentityReference : Everyone (S-1-1-0)
+    Permissions       : ReadData, WriteData, AppendData, ReadExtendedAttributes, WriteExtendedAttributes, Execute,
+                        ReadAttributes, WriteAttributes, ReadControl, Synchronize, GenericRead, GenericExecute,
+                        GenericWrite
+
+    Name              : \GLOBAL??\Spaceport
+    Target            : \Device\Spaceport
+    ModifiablePath    : \\?\GLOBALROOT\Device\Spaceport
+    IdentityReference : Everyone (S-1-1-0)
+    Permissions       : ReadData, WriteData, AppendData, ReadExtendedAttributes, WriteExtendedAttributes, Execute,
+                        ReadAttributes, WriteAttributes, ReadControl, Synchronize, GenericRead, GenericExecute,
+                        GenericWrite
+
+    ...
+    #>
+
+    [CmdletBinding()]
+    param (
+        [UInt32] $BaseSeverity
+    )
+
+    begin {
+        $IgnoredDosDevices = @("NUL", "CON", "AUX", "COM1", "COM2", "COM3", "COM4", "PRN", "LPT1", "LPT2", "LPT3", "CLOCK$")
+        $IgnoredDevices = @("ACPI_ROOT_OBJECT", "MAILSLOT", "PIPE")
+    }
+
+    process {
+        $AllResults = @()
+        $DeviceSymbolicLinks = Get-NtObjectItem -Path "\GLOBAL??" | Where-Object { ($_.Type -eq "SymbolicLink") -and ($_.Target -like "\Device\*") }
+
+        foreach ($DeviceSymbolicLink in $DeviceSymbolicLinks) {
+
+            # Ignore PnP devices
+            if ($DeviceSymbolicLink.Name.Split("#").Count -ge 2) { continue }
+
+            # Ignore default DOS devices
+            if ($IgnoredDosDevices -contains $DeviceSymbolicLink.Name) { continue }
+
+            # Ignore other known devices
+            if ($IgnoredDevices -contains $DeviceSymbolicLink.Name) { continue }
+
+            $Win32Path = Join-Path -Path "\\?\GLOBALROOT" -ChildPath $DeviceSymbolicLink.Target
+            $ModifiablePaths = Get-ObjectAccessRight -Name $Win32Path -Type File
+
+            foreach ($ModifiablePath in $ModifiablePaths) {
+
+                $Result = New-Object -TypeName PSObject
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $DeviceSymbolicLink.FullName
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Target" -Value $DeviceSymbolicLink.Target
+                $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $ModifiablePath.ModifiablePath
+                $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $ModifiablePath.IdentityReference
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value ($ModifiablePath.Permissions -join ", ")
+                $AllResults += $Result
+            }
         }
 
         $CheckResult = New-Object -TypeName PSObject

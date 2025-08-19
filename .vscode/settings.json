@@ -3,6 +3,7 @@
     "files.trimTrailingWhitespace": true,
     "cSpell.words": [
         "ACCOUNTDISABLE",
+        "ACPI",
         "Addins",
         "ADSI",
         "Advapi",
@@ -125,6 +126,7 @@
         "lsass",
         "LUID",
         "LUIDS",
+        "MAILSLOT",
         "mattifestation",
         "maxalloc",
         "MDNS",

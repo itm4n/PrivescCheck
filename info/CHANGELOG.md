@@ -1,5 +1,11 @@
 # Changelog
 
+## 2025-08-19
+
+### Added
+
+- Check for named Kernel devices with a DACL that grants write access to low-privileged users.
+
 ## 2025-08-18
 
 ### Added
