@@ -1662,8 +1662,9 @@ function Get-LanManagerConfiguration {
         $NtlmMinClientSecDefault = 0x20000000
         $NtlmMinSecDescriptions = @{
             0          = "Not defined"
-            0x80000    = "Require NTLMv2 session security"
+            0x00080000 = "Require NTLMv2 session security"
             0x20000000 = "Require 128-bit encryption"
+            0x20080000 = "Require NTLMv2 session security + Require 128-bit encryption"
         }
 
         $RestrictReceivingNTLMTrafficDefault = 0
