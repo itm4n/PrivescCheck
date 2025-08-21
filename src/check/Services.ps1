@@ -535,72 +535,48 @@ function Invoke-NamedKernelDeviceCheck {
     .EXAMPLE
     PS C:\> Invoke-NamedKernelDeviceCheck
 
-    ...
+    Name              : \Device\Afd
+    ModifiablePath    : \\?\GLOBALROOT\Device\Afd
+    IdentityReference : Everyone (S-1-1-0)
+    Permissions       : ReadData, WriteData, AppendData, ReadExtendedAttributes, WriteExtendedAttributes, Execute,
+                        ReadAttributes, WriteAttributes, ReadControl, Synchronize, GenericRead, GenericExecute,
+                        GenericWrite
 
-    Name              : \GLOBAL??\ahcache
-    Target            : \Device\ahcache
+    Name              : \Device\ahcache
     ModifiablePath    : \\?\GLOBALROOT\Device\ahcache
     IdentityReference : Everyone (S-1-1-0)
     Permissions       : ReadData, WriteData, AppendData, ReadExtendedAttributes, WriteExtendedAttributes, Execute,
                         ReadAttributes, WriteAttributes, ReadControl, Synchronize, GenericRead, GenericExecute,
                         GenericWrite
 
-    Name              : \GLOBAL??\PEAuth
-    Target            : \Device\PEAuth
-    ModifiablePath    : \\?\GLOBALROOT\Device\PEAuth
-    IdentityReference : Everyone (S-1-1-0)
-    Permissions       : AllAccess
-
-    Name              : \GLOBAL??\WMIDataDevice
-    Target            : \Device\WMIDataDevice
-    ModifiablePath    : \\?\GLOBALROOT\Device\WMIDataDevice
-    IdentityReference : Everyone (S-1-1-0)
-    Permissions       : ReadData, WriteData, AppendData, ReadExtendedAttributes, WriteExtendedAttributes, Execute,
-                        ReadAttributes, WriteAttributes, ReadControl, Synchronize, GenericRead, GenericExecute,
-                        GenericWrite
-
-    Name              : \GLOBAL??\Spaceport
-    Target            : \Device\Spaceport
-    ModifiablePath    : \\?\GLOBALROOT\Device\Spaceport
-    IdentityReference : Everyone (S-1-1-0)
-    Permissions       : ReadData, WriteData, AppendData, ReadExtendedAttributes, WriteExtendedAttributes, Execute,
-                        ReadAttributes, WriteAttributes, ReadControl, Synchronize, GenericRead, GenericExecute,
-                        GenericWrite
-
     ...
+
     #>
 
     [CmdletBinding()]
     param ()
 
     begin {
-        $IgnoredDosDevices = @("NUL", "CON", "AUX", "COM1", "COM2", "COM3", "COM4", "PRN", "LPT1", "LPT2", "LPT3", "CLOCK$")
-        $IgnoredDevices = @("ACPI_ROOT_OBJECT", "MAILSLOT", "PIPE")
+        $IgnoredDevices = @("Beep", "Mailslot", "NamedPipe", "Null")
     }
 
     process {
 
-        $DeviceSymbolicLinks = Get-NtObjectItem -Path "\GLOBAL??" | Where-Object { ($_.Type -eq "SymbolicLink") -and ($_.Target -like "\Device\*") }
+        $Devices = Get-NtObjectItem -Path "\Device" | Where-Object { $_.Type -eq "Device" } | Sort-Object -Property Name
 
-        foreach ($DeviceSymbolicLink in $DeviceSymbolicLinks) {
+        foreach ($Device in $Devices) {
 
-            # Ignore PnP devices
-            if ($DeviceSymbolicLink.Name.Split("#").Count -ge 2) { continue }
+            if ($Device.Name -match "0000[0-9a-fA-F]{4}") { continue }
+            if ($Device.Name -match "NTPNP_*") { continue }
+            if ($IgnoredDevices -contains $Device.Name) { continue }
 
-            # Ignore default DOS devices
-            if ($IgnoredDosDevices -contains $DeviceSymbolicLink.Name) { continue }
-
-            # Ignore other known devices
-            if ($IgnoredDevices -contains $DeviceSymbolicLink.Name) { continue }
-
-            $Win32Path = Join-Path -Path "\\?\GLOBALROOT" -ChildPath $DeviceSymbolicLink.Target
+            $Win32Path = Join-Path -Path "\\?\GLOBALROOT" -ChildPath $Device.FullName
             $ModifiablePaths = Get-ObjectAccessRight -Name $Win32Path -Type File
 
             foreach ($ModifiablePath in $ModifiablePaths) {
 
                 $Result = New-Object -TypeName PSObject
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $DeviceSymbolicLink.FullName
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Target" -Value $DeviceSymbolicLink.Target
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $Device.FullName
                 $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $ModifiablePath.ModifiablePath
                 $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $ModifiablePath.IdentityReference
                 $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value ($ModifiablePath.Permissions -join ", ")
