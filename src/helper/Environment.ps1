@@ -32,6 +32,281 @@ function Get-CurrentUserDenySid {
 function Get-InstalledApplication {
     <#
     .SYNOPSIS
+    Helper - Enumerates installed applications using information provided in the registry and on the filesystem
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet first enumerates installed application using the information provided in the 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall' registry key (and its Wow64 counterpart). The information provided is structured in a specific way, which is officially documented (see LINK section). However, it is not always populated accurately. Therefore, a second scan is done on the default 'Program Files' and 'Program Files (x86)' folders. The downside of this method is that it doesn't provide application metadata, contrary to the registry method. Therefore, in this case, we try to find some executable within the application directory that provides this metadata (e.g. application version, publisher name, and so on).
+
+    .EXAMPLE
+    PS C:\> Get-InstalledApplication
+
+    Source      : FileSystem
+    SourcePath  : C:\Program Files\7-Zip
+    Name        : 7-Zip
+    DisplayName : 7-Zip
+    Version     : 25.01
+    Publisher   : Igor Pavlov
+    InstallDate : 2025-08-03
+    Location    : C:\Program Files\7-Zip
+
+    Source      : FileSystem
+    SourcePath  : C:\Program Files\Chromium
+    Name        : Chromium
+    DisplayName : Chromium
+    Version     : 138.0.7204.184
+    Publisher   : The Chromium Authors
+    InstallDate : 2025-07-28
+    Location    : C:\Program Files\Chromium
+
+    Source      : Registry
+    SourcePath  : HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\VLC media player
+    Name        : VLC media player
+    DisplayName : VLC media player
+    Version     : 3.0.21
+    Publisher   : VideoLAN
+    InstallDate :
+    Location    : C:\Program Files\VideoLAN
+
+    Source      : Registry
+    SourcePath  : HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Wireshark
+    Name        : Wireshark
+    DisplayName : Wireshark 4.4.8 x64
+    Version     : 4.4.8
+    Publisher   : The Wireshark developer community, https://www.wireshark.org
+    InstallDate :
+    Location    : C:\Program Files\Wireshark
+
+    ...
+
+    .LINK
+    https://learn.microsoft.com/en-us/windows/win32/msi/uninstall-registry-key
+    #>
+
+    [CmdletBinding()]
+    param (
+
+    )
+
+    begin {
+        $UninstallRegKeyPaths = @(
+            "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"
+            "HKLM\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"
+        )
+
+        # Do not use '$env:ProgramFiles' or '$env:ProgramW6432' because the environment
+        # is lying! In an x64 process, both of these variables contain 'C:\Program Files'
+        # for example.
+        $ProgramFilesDirPaths = @(
+            $(Join-Path -Path $env:SystemDrive -ChildPath "Program Files")
+            $(Join-Path -Path $env:SystemDrive -ChildPath "Program Files (x86)")
+        )
+
+        $IgnoredPrograms = @("Application Verifier", "Common Files", "dotnet", "Microsoft .NET", "ModifiableWindowsApps", "MSBuild", "PackageManagement", "Reference Assemblies", "Windows NT", "WindowsApps", "WindowsPowerShell")
+
+        function SearchExecutableRecursively {
+            param ([String] $Path)
+            $StopSearch = $false
+            $BestReasonableCandidate = $null
+            foreach ($SearchExtension in @(".exe", ".sys", ".dll")) {
+                foreach ($SearchPattern in @("\*", "\*\*", "\*\*\*", "\*\*\*\*", "\*\*\*\*\*")) {
+                    $SearchPath = Join-Path -Path $Path -ChildPath "$($SearchPattern)$($SearchExtension)"
+                    $Executables = Get-ChildItem -Path $SearchPath -ErrorAction SilentlyContinue
+                    foreach ($Executable in $Executables) {
+                        $BestReasonableCandidate = $Executable
+                        if ($Executable.VersionInfo.ProductName -and $Executable.VersionInfo.CompanyName) {
+                            $StopSearch = $true
+                            break
+                        }
+                    }
+                    if ($null -ne $BestReasonableCandidate) {
+                        $StopSearch = $true
+                        break
+                    }
+                    if ($StopSearch) { break }
+                }
+                if ($StopSearch) { break }
+            }
+            return $BestReasonableCandidate
+        }
+
+        # In case we get a app path such as 'C:\Program Files\SomeApp\Uninstall' from
+        # the registry, we want to be able to extract 'C:\Program Files\SomeApp' instead.
+        function FindTopProgramFolder {
+            param ([String] $Path)
+            foreach ($ProgramFilesDirName in @("Program Files", "Program Files (x86)")) {
+                $ProgramFilesDirPath = Join-Path -Path $env:SystemDrive -ChildPath $ProgramFilesDirName
+                if ($Path -like "$($ProgramFilesDirPath)\*") {
+                    $CurrentPath = $Path
+                    while ($true) {
+                        $FileItem = Get-Item -Path $CurrentPath -ErrorAction SilentlyContinue
+                        if ($null -eq $FileItem) { return $null }
+                        if ($null -eq $FileItem.Parent) { return $null }
+                        if ([String]::IsNullOrEmpty($FileItem.Parent.Name)) { return $null }
+                        if ($FileItem.Parent.Name -eq $ProgramFilesDirName) { return $CurrentPath }
+                        $CurrentPath = Split-Path -Path $CurrentPath -Parent
+                    }
+                }
+            }
+        }
+    }
+
+    process {
+
+        $Applications = @()
+
+        # First, we try to collect all the information we can from the registry as the
+        # information there is nicely structured (but not always accurately populated).
+        foreach ($UninstallRegKeyPath in $UninstallRegKeyPaths) {
+
+            $ProgramRegKeys = Get-ChildItem -Path "Registry::$($UninstallRegKeyPath)" -ErrorAction SilentlyContinue
+
+            foreach ($ProgramRegKey in $ProgramRegKeys) {
+
+                # Here we ensure that the registry key contains at least 2 values. Below that
+                # threshold we won't have much information to work with.
+                if ($ProgramRegKey.ValueCount -lt 2) { continue }
+
+                # Here, we enumerated all the values and the result as a custom PS object.
+                $Values = $ProgramRegKey | Get-ItemProperty
+
+                $Name = $ProgramRegKey.PSChildName
+                # if ($null -ne (ConvertTo-Guid -Guid $Name)) {
+                #     if (-not [String]::IsNullOrEmpty($Values.DisplayName)) {
+                #         $Name = $Values.DisplayName
+                #     }
+                # }
+
+                if ($Name -match "[\{]{0,1}[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}[\}]{0,1}") {
+                    if (-not [String]::IsNullOrEmpty($Values.DisplayName)) {
+                        $Name = $Values.DisplayName
+                    }
+                }
+
+                $IsIgnoredProgram = $false
+                foreach ($IgnoredProgram in $IgnoredPrograms) {
+                    if ($Name -like "*$($IgnoredProgram)*") {
+                        $IsIgnoredProgram = $true
+                        break
+                    }
+                }
+                if ($IsIgnoredProgram) { continue }
+
+                $InstallDate = $Values.InstallDate
+                if (-not [String]::IsNullOrEmpty($InstallDate)) {
+                    try {
+                        # When present, install date seems to always be of the form "yyyyMMdd".
+                        $InstallDateObject = [DateTime]::ParseExact($InstallDate, "yyyyMMdd", $null)
+                        $InstallDate = Convert-DateToString -Date $InstallDateObject
+                    }
+                    catch {
+                        Write-Warning "Failed to convert string to date: $($InstallDate)"
+                    }
+                }
+
+                $Location = $null
+                # Ideally, we want to get the app location from the 'InstallLocation' value,
+                # as it seems to be accurate. However, this value is not always populated.
+                if (-not [String]::IsNullOrEmpty($Values.InstallLocation)) {
+                    $Location = (Resolve-Path -Path $Values.InstallLocation.Trim('"') -ErrorAction SilentlyContinue).Path
+                    $Location = $Location.Trim("\")
+                }
+                else {
+                    # If the 'InstallLocation' value is not populated, the next value we fall back
+                    # to is 'UninstallString'. This value contains the command line for uninstalling
+                    # the application. If the application has been installed using an MSI package,
+                    # the command line seems to always be something like 'MsiExec.exe ...', which
+                    # won't help us find the app location. However, if it has been installed using a
+                    # custom installer, we can use this path to determine the app location.
+                    if (-not [String]::IsNullOrEmpty($Values.UninstallString)) {
+                        $UninstallCommand = [String[]] (Resolve-CommandLine -CommandLine $Values.UninstallString)
+                        if (-not [String]::IsNullOrEmpty($UninstallCommand)) {
+                            if (($UninstallCommand[0] -notlike "*MsiExec.exe") -and ($UninstallCommand[0] -notlike "$($env:ProgramData)\Package Cache\*")) {
+                                $UninstallExecutable = Get-Item -Path $UninstallCommand[0] -ErrorAction SilentlyContinue
+                                if ($null -ne $UninstallExecutable) {
+                                    $Location = $UninstallExecutable.Directory.FullName.Trim("\")
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (-not [String]::IsNullOrEmpty($Location)) {
+                    $TopFolder = FindTopProgramFolder -Path $Location
+                    if ($null -ne $TopFolder) {
+                        $Location = $TopFolder
+                    }
+                }
+
+                if (Test-IsSystemFolder -Path $Location) { continue }
+
+                $Result = New-Object -TypeName PSObject
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Source" -Value "Registry"
+                $Result | Add-Member -MemberType "NoteProperty" -Name "SourcePath" -Value $ProgramRegKey.Name
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $Name
+                $Result | Add-Member -MemberType "NoteProperty" -Name "DisplayName" -Value $Values.DisplayName
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Version" -Value $Values.DisplayVersion
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Publisher" -Value $Values.Publisher
+                $Result | Add-Member -MemberType "NoteProperty" -Name "InstallDate" -Value $InstallDate
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Location" -Value $Location
+                $Applications += $Result
+            }
+        }
+
+        # What we want to do next is enumerate the default 'Program Files' folders and
+        # see whether we missed applications because they were not registered in the
+        # registry.
+        foreach ($ProgramFilesDirPath in $ProgramFilesDirPaths) {
+
+            $ProgramDirectories = Get-ChildItem -Path $ProgramFilesDirPath -ErrorAction SilentlyContinue
+            if ($null -eq $ProgramDirectories) { continue }
+
+            foreach ($ProgramDirectory in $ProgramDirectories) {
+
+                if ($IgnoredPrograms -contains $ProgramDirectory.Name) { continue }
+
+                # Here, we check whether we already found an application registered in the registry
+                # that is installed in this directory.
+                $Candidates = $Applications | Where-Object { $_.Location -eq $ProgramDirectory.FullName }
+                if ($null -eq $Candidates) {
+
+                    # If no matching application is found in the registry, we consider it's a new application
+                    # to enumerate.
+
+                    # Here, we try to find an executable in this program directory that we could use to collect
+                    # information such as the app version or its publisher.
+                    $Executable = SearchExecutableRecursively -Path $ProgramDirectory.FullName
+                    if ($null -eq $Executable) { continue }
+
+                    # Here, we get the version information from the file's metadata.
+                    $DisplayVersion = $Executable.VersionInfo.ProductVersion
+                    if ([String]::IsNullOrEmpty($DisplayVersion)) {
+                        $DisplayVersion = $Executable.VersionInfo.ProductVersionRaw
+                    }
+
+                    $Result = New-Object -TypeName PSObject
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "Source" -Value "FileSystem"
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "SourcePath" -Value $ProgramDirectory.FullName
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $ProgramDirectory.Name
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "DisplayName" -Value $Executable.VersionInfo.ProductName
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "Version" -Value $DisplayVersion
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "Publisher" -Value $Executable.VersionInfo.CompanyName
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "InstallDate" -Value $(Convert-DateToString -Date $Executable.LastWriteTime)
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "Location" -Value $ProgramDirectory.FullName
+                    $Applications += $Result
+                }
+            }
+        }
+
+        $Applications | Sort-Object -Property "Name","DisplayName","Version"
+    }
+}
+
+function Get-InstalledApplicationOld {
+    <#
+    .SYNOPSIS
     Helper - Enumerates the installed applications
 
     Author: @itm4n
@@ -99,7 +374,7 @@ function Get-InstalledApplication {
             if ($Filtered -and ($IgnoredPrograms -contains $InstalledProgram.Name)) { continue }
 
             # Keep only the folder name and full path.
-            $InstalledProgram | Select-Object -Property Name,FullName
+            $InstalledProgram | Select-Object -Property Name, FullName
         }
     }
 }
@@ -871,7 +1146,7 @@ function Get-KnownVulnerableKernelDriver {
 
     [CmdletBinding()]
     param (
-        [Parameter(Mandatory=$true, ValueFromPipeline=$true, ValueFromPipelineByPropertyName=$true)]
+        [Parameter(Mandatory = $true, ValueFromPipeline = $true, ValueFromPipelineByPropertyName = $true)]
         [Object] $Service
     )
 
@@ -965,7 +1240,7 @@ function Get-RpcRange {
 
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [Int[]] $Ports
     )
 

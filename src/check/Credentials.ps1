@@ -975,7 +975,7 @@ function Invoke-VncCredentialCheck {
         foreach ($VncSoftware in $VncSettingHashTable.Keys) {
             $SettingType = $VncSettingHashTable[$VncSoftware][0]
             $SettingPath = $VncSettingHashTable[$VncSoftware][1]
-            $InstallPath = Get-InstalledApplication | Where-Object { $_.Name -eq $VncSoftware } | Select-Object -ExpandProperty FullName
+            $InstallPath = Get-InstalledApplication | Where-Object { ($_.Name -eq $VncSoftware) -or ($_.DisplayName -eq $VncSoftware) } | Select-Object -ExpandProperty Location
             $TargetPath = ""
             switch ($SettingType) {
                 "Registry" {

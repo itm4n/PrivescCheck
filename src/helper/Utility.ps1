@@ -22,7 +22,7 @@ function Test-IsMicrosoftFile {
     [OutputType([Boolean])]
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [Object] $File
     )
 
@@ -101,7 +101,7 @@ function Convert-FiletimeToDatetime {
     [OutputType([DateTime])]
     [CmdletBinding()]
     param(
-        [Parameter(Position = 1, Mandatory=$true)]
+        [Parameter(Position = 1, Mandatory = $true)]
         [Object] # FILETIME
         $Filetime
     )
@@ -114,7 +114,7 @@ function Convert-EpochTimeToDateTime {
     [OutputType([DateTime])]
     [CmdletBinding()]
     param (
-        [Parameter(Position = 1, Mandatory=$true)]
+        [Parameter(Position = 1, Mandatory = $true)]
         [UInt32] $Seconds
     )
 
@@ -235,7 +235,7 @@ function Convert-CredentialBlobToString {
 
     [CmdletBinding()]
     param(
-        [Parameter(Position = 1, Mandatory=$true)]
+        [Parameter(Position = 1, Mandatory = $true)]
         [Object] $RawObject # CREDENTIAL
     )
 
@@ -637,7 +637,7 @@ function Get-UnattendSensitiveData {
 
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [String] $Path
     )
 
@@ -762,7 +762,7 @@ function Get-FileHashHex {
 
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [ValidateNotNullOrEmpty()]
         [string] $FilePath,
 
@@ -774,7 +774,7 @@ function Get-FileHashHex {
         $FileStream = [System.IO.File]::OpenRead($FilePath)
         $HashAlg = [System.Security.Cryptography.HashAlgorithm]::Create($Algorithm)
         $Hash = [byte[]] $HashAlg.ComputeHash($FileStream)
-        [System.BitConverter]::ToString($Hash).Replace("-","").ToLower()
+        [System.BitConverter]::ToString($Hash).Replace("-", "").ToLower()
     }
     catch {
         Write-Warning "Failed to get hash of '$($FilePath)': $($_.Exception.Message.Trim())"
@@ -803,7 +803,7 @@ function Resolve-CommandLine {
     [OutputType([String[]])]
     [CmdletBinding()]
     param (
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [String] $CommandLine
     )
 
@@ -870,13 +870,13 @@ function Resolve-KernelDriverImagePath {
     )
 
     if ($Service.ImagePath -match "^\\SystemRoot\\") {
-        $Service.ImagePath -replace "\\SystemRoot",$env:SystemRoot
+        $Service.ImagePath -replace "\\SystemRoot", $env:SystemRoot
     }
     elseif ($Service.ImagePath -match "^System32\\") {
         Join-Path -Path $env:SystemRoot -ChildPath $Service.ImagePath
     }
     elseif ($Service.ImagePath -match "^\\\?\?\\") {
-        $Service.ImagePath -replace "\\\?\?\\",""
+        $Service.ImagePath -replace "\\\?\?\\", ""
     }
     else {
         $Service.ImagePath

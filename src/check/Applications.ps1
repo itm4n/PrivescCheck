@@ -1,7 +1,7 @@
 function Invoke-InstalledApplicationCheck {
     <#
     .SYNOPSIS
-    Enumerates the applications that are not installed by default
+    Get information about Microsoft applications installed on the machine by searching the registry and the default install locations.
 
     Author: @itm4n
     License: BSD 3-Clause
@@ -13,7 +13,69 @@ function Invoke-InstalledApplicationCheck {
     [CmdletBinding()]
     param()
 
-    Get-InstalledApplication -Filtered | Select-Object -Property Name,FullName
+    Get-InstalledApplication | Where-Object { $_.Publisher -like "*Microsoft*"} | ForEach-Object {
+
+        $AppName = $_.DisplayName
+        if ([String]::IsNullOrEmpty($AppName)) {
+            $AppName = $_.Name
+        }
+        else {
+            if ($_.Name -ne $_.DisplayName) {
+                $AppName = "$($_.Name) ($($_.DisplayName))"
+            }
+        }
+
+        $DisplayName = "$($AppName.Substring(0, [System.Math]::Min($AppName.Length, 50)))"
+        if ($DisplayName.Length -ne $AppName.Length) {
+            $DisplayName = "$($DisplayName)..."
+        }
+
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $DisplayName
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Version" -Value $_.Version
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $_.Location
+        $Result
+    } | Sort-Object -Unique -Property Name, Version
+}
+
+function Invoke-InstalledApplicationThirdPartyCheck {
+    <#
+    .SYNOPSIS
+    Get information about third-party applications installed on the machine by searching the registry and the default install locations.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    Uses the custom "Get-InstalledApplication" function to get a filtered list of installed programs and then returns each result as a simplified PS object, indicating the name and the path of the application.
+    #>
+
+    [CmdletBinding()]
+    param ()
+
+    Get-InstalledApplication | Where-Object { $_.Publisher -notlike "*Microsoft*" } | ForEach-Object {
+
+        $AppName = $_.DisplayName
+        if ([String]::IsNullOrEmpty($AppName)) {
+            $AppName = $_.Name
+        }
+        else {
+            if ($_.Name -ne $_.DisplayName) {
+                $AppName = "$($_.Name) ($($_.DisplayName))"
+            }
+        }
+
+        $DisplayName = "$($AppName.Substring(0, [System.Math]::Min($AppName.Length, 50)))"
+        if ($DisplayName.Length -ne $AppName.Length) {
+            $DisplayName = "$($DisplayName)..."
+        }
+
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $DisplayName
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Version" -Value $_.Version
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $_.Location
+        $Result
+    } | Sort-Object -Unique -Property Name, Version
 }
 
 function Invoke-InstalledApplicationPermissionCheck {
@@ -36,12 +98,14 @@ function Invoke-InstalledApplicationPermissionCheck {
     process {
         $AllResults = @()
 
-        Get-InstalledApplication -Filtered |
-            Invoke-CommandMultithread -InitialSessionState $(Get-InitialSessionState) -Command "Get-ModifiableApplicationFile" -InputParameter "FileItem" |
-                ForEach-Object {
-                    $_.Permissions = $_.Permissions -join ', '
-                    $AllResults += $_
-                }
+        Get-InstalledApplication |
+        Select-Object -ExpandProperty Location |
+        Where-Object { -not [String]::IsNullOrEmpty($_) } |
+        Invoke-CommandMultithread -InitialSessionState $(Get-InitialSessionState) -Command "Get-ModifiableApplicationFile" -InputParameter "Path" |
+        ForEach-Object {
+            $_.Permissions = $_.Permissions -join ', '
+            $AllResults += $_
+        }
 
         $CheckResult = New-Object -TypeName PSObject
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
@@ -85,7 +149,7 @@ function Invoke-ProgramDataPermissionCheck {
         foreach ($ProgramDataFolder in $ProgramDataFolders) {
 
             $ProgramDataFolderChildItems = Get-ChildItem -Path $ProgramDataFolder.FullName -Recurse -Force -ErrorAction SilentlyContinue
-            if ($null -eq $ProgramDataFolderChildItems) {continue }
+            if ($null -eq $ProgramDataFolderChildItems) { continue }
 
             foreach ($ProgramDataFolderChildItem in $ProgramDataFolderChildItems) {
 
@@ -277,7 +341,7 @@ function Invoke-RunningProcessCheck {
             }
 
             if ($ReturnProcess) {
-                $Process | Select-Object -Property Name,Id,Path,SessionId | Add-Member -MemberType "NoteProperty" -Name "User" -Value $ProcessUser -PassThru
+                $Process | Select-Object -Property Name, Id, Path, SessionId | Add-Member -MemberType "NoteProperty" -Name "User" -Value $ProcessUser -PassThru
             }
 
         }
@@ -370,8 +434,8 @@ function Invoke-RootFolderPermissionCheck {
             # }
 
             $RootFolders | Select-Object -ExpandProperty "Fullname" |
-                Invoke-CommandMultithread -InitialSessionState $(Get-InitialSessionState) -Command "Get-ModifiableRootFolder" -InputParameter "Path" |
-                    ForEach-Object { $AllResults += $_ }
+            Invoke-CommandMultithread -InitialSessionState $(Get-InitialSessionState) -Command "Get-ModifiableRootFolder" -InputParameter "Path" |
+            ForEach-Object { $AllResults += $_ }
         }
 
         $Vulnerable = ($AllResults | Where-Object { $_.Vulnerable }).Count -gt 0

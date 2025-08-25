@@ -550,18 +550,15 @@ function Get-ModifiableApplicationFile {
     .DESCRIPTION
     This cmdlet is used as a helper function by 'Invoke-InstalledApplicationPermissionCheck' to support multithreading. It checks the permissions of a single application folder, which can be a time consuming if it has a lot of sub-folders and files.
 
-    .PARAMETER FileItem
-    A mandatory input file item (file or directory) returned by 'Get-InstalledApplication'.
+    .PARAMETER Path
+    A mandatory input file path (file or directory).
 
-    .EXAMPLE
-    PS C:\> $Applications = Get-InstalledApplication -Filtered
-    PS C:\> Get-ModifiableApplicationFile -FileItem $Applications[0]
     #>
 
     [CmdletBinding()]
     param (
         [Parameter(Position=0, Mandatory=$true, ValueFromPipeline=$true, ValueFromPipelineByPropertyName=$true)]
-        [Object] $FileItem
+        [Object] $Path
     )
 
     begin {
@@ -572,8 +569,8 @@ function Get-ModifiableApplicationFile {
         # Ensure the path is not a known system folder, in which case it does not make
         # sense to check it. This also prevents the script from spending a considerable
         # amount of time and resources searching those paths recursively.
-        if (Test-IsSystemFolder -Path $FileItem.FullName) {
-            Write-Warning "System path detected, ignoring: $($FileItem.FullName)"
+        if (Test-IsSystemFolder -Path $Path) {
+            Write-Warning "System path detected, ignoring: $($Path)"
             return
         }
 
@@ -581,14 +578,16 @@ function Get-ModifiableApplicationFile {
         # without using the 'Depth' option, which is only available in PSv5+. This
         # allows us to maintain compatibility with PSv2.
         $SearchPath = @()
-        $SearchPath += $(Join-Path -Path $FileItem.FullName -ChildPath "\*")
-        $SearchPath += $(Join-Path -Path $FileItem.FullName -ChildPath "\*\*")
+        $SearchPath += $(Join-Path -Path $Path -ChildPath "\*")
+        $SearchPath += $(Join-Path -Path $Path -ChildPath "\*\*")
 
         # Enumerate sub-folders and files, return immediately if nothing is found.
         $CandidateItems = Get-ChildItem -Path $SearchPath -ErrorAction SilentlyContinue
         if ($null -eq $CandidateItems) { return }
 
         foreach ($CandidateItem in $CandidateItems) {
+
+            if ($CandidateItem -is [System.IO.DirectoryInfo]) { continue }
 
             # Ignore application files that do not have a common extension such as '.exe'
             # or '.dll'.
