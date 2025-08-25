@@ -102,3 +102,8 @@ msf6 exploit(multi/handler) > sessions -t 120 -i 1
 [*] Starting interaction with 1...
 meterpreter > powershell_execute "Invoke-PrivescCheck"
 ```
+
+## Credit
+
+- Word list - [CBHue/PyFuscation](https://github.com/CBHue/PyFuscation)
+- Vulnerable driver list - [https://www.loldrivers.io/api/drivers.csv](https://www.loldrivers.io/api/drivers.csv)

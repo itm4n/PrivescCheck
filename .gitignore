@@ -4,3 +4,4 @@
 *.xml
 
 !/data/*.csv
+!/data/*.txt

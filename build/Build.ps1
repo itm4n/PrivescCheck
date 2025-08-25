@@ -67,13 +67,15 @@ function Invoke-Build {
                 Write-Message -Type Warning "Random name disabled."
             }
             else {
-                $Wordlist = Get-Wordlist -WordLength 10
+                $WordList = Get-DataFileContent -FileName "WordList.txt" | Where-Object { -not [String]::IsNullOrEmpty($_) }
             }
 
-            $LolDrivers = Get-LolDriverList
+            # $LolDrivers = Get-LolDriverList
+            $LolDrivers = Get-DataFileContent -FileName "VulnerableDrivers.csv" | Out-String
+            $FileExtensionAssociations = Get-DataFileContent -FileName "FileExtensionAssociations.csv" | Out-String
 
-            $CheckCsvBlob = Get-FileContentAsEmbeddedTextBlob -FileName "Checks.csv"
-            $EndpointProtectionSignatureCsvBlob = Get-FileContentAsEmbeddedTextBlob -FileName "EndpointProtectionSignatures.csv"
+            $CheckCsvBlob = ConvertTo-EmbeddedTextBlob -Text $(Get-DataFileContent -FileName "Checks.csv" | Out-String)
+            $EndpointProtectionSignatureCsvBlob = ConvertTo-EmbeddedTextBlob -Text $(Get-DataFileContent -FileName "EndpointProtectionSignatures.csv" | Out-String)
         }
     }
 
@@ -107,10 +109,10 @@ function Invoke-Build {
 
                 $ModuleFilename = $ModuleItem.Name
 
-                if ($null -ne $Wordlist) {
-                    # Pick a random name from the wordlist.
-                    $RandomName = Get-Random -InputObject $Wordlist -Count 1
-                    $Wordlist = $Wordlist | Where-Object { $_ -ne $RandomName }
+                if ($null -ne $WordList) {
+                    # Pick a random name from the word list.
+                    $RandomName = Get-Random -InputObject $WordList -Count 1
+                    $WordList = $WordList | Where-Object { $_ -ne $RandomName }
                     $ModuleName = $RandomName.ToLower()
                     $ModuleName = ([regex] $ModuleName[0].ToString()).Replace($ModuleName, $ModuleName[0].ToString().ToUpper(), 1)
                 }
@@ -129,17 +131,26 @@ function Invoke-Build {
 
                     if ($null -ne $LolDrivers) {
                         # Populate vulnerable driver list.
-                        $LolDriversCsv = $LolDrivers | ConvertTo-Csv -Delimiter ";" | Out-String
-                        $ScriptBlock = $ScriptBlock -replace "VULNERABLE_DRIVERS", $LolDriversCsv
+                        # $LolDriversCsv = $LolDrivers | ConvertTo-Csv -Delimiter ";" | Out-String
+                        # $ScriptBlock = $ScriptBlock -replace "VULNERABLE_DRIVERS", $LolDriversCsv
+                        $ScriptBlock = $ScriptBlock -replace "{{CSV_RAW_VULNERABLE_DRIVERS}}", $LolDrivers
                         Write-Message "Driver list written to '$($ModuleFilename)'."
                     }
                     else {
                         Write-Message -Type Warning "Known vulnerable driver CSV is null."
                     }
 
+                    if ($null -ne $FileExtensionAssociations) {
+                        $ScriptBlock = $ScriptBlock -replace "{{CSV_RAW_FILE_EXTENSION_ASSOCIATIONS}}", $FileExtensionAssociations
+                        Write-Message "File extension association CSV to '$($ModuleFilename)'."
+                    }
+                    else {
+                        Write-Message -Type Error "File extension association CSV is null."
+                    }
+
                     if ($null -ne $CheckCsvBlob) {
                         # Populate check list as an encoded blob.
-                        $ScriptBlock = $ScriptBlock -replace "CHECK_CSV_BLOB", $CheckCsvBlob
+                        $ScriptBlock = $ScriptBlock -replace "{{CSV_BLOB_CHECKS}}", $CheckCsvBlob
                         Write-Message "Check list written to '$($ModuleFilename)'."
                     }
                     else {
@@ -148,7 +159,7 @@ function Invoke-Build {
 
                     if ($null -ne $EndpointProtectionSignatureCsvBlob) {
                         # Populate list of endpoint protection software signature list
-                        $ScriptBlock = $ScriptBlock -replace "ENDPOINT_PROTECTION_SIGNATURE_CSV_BLOB", $EndpointProtectionSignatureCsvBlob
+                        $ScriptBlock = $ScriptBlock -replace "{{CSV_BLOB_ENDPOINT_PROTECTION_SIGNATURES}}", $EndpointProtectionSignatureCsvBlob
                         Write-Message "Endpoint protection signature list written to '$($ModuleFilename)'."
                     }
                     else {
@@ -165,7 +176,7 @@ function Invoke-Build {
                 # Note: if the script block is caught by AMSI, an exception is triggered, so we go
                 # directly to the "catch" block. Otherwise, it means that the module was successfully
                 # loaded.
-                $ScriptBlock = Remove-CommentsFromScriptBlock -ScriptBlock $ScriptBlock
+                $ScriptBlock = Remove-CommentFromScriptBlock -ScriptBlock $ScriptBlock
                 try {
                     $ScriptBlock | Invoke-Expression
                 }
@@ -232,123 +243,90 @@ function Write-Message {
     Write-Host "$Message"
 }
 
-function ConvertTo-EmbeddedTextBlob {
-    param([String] $Text)
-    $Compressed = ConvertTo-Gzip -InputText $Text
-    [System.Convert]::ToBase64String($Compressed)
-}
+function Get-DataFilePath {
 
-function Get-FileContentAsEmbeddedTextBlob {
-
-    param ([String] $FileName)
-
-    # The script path is 'C:\...\PrivescCheck\build\Build.ps1'
-    # Get the parent folder path: 'C:\...\PrivescCheck\build'
-    $RootFolderPath = Split-Path -Path $PSCommandPath -Parent
-    # Get the parent folder path: 'C:\...\PrivescCheck'
-    $RootFolderPath = Split-Path -Path $RootFolderPath -Parent
-    # Get the data folder path: 'C:\...\PrivescCheck\data'
-    $FilePath = Join-Path -Path $RootFolderPath -ChildPath "data"
-    # Get the data file path: 'C:\...\PrivescCheck\data\$FileName'
-    $FilePath = Join-Path -Path $FilePath -ChildPath $FileName
-    # Read the file content as an ASCII string
-    $FileContent = Get-Content -Path $FilePath -Encoding Ascii | Out-String
-    # Convert the content so that it can be embedded in the final script
-    ConvertTo-EmbeddedTextBlob -Text $FileContent
-}
-
-function Get-AssetFileContent {
-
+    [OutputType([String])]
     [CmdletBinding()]
-    param(
-        [OutputType([String])]
-        [Parameter(Mandatory = $true)]
-        [ValidateSet("WordList", "KnownVulnerableDriverList")]
-        [string] $Name
+    param (
+        [String] $FileName
     )
 
-    begin {
-        $ExpirationDelayInDays = 30
-        switch ($Name) {
-            "WordList" {
-                $Filename = "wordlist.txt"
-                $FileUrl = "https://raw.githubusercontent.com/CBHue/PyFuscation/master/wordList.txt"
-            }
-            "KnownVulnerableDriverList" {
-                $Filename = "vulnerable_drivers.csv"
-                $FileUrl = "https://www.loldrivers.io/api/drivers.csv"
-            }
-        }
-        $BuildPath = Split-Path -Path $PSCommandPath -Parent
-        $FilePath = Join-Path -Path $BuildPath -ChildPath "cache"
-        $FilePath = Join-Path -Path $FilePath -ChildPath "$($Filename)"
-    }
+    # The script path is 'C:\...\PrivescCheck\build\Build.ps1'
 
-    process {
-        $DownloadFile = $true
-        $CachedFile = Get-Item -Path $FilePath -ErrorAction SilentlyContinue
-        if ($null -ne $CachedFile) {
-            $TimeSpan = New-TimeSpan -Start $CachedFile.LastWriteTime -End $(Get-Date)
-            $TimeSpanTotalDays = [MAth]::Round($TimeSpan.TotalDays)
-            if ($TimeSpanTotalDays -gt $ExpirationDelayInDays) {
-                # Cached file expired, so delete it.
-                Write-Message "File '$($Filename)' expired, deleting it..." -Type Warning
-                Remove-Item -Path $FilePath -Force
-            }
-            else {
-                # Cached file has not expired yet, use it.
-                Write-Message "File '$($Filename)' is $($TimeSpanTotalDays) day$(if ($TimeSpanTotalDays -gt 1) { "s" }) old."
-                $DownloadFile = $false
-            }
-        }
+    # Get the parent folder path: 'C:\...\PrivescCheck\build'
+    $RootFolderPath = Split-Path -Path $PSCommandPath -Parent
 
-        if ($DownloadFile) {
-            try {
-                # Download the file.
-                $FileContent = (New-Object Net.WebClient).DownloadString($FileUrl)
-                Write-Message "File '$($Filename)' downloaded from: $($FileUrl)"
-                # Save the file to the local cache folder.
-                $FileContent | Out-File -FilePath $FilePath -Encoding ASCII
-                Write-Message "File '$($Filename)' saved to: $($FilePath)"
-            }
-            catch {
-                Write-Message -Type Error "Failed to download file '$($Filename)' from $($FileUrl)."
-            }
-        }
+    # Get the parent folder path: 'C:\...\PrivescCheck'
+    $RootFolderPath = Split-Path -Path $RootFolderPath -Parent
 
-        Get-Content -LiteralPath $FilePath | Out-String
-    }
+    # Get the data folder path: 'C:\...\PrivescCheck\data'
+    $FilePath = Join-Path -Path $RootFolderPath -ChildPath "data"
+
+    # Get the data file path: 'C:\...\PrivescCheck\data\$FileName'
+    $FilePath = Join-Path -Path $FilePath -ChildPath $FileName
+
+    return $FilePath
 }
 
-function Get-Wordlist {
+function Get-DataFileContent {
 
     [CmdletBinding()]
     param (
-        [UInt32] $WordLength = 8
+        [String] $FileName
     )
 
-    $Wordlist = Get-AssetFileContent -Name "WordList"
-    if ($null -ne $Wordlist) {
-        $Wordlist = $Wordlist -split "`n" | ForEach-Object { $_.Trim() }
-        $Wordlist | Where-Object { (-not [string]::IsNullOrEmpty($_)) -and ($_.length -eq $WordLength) -and ($_.ToLower() -match "^[a-z]+$") }
-    }
+    $FilePath = Get-DataFilePath -FileName $FileName
+    Get-Content -Path $FilePath -Encoding Ascii
 }
 
-function Get-LolDriverList {
+function Set-DataFileContent {
+
+    [CmdletBinding()]
+    param (
+        [String] $FileName,
+        [String] $Content
+    )
+
+    $FilePath = Get-DataFilePath -FileName $FileName
+    $Content | Set-Content -Path $FilePath -Encoding Ascii
+}
+
+function Update-LolDriverList {
 
     [CmdletBinding()]
     param ()
 
-    $LolDriversCsv = Get-AssetFileContent -Name "KnownVulnerableDriverList"
+    $NeedToUpdateFile = $false
+    $VulnerableDriversFileName = "VulnerableDrivers.csv"
+    $VulnerableDriversPath = Get-DataFilePath -FileName $VulnerableDriversFileName -ErrorAction SilentlyContinue
 
-    try { $LolDrivers = ConvertFrom-Csv -InputObject $LolDriversCsv }
-    catch { Write-Message -Type Warning "Failed to parse CSV file: $($_.Exception.Message.Trim())"; return }
+    $VulnerableDriversFile = Get-Item -Path $VulnerableDriversPath -ErrorAction SilentlyContinue
+    if ($null -eq $VulnerableDriversFile) {
+        $NeedToUpdateFile = $true
+    }
+    else {
+        $TimeSpan = New-TimeSpan -Start $VulnerableDriversFile.LastWriteTime -End $(Get-Date)
+        $TimeSpanTotalDays = [Math]::Round($TimeSpan.TotalDays)
+        if ($TimeSpanTotalDays -gt 7) {
+            $NeedToUpdateFile = $true
+        }
+    }
 
-    Write-Message "Number of drivers in the list: $($LolDrivers.Count)"
+    if (-not $NeedToUpdateFile) {
+        Write-Message -Message "File already up to date: $($VulnerableDriversFileName)" -Type Info
+        return
+    }
+
+    Write-Message -Message "Updating file: $($VulnerableDriversFileName)" -Type Info
+
+    $FileContent = (New-Object Net.WebClient).DownloadString("https://www.loldrivers.io/api/drivers.csv")
+    $LolDrivers = ConvertFrom-Csv -InputObject $FileContent
+    Write-Message "Number of drivers: $($LolDrivers.Count)"
 
     $LolDriversVulnerable = $LolDrivers | Where-Object { $_.Category -like "*vulnerable*" }
     Write-Message "Number of vulnerable drivers: $($LolDriversVulnerable.Count)"
 
+    $LolDrivers = @()
     $LolDriversVulnerable | ForEach-Object {
 
         # Keep the UUID for future reference in the LOL drivers database.
@@ -378,8 +356,34 @@ function Get-LolDriverList {
             $Result | Add-Member -MemberType "NoteProperty" -Name "Hash" -Value ($HashesSha256 -join ",")
         }
 
-        $Result
+        $LolDrivers += $Result
     }
+
+    $LolDriversCsv = $LolDrivers | ConvertTo-Csv -Delimiter "," -NoTypeInformation | Out-String
+
+    Set-DataFileContent -FileName $VulnerableDriversFileName -Content $LolDriversCsv
+
+    Write-Message -Message "Updated file: $($VulnerableDriversFileName)" -Type Success
+}
+
+function Update-WordList {
+
+    [CmdletBinding()]
+    param (
+        [UInt32] $WordLength = 8
+    )
+
+    $WordListUrl = "https://raw.githubusercontent.com/CBHue/PyFuscation/master/wordList.txt"
+    $WordList = (New-Object Net.WebClient).DownloadString($WordListUrl)
+
+    if ($null -eq $WordList) {
+        throw "Word list is empty"
+    }
+
+    $WordList = $WordList -split "`n" | ForEach-Object { $_.Trim() }
+    $WordList = $WordList | Where-Object { (-not [string]::IsNullOrEmpty($_)) -and ($_.Length -eq $WordLength) -and ($_.ToLower() -match "^[a-z]+$") }
+
+    Set-DataFileContent -FileName "WordList.txt" -Content ($WordList | Out-String)
 }
 
 function Get-ScriptLoader {
@@ -417,7 +421,7 @@ Remove-Variable -Name "Modules"
     }
 }
 
-function Remove-CommentsFromScriptBlock {
+function Remove-CommentFromScriptBlock {
 
     [OutputType([String])]
     [CmdletBinding()]
@@ -447,6 +451,12 @@ function Remove-CommentsFromScriptBlock {
     }
 
     $Output
+}
+
+function ConvertTo-EmbeddedTextBlob {
+    param([String] $Text)
+    $Compressed = ConvertTo-Gzip -InputText $Text
+    [System.Convert]::ToBase64String($Compressed)
 }
 
 function ConvertTo-Gzip {
