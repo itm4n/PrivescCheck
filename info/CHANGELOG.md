@@ -6,6 +6,7 @@
 
 - Rewrite installed application enumeration helper to collect more data, and especially the application version, where possible.
 - Split the installed application check into two separate checks, one for Microsoft products, and the other for third-party apps.
+- Improve check naming, and sort output based on category and then name.
 
 ## 2025-08-19
 

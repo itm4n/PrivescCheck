@@ -379,7 +379,7 @@ function Write-CsvReport {
         [object[]] $AllResults
     )
 
-    $AllResults | Sort-Object -Property "Category" | Select-Object Id,Category,DisplayName,Description,Severity,ResultRawString | ConvertTo-Csv -NoTypeInformation
+    $AllResults | Sort-Object -Property "Category","DisplayName" | Select-Object Id,Category,DisplayName,Description,Severity,ResultRawString | ConvertTo-Csv -NoTypeInformation
 }
 
 function Write-XmlReport {
@@ -401,7 +401,7 @@ function Write-XmlReport {
     $AllResults | ForEach-Object {
         $_.ResultRawString = [System.Text.RegularExpressions.Regex]::Replace($_.ResultRawString, $AuthorizedXmlCharactersRegex, "")
         $_
-    } | Sort-Object -Property "Category" | Select-Object Id,Category,DisplayName,Description,Severity,ResultRawString | ConvertTo-Xml -As String
+    } | Sort-Object -Property "Category","DisplayName" | Select-Object Id,Category,DisplayName,Description,Severity,ResultRawString | ConvertTo-Xml -As String
 }
 
 function Write-HtmlReport {
@@ -678,7 +678,7 @@ $($JavaScript)
 </html>
 "@
 
-    $TableHtml = $AllResults | Sort-Object -Property "Category" | ConvertTo-Html -Property "Category","DisplayName","Description","Severity","ResultRawString" -Fragment
+    $TableHtml = $AllResults | Sort-Object -Property "Category","DisplayName" | ConvertTo-Html -Property "Category","DisplayName","Description","Severity","ResultRawString" -Fragment
     $Html = $Html.Replace("BODY_TO_REPLACE", $TableHtml)
     $Html
 }
@@ -730,7 +730,7 @@ function Write-ShortReport {
 
     foreach ($Category in $Categories) {
 
-        $Vulnerabilities = $AllVulnerabilities | Where-Object { $_.Category -eq $Category }
+        $Vulnerabilities = $AllVulnerabilities | Where-Object { $_.Category -eq $Category } | Sort-Object -Property "DisplayName"
 
         Write-Host -ForegroundColor White " $($Category)"
 
