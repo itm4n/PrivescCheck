@@ -11,7 +11,6 @@ $script:GlobalCache = @{
     RegisteredComList        = $null
     ServiceList              = $null
     ScheduledTaskList        = $null
-
 }
 
 $script:GlobalConstant = @{

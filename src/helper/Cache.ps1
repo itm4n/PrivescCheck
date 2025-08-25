@@ -77,7 +77,7 @@ function Clear-CachedData {
     [CmdletBinding()]
     param ()
 
-    foreach ($CacheEntryName in $script:GlobalCache.Keys) {
+    foreach ($CacheEntryName in $($script:GlobalCache.Keys)) {
         $script:GlobalCache[$CacheEntryName] = $null
     }
 }
