@@ -28,6 +28,19 @@ function Get-CurrentUserDenySid {
 }
 
 function Get-InstalledApplication {
+
+    [CmdletBinding()]
+    param ()
+
+    if (-not (Test-CachedData -Name "InstalledApplicationList")) {
+        $InstalledApplicationList = Get-InstalledApplicationHelper
+        Set-CachedData -Name "InstalledApplicationList" -Data $InstalledApplicationList
+    }
+
+    Get-CachedData -Name "InstalledApplicationList"
+}
+
+function Get-InstalledApplicationHelper {
     <#
     .SYNOPSIS
     Helper - Enumerates installed applications using information provided in the registry and on the filesystem
@@ -84,9 +97,7 @@ function Get-InstalledApplication {
     #>
 
     [CmdletBinding()]
-    param (
-
-    )
+    param ()
 
     begin {
         $UninstallRegKeyPaths = @(
@@ -299,81 +310,6 @@ function Get-InstalledApplication {
         }
 
         $Applications | Sort-Object -Property "Name", "DisplayName", "Version"
-    }
-}
-
-function Get-InstalledApplicationOld {
-    <#
-    .SYNOPSIS
-    Helper - Enumerates the installed applications
-
-    Author: @itm4n
-    License: BSD 3-Clause
-
-    .DESCRIPTION
-    This looks for applications installed in the common "Program Files" and "Program Files (x86)" folders. It also enumerates installed applications thanks to the registry by looking for all the subkeys in "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall".
-
-    .PARAMETER Filtered
-    If True, only non-default applications are returned. Otherwise, all the applications are returned. The filter is base on a list of known applications which are known to be installed by default (e.g.: "Windows Defender").
-
-    .EXAMPLE
-    PS C:\> Get-InstalledApplication -Filtered
-
-    Mode                LastWriteTime     Length Name
-    ----                -------------     ------ ----
-    d----        29/11/2019     10:51            Npcap
-    d----        29/11/2019     10:51            Wireshark
-    #>
-
-    [CmdletBinding()]
-    param(
-        [switch] $Filtered = $false
-    )
-
-    begin {
-        $IgnoredPrograms = @( "Common Files", "Internet Explorer", "ModifiableWindowsApps", "PackageManagement", "Windows Defender", "Windows Defender Advanced Threat Protection", "Windows Mail", "Windows Media Player", "Windows Multimedia Platform", "Windows NT", "Windows Photo Viewer", "Windows Portable Devices", "Windows Security", "WindowsPowerShell", "Microsoft.NET", "Windows Portable Devices", "dotnet", "MSBuild", "Intel", "Reference Assemblies" )
-    }
-
-    process {
-        $InstalledPrograms = @()
-        $InstalledPrograms += Get-ChildItem -Path $(Join-Path -Path $env:SystemDrive -ChildPath "Program Files (x86)") -ErrorAction SilentlyContinue | Where-Object { $_ -is [System.IO.DirectoryInfo] }
-        $InstalledPrograms += Get-ChildItem -Path $(Join-Path -Path $env:SystemDrive -ChildPath "Program Files") -ErrorAction SilentlyContinue | Where-Object { $_ -is [System.IO.DirectoryInfo] }
-
-        $InstalledProgramsRegKeys = @()
-        $InstalledProgramsRegKeys += Get-ChildItem -Path "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall" -ErrorAction SilentlyContinue
-        $InstalledProgramsRegKeys += Get-ChildItem -Path "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall" -ErrorAction SilentlyContinue
-
-        foreach ($InstalledProgramsRegKey in $InstalledProgramsRegKeys) {
-
-            $InstallLocation = [System.Environment]::ExpandEnvironmentVariables($InstalledProgramsRegKey.GetValue("InstallLocation"))
-            if ([String]::IsNullOrEmpty($InstallLocation)) { continue }
-            if (-not (Test-Path -Path $InstallLocation -ErrorAction SilentlyContinue)) { continue }
-
-            $InstallLocation = $InstallLocation.Trim('\')
-
-            $FileItem = Get-Item -Path $InstallLocation -ErrorAction SilentlyContinue
-            if ($null -eq $FileItem) { continue }
-            if ($FileItem -isnot [System.IO.DirectoryInfo]) { continue }
-
-            $InstalledPrograms += $FileItem
-        }
-
-        foreach ($InstalledProgram in $($InstalledPrograms | Sort-Object -Property "FullName" -Unique)) {
-
-            # Make sure we skip empty paths.
-            if ([string]::IsNullOrEmpty($InstalledProgram.FullName)) { continue }
-
-            # Make sure we don't treat system paths such as 'C:\Windows\System32' as
-            # application folders.
-            if (Test-IsSystemFolder -Path $InstalledProgram.FullName) { continue }
-
-            # If the 'Filtered' switch is used, only return non-default application
-            # folder entries.
-            if ($Filtered -and ($IgnoredPrograms -contains $InstalledProgram.Name)) { continue }
-
-            # Keep only the folder name and full path.
-            $InstalledProgram | Select-Object -Property Name, FullName
-        }
     }
 }
 

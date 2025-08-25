@@ -1,21 +1,23 @@
 $script:GlobalVariable = @{
-    CheckResultList = $null
+    CheckResultList     = $null
     InitialSessionState = $null
 }
 
 $script:GlobalCache = @{
-    ServiceList = $null
-    DriverList = $null
-    ScheduledTaskList = $null
-    RegisteredComList = $null
-    CurrentUserSids = $null
-    CurrentUserDenySids = $null
+    CurrentUserSids          = $null
+    CurrentUserDenySids      = $null
+    DriverList               = $null
+    InstalledApplicationList = $null
+    RegisteredComList        = $null
+    ServiceList              = $null
+    ScheduledTaskList        = $null
+
 }
 
 $script:GlobalConstant = @{
-    KeywordsOfInterest = @( "key", "passw", "secret", "pwd", "creds", "credential", "api" )
-    CommonApplicationExtensions = @( "bat", "cmd", "exe", "dll", "msi", "ps1", "reg", "vbe", "vbs" )
-    ExploitablePrivileges = @( "SeAssignPrimaryTokenPrivilege", "SeImpersonatePrivilege", "SeCreateTokenPrivilege", "SeDebugPrivilege", "SeLoadDriverPrivilege", "SeRestorePrivilege", "SeTakeOwnershipPrivilege", "SeTcbPrivilege", "SeBackupPrivilege", "SeManageVolumePrivilege", "SeRelabelPrivilege" )
+    KeywordsOfInterest                        = @( "key", "passw", "secret", "pwd", "creds", "credential", "api" )
+    CommonApplicationExtensions               = @( "bat", "cmd", "exe", "dll", "msi", "ps1", "reg", "vbe", "vbs" )
+    ExploitablePrivileges                     = @( "SeAssignPrimaryTokenPrivilege", "SeImpersonatePrivilege", "SeCreateTokenPrivilege", "SeDebugPrivilege", "SeLoadDriverPrivilege", "SeRestorePrivilege", "SeTakeOwnershipPrivilege", "SeTcbPrivilege", "SeBackupPrivilege", "SeManageVolumePrivilege", "SeRelabelPrivilege" )
     DangerousDefaultFileExtensionAssociations = @"
 ".application","C:\Windows\System32\dfshim.dll"
 ".appref-ms","C:\Windows\System32\dfshim.dll"
@@ -52,9 +54,9 @@ $script:GlobalConstant = @{
 ".WSF","C:\Windows\System32\WScript.exe"
 ".WSH","C:\Windows\System32\WScript.exe"
 "@
-    VulnerableDrivers = @"
+    VulnerableDrivers                         = @"
 VULNERABLE_DRIVERS
 "@
-    CheckCsvBlob = "CHECK_CSV_BLOB"
-    EndpointProtectionSignatureBlob = "ENDPOINT_PROTECTION_SIGNATURE_CSV_BLOB"
+    CheckCsvBlob                              = "CHECK_CSV_BLOB"
+    EndpointProtectionSignatureBlob           = "ENDPOINT_PROTECTION_SIGNATURE_CSV_BLOB"
 }
