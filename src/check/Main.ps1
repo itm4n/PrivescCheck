@@ -73,9 +73,7 @@ function Invoke-PrivescCheck {
         }
 
         # Reset global cache.
-        foreach ($CacheEntryName in $($script:GlobalCache.Keys)) {
-            $script:GlobalCache.$CacheEntryName = $null
-        }
+        Clear-CachedData
 
         # Once the cache is fully initialized, we can build an InitialSessionState
         # object that we can use in different runspaces.

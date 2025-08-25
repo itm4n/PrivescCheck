@@ -3,14 +3,15 @@ function Get-CurrentUserSid {
     [CmdletBinding()]
     param()
 
-    if ($null -eq $script:GlobalCache.CurrentUserSids) {
-        Write-Verbose "Initializing cache: CurrentUserSids"
+    if (-not (Test-CachedData -Name "CurrentUserSids")) {
+        $CurrentUserSids = @()
         $UserIdentity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
-        $script:GlobalCache.CurrentUserSids = $UserIdentity.Groups | Select-Object -ExpandProperty Value
-        $script:GlobalCache.CurrentUserSids += $UserIdentity.User.Value
+        $UserIdentity.Groups | Select-Object -ExpandProperty Value | ForEach-Object { $CurrentUserSids += $_ }
+        $CurrentUserSids += $UserIdentity.User.Value
+        Set-CachedData -Name "CurrentUserSids" -Data $CurrentUserSids
     }
 
-    $script:GlobalCache.CurrentUserSids
+    Get-CachedData -Name "CurrentUserSids"
 }
 
 function Get-CurrentUserDenySid {
@@ -18,15 +19,12 @@ function Get-CurrentUserDenySid {
     [CmdletBinding()]
     param()
 
-    if ($null -eq $script:GlobalCache.CurrentUserDenySids) {
-        Write-Verbose "Initializing cache: CurrentUserDenySids"
-        $script:GlobalCache.CurrentUserDenySids = [string[]](Get-TokenInformationGroup -InformationClass Groups | Where-Object { $_.Attributes.Equals("UseForDenyOnly") } | Select-Object -ExpandProperty SID)
-        if ($null -eq $script:GlobalCache.CurrentUserDenySids) {
-            $script:GlobalCache.CurrentUserDenySids = @()
-        }
+    if (-not (Test-CachedData -Name "CurrentUserDenySids")) {
+        $CurrentUserDenySids = [string[]](Get-TokenInformationGroup -InformationClass Groups | Where-Object { $_.Attributes.Equals("UseForDenyOnly") } | Select-Object -ExpandProperty SID)
+        Set-CachedData -Name "CurrentUserDenySids" -Data $CurrentUserDenySids
     }
 
-    $script:GlobalCache.CurrentUserDenySids
+    Get-CachedData -Name "CurrentUserDenySids"
 }
 
 function Get-InstalledApplication {
@@ -300,7 +298,7 @@ function Get-InstalledApplication {
             }
         }
 
-        $Applications | Sort-Object -Property "Name","DisplayName","Version"
+        $Applications | Sort-Object -Property "Name", "DisplayName", "Version"
     }
 }
 

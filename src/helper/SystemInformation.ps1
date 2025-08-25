@@ -171,11 +171,9 @@ function Get-ComClassFromRegistry {
     }
 
     process {
-        if ($null -eq $script:GlobalCache.RegisteredComList) {
+        if (-not (Test-CachedData -Name "RegisteredComList")) {
 
-            Write-Verbose "Initializing cache: RegisteredComList"
-
-            $script:GlobalCache.RegisteredComList = @()
+            $RegisteredComList = @()
 
             # First, enumerate all CLSID registry key entries with a 'valid' name, i.e. a name
             # that can be parsed as a GUID.
@@ -194,13 +192,13 @@ function Get-ComClassFromRegistry {
             $ComClassRegistryClsid |
             Invoke-CommandMultithread -InitialSessionState $(Get-InitialSessionState) -Command "Get-ComClassEntryFromRegistry" -InputParameter "Clsid" |
             ForEach-Object {
-                $script:GlobalCache.RegisteredComList += $_
-                $_
+                $RegisteredComList += $_
             }
+
+            Set-CachedData -Name "RegisteredComList" -Data $RegisteredComList
         }
-        else {
-            $script:GlobalCache.RegisteredComList
-        }
+
+        Get-CachedData -Name "RegisteredComList"
     }
 }
 
@@ -766,21 +764,24 @@ function Get-ServiceFromRegistry {
     }
 
     process {
-        if ($null -eq $script:GlobalCache.ServiceList) {
 
-            # If the cached service list hasn't been initialized yet, enumerate all services and populate the
-            # cache.
+        if (-not (Test-CachedData -Name "ServiceList")) {
 
-            Write-Verbose "Initializing cache: ServiceList"
+            $ServiceList = @()
 
             $ServicesRegPath = "HKLM\SYSTEM\CurrentControlSet\Services"
             $RegAllServices = Get-ChildItem -Path "Registry::$($ServicesRegPath)" -ErrorAction SilentlyContinue
 
-            $script:GlobalCache.ServiceList = @()
-            $RegAllServices | ForEach-Object { $script:GlobalCache.ServiceList += $(Get-ServiceFromRegistryHelper -Name $_.PSChildName) }
+            $RegAllServices | ForEach-Object {
+                $ServiceList += $(Get-ServiceFromRegistryHelper -Name $_.PSChildName)
+            }
+
+            Set-CachedData -Name "ServiceList" -Data $ServiceList
         }
 
-        foreach ($ServiceItem in $script:GlobalCache.ServiceList) {
+        $ServiceList = Get-CachedData -Name "ServiceList"
+
+        foreach ($ServiceItem in $ServiceList) {
 
             # FilterLevel = 0 - Add the service to the list and go to the next one
             if ($FilterLevel -eq 0) { $ServiceItem; continue }
@@ -828,14 +829,9 @@ function Get-KernelDriver {
     [CmdletBinding()]
     param()
 
-    if ($null -eq $script:GlobalCache.DriverList) {
+    if (-not (Test-CachedData -Name "DriverList")) {
 
-        $script:GlobalCache.DriverList = @()
-
-        # If the cached driver list hasn't been initialized yet, enumerate all drivers,
-        # resolve their paths and populate the cache.
-
-        Write-Verbose "Initializing cache: DriverList"
+        $DriverList = @()
 
         $Services = Get-ServiceFromRegistry -FilterLevel 1 | Where-Object { @('KernelDriver', 'FileSystemDriver', 'RecognizerDriver') -contains $_.Type }
 
@@ -846,11 +842,13 @@ function Get-KernelDriver {
 
             $Service | Add-Member -MemberType "NoteProperty" -Name "ImagePathResolved" -Value $ImagePath
 
-            $script:GlobalCache.DriverList += $Service
+            $DriverList += $Service
         }
+
+        Set-CachedData -Name "DriverList" -Data $DriverList
     }
 
-    $script:GlobalCache.DriverList | ForEach-Object { $_ }
+    Get-CachedData -Name "DriverList"
 }
 
 function Get-NetworkAdapter {
@@ -1260,10 +1258,10 @@ function Get-RegisteredScheduledTask {
     param ()
 
     process {
-        if ($null -eq $script:GlobalCache.ScheduledTaskList) {
 
-            Write-Verbose "Initializing cache: ScheduledTaskList"
-            $script:GlobalCache.ScheduledTaskList = @()
+        if (-not (Test-CachedData -Name "ScheduledTaskList")) {
+
+            $ScheduledTaskList = @()
 
             foreach ($ComTask in (Get-ComScheduledTask)) {
 
@@ -1328,11 +1326,13 @@ function Get-RegisteredScheduledTask {
                 $Result | Add-Member -MemberType "NoteProperty" -Name "ExecActions" -Value $ExecActions
                 $Result | Add-Member -MemberType "NoteProperty" -Name "ComHandlerActions" -Value $ComHandlerActions
                 $Result | Add-Member -MemberType "NoteProperty" -Name "SecurityInfo" -Value (Get-ScheduledTaskSecurityInfo -Task $ComTask)
-                $script:GlobalCache.ScheduledTaskList += $Result
+                $ScheduledTaskList += $Result
             }
+
+            Set-CachedData -Name "ScheduledTaskList" -Data $ScheduledTaskList
         }
 
-        $script:GlobalCache.ScheduledTaskList
+        Get-CachedData -Name "ScheduledTaskList"
     }
 }
 

@@ -19,6 +19,7 @@ function Invoke-Build {
 
         $BuildProfilePrivescCheck = $BuildProfileCore + @(
             ".\src\helper\AccessControl.ps1",
+            ".\src\helper\Cache.ps1",
             ".\src\helper\Environment.ps1",
             ".\src\helper\Msi.ps1",
             ".\src\helper\SystemConfiguration.ps1",

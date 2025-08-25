@@ -2,6 +2,10 @@
 
 ## 2025-08-25
 
+### Added
+
+- Add helpers for handling cached data rather than handling the cache manually in every helper where it's required.
+
 ### Modified
 
 - Rewrite installed application enumeration helper to collect more data, and especially the application version, where possible.
