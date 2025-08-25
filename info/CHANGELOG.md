@@ -6,6 +6,7 @@
 
 - Add helpers for handling cached data rather than handling the cache manually in every helper where it's required.
 - Add cache entry for installed applications.
+- Add a dedicated "data" folder for storing... data.
 
 ### Modified
 

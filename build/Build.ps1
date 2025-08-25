@@ -46,7 +46,7 @@ function Invoke-Build {
         $SanityCheck = $true
 
         $BuildProfiles = @{
-            "PrivescCheck" = $BuildProfilePrivescCheck
+            "PrivescCheck"  = $BuildProfilePrivescCheck
             "PointAndPrint" = $BuildProfilePointAndPrint
         }
 
@@ -117,7 +117,7 @@ function Invoke-Build {
                 else {
                     # Otherwise use the filename as the module name.
                     $ModuleFilenameSplit = $ModuleFilename.Split('.')
-                    $ModuleName = ($ModuleFilenameSplit[0..($ModuleFilenameSplit.Count-2)] -join '.') -replace '\.',''
+                    $ModuleName = ($ModuleFilenameSplit[0..($ModuleFilenameSplit.Count - 2)] -join '.') -replace '\.', ''
                 }
 
                 [string[]] $Modules += $ModuleName
@@ -130,7 +130,7 @@ function Invoke-Build {
                     if ($null -ne $LolDrivers) {
                         # Populate vulnerable driver list.
                         $LolDriversCsv = $LolDrivers | ConvertTo-Csv -Delimiter ";" | Out-String
-                        $ScriptBlock = $ScriptBlock -replace "VULNERABLE_DRIVERS",$LolDriversCsv
+                        $ScriptBlock = $ScriptBlock -replace "VULNERABLE_DRIVERS", $LolDriversCsv
                         Write-Message "Driver list written to '$($ModuleFilename)'."
                     }
                     else {
@@ -139,7 +139,7 @@ function Invoke-Build {
 
                     if ($null -ne $CheckCsvBlob) {
                         # Populate check list as an encoded blob.
-                        $ScriptBlock = $ScriptBlock -replace "CHECK_CSV_BLOB",$CheckCsvBlob
+                        $ScriptBlock = $ScriptBlock -replace "CHECK_CSV_BLOB", $CheckCsvBlob
                         Write-Message "Check list written to '$($ModuleFilename)'."
                     }
                     else {
@@ -148,7 +148,7 @@ function Invoke-Build {
 
                     if ($null -ne $EndpointProtectionSignatureCsvBlob) {
                         # Populate list of endpoint protection software signature list
-                        $ScriptBlock = $ScriptBlock -replace "ENDPOINT_PROTECTION_SIGNATURE_CSV_BLOB",$EndpointProtectionSignatureCsvBlob
+                        $ScriptBlock = $ScriptBlock -replace "ENDPOINT_PROTECTION_SIGNATURE_CSV_BLOB", $EndpointProtectionSignatureCsvBlob
                         Write-Message "Endpoint protection signature list written to '$($ModuleFilename)'."
                     }
                     else {
@@ -208,7 +208,7 @@ function Write-Message {
 
     [CmdletBinding()]
     param(
-        [Parameter(Position=0,Mandatory=$true)]
+        [Parameter(Position = 0, Mandatory = $true)]
         [String] $Message,
         [ValidateSet("Success", "Info", "Warning", "Error")]
         [String] $Type
@@ -239,11 +239,21 @@ function ConvertTo-EmbeddedTextBlob {
 }
 
 function Get-FileContentAsEmbeddedTextBlob {
+
     param ([String] $FileName)
 
-    $FilePath = Split-Path -Path $PSCommandPath -Parent
+    # The script path is 'C:\...\PrivescCheck\build\Build.ps1'
+    # Get the parent folder path: 'C:\...\PrivescCheck\build'
+    $RootFolderPath = Split-Path -Path $PSCommandPath -Parent
+    # Get the parent folder path: 'C:\...\PrivescCheck'
+    $RootFolderPath = Split-Path -Path $RootFolderPath -Parent
+    # Get the data folder path: 'C:\...\PrivescCheck\data'
+    $FilePath = Join-Path -Path $RootFolderPath -ChildPath "data"
+    # Get the data file path: 'C:\...\PrivescCheck\data\$FileName'
     $FilePath = Join-Path -Path $FilePath -ChildPath $FileName
+    # Read the file content as an ASCII string
     $FileContent = Get-Content -Path $FilePath -Encoding Ascii | Out-String
+    # Convert the content so that it can be embedded in the final script
     ConvertTo-EmbeddedTextBlob -Text $FileContent
 }
 
@@ -252,7 +262,7 @@ function Get-AssetFileContent {
     [CmdletBinding()]
     param(
         [OutputType([String])]
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [ValidateSet("WordList", "KnownVulnerableDriverList")]
         [string] $Name
     )
@@ -403,7 +413,7 @@ Remove-Variable -Name "Modules"
     process {
         $ModuleList = ($Modules | ForEach-Object { "`$$($_)" }) -join ','
         $ModuleStrList = ($Modules | ForEach-Object { "`"$($_)`"" }) -join ','
-        ($LoaderBlock -replace "MODULE_LIST",$ModuleList) -replace "MODULE_STR_LIST",$ModuleStrList
+        ($LoaderBlock -replace "MODULE_LIST", $ModuleList) -replace "MODULE_STR_LIST", $ModuleStrList
     }
 }
 
