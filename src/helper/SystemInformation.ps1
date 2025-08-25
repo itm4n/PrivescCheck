@@ -59,8 +59,7 @@ function Get-ComClassEntryFromRegistry {
                 }
 
                 # At this stage, there is probably still a few COM classes we don't know what
-                # to do with. Just print a warning a message and continue.
-                Write-Warning "Unhandled COM class with CLSID '$($ClassId)' with properties: $(($ClassSubProperties | Select-Object -ExpandProperty "PSChildName") -join ",")"
+                # to do with. Ignore them.
                 continue
             }
         }
@@ -180,13 +179,14 @@ function Get-ComClassFromRegistry {
 
             # First, enumerate all CLSID registry key entries with a 'valid' name, i.e. a name
             # that can be parsed as a GUID.
-            $ComClassRegistryClsid = Get-ChildItem -Path "Registry::$($RootKey)" | ForEach-Object {
-                $RegKey = $_
+            $ComClassRegistryClsid = @()
+            $ClsidKeys = Get-ChildItem -Path "Registry::$($RootKey)" | Select-Object -ExpandProperty PSChildName
+            foreach ($ClsidKey in $ClsidKeys) {
                 try {
-                    [Guid] $RegKey.PSChildName
+                    $ComClassRegistryClsid += [Guid] $ClsidKey
                 }
                 catch {
-                    Write-Warning "Found a CLSID registry key with an invalid name: $($RegKey.Name)"
+                    continue
                 }
             }
 

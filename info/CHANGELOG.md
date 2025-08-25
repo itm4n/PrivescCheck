@@ -8,6 +8,10 @@
 - Split the installed application check into two separate checks, one for Microsoft products, and the other for third-party apps.
 - Improve check naming, and sort output based on category and then name.
 
+### Removed
+
+- Remove useless warning messages printed when enumerating COM objects from the registry.
+
 ## 2025-08-19
 
 ### Added
