@@ -6,7 +6,7 @@ function Invoke-Build {
         [ValidateSet("PrivescCheck", "PointAndPrint")]
         [String] $Name,
 
-        [Switch] $NewSeed
+        [Switch] $NoNewSeed
     )
 
     begin {
@@ -33,12 +33,7 @@ function Invoke-Build {
             $SanityCheck = $false
         }
 
-        if ($NewSeed) {
-            $Seed = Get-RandomInt
-            Write-Message -Message "Generated seed: $($Seed)"
-            Set-FileContent -Type "build" -FileName "Seed.txt" -Content "$($Seed)"
-        }
-        else {
+        if ($NoNewSeed) {
             $Seed = Get-FileContent -Type "build" -FileName "Seed.txt" -ErrorAction SilentlyContinue | Out-String
             if ([String]::IsNullOrEmpty($Seed)) {
                 Write-Message -Type Error -Message "Failed to read seed from file."
@@ -48,6 +43,11 @@ function Invoke-Build {
                 $Seed = [Int32]::Parse($Seed)
                 Write-Message -Message "Using seed: $($Seed)"
             }
+        }
+        else {
+            $Seed = Get-RandomInt
+            Write-Message -Message "Generated seed: $($Seed)"
+            Set-FileContent -Type "build" -FileName "Seed.txt" -Content "$($Seed)"
         }
 
         # https://learn.microsoft.com/en-us/dotnet/api/system.platformid
@@ -216,6 +216,7 @@ function Get-RandomInt {
     [CmdletBinding()]
     param (
         [Int32] $Seed,
+        [Int32] $Min,
         [Int32] $Max
     )
 
@@ -226,12 +227,15 @@ function Get-RandomInt {
         $Rand = New-Object -TypeName "System.Random"
     }
 
+    if ($PSBoundParameters['Min'] -and $PSBoundParameters['Max']) {
+        return $Rand.Next($Min, $Max)
+    }
+
     if ($PSBoundParameters['Max']) {
-        $Rand.Next($Max)
+        return $Rand.Next($Max)
     }
-    else {
-        $Rand.Next()
-    }
+
+    return $Rand.Next()
 }
 
 function Get-FilePath {
