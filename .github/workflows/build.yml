@@ -50,4 +50,5 @@ jobs:
         env:
           TAG_NAME: ${{ steps.get_release_tag.outputs.release_tag }}
         run: |
-          gh release "${TAG_NAME}" ./release/*.ps1
+          echo "Using release tag: ${TAG_NAME}"
+          gh release create "${TAG_NAME}" ./release/*.ps1
