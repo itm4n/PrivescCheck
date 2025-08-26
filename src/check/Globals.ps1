@@ -17,12 +17,8 @@ $script:GlobalConstant = @{
     KeywordsOfInterest                        = @( "key", "passw", "secret", "pwd", "creds", "credential", "api" )
     CommonApplicationExtensions               = @( "bat", "cmd", "exe", "dll", "msi", "ps1", "reg", "vbe", "vbs" )
     ExploitablePrivileges                     = @( "SeAssignPrimaryTokenPrivilege", "SeImpersonatePrivilege", "SeCreateTokenPrivilege", "SeDebugPrivilege", "SeLoadDriverPrivilege", "SeRestorePrivilege", "SeTakeOwnershipPrivilege", "SeTcbPrivilege", "SeBackupPrivilege", "SeManageVolumePrivilege", "SeRelabelPrivilege" )
-    DangerousDefaultFileExtensionAssociations = @"
-{{CSV_RAW_FILE_EXTENSION_ASSOCIATIONS}}
-"@
-    VulnerableDrivers                         = @"
-{{CSV_RAW_VULNERABLE_DRIVERS}}
-"@
-    CheckCsvBlob                              = "{{CSV_BLOB_CHECKS}}"
-    EndpointProtectionSignatureBlob           = "{{CSV_BLOB_ENDPOINT_PROTECTION_SIGNATURES}}"
+    DangerousDefaultFileExtensionAssociations = "{{FILE_EXTENSION_ASSOCIATIONS}}"
+    VulnerableDrivers                         = "{{VULNERABLE_DRIVERS}}"
+    Checks                                    = "{{CHECKS}}"
+    EndpointProtectionSignature               = "{{ENDPOINT_PROTECTION_SIGNATURES}}"
 }

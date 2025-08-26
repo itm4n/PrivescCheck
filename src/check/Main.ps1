@@ -89,7 +89,7 @@ function Invoke-PrivescCheck {
 
     process {
 
-        ConvertFrom-EmbeddedTextBlob -TextBlob $script:GlobalConstant.CheckCsvBlob | ConvertFrom-Csv | ForEach-Object {
+        ConvertFrom-EmbeddedTextBlob -TextBlob $script:GlobalConstant.Checks | ConvertFrom-Csv | ForEach-Object {
             [void] $AllChecks.Add($_)
         }
 

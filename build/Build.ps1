@@ -2,80 +2,33 @@ function Invoke-Build {
 
     [CmdletBinding()]
     param(
-        [string] $Name,
-        [switch] $NoRandomNames
+        [Parameter(Mandatory = $true)]
+        [ValidateSet("PrivescCheck", "PointAndPrint")]
+        [String] $Name
     )
 
     begin {
-        $BuildProfileCore = @(
-            ".\src\core\Compression.ps1",
-            ".\src\core\Multithreading.ps1",
-            ".\src\core\Reflection.ps1",
-            ".\src\core\WinApi.Enum.ps1",
-            ".\src\core\WinApi.Struct.ps1",
-            ".\src\core\WinApi.Wrappers.ps1",
-            ".\src\core\WinApi.ps1"
-        )
-
-        $BuildProfilePrivescCheck = $BuildProfileCore + @(
-            ".\src\helper\AccessControl.ps1",
-            ".\src\helper\Cache.ps1",
-            ".\src\helper\Environment.ps1",
-            ".\src\helper\Msi.ps1",
-            ".\src\helper\SystemConfiguration.ps1",
-            ".\src\helper\SystemInformation.ps1",
-            ".\src\helper\Utility.ps1",
-            ".\src\check\Globals.ps1",
-            ".\src\check\Main.ps1",
-            ".\src\check\User.ps1",
-            ".\src\check\Services.ps1",
-            ".\src\check\Applications.ps1",
-            ".\src\check\ScheduledTasks.ps1",
-            ".\src\check\Hardening.ps1",
-            ".\src\check\Configuration.ps1",
-            ".\src\check\Network.ps1",
-            ".\src\check\Updates.ps1",
-            ".\src\check\Credentials.ps1",
-            ".\src\check\Misc.ps1"
-        )
-
-        $BuildProfilePointAndPrint = $BuildProfileCore + @(
-            ".\src\exploit\PointAndPrint.ps1"
-        )
 
         $SanityCheck = $true
-
-        $BuildProfiles = @{
-            "PrivescCheck"  = $BuildProfilePrivescCheck
-            "PointAndPrint" = $BuildProfilePointAndPrint
-        }
-
-        if ($Name -and (-not ($BuildProfiles.Keys -contains $Name))) {
-            Write-Message -Type Error "Build profile '$($Name)' not found."
-            $SanityCheck = $false
-        }
 
         if (-not (Test-Path -Path "build")) {
             Write-Message -Type Error "Build folder not found."
             $SanityCheck = $false
         }
 
-        if ($SanityCheck) {
-            $ScriptHeader = "#Requires -Version 2`r`n`r`n"
-            $RootPath = Split-Path -Path (Split-Path -Path $PSCommandPath -Parent) -Parent
-            if ($NoRandomNames) {
-                Write-Message -Type Warning "Random name disabled."
-            }
-            else {
-                $WordList = Get-DataFileContent -FileName "WordList.txt" | Where-Object { -not [String]::IsNullOrEmpty($_) }
-            }
+        $BuildProfilesJson = Get-FileContent -Type "build" -FileName "BuildProfiles.json" | Out-String | ConvertFrom-Json
+        if ($null -eq $BuildProfilesJson) {
+            Write-Message -Type Error "Failed to read build profile file."
+            $SanityCheck = $false
+        }
 
-            # $LolDrivers = Get-LolDriverList
-            $LolDrivers = Get-DataFileContent -FileName "VulnerableDrivers.csv" | Out-String
-            $FileExtensionAssociations = Get-DataFileContent -FileName "FileExtensionAssociations.csv" | Out-String
+        $ScriptHeader = "#Requires -Version 2`r`n`r`n"
+        $RootPath = Split-Path -Path (Split-Path -Path $PSCommandPath -Parent) -Parent
 
-            $CheckCsvBlob = ConvertTo-EmbeddedTextBlob -Text $(Get-DataFileContent -FileName "Checks.csv" | Out-String)
-            $EndpointProtectionSignatureCsvBlob = ConvertTo-EmbeddedTextBlob -Text $(Get-DataFileContent -FileName "EndpointProtectionSignatures.csv" | Out-String)
+        $WordList = Get-FileContent -Type "data" -FileName "WordList.txt" | Where-Object { -not [String]::IsNullOrEmpty($_) }
+        if ($null -eq $WordList) {
+            Write-Message -Type Error "Failed to retrieve word list."
+            $SanityCheck = $false
         }
     }
 
@@ -83,93 +36,73 @@ function Invoke-Build {
 
         if (-not $SanityCheck) { return }
 
-        foreach ($BuildProfileName in $BuildProfiles.Keys) {
+        $BuildProfileObject = $BuildProfilesJson.Profiles | Where-Object { $_.Name -eq $Name }
+        if ($null -eq $BuildProfileObject) {
+            Write-Message -Type Error -Message "No build profile found for name: $($Name)"
+            return
+        }
 
-            if ($Name -and ($BuildProfileName -ne $Name)) { continue }
+        $ScriptFilename = "$($BuildProfileObject.Name).ps1"
+        $ScriptPath = Join-Path -Path $RootPath -ChildPath "release\$($ScriptFilename)"
+        $ScriptContent = "$($ScriptHeader)"
+        $ErrorCount = 0
+        $Modules = @()
 
-            $BuildProfile = $BuildProfiles[$BuildProfileName]
-            $ScriptFilename = "$($BuildProfileName).ps1"
-            $ScriptPath = Join-Path -Path $RootPath -ChildPath "release\$($ScriptFilename)"
-            $ScriptContent = "$($ScriptHeader)"
-            $ErrorCount = 0
-            $Modules = @()
+        Write-Message "Building script '$($ScriptFilename)'..."
 
-            Write-Message "Building script '$($ScriptFilename)'..."
+        foreach ($IncludeId in $BuildProfileObject.Includes) {
 
-            foreach ($ModuleRelativePath in $BuildProfile) {
+            $IncludeObject = $BuildProfilesJson.Includes | Where-Object { $_.Id -eq $IncludeId }
+            if ($null -eq $IncludeObject) {
+                Write-Message -Type Error -Message "No include found for ID: $($IncludeId)"
+                return
+            }
 
-                $ModulePath = Join-Path -Path $RootPath -ChildPath $ModuleRelativePath
+            foreach ($FileId in $IncludeObject.Files) {
+
+                $FileObject = $BuildProfilesJson.Files | Where-Object { $_.Id -eq $FileId }
+                if ($null -eq $FileObject) {
+                    Write-Message -Type Error -Message "No file found for ID: $($FileId)"
+                    return
+                }
+
+                $ModulePath = Join-Path -Path $RootPath -ChildPath $FileObject.Path
                 $ModuleItem = Get-Item -Path $ModulePath -ErrorAction SilentlyContinue
-
                 if ($null -eq $ModuleItem) {
                     Write-Message -Type Error "Failed to open file '$($ModulePath)'."
-                    $ErrorCount += 1
-                    break
+                    return
                 }
 
                 $ModuleFilename = $ModuleItem.Name
 
-                if ($null -ne $WordList) {
-                    # Pick a random name from the word list.
-                    $RandomName = Get-Random -InputObject $WordList -Count 1
-                    $WordList = $WordList | Where-Object { $_ -ne $RandomName }
-                    $ModuleName = $RandomName.ToLower()
-                    $ModuleName = ([regex] $ModuleName[0].ToString()).Replace($ModuleName, $ModuleName[0].ToString().ToUpper(), 1)
-                }
-                else {
-                    # Otherwise use the filename as the module name.
-                    $ModuleFilenameSplit = $ModuleFilename.Split('.')
-                    $ModuleName = ($ModuleFilenameSplit[0..($ModuleFilenameSplit.Count - 2)] -join '.') -replace '\.', ''
-                }
+                # TODO: Create a helper function for that
+                # Pick a random name for the current module
+                $RandomName = Get-Random -InputObject $WordList -Count 1
+                $WordList = $WordList | Where-Object { $_ -ne $RandomName }
+                $ModuleName = $RandomName.ToLower()
+                $ModuleName = ([regex] $ModuleName[0].ToString()).Replace($ModuleName, $ModuleName[0].ToString().ToUpper(), 1)
 
-                [string[]] $Modules += $ModuleName
+                $Modules += $ModuleName
 
                 $ScriptBlock = Get-Content -Path $ModulePath | Out-String
-                $CompressScriptBlock = $true
 
-                if ($ModuleFilename -like "Globals*") {
+                foreach ($MatchAndReplace in $FileObject.MatchAndReplace) {
 
-                    if ($null -ne $LolDrivers) {
-                        # Populate vulnerable driver list.
-                        # $LolDriversCsv = $LolDrivers | ConvertTo-Csv -Delimiter ";" | Out-String
-                        # $ScriptBlock = $ScriptBlock -replace "VULNERABLE_DRIVERS", $LolDriversCsv
-                        $ScriptBlock = $ScriptBlock -replace "{{CSV_RAW_VULNERABLE_DRIVERS}}", $LolDrivers
-                        Write-Message "Driver list written to '$($ModuleFilename)'."
-                    }
-                    else {
-                        Write-Message -Type Warning "Known vulnerable driver CSV is null."
+                    $DataToReplace = Get-FileContent -Type "data" -FileName $MatchAndReplace.DataFile | Out-String
+                    if ($null -eq $DataToReplace) {
+                        Write-Message -Type Error "Failed to retrieve data file content: $($MatchAndReplace.DataFile)"
+                        return
                     }
 
-                    if ($null -ne $FileExtensionAssociations) {
-                        $ScriptBlock = $ScriptBlock -replace "{{CSV_RAW_FILE_EXTENSION_ASSOCIATIONS}}", $FileExtensionAssociations
-                        Write-Message "File extension association CSV to '$($ModuleFilename)'."
-                    }
-                    else {
-                        Write-Message -Type Error "File extension association CSV is null."
+                    $DataToReplace = ConvertTo-EmbeddedTextBlob -Text $DataToReplace
+                    if ($null -eq $DataToReplace) {
+                        Write-Message -Type Error "Failed to encode data file content: $($MatchAndReplace.DataFile)"
+                        return
                     }
 
-                    if ($null -ne $CheckCsvBlob) {
-                        # Populate check list as an encoded blob.
-                        $ScriptBlock = $ScriptBlock -replace "{{CSV_BLOB_CHECKS}}", $CheckCsvBlob
-                        Write-Message "Check list written to '$($ModuleFilename)'."
-                    }
-                    else {
-                        Write-Message -Type Warning "Check CSV text blob is null."
-                    }
+                    $ScriptBlock = $ScriptBlock -replace "{{$($MatchAndReplace.Tag)}}", $DataToReplace
 
-                    if ($null -ne $EndpointProtectionSignatureCsvBlob) {
-                        # Populate list of endpoint protection software signature list
-                        $ScriptBlock = $ScriptBlock -replace "{{CSV_BLOB_ENDPOINT_PROTECTION_SIGNATURES}}", $EndpointProtectionSignatureCsvBlob
-                        Write-Message "Endpoint protection signature list written to '$($ModuleFilename)'."
-                    }
-                    else {
-                        Write-Message -Type Warning "Endpoint protection signature CSV text blob is null."
-                    }
-                }
-
-                if ($ModuleFilename -like "Compression*") {
-
-                    $CompressScriptBlock = $false
+                    Write-Message "Embedded data file '$($MatchAndReplace.DataFile)' into '$($ModuleFilename)'"
                 }
 
                 # Is the script block detected by AMSI after stripping the comments?
@@ -187,7 +120,7 @@ function Invoke-Build {
 
                 Write-Message "File '$($ModuleFilename)' (name: '$($ModuleName)') was loaded successfully."
 
-                if ($CompressScriptBlock) {
+                if ($FileObject.Compression -eq $true) {
                     $ScriptEncoded = ConvertTo-Gzip -InputText $ScriptBlock
                 }
                 else {
@@ -197,19 +130,21 @@ function Invoke-Build {
                 $ScriptEncoded = [System.Convert]::ToBase64String($ScriptEncoded)
                 $ScriptContent += "`$$($ModuleName) = `"$($ScriptEncoded)`"`r`n"
             }
+        }
 
-            if ($ErrorCount -eq 0) {
-                Write-Message -Type Success "Build successful, writing result to file '$($ScriptPath)'..."
-                $ScriptContent += "`r`n$(Get-ScriptLoader -Modules $Modules)"
+        if ($ErrorCount -eq 0) {
+
+            Write-Message -Type Success "Build successful, writing result to file '$($ScriptPath)'..."
+            $ScriptContent += "`r`n$(Get-ScriptLoader -Modules $Modules)"
+            $ScriptContent | Out-File -FilePath $ScriptPath -Encoding ascii
+
+            if ($BuildProfileName -eq "PrivescCheck") {
+
+                # If the output script is PrivescCheck.ps1, copy the result at the root of the
+                # project as well.
+                $ScriptPath = Join-Path -Path $RootPath -ChildPath "$($ScriptFilename)"
+                Write-Message -Type Info "Copying result to file '$($ScriptPath)'..."
                 $ScriptContent | Out-File -FilePath $ScriptPath -Encoding ascii
-
-                if ($BuildProfileName -eq "PrivescCheck") {
-                    # If the output script is PrivescCheck.ps1, copy the result at the root of the
-                    # project as well.
-                    $ScriptPath = Join-Path -Path $RootPath -ChildPath "$($ScriptFilename)"
-                    Write-Message -Type Info "Copying result to file '$($ScriptPath)'..."
-                    $ScriptContent | Out-File -FilePath $ScriptPath -Encoding ascii
-                }
             }
         }
     }
@@ -243,11 +178,16 @@ function Write-Message {
     Write-Host "$Message"
 }
 
-function Get-DataFilePath {
+function Get-FilePath {
 
     [OutputType([String])]
     [CmdletBinding()]
     param (
+        [Parameter(Mandatory = $true)]
+        [ValidateSet("build", "data")]
+        [String] $Type,
+
+        [Parameter(Mandatory = $true)]
         [String] $FileName
     )
 
@@ -260,7 +200,7 @@ function Get-DataFilePath {
     $RootFolderPath = Split-Path -Path $RootFolderPath -Parent
 
     # Get the data folder path: 'C:\...\PrivescCheck\data'
-    $FilePath = Join-Path -Path $RootFolderPath -ChildPath "data"
+    $FilePath = Join-Path -Path $RootFolderPath -ChildPath $Type
 
     # Get the data file path: 'C:\...\PrivescCheck\data\$FileName'
     $FilePath = Join-Path -Path $FilePath -ChildPath $FileName
@@ -268,26 +208,36 @@ function Get-DataFilePath {
     return $FilePath
 }
 
-function Get-DataFileContent {
+function Get-FileContent {
 
     [CmdletBinding()]
     param (
+        [Parameter(Mandatory = $true)]
+        [String] $Type,
+
+        [Parameter(Mandatory = $true)]
         [String] $FileName
     )
 
-    $FilePath = Get-DataFilePath -FileName $FileName
+    $FilePath = Get-FilePath -Type $Type -FileName $FileName
     Get-Content -Path $FilePath -Encoding Ascii
 }
 
-function Set-DataFileContent {
+function Set-FileContent {
 
     [CmdletBinding()]
     param (
+        [Parameter(Mandatory = $true)]
+        [String] $Type,
+
+        [Parameter(Mandatory = $true)]
         [String] $FileName,
+
+        [Parameter(Mandatory = $true)]
         [String] $Content
     )
 
-    $FilePath = Get-DataFilePath -FileName $FileName
+    $FilePath = Get-FilePath -Type $Type -FileName $FileName
     $Content | Set-Content -Path $FilePath -Encoding Ascii
 }
 
@@ -298,7 +248,7 @@ function Update-LolDriverList {
 
     $NeedToUpdateFile = $false
     $VulnerableDriversFileName = "VulnerableDrivers.csv"
-    $VulnerableDriversPath = Get-DataFilePath -FileName $VulnerableDriversFileName -ErrorAction SilentlyContinue
+    $VulnerableDriversPath = Get-FilePath -Type "data" -FileName $VulnerableDriversFileName -ErrorAction SilentlyContinue
 
     $VulnerableDriversFile = Get-Item -Path $VulnerableDriversPath -ErrorAction SilentlyContinue
     if ($null -eq $VulnerableDriversFile) {
@@ -361,7 +311,7 @@ function Update-LolDriverList {
 
     $LolDriversCsv = $LolDrivers | ConvertTo-Csv -Delimiter "," -NoTypeInformation | Out-String
 
-    Set-DataFileContent -FileName $VulnerableDriversFileName -Content $LolDriversCsv
+    Set-FileContent -Type "data" -FileName $VulnerableDriversFileName -Content $LolDriversCsv
 
     Write-Message -Message "Updated file: $($VulnerableDriversFileName)" -Type Success
 }
@@ -383,7 +333,7 @@ function Update-WordList {
     $WordList = $WordList -split "`n" | ForEach-Object { $_.Trim() }
     $WordList = $WordList | Where-Object { (-not [string]::IsNullOrEmpty($_)) -and ($_.Length -eq $WordLength) -and ($_.ToLower() -match "^[a-z]+$") }
 
-    Set-DataFileContent -FileName "WordList.txt" -Content ($WordList | Out-String)
+    Set-FileContent -Type "data" -FileName "WordList.txt" -Content ($WordList | Out-String)
 }
 
 function Get-ScriptLoader {
@@ -395,7 +345,7 @@ function Get-ScriptLoader {
 
     begin {
         $LoaderBlock = @"
-`$Modules = @(MODULE_LIST)
+`$Modules = @({{MODULE_LIST}})
 `$Modules | ForEach-Object {
     `$Decoded = [System.Convert]::FromBase64String(`$_)
     if (`$_ -like "H4s*") {
@@ -410,14 +360,14 @@ function Get-ScriptLoader {
     Remove-Variable -Name "ScriptBlock"
 }
 Remove-Variable -Name "Modules"
-@(MODULE_STR_LIST) | ForEach-Object { Remove-Variable -Name `$_ }
+@({{MODULE_STR_LIST}}) | ForEach-Object { Remove-Variable -Name `$_ }
 "@
     }
 
     process {
         $ModuleList = ($Modules | ForEach-Object { "`$$($_)" }) -join ','
         $ModuleStrList = ($Modules | ForEach-Object { "`"$($_)`"" }) -join ','
-        ($LoaderBlock -replace "MODULE_LIST", $ModuleList) -replace "MODULE_STR_LIST", $ModuleStrList
+        ($LoaderBlock -replace "{{MODULE_LIST}}", $ModuleList) -replace "{{MODULE_STR_LIST}}", $ModuleStrList
     }
 }
 

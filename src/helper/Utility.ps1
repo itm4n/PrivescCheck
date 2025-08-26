@@ -786,7 +786,7 @@ function Get-KnownVulnerableKernelDriverList {
     [CmdletBinding()]
     param ()
 
-    $VulnerableDriverList = $script:GlobalConstant.VulnerableDrivers | ConvertFrom-Csv
+    $VulnerableDriverList = ConvertFrom-EmbeddedTextBlob -TextBlob $script:GlobalConstant.VulnerableDrivers | ConvertFrom-Csv
     if ($null -eq $VulnerableDriverList) { Write-Warning "Failed to get list of vulnerable drivers."; return }
 
     $VulnerableDriverList | ForEach-Object {

@@ -1,0 +1,250 @@
+{
+    "Files": [
+        {
+            "Id": "CORE_COMPRESSION",
+            "Path": ".\\src\\core\\Compression.ps1",
+            "Compression": false,
+            "MatchAndReplace": null
+        },
+        {
+            "Id": "CORE_MULTITHREADING",
+            "Path": ".\\src\\core\\Multithreading.ps1",
+            "Compression": true,
+            "MatchAndReplace": null
+        },
+        {
+            "Id": "CORE_REFLECTION",
+            "Path": ".\\src\\core\\Reflection.ps1",
+            "Compression": true,
+            "MatchAndReplace": null
+        },
+        {
+            "Id": "CORE_WINAPI_ENUM",
+            "Path": ".\\src\\core\\WinApi.Enum.ps1",
+            "Compression": true,
+            "MatchAndReplace": null
+        },
+        {
+            "Id": "CORE_WINAPI_STRUCT",
+            "Path": ".\\src\\core\\WinApi.Struct.ps1",
+            "Compression": true,
+            "MatchAndReplace": null
+        },
+        {
+            "Id": "CORE_WINAPI_WRAPPERS",
+            "Path": ".\\src\\core\\WinApi.Wrappers.ps1",
+            "Compression": true,
+            "MatchAndReplace": null
+        },
+        {
+            "Id": "CORE_WINAPI",
+            "Path": ".\\src\\core\\WinApi.ps1",
+            "Compression": true,
+            "MatchAndReplace": null
+        },
+        {
+            "Id": "HELPER_ACCESS_CONTROL",
+            "Path": ".\\src\\helper\\AccessControl.ps1",
+            "Compression": true,
+            "MatchAndReplace": null
+        },
+        {
+            "Id": "HELPER_CACHE",
+            "Path": ".\\src\\helper\\Cache.ps1",
+            "Compression": true,
+            "MatchAndReplace": null
+        },
+        {
+            "Id": "HELPER_ENVIRONMENT",
+            "Path": ".\\src\\helper\\Environment.ps1",
+            "Compression": true,
+            "MatchAndReplace": null
+        },
+        {
+            "Id": "HELPER_MSI",
+            "Path": ".\\src\\helper\\Msi.ps1",
+            "Compression": true,
+            "MatchAndReplace": null
+        },
+        {
+            "Id": "HELPER_SYSTEM_CONFIGURATION",
+            "Path": ".\\src\\helper\\SystemConfiguration.ps1",
+            "Compression": true,
+            "MatchAndReplace": null
+        },
+        {
+            "Id": "HELPER_SYSTEM_INFORMATION",
+            "Path": ".\\src\\helper\\SystemInformation.ps1",
+            "Compression": true,
+            "MatchAndReplace": null
+        },
+        {
+            "Id": "HELPER_UTILITY",
+            "Path": ".\\src\\helper\\Utility.ps1",
+            "Compression": true,
+            "MatchAndReplace": null
+        },
+        {
+            "Id": "CHECK_APPLICATIONS",
+            "Path": ".\\src\\check\\Applications.ps1",
+            "Compression": true,
+            "MatchAndReplace": null
+        },
+        {
+            "Id": "CHECK_CONFIGURATION",
+            "Path": ".\\src\\check\\Configuration.ps1",
+            "Compression": true,
+            "MatchAndReplace": null
+        },
+        {
+            "Id": "CHECK_CREDENTIALS",
+            "Path": ".\\src\\check\\Credentials.ps1",
+            "Compression": true,
+            "MatchAndReplace": null
+        },
+        {
+            "Id": "CHECK_GLOBALS",
+            "Path": ".\\src\\check\\Globals.ps1",
+            "Compression": true,
+            "MatchAndReplace": [
+                {
+                    "Tag": "VULNERABLE_DRIVERS",
+                    "DataFile": "VulnerableDrivers.csv"
+                },
+                {
+                    "Tag": "FILE_EXTENSION_ASSOCIATIONS",
+                    "DataFile": "FileExtensionAssociations.csv"
+                },
+                {
+                    "Tag": "CHECKS",
+                    "DataFile": "Checks.csv"
+                },
+                {
+                    "Tag": "ENDPOINT_PROTECTION_SIGNATURES",
+                    "DataFile": "EndpointProtectionSignatures.csv"
+                }
+            ]
+        },
+        {
+            "Id": "CHECK_HARDENING",
+            "Path": ".\\src\\check\\Hardening.ps1",
+            "Compression": true,
+            "MatchAndReplace": null
+        },
+        {
+            "Id": "CHECK_MAIN",
+            "Path": ".\\src\\check\\Main.ps1",
+            "Compression": true,
+            "MatchAndReplace": null
+        },
+        {
+            "Id": "CHECK_MISC",
+            "Path": ".\\src\\check\\Misc.ps1",
+            "Compression": true,
+            "MatchAndReplace": null
+        },
+        {
+            "Id": "CHECK_NETWORK",
+            "Path": ".\\src\\check\\Network.ps1",
+            "Compression": true,
+            "MatchAndReplace": null
+        },
+        {
+            "Id": "CHECK_SCHEDULED_TASKS",
+            "Path": ".\\src\\check\\ScheduledTasks.ps1",
+            "Compression": true,
+            "MatchAndReplace": null
+        },
+        {
+            "Id": "CHECK_SERVICES",
+            "Path": ".\\src\\check\\Services.ps1",
+            "Compression": true,
+            "MatchAndReplace": null
+        },
+        {
+            "Id": "CHECK_UPDATES",
+            "Path": ".\\src\\check\\Updates.ps1",
+            "Compression": true,
+            "MatchAndReplace": null
+        },
+        {
+            "Id": "CHECK_USER",
+            "Path": ".\\src\\check\\User.ps1",
+            "Compression": true,
+            "MatchAndReplace": null
+        },
+        {
+            "Id": "EXPLOIT_POINT_AND_PRINT",
+            "Path": ".\\src\\exploit\\PointAndPrint.ps1",
+            "Compression": true,
+            "MatchAndReplace": null
+        }
+    ],
+    "Includes": [
+        {
+            "Id": "CORE",
+            "Files": [
+                "CORE_COMPRESSION",
+                "CORE_MULTITHREADING",
+                "CORE_REFLECTION",
+                "CORE_WINAPI_ENUM",
+                "CORE_WINAPI_STRUCT",
+                "CORE_WINAPI_WRAPPERS",
+                "CORE_WINAPI"
+            ]
+        },
+        {
+            "Id": "HELPERS",
+            "Files": [
+                "HELPER_ACCESS_CONTROL",
+                "HELPER_CACHE",
+                "HELPER_ENVIRONMENT",
+                "HELPER_MSI",
+                "HELPER_SYSTEM_CONFIGURATION",
+                "HELPER_SYSTEM_INFORMATION",
+                "HELPER_UTILITY"
+            ]
+        },
+        {
+            "Id": "CHECKS",
+            "Files": [
+                "CHECK_GLOBALS",
+                "CHECK_MAIN",
+                "CHECK_USER",
+                "CHECK_SERVICES",
+                "CHECK_APPLICATIONS",
+                "CHECK_SCHEDULED_TASKS",
+                "CHECK_HARDENING",
+                "CHECK_CONFIGURATION",
+                "CHECK_NETWORK",
+                "CHECK_UPDATES",
+                "CHECK_CREDENTIALS",
+                "CHECK_MISC"
+            ]
+        },
+        {
+            "Id": "EXPLOIT_POINT_AND_PRINT",
+            "Files": [
+                "EXPLOIT_POINT_AND_PRINT"
+            ]
+        }
+    ],
+    "Profiles": [
+        {
+            "Id": "PRIVESC_CHECK",
+            "Name": "PrivescCheck",
+            "Includes": [
+                "CORE",
+                "HELPERS",
+                "CHECKS"
+            ]
+        },
+        {
+            "Id": "POINT_AND_PRINT",
+            "Name": "PointAndPrint",
+            "Includes": [
+                "CORE"
+            ]
+        }
+    ]
+}

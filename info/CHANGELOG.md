@@ -1,5 +1,11 @@
 # Changelog
 
+## 2025-08-26
+
+### Modified
+
+- Standardize the build process with build profiles stored in a separate JSON file.
+
 ## 2025-08-25
 
 ### Added
