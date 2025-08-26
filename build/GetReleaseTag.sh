@@ -11,4 +11,6 @@ if [ $? -eq 0 ]; then
 else
     iter=1
 fi
-echo -n "${cur_date}-${iter}"
+new_release_tag="${cur_date}-${iter}"
+echo "[*] New release tag: ${new_release_tag}" >&2
+echo -n "${new_release_tag}"
