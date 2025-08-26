@@ -62,6 +62,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ needs.get-release-tag.outputs.release_tag }}
+        shell: bash
         run: |
           echo "Using release tag: ${RELEASE_TAG}"
           gh release create "${RELEASE_TAG}" ./release/*.ps1
