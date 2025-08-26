@@ -1,4 +1,4 @@
-name: PrivescCheck Update & Build Action
+name: PrivescCheck Update & Build
 
 on:
   # Trigger action when a push occurs on the master branch
