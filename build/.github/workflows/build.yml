@@ -1,0 +1,53 @@
+name: PrivescCheck Update & Build Action
+
+on:
+  # Trigger action when a push occurs on the main branch
+  push:
+    branches:
+      - main
+  # Trigger action manually from GitHub > Actions
+  workflow_dispatch:
+  # Trigger action at a given date and time
+  # schedule:
+  #   - cron: '37 13 * * *'
+
+jobs:
+  update-data:
+    name: Update data when required
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Check out main branch
+        uses: actions/checkout@v5
+        with:
+          ref: main
+  build-scripts:
+    name: Build PrivescCheck and its companion scripts
+    needs: update-data
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Check out main branch
+        uses: actions/checkout@v5
+        with:
+          ref: main
+      - name: Get release tag
+        id: get_release_tag
+        shell: bash
+        run: |
+          echo "release_tag=$(bash ./build/GetReleaseTag.sh)" >> $GITHUB_OUTPUT
+      - name: Build PrivescCheck script
+        run: |
+          . ./build/Build.ps1; Invoke-Build -Name "PrivescCheck" -NoNewSeed
+      - name: Build PointAndPrint script
+        run: |
+          . ./build/Build.ps1; Invoke-Build -Name "PointAndPrint" -NoNewSeed
+      - name: Create release
+        env:
+          TAG_NAME: ${{ steps.get_release_tag.outputs.release_tag }}
+        run: |
+          gh release "${TAG_NAME}" ./release/*.ps1
