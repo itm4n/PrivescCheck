@@ -23,9 +23,26 @@ jobs:
         uses: actions/checkout@v5
         with:
           ref: master
+
+  get-release-tag:
+    name: Get release tag
+    runs-on: ubuntu-latest
+    outputs:
+      release_tag: ${{ steps.get-release-tag.outputs.release_tag }}
+    steps:
+      - name: Check out master branch
+        uses: actions/checkout@v5
+        with:
+          ref: master
+      - name: Get release tag
+        id: get-release-tag
+        shell: bash
+        run: |
+          echo "release_tag=$(bash ./build/GetReleaseTag.sh)" >> "$GITHUB_OUTPUT"
+
   build-scripts:
     name: Build PrivescCheck and its companion scripts
-    needs: update-data
+    needs: [update-data, get-release-tag]
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -35,11 +52,6 @@ jobs:
         uses: actions/checkout@v5
         with:
           ref: master
-      - name: Get release tag
-        id: get_release_tag
-        shell: bash
-        run: |
-          echo "release_tag=$(bash ./build/GetReleaseTag.sh)" >> $GITHUB_OUTPUT
       - name: Build PrivescCheck script
         run: |
           . ./build/Build.ps1; Invoke-Build -Name "PrivescCheck" -NoNewSeed
@@ -48,7 +60,8 @@ jobs:
           . ./build/Build.ps1; Invoke-Build -Name "PointAndPrint" -NoNewSeed
       - name: Create release
         env:
-          TAG_NAME: ${{ steps.get_release_tag.outputs.release_tag }}
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.get-release-tag.outputs.release_tag }}
         run: |
-          echo "Using release tag: ${TAG_NAME}"
-          gh release create "${TAG_NAME}" ./release/*.ps1
+          echo "Using release tag: ${RELEASE_TAG}"
+          gh release create "${RELEASE_TAG}" ./release/*.ps1
