@@ -4,7 +4,9 @@ function Invoke-Build {
     param(
         [Parameter(Mandatory = $true)]
         [ValidateSet("PrivescCheck", "PointAndPrint")]
-        [String] $Name
+        [String] $Name,
+
+        [Switch] $NewSeed
     )
 
     begin {
@@ -29,6 +31,30 @@ function Invoke-Build {
         if ($null -eq $WordList) {
             Write-Message -Type Error "Failed to retrieve word list."
             $SanityCheck = $false
+        }
+
+        if ($NewSeed) {
+            $Seed = Get-RandomInt
+            Write-Message -Message "Generated seed: $($Seed)"
+            Set-FileContent -Type "build" -FileName "Seed.txt" -Content "$($Seed)"
+        }
+        else {
+            $Seed = Get-FileContent -Type "build" -FileName "Seed.txt" -ErrorAction SilentlyContinue | Out-String
+            if ([String]::IsNullOrEmpty($Seed)) {
+                Write-Message -Type Error -Message "Failed to read seed from file."
+                $SanityCheck = $false
+            }
+            else {
+                $Seed = [Int32]::Parse($Seed)
+                Write-Message -Message "Using seed: $($Seed)"
+            }
+        }
+
+        # https://learn.microsoft.com/en-us/dotnet/api/system.platformid
+        $CurrentPlatform = [System.Environment]::OSVersion.Platform
+        $TestModuleImport = $CurrentPlatform -eq "Win32NT"
+        if ($TestModuleImport -eq $false) {
+            Write-Message -Type Warning -Message "Unsupported platform for module import testing: $($CurrentPlatform)"
         }
     }
 
@@ -58,6 +84,8 @@ function Invoke-Build {
                 return
             }
 
+            $CurrentSeed = $Seed
+
             foreach ($FileId in $IncludeObject.Files) {
 
                 $FileObject = $BuildProfilesJson.Files | Where-Object { $_.Id -eq $FileId }
@@ -75,10 +103,11 @@ function Invoke-Build {
 
                 $ModuleFilename = $ModuleItem.Name
 
-                # TODO: Create a helper function for that
                 # Pick a random name for the current module
-                $RandomName = Get-Random -InputObject $WordList -Count 1
+                $RandomName = [String] (Get-Random -InputObject $WordList -Count 1 -SetSeed $CurrentSeed)
                 $WordList = $WordList | Where-Object { $_ -ne $RandomName }
+                $CurrentSeed = Get-RandomInt -Seed $CurrentSeed
+
                 $ModuleName = $RandomName.ToLower()
                 $ModuleName = ([regex] $ModuleName[0].ToString()).Replace($ModuleName, $ModuleName[0].ToString().ToUpper(), 1)
 
@@ -110,12 +139,15 @@ function Invoke-Build {
                 # directly to the "catch" block. Otherwise, it means that the module was successfully
                 # loaded.
                 $ScriptBlock = Remove-CommentFromScriptBlock -ScriptBlock $ScriptBlock
-                try {
-                    $ScriptBlock | Invoke-Expression
-                }
-                catch {
-                    $ErrorCount += 1
-                    Write-Message -Type Error "$($_.Exception.Message.Trim())"
+
+                if ($TestModuleImport) {
+                    try {
+                        $ScriptBlock | Invoke-Expression
+                    }
+                    catch {
+                        $ErrorCount += 1
+                        Write-Message -Type Error "$($_.Exception.Message.Trim())"
+                    }
                 }
 
                 Write-Message "File '$($ModuleFilename)' (name: '$($ModuleName)') was loaded successfully."
@@ -176,6 +208,30 @@ function Write-Message {
 
     Write-Host -NoNewline -ForegroundColor "$Color" "$($Symbol) "
     Write-Host "$Message"
+}
+
+function Get-RandomInt {
+
+    [OutputType([Int32])]
+    [CmdletBinding()]
+    param (
+        [Int32] $Seed,
+        [Int32] $Max
+    )
+
+    if ($PSBoundParameters['Seed']) {
+        $Rand = New-Object -TypeName "System.Random" -ArgumentList $Seed
+    }
+    else {
+        $Rand = New-Object -TypeName "System.Random"
+    }
+
+    if ($PSBoundParameters['Max']) {
+        $Rand.Next($Max)
+    }
+    else {
+        $Rand.Next()
+    }
 }
 
 function Get-FilePath {

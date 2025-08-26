@@ -5,6 +5,7 @@
 ### Modified
 
 - Standardize the build process with build profiles stored in a separate JSON file.
+- Add the possibility to set an arbitrary seed for Get-Random in order to generate reproducible builds.
 
 ## 2025-08-25
 
