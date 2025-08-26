@@ -1,10 +1,10 @@
 name: PrivescCheck Update & Build Action
 
 on:
-  # Trigger action when a push occurs on the main branch
+  # Trigger action when a push occurs on the master branch
   push:
     branches:
-      - main
+      - master
   # Trigger action manually from GitHub > Actions
   workflow_dispatch:
   # Trigger action at a given date and time
@@ -19,10 +19,10 @@ jobs:
       run:
         shell: pwsh
     steps:
-      - name: Check out main branch
+      - name: Check out master branch
         uses: actions/checkout@v5
         with:
-          ref: main
+          ref: master
   build-scripts:
     name: Build PrivescCheck and its companion scripts
     needs: update-data
@@ -31,10 +31,10 @@ jobs:
       run:
         shell: pwsh
     steps:
-      - name: Check out main branch
+      - name: Check out master branch
         uses: actions/checkout@v5
         with:
-          ref: main
+          ref: master
       - name: Get release tag
         id: get_release_tag
         shell: bash
