@@ -301,40 +301,26 @@ function Set-FileContent {
     $Content | Set-Content -Path $FilePath -Encoding Ascii
 }
 
-function Update-LolDriverList {
+function Get-LolDriver {
 
     [CmdletBinding()]
     param ()
 
-    $NeedToUpdateFile = $false
-    $VulnerableDriversFileName = "VulnerableDrivers.csv"
-    $VulnerableDriversPath = Get-FilePath -Type "data" -FileName $VulnerableDriversFileName -ErrorAction SilentlyContinue
-
-    $VulnerableDriversFile = Get-Item -Path $VulnerableDriversPath -ErrorAction SilentlyContinue
-    if ($null -eq $VulnerableDriversFile) {
-        $NeedToUpdateFile = $true
+    $LolDriversUrl = "https://www.loldrivers.io/api/drivers.csv"
+    $LolDrivers = ""
+    try {
+        $LolDrivers = (New-Object Net.WebClient).DownloadString($LolDriversUrl)
     }
-    else {
-        $TimeSpan = New-TimeSpan -Start $VulnerableDriversFile.LastWriteTime -End $(Get-Date)
-        $TimeSpanTotalDays = [Math]::Round($TimeSpan.TotalDays)
-        if ($TimeSpanTotalDays -gt 7) {
-            $NeedToUpdateFile = $true
-        }
-    }
-
-    if (-not $NeedToUpdateFile) {
-        Write-Message -Message "File already up to date: $($VulnerableDriversFileName)" -Type Info
+    catch {
+        Write-Message -Type Error -Message "Net.WebClient exception: $($_.Exception.Message)"
         return
     }
 
-    Write-Message -Message "Updating file: $($VulnerableDriversFileName)" -Type Info
-
-    $FileContent = (New-Object Net.WebClient).DownloadString("https://www.loldrivers.io/api/drivers.csv")
-    $LolDrivers = ConvertFrom-Csv -InputObject $FileContent
-    Write-Message "Number of drivers: $($LolDrivers.Count)"
+    $LolDrivers = ConvertFrom-Csv -InputObject $LolDrivers
+    Write-Message -Type Success -Message "Successfully downloaded LOL driver list from $($LolDriversUrl) (count=$($LolDrivers.Count))"
 
     $LolDriversVulnerable = $LolDrivers | Where-Object { $_.Category -like "*vulnerable*" }
-    Write-Message "Number of vulnerable drivers: $($LolDriversVulnerable.Count)"
+    Write-Message -Message "Filtered list on 'vulnerable' drivers (count=$($LolDriversVulnerable.Count))"
 
     $LolDrivers = @()
     $LolDriversVulnerable | ForEach-Object {
@@ -348,32 +334,67 @@ function Update-LolDriverList {
         $HashesSha1 = [string[]] ($_.KnownVulnerableSamples_SHA1 -split "," | ForEach-Object { $_.Trim() } | Where-Object { $_.Length -eq 40 })
         $HashesSha256 = [string[]] ($_.KnownVulnerableSamples_SHA256 -split "," | ForEach-Object { $_.Trim() } | Where-Object { $_.Length -eq 64 })
 
+        if (($HashesMd5.Count -eq 0) -and ($HashesSha1.Count -eq 0) -and ($HashesSha256.Count -eq 0)) {
+            Write-Message -Type Warning -Message "No hash found for entry with ID: $($_.Id)"
+            continue
+        }
+
         # Find the hash list that has the most values
         $HashesMax = (@($HashesMd5.Count, $HashesSha1.Count, $HashesSha256.Count) | Measure-Object -Maximum).Maximum
 
         # Keep the hash list that has the most values, prioritize the shortest hashes
         # to minimize the total space they will take in the final script.
         if ($HashesMd5.Count -eq $HashesMax) {
-            $Result | Add-Member -MemberType "NoteProperty" -Name "HashType" -Value "Md5"
             $Result | Add-Member -MemberType "NoteProperty" -Name "Hash" -Value ($HashesMd5 -join ",")
         }
         elseif ($HashesSha1.Count -eq $HashesMax) {
-            $Result | Add-Member -MemberType "NoteProperty" -Name "HashType" -Value "Sha1"
             $Result | Add-Member -MemberType "NoteProperty" -Name "Hash" -Value ($HashesSha1 -join ",")
         }
         elseif ($HashesSha256.Count -eq $HashesMax) {
-            $Result | Add-Member -MemberType "NoteProperty" -Name "HashType" -Value "Sha256"
             $Result | Add-Member -MemberType "NoteProperty" -Name "Hash" -Value ($HashesSha256 -join ",")
         }
 
-        $LolDrivers += $Result
+        $Result
+    }
+}
+
+function Update-LolDriverList {
+
+    [OutputType([Bool])]
+    [CmdletBinding()]
+    param ()
+
+    $VulnerableDriversFileName = "VulnerableDrivers.csv"
+
+    # Retrieve and process LOL driver list from the LOL drivers website.
+    $LolDrivers = Get-LolDriver
+    if ($null -eq $LolDrivers) {
+        Write-Message -Type Error -Message "Failed to retrieve or parse remote LOL driver list."
+        return $false
     }
 
-    $LolDriversCsv = $LolDrivers | ConvertTo-Csv -Delimiter "," -NoTypeInformation | Out-String
+    # Retrieve our local and processed version of the LOL driver list.
+    $LocalLolDriversContent = Get-FileContent -Type "data" -FileName $VulnerableDriversFileName -ErrorAction SilentlyContinue | Out-String
+    if ($null -ne $LocalLolDriversContent) {
+        $LocalLolDrivers = $LocalLolDriversContent | ConvertFrom-Csv
+        Write-Message -Message "Parsed local LOL driver list (count=$($LocalLolDrivers.Count))"
+        # Compare the two lists. If they are equal, we don't need to update our local file.
+        $Comparison = Compare-Object -ReferenceObject $LocalLolDrivers -DifferenceObject $LolDrivers -Property Id,Hash
+        if ($null -eq $Comparison) {
+            Write-Message -Type Success -Message "The local copy of the LOL driver list is already up-to-date."
+            return $true
+        }
+    }
 
+    Write-Message -Message "The local copy of the LOL driver list needs to be created or updated..."
+
+    # Convert the list to CSV and write to file.
+    $LolDriversCsv = $LolDrivers | ConvertTo-Csv -Delimiter "," -NoTypeInformation | Out-String
     Set-FileContent -Type "data" -FileName $VulnerableDriversFileName -Content $LolDriversCsv
 
-    Write-Message -Message "Updated file: $($VulnerableDriversFileName)" -Type Success
+    Write-Message -Type Success -Message "LOL driver list file created or updated: $($VulnerableDriversFileName)"
+
+    return $true
 }
 
 function Update-WordList {

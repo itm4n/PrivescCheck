@@ -790,11 +790,8 @@ function Get-KnownVulnerableKernelDriverList {
     if ($null -eq $VulnerableDriverList) { Write-Warning "Failed to get list of vulnerable drivers."; return }
 
     $VulnerableDriverList | ForEach-Object {
-        $Result = New-Object -TypeName PSObject
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Url" -Value "https://www.loldrivers.io/drivers/$($_.Id)"
-        $Result | Add-Member -MemberType "NoteProperty" -Name "HashType" -Value $_.HashType
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Hash" -Value ([string[]] ($_.Hash -split ","))
-        $Result
+        $_ | Add-Member -MemberType "NoteProperty" -Name "Url" -Value "https://www.loldrivers.io/drivers/$($_.Id)"
+        $_
     }
 }
 
