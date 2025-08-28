@@ -1,6 +1,9 @@
 {
     "powershell.scriptAnalysis.settingsPath": "test/ScriptAnalyzerSettings.psd1",
     "files.trimTrailingWhitespace": true,
+    "markdownlint.config": {
+        "MD024": false,
+    },
     "cSpell.words": [
         "ACCOUNTDISABLE",
         "ACPI",
@@ -131,6 +134,7 @@
         "maxalloc",
         "MDNS",
         "Metasploit",
+        "Meterpreter",
         "mhtml",
         "Mimikatz",
         "minalloc",
@@ -171,6 +175,7 @@
         "PCREDENTIAL",
         "PEAP",
         "Pentest",
+        "pentesters",
         "POSIX",
         "ppkg",
         "PPROCESS",
@@ -183,6 +188,7 @@
         "Proto",
         "provtool",
         "psbase",
+        "pwsh",
         "QUICKTIP",
         "regedit",
         "Relpath",
