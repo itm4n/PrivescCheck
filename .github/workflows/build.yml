@@ -11,24 +11,54 @@ on:
   # schedule:
   #   - cron: '37 13 * * *'
 
+#
+# Below, we are building the following chain:
+#
+# -> Update data files and commit changes (if needed)
+#    -> Get release tag to apply to next release
+#       -> Build scripts and create new release
+#
+# Notes:
+# - if we fail to update data files for some reason, we still want to be
+#   able to build the scripts.
+# - if the action is triggered because it was scheduled, we want to create
+#   a new release only if data has been updated.
+#
+
 jobs:
   update-data:
     name: Update data when required
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        shell: pwsh
+    outputs:
+      data-updated: ${{ steps.commit-and-push.outputs.data-updated }}
     steps:
       - name: Check out master branch
         uses: actions/checkout@v5
         with:
           ref: master
+      - name: Update LOL driver list
+        # Continue even if we fail to update the LOL driver list.
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          . ./build/Build.ps1
+          Update-LolDriverList
+      - name: Commit and push changes (if needed)
+        id: commit-and-push
+        shell: bash
+        run: |
+          if ! bash ./.github/workflows/commit_and_push.sh "${{ github.actor_id }}" "${{ github.actor }}"; then
+            echo "data-updated=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "data-updated=true" >> "$GITHUB_OUTPUT"
+          fi
 
   get-release-tag:
     name: Get release tag
+    needs: update-data
     runs-on: ubuntu-latest
     outputs:
-      release_tag: ${{ steps.get-release-tag.outputs.release_tag }}
+      release-tag: ${{ steps.get-release-tag.outputs.release-tag }}
     steps:
       - name: Check out master branch
         uses: actions/checkout@v5
@@ -40,31 +70,42 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
-          echo "release_tag=$(bash ./build/GetReleaseTag.sh)" >> "$GITHUB_OUTPUT"
+          echo "release-tag=$(bash ./.github/workflows/get_release_tag.sh)" >> "$GITHUB_OUTPUT"
 
   build-scripts:
     name: Build PrivescCheck and its companion scripts
-    needs: [update-data, get-release-tag]
+    needs: [update-data,  get-release-tag]
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        shell: pwsh
     steps:
       - name: Check out master branch
         uses: actions/checkout@v5
         with:
           ref: master
       - name: Build PrivescCheck script
+        shell: pwsh
         run: |
-          . ./build/Build.ps1; Invoke-Build -Name "PrivescCheck" -NoNewSeed
+          . ./build/Build.ps1
+          Invoke-Build -Name "PrivescCheck" -NoNewSeed
       - name: Build PointAndPrint script
+        shell: pwsh
         run: |
-          . ./build/Build.ps1; Invoke-Build -Name "PointAndPrint" -NoNewSeed
+          . ./build/Build.ps1
+          Invoke-Build -Name "PointAndPrint" -NoNewSeed
       - name: Create release
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ needs.get-release-tag.outputs.release_tag }}
+          RELEASE_TAG: ${{ needs.get-release-tag.outputs.release-tag }}
+          DATA_UPDATED: ${{ needs.update-data.outputs.data-updated }}
         shell: bash
         run: |
-          echo "Using release tag: ${RELEASE_TAG}"
-          gh release create "${RELEASE_TAG}" ./release/*.ps1
+          event_name="${{ github.event_name }}"
+          echo "[*] Release tag: ${RELEASE_TAG}"
+          echo "[*] Data updated: ${DATA_UPDATED}"
+          echo "[*] Event name: ${event_name}"
+          if [[ "${event_name}" = "schedule" ]]; then
+            if [[ "${DATA_UPDATED}" = "true" ]]; then
+              gh release create "${RELEASE_TAG}" ./release/*.ps1
+            fi
+          else
+            gh release create "${RELEASE_TAG}" ./release/*.ps1
+          fi

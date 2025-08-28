@@ -360,7 +360,6 @@ function Get-LolDriver {
 
 function Update-LolDriverList {
 
-    [OutputType([Bool])]
     [CmdletBinding()]
     param ()
 
@@ -370,7 +369,7 @@ function Update-LolDriverList {
     $LolDrivers = Get-LolDriver
     if ($null -eq $LolDrivers) {
         Write-Message -Type Error -Message "Failed to retrieve or parse remote LOL driver list."
-        return $false
+        return
     }
 
     # Retrieve our local and processed version of the LOL driver list.
@@ -382,7 +381,7 @@ function Update-LolDriverList {
         $Comparison = Compare-Object -ReferenceObject $LocalLolDrivers -DifferenceObject $LolDrivers -Property Id,Hash
         if ($null -eq $Comparison) {
             Write-Message -Type Success -Message "The local copy of the LOL driver list is already up-to-date."
-            return $true
+            return
         }
     }
 
@@ -393,8 +392,6 @@ function Update-LolDriverList {
     Set-FileContent -Type "data" -FileName $VulnerableDriversFileName -Content $LolDriversCsv
 
     Write-Message -Type Success -Message "LOL driver list file created or updated: $($VulnerableDriversFileName)"
-
-    return $true
 }
 
 function Update-WordList {
