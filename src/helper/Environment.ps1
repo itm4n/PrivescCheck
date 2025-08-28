@@ -1100,7 +1100,7 @@ function Get-KnownVulnerableKernelDriver {
 
         foreach ($VulnerableDriver in $VulnerableDrivers) {
 
-            $Hashes = [String[]] $VulnerableDriver.Hash
+            $Hashes = [String[]] $VulnerableDriver.Hash.Split(",")
 
             if ($Hashes.Count -eq 0) {
                 Write-Warning "No hash found for entry with ID: $($VulnerableDriver.Id)"
