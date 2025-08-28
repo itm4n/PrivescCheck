@@ -27,7 +27,7 @@ on:
 
 jobs:
   update-data:
-    name: Update data when required
+    name: Update data
     runs-on: ubuntu-latest
     outputs:
       data-updated: ${{ steps.commit-and-push.outputs.data-updated }}
@@ -73,8 +73,8 @@ jobs:
           echo "release-tag=$(bash ./.github/workflows/get_release_tag.sh)" >> "$GITHUB_OUTPUT"
 
   build-scripts:
-    name: Build PrivescCheck and its companion scripts
-    needs: [update-data,  get-release-tag]
+    name: Build PrivescCheck
+    needs: [update-data, get-release-tag]
     runs-on: ubuntu-latest
     steps:
       - name: Check out master branch

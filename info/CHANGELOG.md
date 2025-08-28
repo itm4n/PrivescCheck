@@ -1,5 +1,11 @@
 # Changelog
 
+## 2025-08-28
+
+### Modified
+
+- Transition from manual release to automated release using GitHub Actions.
+
 ## 2025-08-26
 
 ### Modified

@@ -143,14 +143,13 @@ function Invoke-Build {
                 if ($TestModuleImport) {
                     try {
                         $ScriptBlock | Invoke-Expression
+                        Write-Message "File '$($ModuleFilename)' (name: '$($ModuleName)') was loaded successfully."
                     }
                     catch {
                         $ErrorCount += 1
-                        Write-Message -Type Error "$($_.Exception.Message.Trim())"
+                        Write-Message -Type Error "Failed to load file '$($ModuleFilename)' (name: '$($ModuleName)'): $($_.Exception.Message.Trim())"
                     }
                 }
-
-                Write-Message "File '$($ModuleFilename)' (name: '$($ModuleName)') was loaded successfully."
 
                 if ($FileObject.Compression -eq $true) {
                     $ScriptEncoded = ConvertTo-Gzip -InputText $ScriptBlock
