@@ -921,9 +921,9 @@ function Invoke-ComServerRegistryPermissionCheck {
 
     process {
         Get-ComClassFromRegistry |
-            Where-Object { $null -ne $_.HandlerRegPath } |
-                Invoke-CommandMultithread -InitialSessionState $(Get-InitialSessionState) -Command "Get-ModifiableComClassEntryRegistryPath" -InputParameter "ComClassEntry" |
-                    ForEach-Object { $AllResults += $_ }
+        Where-Object { $null -ne $_.HandlerRegPath } |
+        Invoke-CommandMultithread -InitialSessionState $(Get-InitialSessionState) -Command "Get-ModifiableComClassEntryRegistryPath" -InputParameter "ComClassEntry" |
+        ForEach-Object { $AllResults += $_ }
 
         $CheckResult = New-Object -TypeName PSObject
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
@@ -959,9 +959,9 @@ function Invoke-ComServerImagePermissionCheck {
 
     process {
         Get-ComClassFromRegistry |
-            Where-Object { ($_.HandlerType -like "*server*") -and ($null -ne $_.HandlerData) } |
-                Invoke-CommandMultithread -InitialSessionState $(Get-InitialSessionState) -Command "Get-ModifiableComClassEntryImagePath" -InputParameter "ComClassEntry" -OptionalParameter @{ "CheckedPaths" = $AlreadyCheckedPaths } |
-                    ForEach-Object { $AllResults += $_ }
+        Where-Object { ($_.HandlerType -like "*server*") -and ($null -ne $_.HandlerData) } |
+        Invoke-CommandMultithread -InitialSessionState $(Get-InitialSessionState) -Command "Get-ModifiableComClassEntryImagePath" -InputParameter "ComClassEntry" -OptionalParameter @{ "CheckedPaths" = $AlreadyCheckedPaths } |
+        ForEach-Object { $AllResults += $_ }
 
         $CheckResult = New-Object -TypeName PSObject
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
@@ -1302,7 +1302,6 @@ function Invoke-NtlmDowngradeAttackCheck {
     NtlmMinClientSecDescription           : Require 128-bit encryption
     RestrictSendingNTLMTraffic            : 0
     RestrictSendingNTLMTrafficDescription : Allow all
-
     #>
 
     [CmdletBinding()]
@@ -1310,25 +1309,39 @@ function Invoke-NtlmDowngradeAttackCheck {
         [UInt32] $BaseSeverity
     )
 
+    begin {
+        $CredentialGuard = Get-CredentialGuardConfiguration
+    }
+
     process {
         $Vulnerable = $false
-        $NtlmConfig = Get-LanManagerConfiguration
+        $Result = Get-LanManagerConfiguration
 
         # Auth level must be lower than "Send NTLMv2 response only".
-        if ($NtlmConfig.LmCompatibilityLevel -lt 3) {
+        if ($Result.LmCompatibilityLevel -lt 3) {
 
             # Min client sec must not include "Require NTLMv2 session security".
-            if (($NtlmConfig.NtlmMinClientSec -band 0x80000) -ne 0x80000) {
+            if (($Result.NtlmMinClientSec -band 0x80000) -ne 0x80000) {
 
                 # Outgoing NTLM traffic must not be set to "Deny all".
-                if ($NtlmConfig.RestrictSendingNTLMTraffic -ne 2) {
+                if (($null -eq $Result.RestrictSendingNTLMTraffic) -or ($Result.RestrictSendingNTLMTraffic -ne 2)) {
 
-                    $Vulnerable = $true
+                    # "Block NTLMv1 SSO" must not be enforced (Windows 11 24H2).
+                    if (($null -eq $Result.BlockNtlmv1SSO) -or ($Result.BlockNtlmv1SSO -eq 0)) {
+
+                        $Vulnerable = $true
+                    }
                 }
             }
         }
 
-        $Result = $NtlmConfig | Select-Object LmCompatibilityLevel,LmCompatibilityLevelDescription,NtlmMinClientSec,NtlmMinClientSecDescription,RestrictSendingNTLMTraffic,RestrictSendingNTLMTrafficDescription
+        $Result | Add-Member -MemberType "NoteProperty" -Name "CredentialGuard" -Value $CredentialGuard.CredentialGuardDescription
+
+        # If the config is vulnerable but Credential Guard is running, the system
+        # overall is not vulnerable.
+        if ($Vulnerable -and $CredentialGuard.CredentialGuardRunning) {
+            $Vulnerable = $false
+        }
 
         $CheckResult = New-Object -TypeName PSObject
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Result

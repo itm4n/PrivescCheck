@@ -164,6 +164,7 @@
         "Ntdll",
         "NTFS",
         "NTLM",
+        "Ntlmv",
         "nurfed",
         "obscuresec",
         "oemid",
