@@ -70,7 +70,8 @@ function Invoke-UserAccountControlCheck {
 
         if ($RegData -ge 1) {
             $Description = "UAC is enabled."
-        } else {
+        }
+        else {
             $Description = "UAC is not enabled."
             $Vulnerable = $true
         }
@@ -291,11 +292,11 @@ function Invoke-LapsCheck {
                         $SettingDescription = $LapsSetting.Description
                     }
                     $LapsSetting.Description = $SettingDescription
-                    $LapsResult += $LapsSetting | Select-Object "Policy","Key","Default","Value","Description"
+                    $LapsResult += $LapsSetting | Select-Object "Policy", "Key", "Default", "Value", "Description"
 
                     if ($LapsSetting.Name -eq "BackupDirectory") {
                         $LapsItem = $LapsSetting
-                        if ($SettingValue -gt 0) { $LapsEnforced = $true}
+                        if ($SettingValue -gt 0) { $LapsEnforced = $true }
                     }
                 }
 
@@ -330,7 +331,7 @@ function Invoke-LapsCheck {
             # an object representing the default LAPS configuration.
             if (-not $LapsEnforced) {
                 $Vulnerable = $true
-                $LapsResult += $LapsItem | Select-Object "Policy","Key","Default","Value","Description"
+                $LapsResult += $LapsItem | Select-Object "Policy", "Key", "Default", "Value", "Description"
             }
         }
 
@@ -372,7 +373,7 @@ function Invoke-PowerShellSecurityFeatureCheck {
                 $PropertyToCheck = $_
             }
             else {
-                $PropertyToCheck = $MachineConfiguration |Where-Object { $_.Name -eq $PropertyName }
+                $PropertyToCheck = $MachineConfiguration | Where-Object { $_.Name -eq $PropertyName }
             }
 
             if ($null -ne $PropertyToCheck.Data) {
@@ -657,16 +658,16 @@ function Invoke-CredentialGuardCheck {
     .EXAMPLE
     PS C:\> Invoke-CredentialGuardCheck
 
-    SecurityServicesConfigured  : 0
-    SecurityServicesRunning     : 0
-    SecurityServicesDescription : Credential Guard is not configured. Credential Guard is not running.
-    LsaCfgFlagsPolicyKey        : HKLM\SOFTWARE\Policies\Microsoft\Windows\DeviceGuard
-    LsaCfgFlagsPolicyValue      : LsaCfgFlags
-    LsaCfgFlagsPolicyData       : (null)
-    LsaCfgFlagsKey              : HKLM\SYSTEM\CurrentControlSet\Control\LSA
-    LsaCfgFlagsValue            : LsaCfgFlags
-    LsaCfgFlagsData             : (null)
-    LsaCfgFlagsDescription      : Credential Guard is not configured.
+    LsaCfgFlagsPolicyKey       : HKLM\SOFTWARE\Policies\Microsoft\Windows\DeviceGuard
+    LsaCfgFlagsPolicyValue     : LsaCfgFlags
+    LsaCfgFlagsPolicyData      : (null)
+    LsaCfgFlagsKey             : HKLM\SYSTEM\CurrentControlSet\Control\LSA
+    LsaCfgFlagsValue           : LsaCfgFlags
+    LsaCfgFlagsData            : (null)
+    LsaCfgFlagsDescription     : Credential Guard is not configured.
+    CredentialGuardConfigured  : False
+    CredentialGuardRunning     : False
+    CredentialGuardDescription : Credential Guard is not configured. Credential Guard is not running.
 
     .NOTES
     Starting with Windows 11 22H2 (Enterprise / Education), Credential Guard is enabled by default if the machine follows all the hardware and software requirements.
@@ -679,90 +680,31 @@ function Invoke-CredentialGuardCheck {
     )
 
     begin {
-        $LsaCfgFlagsDescriptions = @(
-            "Credential Guard is disabled.",
-            "Credential Guard is enabled with UEFI persistence.",
-            "Credential Guard is enabled without UEFI persistence."
-        )
-
         $Vulnerable = $false
     }
 
     process {
-        # Check WMI information first
-        $WmiObject = Get-WmiObject -Namespace "root\Microsoft\Windows\DeviceGuard" -Class "Win32_DeviceGuard" -ErrorAction SilentlyContinue
 
-        if ($WmiObject) {
+        $Result = Get-CredentialGuardConfiguration
 
-            $SecurityServicesConfigured = [UInt32[]] $WmiObject.SecurityServicesConfigured
-            $SecurityServicesRunning = [UInt32[]] $WmiObject.SecurityServicesRunning
-
-            Write-Verbose "SecurityServicesConfigured: $SecurityServicesConfigured"
-            Write-Verbose "SecurityServicesRunning: $SecurityServicesRunning"
-
-            # https://learn.microsoft.com/en-us/dotnet/api/microsoft.powershell.commands.deviceguardsoftwaresecure?view=powershellsdk-1.1.0
-            # 1: Credential Guard
-            # 2: Hypervisor enforced Code Integrity
-
-            if ($SecurityServicesConfigured -contains ([UInt32] 1)) {
-                $SecurityServicesDescription = "Credential Guard is configured."
-            }
-            else {
-                $SecurityServicesDescription = "Credential Guard is not configured."
+        if ($null -ne $Result) {
+            if ($null -eq $Result.LsaCfgFlagsPolicyData) {
+                $Result.LsaCfgFlagsPolicyData = "(null)"
             }
 
-            if ($SecurityServicesRunning -contains ([UInt32] 1)) {
-                $SecurityServicesDescription = "$($SecurityServicesDescription) Credential Guard is running."
+            if ($null -eq $Result.LsaCfgFlagsData) {
+                $Result.LsaCfgFlagsData = "(null)"
             }
-            else {
-                $SecurityServicesDescription = "$($SecurityServicesDescription) Credential Guard is not running."
-                $Vulnerable = $true
-            }
+
+            $Vulnerable = -not $Result.CredentialGuardRunning
         }
         else {
-            $SecurityServicesDescription = "Credential Guard is not supported."
+            $Result = New-Object -TypeName PSObject
+            $Result | Add-Member -MemberType "NoteProperty" -Name "CredentialGuardDescription" -Value "Credential Guard is not supported."
         }
-
-        # Check registry configuration
-        $LsaCfgFlagsPolicyKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows\DeviceGuard"
-        $LsaCfgFlagsPolicyValue = "LsaCfgFlags"
-        $LsaCfgFlagsPolicyData = (Get-ItemProperty -Path "Registry::$($LsaCfgFlagsPolicyKey)" -Name $LsaCfgFlagsPolicyValue -ErrorAction SilentlyContinue).$LsaCfgFlagsPolicyValue
-
-        if ($null -ne $LsaCfgFlagsPolicyData) {
-            $LsaCfgFlagsDescription = $LsaCfgFlagsDescriptions[$LsaCfgFlagsPolicyData]
-        }
-
-        $LsaCfgFlagsKey = "HKLM\SYSTEM\CurrentControlSet\Control\LSA"
-        $LsaCfgFlagsValue = "LsaCfgFlags"
-        $LsaCfgFlagsData = (Get-ItemProperty -Path "Registry::$($LsaCfgFlagsKey)" -Name $LsaCfgFlagsValue -ErrorAction SilentlyContinue).$LsaCfgFlagsValue
-
-        if ($null -ne $LsaCfgFlagsData) {
-            $LsaCfgFlagsDescription = $LsaCfgFlagsDescriptions[$LsaCfgFlagsData]
-        }
-
-        if (($null -ne $LsaCfgFlagsPolicyData) -and ($null -ne $LsaCfgFlagsData) -and ($LsaCfgFlagsPolicyData -ne $LsaCfgFlagsData)) {
-            Write-Warning "The value of 'LsaCfgFlags' set by policy is different from the one set on the LSA registry key."
-        }
-
-        if (($null -eq $LsaCfgFlagsPolicyData) -and ($null -eq $LsaCfgFlagsData)) {
-            $LsaCfgFlagsDescription = "Credential Guard is not configured."
-        }
-
-        # Aggregate results
-        $Config = New-Object -TypeName PSObject
-        $Config | Add-Member -MemberType "NoteProperty" -Name "SecurityServicesConfigured" -Value $(if ($null -eq $SecurityServicesConfigured) { "(null)" } else { $SecurityServicesConfigured })
-        $Config | Add-Member -MemberType "NoteProperty" -Name "SecurityServicesRunning" -Value $(if ($null -eq $SecurityServicesRunning) { "(null)" } else { $SecurityServicesRunning })
-        $Config | Add-Member -MemberType "NoteProperty" -Name "SecurityServicesDescription" -Value $(if ([string]::IsNullOrEmpty($SecurityServicesDescription)) { "(null)" } else { $SecurityServicesDescription })
-        $Config | Add-Member -MemberType "NoteProperty" -Name "LsaCfgFlagsPolicyKey" -Value $LsaCfgFlagsPolicyKey
-        $Config | Add-Member -MemberType "NoteProperty" -Name "LsaCfgFlagsPolicyValue" -Value $LsaCfgFlagsPolicyValue
-        $Config | Add-Member -MemberType "NoteProperty" -Name "LsaCfgFlagsPolicyData" -Value $(if ($null -eq $LsaCfgFlagsPolicyData) { "(null)" } else { $LsaCfgFlagsPolicyData })
-        $Config | Add-Member -MemberType "NoteProperty" -Name "LsaCfgFlagsKey" -Value $LsaCfgFlagsKey
-        $Config | Add-Member -MemberType "NoteProperty" -Name "LsaCfgFlagsValue" -Value $LsaCfgFlagsValue
-        $Config | Add-Member -MemberType "NoteProperty" -Name "LsaCfgFlagsData" -Value $(if ($null -eq $LsaCfgFlagsData) { "(null)" } else { $LsaCfgFlagsData })
-        $Config | Add-Member -MemberType "NoteProperty" -Name "LsaCfgFlagsDescription" -Value $(if ($null -eq $LsaCfgFlagsDescription) { "(null)" } else { $LsaCfgFlagsDescription })
 
         $CheckResult = New-Object -TypeName PSObject
-        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Config
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Result
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevel::None })
         $CheckResult
     }
@@ -1252,7 +1194,8 @@ function Invoke-ClickOnceTrustPromptBehaviorCheck {
             $EffectiveValue = ""
             if ([string]::IsNullOrEmpty($Setting.Value)) {
                 $EffectiveValue = $Setting.Default
-            } else {
+            }
+            else {
                 $EffectiveValue = $Setting.Value
             }
 

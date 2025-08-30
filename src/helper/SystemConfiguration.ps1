@@ -1573,6 +1573,123 @@ function Get-ClickOnceTrustPromptBehaviorConfiguration {
     }
 }
 
+function Get-CredentialGuardConfiguration {
+    <#
+    .SYNOPSIS
+    Helper - Get Credential Guard feature status
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet queries WMI and the registry to check whether Credential Guard is configured and running. Credential Guard is available only on Windows 10 onward.
+
+    .EXAMPLE
+    PS C:\> Get-CredentialGuardConfiguration
+
+    LsaCfgFlagsPolicyKey       : HKLM\SOFTWARE\Policies\Microsoft\Windows\DeviceGuard
+    LsaCfgFlagsPolicyValue     : LsaCfgFlags
+    LsaCfgFlagsPolicyData      :
+    LsaCfgFlagsKey             : HKLM\SYSTEM\CurrentControlSet\Control\LSA
+    LsaCfgFlagsValue           : LsaCfgFlags
+    LsaCfgFlagsData            :
+    LsaCfgFlagsDescription     : Credential Guard is not configured.
+    CredentialGuardConfigured  : False
+    CredentialGuardRunning     : False
+    CredentialGuardDescription : Credential Guard is not configured. Credential Guard is not running.
+    #>
+
+    [CmdletBinding()]
+    param ()
+
+    begin {
+        $WindowsVersion = Get-WindowsVersionFromRegistry
+
+        $LsaCfgFlagsDescriptions = @(
+            "Credential Guard is disabled.",
+            "Credential Guard is enabled with UEFI persistence.",
+            "Credential Guard is enabled without UEFI persistence."
+        )
+    }
+
+    process {
+
+        # Credential Guard is available on Windows 10+
+        if ($WindowsVersion.Major -lt 10) { return }
+
+        # Check WMI information first
+        if ($PSVersionTable.PSVersion.Major -gt 2) {
+            $DeviceGuardStatus = Get-CimInstance -Class "Win32_DeviceGuard" -Namespace "root\Microsoft\Windows\DeviceGuard" -ErrorAction SilentlyContinue | Select-Object SecurityServicesConfigured, SecurityServicesRunning
+        }
+        else {
+            Write-Warning "PSv2 detected, timeout is not supported. Get-HotFixWithTimeout could hang for up to 2 minutes (+ timeout)."
+            $DeviceGuardStatus = Get-WmiObject -Class "Win32_DeviceGuard" -Namespace "root\Microsoft\Windows\DeviceGuard" -ErrorAction SilentlyContinue | Select-Object SecurityServicesConfigured, SecurityServicesRunning
+        }
+
+        $SecurityServicesConfigured = [UInt32[]] $DeviceGuardStatus.SecurityServicesConfigured
+        $SecurityServicesRunning = [UInt32[]] $DeviceGuardStatus.SecurityServicesRunning
+
+        # https://learn.microsoft.com/en-us/dotnet/api/microsoft.powershell.commands.deviceguardsoftwaresecure?view=powershellsdk-1.1.0
+        # 1: Credential Guard
+        # 2: Hypervisor enforced Code Integrity
+
+        $CredentialGuardConfigured = $SecurityServicesConfigured -contains ([UInt32] 1)
+        if ($CredentialGuardConfigured) {
+            $CredentialGuardDescription = "Credential Guard is configured."
+        }
+        else {
+            $CredentialGuardDescription = "Credential Guard is not configured."
+        }
+
+        $CredentialGuardRunning = $SecurityServicesRunning -contains ([UInt32] 1)
+        if ($CredentialGuardRunning) {
+            $CredentialGuardDescription = "$($CredentialGuardDescription) Credential Guard is running."
+        }
+        else {
+            $CredentialGuardDescription = "$($CredentialGuardDescription) Credential Guard is not running."
+        }
+
+        # Check registry configuration
+        $LsaCfgFlagsPolicyKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows\DeviceGuard"
+        $LsaCfgFlagsPolicyValue = "LsaCfgFlags"
+        $LsaCfgFlagsPolicyData = (Get-ItemProperty -Path "Registry::$($LsaCfgFlagsPolicyKey)" -Name $LsaCfgFlagsPolicyValue -ErrorAction SilentlyContinue).$LsaCfgFlagsPolicyValue
+
+        if ($null -ne $LsaCfgFlagsPolicyData) {
+            $LsaCfgFlagsDescription = $LsaCfgFlagsDescriptions[$LsaCfgFlagsPolicyData]
+        }
+
+        $LsaCfgFlagsKey = "HKLM\SYSTEM\CurrentControlSet\Control\LSA"
+        $LsaCfgFlagsValue = "LsaCfgFlags"
+        $LsaCfgFlagsData = (Get-ItemProperty -Path "Registry::$($LsaCfgFlagsKey)" -Name $LsaCfgFlagsValue -ErrorAction SilentlyContinue).$LsaCfgFlagsValue
+
+        if ($null -ne $LsaCfgFlagsData) {
+            $LsaCfgFlagsDescription = $LsaCfgFlagsDescriptions[$LsaCfgFlagsData]
+        }
+
+        if (($null -ne $LsaCfgFlagsPolicyData) -and ($null -ne $LsaCfgFlagsData) -and ($LsaCfgFlagsPolicyData -ne $LsaCfgFlagsData)) {
+            Write-Warning "The value of 'LsaCfgFlags' set by policy is different from the one set in the LSA registry key."
+        }
+
+        if (($null -eq $LsaCfgFlagsPolicyData) -and ($null -eq $LsaCfgFlagsData)) {
+            $LsaCfgFlagsDescription = "Credential Guard is not configured."
+        }
+
+        # Aggregate results
+        $Config = New-Object -TypeName PSObject
+        $Config | Add-Member -MemberType "NoteProperty" -Name "LsaCfgFlagsPolicyKey" -Value $LsaCfgFlagsPolicyKey
+        $Config | Add-Member -MemberType "NoteProperty" -Name "LsaCfgFlagsPolicyValue" -Value $LsaCfgFlagsPolicyValue
+        $Config | Add-Member -MemberType "NoteProperty" -Name "LsaCfgFlagsPolicyData" -Value $LsaCfgFlagsPolicyData
+        $Config | Add-Member -MemberType "NoteProperty" -Name "LsaCfgFlagsKey" -Value $LsaCfgFlagsKey
+        $Config | Add-Member -MemberType "NoteProperty" -Name "LsaCfgFlagsValue" -Value $LsaCfgFlagsValue
+        $Config | Add-Member -MemberType "NoteProperty" -Name "LsaCfgFlagsData" -Value $LsaCfgFlagsData
+        $Config | Add-Member -MemberType "NoteProperty" -Name "LsaCfgFlagsDescription" -Value $LsaCfgFlagsDescription
+        $Config | Add-Member -MemberType "NoteProperty" -Name "CredentialGuardConfigured" -Value $CredentialGuardConfigured
+        $Config | Add-Member -MemberType "NoteProperty" -Name "CredentialGuardRunning" -Value $CredentialGuardRunning
+        $Config | Add-Member -MemberType "NoteProperty" -Name "CredentialGuardDescription" -Value $CredentialGuardDescription
+        $Config
+    }
+}
+
 function Get-LanManagerConfiguration {
     <#
     .SYNOPSIS
@@ -1639,12 +1756,17 @@ function Get-LanManagerConfiguration {
             - Deny all      - 2
             - Not defined = Allow all
             - Default: Not defined
+
+    .LINK
+    https://support.microsoft.com/en-us/topic/upcoming-changes-to-ntlmv1-in-windows-11-version-24h2-and-windows-server-2025-c0554217-cdbc-420f-b47c-e02b2db49b2e
     #>
 
     [CmdletBinding()]
     param ()
 
     begin {
+        $WindowsVersion = Get-WindowsVersionFromRegistry
+
         $LsaRegKeyPath = "HKLM\SYSTEM\CurrentControlSet\Control\Lsa"
         $MsvRegKeyPath = "HKLM\SYSTEM\CurrentControlSet\Control\Lsa\MSV1_0"
 
@@ -1681,12 +1803,19 @@ function Get-LanManagerConfiguration {
             "Deny all"
         )
 
+        $BlockNtlmv1SSODefault = 0
+        $BlockNtlmv1SSODescriptions = @(
+            "The request to generate NTLMv1-credentials for a logged-on user is audited but allowed to succeed. Warning events are generated. This setting is also called Audit mode."
+            "The request to generate NTLMv1-credentials for a logged-on user is blocked. Error events are generated. This setting is also called Enforce mode."
+        )
+
         $AllValues = @{
-            "LmCompatibilityLevel"         = @($LsaRegKeyPath, $LmCompatibilityLevelDefault, $LmCompatibilityLevelDescriptions)
-            "NtlmMinServerSec"             = @($MsvRegKeyPath, $NtlmMinServerSecDefault, $NtlmMinSecDescriptions)
-            "NtlmMinClientSec"             = @($MsvRegKeyPath, $NtlmMinClientSecDefault, $NtlmMinSecDescriptions)
-            "RestrictReceivingNTLMTraffic" = @($MsvRegKeyPath, $RestrictReceivingNTLMTrafficDefault, $RestrictReceivingNTLMTrafficDescriptions)
-            "RestrictSendingNTLMTraffic"   = @($MsvRegKeyPath, $RestrictSendingNTLMTrafficDefault, $RestrictSendingNTLMTrafficDescriptions)
+            "LmCompatibilityLevel"         = @($LsaRegKeyPath, $LmCompatibilityLevelDefault, $LmCompatibilityLevelDescriptions, 0, 0, 0)
+            "NtlmMinServerSec"             = @($MsvRegKeyPath, $NtlmMinServerSecDefault, $NtlmMinSecDescriptions, 0, 0, 0)
+            "NtlmMinClientSec"             = @($MsvRegKeyPath, $NtlmMinClientSecDefault, $NtlmMinSecDescriptions, 0, 0, 0)
+            "RestrictReceivingNTLMTraffic" = @($MsvRegKeyPath, $RestrictReceivingNTLMTrafficDefault, $RestrictReceivingNTLMTrafficDescriptions, 10, 0, 0)
+            "RestrictSendingNTLMTraffic"   = @($MsvRegKeyPath, $RestrictSendingNTLMTrafficDefault, $RestrictSendingNTLMTrafficDescriptions, 10, 0, 0)
+            "BlockNtlmv1SSO"               = @($MsvRegKeyPath, $BlockNtlmv1SSODefault, $BlockNtlmv1SSODescriptions, 10, 0, 26100)
         }
     }
 
@@ -1697,14 +1826,25 @@ function Get-LanManagerConfiguration {
         foreach ($Value in $AllValues.Keys) {
 
             $RegKeyPath = $AllValues[$Value][0]
+            $DefaultValue = $AllValues[$Value][1]
+            $MinMajor = $AllValues[$Value][3]
+            $MinMinor = $AllValues[$Value][4]
+            $MinBuild = $AllValues[$Value][5]
+
+            if (($WindowsVersion.Major -lt $MinMajor)) { continue }
+            if (($WindowsVersion.Minor -lt $MinMinor) -and ($WindowsVersion.Major -eq $MinMajor)) { continue }
+            if (($WindowsVersion.Build -lt $MinBuild) -and ($WindowsVersion.Minor -eq $MinMinor) -and ($WindowsVersion.Build -eq $MinBuild)) { continue }
+
             $RegData = (Get-ItemProperty -Path "Registry::$($RegKeyPath)" -Name $Value -ErrorAction SilentlyContinue).$Value
 
             if ($null -eq $RegData) {
-                $RegData = $AllValues[$Value][1]
+                $RegData = $DefaultValue
             }
 
+            $Description = $AllValues[$Value][2][$RegData]
+
             $Result | Add-Member -MemberType "NoteProperty" -Name "$($Value)" -Value $RegData
-            $Result | Add-Member -MemberType "NoteProperty" -Name "$($Value)Description" -Value $AllValues[$Value][2][$RegData]
+            $Result | Add-Member -MemberType "NoteProperty" -Name "$($Value)Description" -Value $Description
         }
 
         $Result

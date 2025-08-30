@@ -1,5 +1,11 @@
 # Changelog
 
+## 2025-08-30
+
+### Added
+
+- Dedicated helper function for retrieving Credential Guard configuration and status.
+
 ## 2025-08-28
 
 ### Modified
