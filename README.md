@@ -2,11 +2,11 @@
 
 Quickly identify common Windows **vulnerabilities** and **configuration issues** that are not necessarily covered by public security standards, and collect useful information for exploitation and post-exploitation tasks.
 
-:information_source: Although this tool is primarily intended for pentesters, it can (and should) also be used by defenders to identify weaknesses on Windows endpoints.
+> :information_source: Although this tool is primarily intended for pentesters, it can (and should) also be used by defenders to identify weaknesses on Windows endpoints.
 
 ## :rocket: Quick Start
 
-> :warning: The script **IS NO LONGER** available in the repository, check out the [latest release](https://github.com/itm4n/PrivescCheck/releases/latest/) instead.
+:warning: The script **IS NO LONGER** available in the repository, check out the [latest release](https://github.com/itm4n/PrivescCheck/releases/latest/) instead.
 
 Download the script here: [PrivescCheck.ps1](https://github.com/itm4n/PrivescCheck/releases/latest/download/PrivescCheck.ps1)
 
