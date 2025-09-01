@@ -53,6 +53,7 @@ function Set-CachedData {
         [String] $Name,
 
         [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
         [Object[]] $Data
     )
 

@@ -20,7 +20,10 @@ function Get-CurrentUserDenySid {
     param()
 
     if (-not (Test-CachedData -Name "CurrentUserDenySids")) {
-        $CurrentUserDenySids = [string[]](Get-TokenInformationGroup -InformationClass Groups | Where-Object { $_.Attributes.Equals("UseForDenyOnly") } | Select-Object -ExpandProperty SID)
+        $CurrentUserDenySids = @()
+        Get-TokenInformationGroup -InformationClass Groups | Where-Object { $_.Attributes.Equals("UseForDenyOnly") } | Select-Object -ExpandProperty SID | ForEach-Object {
+            $CurrentUserDenySids += $_
+        }
         Set-CachedData -Name "CurrentUserDenySids" -Data $CurrentUserDenySids
     }
 
@@ -33,7 +36,8 @@ function Get-InstalledApplication {
     param ()
 
     if (-not (Test-CachedData -Name "InstalledApplicationList")) {
-        $InstalledApplicationList = Get-InstalledApplicationHelper
+        $InstalledApplicationList = @()
+        Get-InstalledApplicationHelper | ForEach-Object { $InstalledApplicationList += $_ }
         Set-CachedData -Name "InstalledApplicationList" -Data $InstalledApplicationList
     }
 

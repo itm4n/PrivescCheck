@@ -1,5 +1,11 @@
 # Changelog
 
+## 2025-09-01
+
+### Fixed
+
+- Improper handling of null data in 'Set-CachedData'.
+
 ## 2025-08-30
 
 ### Added
