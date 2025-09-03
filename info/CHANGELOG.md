@@ -1,5 +1,11 @@
 # Changelog
 
+## 2025-09-03
+
+### Fixed
+
+- Missing include in "PointAndPrint.ps1" build process (see issue #73).
+
 ## 2025-09-01
 
 ### Fixed

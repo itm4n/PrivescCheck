@@ -243,7 +243,8 @@
             "Id": "POINT_AND_PRINT",
             "Name": "PointAndPrint",
             "Includes": [
-                "CORE"
+                "CORE",
+                "EXPLOIT_POINT_AND_PRINT"
             ]
         }
     ]
