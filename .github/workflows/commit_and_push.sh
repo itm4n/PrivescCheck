@@ -23,7 +23,7 @@ github_name=$2
 
 echo "[*] Current status of the repository:"
 if ! git status -b -s; then
-    echo "[-] No a git repository."
+    echo "[-] Not a git repository."
     exit 2
 fi
 
