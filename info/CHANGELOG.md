@@ -1,5 +1,11 @@
 # Changelog
 
+## 2025-10-06
+
+### Modified
+
+- Automated build workflow + Changelog generation
+
 ## 2025-09-03
 
 ### Fixed

@@ -8,8 +8,11 @@ on:
   # Trigger action manually from GitHub > Actions
   workflow_dispatch:
   # Trigger action at a given date and time
-  # schedule:
-  #   - cron: '37 13 * * *'
+  schedule:
+    - cron: '47 12 * * 3'
+
+concurrency:
+  group: privesccheck-update-and-build
 
 #
 # Below, we are building the following chain:
@@ -31,6 +34,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       data-updated: ${{ steps.commit-and-push.outputs.data-updated }}
+      data-update-diff: ${{ steps.commit-and-push.outputs.data-update-diff }}
     steps:
       - name: Check out master branch
         uses: actions/checkout@v5
@@ -49,8 +53,10 @@ jobs:
         run: |
           if ! bash ./.github/workflows/commit_and_push.sh "${{ github.actor_id }}" "${{ github.actor }}"; then
             echo "data-updated=false" >> "$GITHUB_OUTPUT"
+            echo "data-update-diff=$(echo "N/A" | base64 -w 0)" >> "$GITHUB_OUTPUT"
           else
             echo "data-updated=true" >> "$GITHUB_OUTPUT"
+            echo "data-update-diff=$(git diff --name-only -- ./data | base64 -w 0)" >> "$GITHUB_OUTPUT"
           fi
 
   get-release-tag:
@@ -81,6 +87,25 @@ jobs:
         uses: actions/checkout@v5
         with:
           ref: master
+          fetch-depth: 0
+      - name: Generate Changelog
+        shell: bash
+        run: |
+          event_name="${{ github.event_name }}"
+          echo "[*] Event name: ${event_name}"
+          changelog_content=""
+          if [[ "${event_name}" == "push" ]]; then
+            echo "[*] Commit ID before push: ${{ github.event.before }}"
+            echo "[*] Commit ID after push: ${{ github.event.after }}"
+            changelog_content="$(git diff --unified=0 "${{ github.event.before }}" "${{ github.event.after }}" -- "./info/CHANGELOG.md" 2>/dev/null | grep -E "^\\+" | grep -v '+++' | sed "s/^+//g")"
+          elif [[ "${event_name}" == "schedule" ]]; then
+            data_file_update=$(echo "${{ needs.update-data.outputs.data-update-diff }}" | base64 -d)
+            echo -e "[*] Data file update:\n${data_file_update}"
+            changelog_content="## Files updated\n\n${data_file_update}"
+          else
+            changelog_content="N/A"
+          fi
+          echo -ne "# Changelog\n\n${changelog_content}\n" > ./release/changelog.md
       - name: Build PrivescCheck script
         shell: pwsh
         run: |
@@ -102,10 +127,24 @@ jobs:
           echo "[*] Release tag: ${RELEASE_TAG}"
           echo "[*] Data updated: ${DATA_UPDATED}"
           echo "[*] Event name: ${event_name}"
+          create_release=0
           if [[ "${event_name}" = "schedule" ]]; then
             if [[ "${DATA_UPDATED}" = "true" ]]; then
+              create_release=1
               gh release create "${RELEASE_TAG}" ./release/*.ps1
             fi
           else
-            gh release create "${RELEASE_TAG}" ./release/*.ps1
+            create_release=1
+          fi
+          if [[ $create_release == 1 ]]; then
+            changelog_path="./release/changelog.md"
+            if [[ -f "${changelog_path}" ]]; then
+              echo "[*] Changelog file found: ${changelog_path}"
+              gh release create "${RELEASE_TAG}" --notes-file "${changelog_path}" ./release/*.ps1
+            else
+              echo "[!] Changelog file not found"
+              gh release create "${RELEASE_TAG}" ./release/*.ps1
+            fi
+          else
+            echo "[*] No release to create"
           fi
