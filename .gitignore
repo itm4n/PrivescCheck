@@ -10,3 +10,9 @@
 # 'release' folder even if it's empty.
 /release/*
 !/release/.gitkeep
+
+# Ignore all markdown files, except the README and other files located in the
+# info folder.
+*.md
+!/README.md
+!/info/*.md
