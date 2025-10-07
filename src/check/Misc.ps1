@@ -736,6 +736,7 @@ function Invoke-NamedPipePermissionCheck {
     process {
 
         $Results = @()
+        $CurrentUserSid = [String[]] (Get-CurrentUserSid)
         $PipeItems = Get-ChildItem -Path "\\.\pipe\"
 
         foreach ($PipeItem in $PipeItems) {
@@ -743,6 +744,9 @@ function Invoke-NamedPipePermissionCheck {
             $ModifiablePaths = Get-ObjectAccessRight -Name $PipeItem.FullName -Type File
 
             foreach ($ModifiablePath in $ModifiablePaths) {
+
+                # Exclude named pipes owned by the current user
+                if ($CurrentUserSid -contains $ModifiablePath.OwnerSid) { continue }
 
                 $Result = New-Object -TypeName PSObject
                 $Result | Add-Member -MemberType "NoteProperty" -Name "FullName" -Value $PipeItem.FullName

@@ -9,6 +9,7 @@
 ### Modified
 
 - Standardized check output so that all checks return a "raw output" and a "severity" level, even info checks.
+- In 'Invoke-NamedPipePermissionCheck', exclude named pipes owned by the current user.
 
 ## 2025-10-06
 
