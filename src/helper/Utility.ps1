@@ -833,6 +833,11 @@ function Resolve-CommandLine {
             return $null
         }
 
+        if ([String]::IsNullOrEmpty($Arguments[0])) {
+            Write-Warning "Input command line seems to be empty: $($CommandLine)"
+            return $null
+        }
+
         if (-not [System.IO.Path]::IsPathRooted($Arguments[0])) {
             $PathResolved = Resolve-ModulePath -Name $Arguments[0]
             if (-not [String]::IsNullOrEmpty($PathResolved)) { $Arguments[0] = $PathResolved }
@@ -855,7 +860,7 @@ function Resolve-CommandLine {
             }
         }
 
-        Write-Warning "Resolve-CommandLine failed for input: $($CommandLine)"
+        Write-Error "Resolve-CommandLine failed for input: $($CommandLine)"
     }
 }
 

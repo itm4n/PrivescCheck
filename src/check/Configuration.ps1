@@ -994,7 +994,7 @@ function Invoke-ComServerGhostDllHijackingCheck {
     }
 
     process {
-        $RegisteredClasses = Get-ComClassFromRegistry | Where-Object { ($_.HandlerType -like "*server*") -and ($null -ne $_.HandlerData) }
+        $RegisteredClasses = Get-ComClassFromRegistry | Where-Object { ($_.HandlerType -like "*server*") -and (-not [String]::IsNullOrEmpty($_.HandlerData)) }
 
         foreach ($RegisteredClass in $RegisteredClasses) {
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## 2025-10-07
+
+### Fixed
+
+- Improper handling of empty command lines in 'Resolve-CommandLine' (see issue #74).
+
 ## 2025-10-06
 
 ### Modified
