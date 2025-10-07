@@ -6,6 +6,10 @@
 
 - Improper handling of empty command lines in 'Resolve-CommandLine' (see issue #74).
 
+### Modified
+
+- Standardized check output so that all checks return a "raw output" and a "severity" level, even info checks.
+
 ## 2025-10-06
 
 ### Modified

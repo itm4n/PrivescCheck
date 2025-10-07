@@ -18,8 +18,11 @@ function Invoke-WindowsUpdateCheck {
     #>
 
     [CmdletBinding()]
-    param()
+    param(
+        [UInt32] $BaseSeverity
+    )
 
+    $Results = @()
     try {
         $WindowsUpdate = (New-Object -ComObject "Microsoft.Update.AutoUpdate").Results
 
@@ -27,13 +30,18 @@ function Invoke-WindowsUpdateCheck {
             $WindowsUpdateResult = New-Object -TypeName PSObject
             $WindowsUpdateResult | Add-Member -MemberType "NoteProperty" -Name "Time" -Value $(Convert-DateToString -Date $WindowsUpdate.LastInstallationSuccessDate -IncludeTime)
             $WindowsUpdateResult | Add-Member -MemberType "NoteProperty" -Name "TimeRaw" -Value $WindowsUpdate.LastInstallationSuccessDate
-            $WindowsUpdateResult
+            $Results += $WindowsUpdateResult
         }
     }
     catch {
         # We might get an access denied when querying this COM object
         Write-Verbose "Error while requesting COM object Microsoft.Update.AutoUpdate."
     }
+
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Results
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Results) { $BaseSeverity } else { $script:SeverityLevel::None })
+    $Result
 }
 
 function Invoke-HotFixCheck {

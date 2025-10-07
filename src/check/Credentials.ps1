@@ -19,15 +19,6 @@ function Invoke-WinLogonCredentialCheck {
     ------ --------  --------
            lab-admin
 
-    .EXAMPLE
-    PS C:\> Invoke-WinLogonCredentialCheck -Remote
-
-    FilePath        : \\domain.tld\SYSVOL\domain.tld\Policies\{20b62124-4b0a-4cbe-a5a2-94eaf4267834}\Machine\Preferences\Registry\Registry.xml
-    Domains         : Domain-Test1
-    Usernames       : Username-Test1, Username-Test1-del, Username-Test1-Create, Username-Test1-replace, Username-Test1
-    Passwords       : Password-Test1
-    AutoAdminLogons : 1
-
     .LINK
     https://support.microsoft.com/en-us/help/324737/how-to-turn-on-automatic-logon-in-windows
     https://github.com/itm4n/PrivescCheck/issues/19
@@ -35,7 +26,6 @@ function Invoke-WinLogonCredentialCheck {
 
     [CmdletBinding()]
     param(
-        [switch] $Remote = $false,
         [UInt32] $BaseSeverity
     )
 
@@ -44,117 +34,23 @@ function Invoke-WinLogonCredentialCheck {
     }
 
     process {
-        if ($Remote) {
+        $RegKey = "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon"
+        $RegItem = Get-ItemProperty -Path "Registry::$($RegKey)" -ErrorAction SilentlyContinue
 
-            $GppPath = "\\$($Env:USERDNSDOMAIN)\SYSVOL"
-            Write-Verbose "Target search path is: $($GppPath)"
-
-            $CachedGPPFiles = Get-ChildItem -Path $GppPath -Recurse -Include 'Registry.xml' -Force -ErrorAction SilentlyContinue
-            if (-not $CachedGPPFiles) { return }
-
-            foreach ($File in $CachedGPPFiles) {
-
-                try {
-                    [xml] $XmlFile = Get-Content -Path $File.FullName -ErrorAction SilentlyContinue
-                }
-                catch [Exception] {
-                    Write-Verbose $_.Exception.Message
-                    continue
-                }
-
-                $Results = New-Object -TypeName PSObject -Property @{
-                    DefaultDomainName    = New-Object System.Collections.ArrayList
-                    DefaultUserName      = New-Object System.Collections.ArrayList
-                    DefaultPassword      = New-Object System.Collections.ArrayList
-                    AutoAdminLogon       = New-Object System.Collections.ArrayList
-                    AltDefaultDomainName = New-Object System.Collections.ArrayList
-                    AltDefaultUserName   = New-Object System.Collections.ArrayList
-                    AltDefaultPassword   = New-Object System.Collections.ArrayList
-                    AltAutoAdminLogon    = New-Object System.Collections.ArrayList
-                }
-
-                foreach ($Property in $XmlFile.GetElementsByTagName("Properties")) {
-
-                    if ([string]::IsNullOrEmpty($Property.value)) { continue }
-
-                    switch ($Property.name) {
-
-                        DefaultDomainName {
-                            $null = $Results.DefaultDomainName.Add($Property.value)
-                        }
-
-                        DefaultUserName {
-                            $null = $Results.DefaultUserName.Add($Property.value)
-                        }
-
-                        DefaultPassword {
-                            $null = $Results.DefaultPassword.Add($Property.value)
-                        }
-
-                        AutoAdminLogon {
-                            $null = $Results.AutoAdminLogon.Add($Property.value)
-                        }
-
-                        AltDefaultDomainName {
-                            $null = $Results.AltDefaultDomainName.Add($Property.value)
-                        }
-
-                        AltDefaultUserName {
-                            $null = $Results.AltDefaultUserName.Add($Property.value)
-                        }
-
-                        AltDefaultPassword {
-                            $null = $Results.AltDefaultPassword.Add($Property.value)
-                        }
-
-                        AltAutoAdminLogon {
-                            $null = $Results.AltAutoAdminLogon.Add($Property.value)
-                        }
-                    }
-                }
-
-                if ($Results.DefaultPassword.Count -ne 0) {
-
-                    $Result = New-Object -TypeName PSObject
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "FilePath" -Value $File.FullName
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "Domains" -Value ($Results.DefaultDomainName -join ", ")
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "Usernames" -Value ($Results.DefaultUserName -join ", ")
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "Passwords" -Value ($Results.DefaultPassword -join ", ")
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "AutoAdminLogons" -Value ($Results.AutoAdminLogon -join ", ")
-                    $AllResults += $Result
-                }
-
-                if ($Results.AltDefaultPassword.Count -ne 0) {
-
-                    $Result = New-Object -TypeName PSObject
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "FilePath" -Value $File.FullName
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "Domains" -Value ($Results.AltDefaultDomainName -join ", ")
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "Usernames" -Value ($Results.AltDefaultUserName -join ", ")
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "Passwords" -Value ($Results.AltDefaultPassword -join ", ")
-                    $Result | Add-Member -MemberType "NoteProperty" -Name "AutoAdminLogon" -Value ($Results.AltAutoAdminLogon -join ", ")
-                    $AllResults += $Result
-                }
-            }
+        if (-not [String]::IsNullOrEmpty($RegItem.DefaultPassword)) {
+            $Result = New-Object -TypeName PSObject
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Domain" -Value $RegItem.DefaultDomainName
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Username" -Value $RegItem.DefaultUserName
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Password" -Value $RegItem.DefaultPassword
+            $AllResults += $Result
         }
-        else {
-            $RegKey = "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon"
-            $RegItem = Get-ItemProperty -Path "Registry::$($RegKey)" -ErrorAction SilentlyContinue
 
-            if (-not [String]::IsNullOrEmpty($RegItem.DefaultPassword)) {
-                $Result = New-Object -TypeName PSObject
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Domain" -Value $RegItem.DefaultDomainName
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Username" -Value $RegItem.DefaultUserName
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Password" -Value $RegItem.DefaultPassword
-                $AllResults += $Result
-            }
-
-            if (-not [String]::IsNullOrEmpty($RegItem.AltDefaultPassword)) {
-                $Result = New-Object -TypeName PSObject
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Domain" -Value $RegItem.AltDefaultDomainName
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Username" -Value $RegItem.AltDefaultUserName
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Password" -Value $RegItem.AltDefaultPassword
-                $AllResults += $Result
-            }
+        if (-not [String]::IsNullOrEmpty($RegItem.AltDefaultPassword)) {
+            $Result = New-Object -TypeName PSObject
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Domain" -Value $RegItem.AltDefaultDomainName
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Username" -Value $RegItem.AltDefaultUserName
+            $Result | Add-Member -MemberType "NoteProperty" -Name "Password" -Value $RegItem.AltDefaultPassword
+            $AllResults += $Result
         }
 
         $CheckResult = New-Object -TypeName PSObject
@@ -193,7 +89,9 @@ function Invoke-CredentialMasterKeyCheck {
     #>
 
     [CmdletBinding()]
-    param ()
+    param (
+        [UInt32] $BaseSeverity
+    )
 
     begin {
         $MasterKeyFolderBasePaths = @(
@@ -204,6 +102,7 @@ function Invoke-CredentialMasterKeyCheck {
 
     process {
 
+        $Results = @()
         foreach ($MasterKeyFolderBasePath in $MasterKeyFolderBasePaths) {
 
             $MasterKeyFolders = Get-ChildItem -Force -Path $MasterKeyFolderBasePath -ErrorAction SilentlyContinue
@@ -222,7 +121,7 @@ function Invoke-CredentialMasterKeyCheck {
                         $Result | Add-Member -MemberType "NoteProperty" -Name "Id" -Value $FileNameGuid
                         $Result | Add-Member -MemberType "NoteProperty" -Name "LastAccessTime" -Value $(Convert-DateToString -Date $MasterKeyFolderFile.LastAccessTime -IncludeTime)
                         $Result | Add-Member -MemberType "NoteProperty" -Name "LastWriteTime" -Value $(Convert-DateToString -Date $MasterKeyFolderFile.LastWriteTime -IncludeTime)
-                        $Result
+                        $Results += $Result
                     }
                     catch {
                         continue
@@ -230,6 +129,11 @@ function Invoke-CredentialMasterKeyCheck {
                 }
             }
         }
+
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Results
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Results) { $BaseSeverity } else { $script:SeverityLevel::None })
+        $Result
     }
 }
 
@@ -275,7 +179,9 @@ function Invoke-CredentialFileCheck {
     #>
 
     [CmdletBinding()]
-    param ()
+    param (
+        [UInt32] $BaseSeverity
+    )
 
     begin {
         $CredentialFolderPaths = @(
@@ -286,6 +192,7 @@ function Invoke-CredentialFileCheck {
 
     process {
 
+        $Results = @()
         foreach ($CredentialFolderPath in $CredentialFolderPaths) {
 
             $CredentialFiles = Get-ChildItem -Force -Path $CredentialFolderPath -ErrorAction SilentlyContinue
@@ -316,9 +223,14 @@ function Invoke-CredentialFileCheck {
                 $Result | Add-Member -MemberType "NoteProperty" -Name "LastAccessTime" -Value $(Convert-DateToString -Date $CredentialFile.LastAccessTime -IncludeTime)
                 $Result | Add-Member -MemberType "NoteProperty" -Name "LastWriteTime" -Value $(Convert-DateToString -Date $CredentialFile.LastWriteTime -IncludeTime)
                 $Result | Add-Member -MemberType "NoteProperty" -Name "Size" -Value $CredentialFile.Length
-                $Result
+                $Results += $Result
             }
         }
+
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Results
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Results) { $BaseSeverity } else { $script:SeverityLevel::None })
+        $Result
     }
 }
 
@@ -347,9 +259,16 @@ function Invoke-CredentialCheck {
     #>
 
     [CmdletBinding()]
-    param()
+    param(
+        [UInt32] $BaseSeverity
+    )
 
-    Get-CredentialItem -Filtered
+    $Results = Get-CredentialItem -Filtered
+
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Results
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Results) { $BaseSeverity } else { $script:SeverityLevel::None })
+    $Result
 }
 
 function Invoke-VaultCheck {
@@ -375,9 +294,16 @@ function Invoke-VaultCheck {
     #>
 
     [CmdletBinding()]
-    param()
+    param(
+        [UInt32] $BaseSeverity
+    )
 
-    Get-VaultItem -Filtered
+    $Results = Get-VaultItem -Filtered
+
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Results
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Results) { $BaseSeverity } else { $script:SeverityLevel::None })
+    $Result
 }
 
 function Invoke-GPPCredentialCheck {
@@ -416,7 +342,6 @@ function Invoke-GPPCredentialCheck {
 
     [CmdletBinding()]
     param(
-        [switch] $Remote,
         [UInt32] $BaseSeverity
     )
 
@@ -463,17 +388,12 @@ function Invoke-GPPCredentialCheck {
     }
 
     process {
-        if ($Remote) {
-            $GppPath = "\\$($Env:USERDNSDOMAIN)\SYSVOL"
+        $GppPath = $Env:ALLUSERSPROFILE
+        if ($GppPath -notmatch "ProgramData") {
+            $GppPath = Join-Path -Path $GppPath -ChildPath "Application Data"
         }
         else {
-            $GppPath = $Env:ALLUSERSPROFILE
-            if ($GppPath -notmatch "ProgramData") {
-                $GppPath = Join-Path -Path $GppPath -ChildPath "Application Data"
-            }
-            else {
-                $GppPath = Join-Path -Path $GppPath -ChildPath "Microsoft\Group Policy"
-            }
+            $GppPath = Join-Path -Path $GppPath -ChildPath "Microsoft\Group Policy"
         }
 
         if (Test-Path -Path $GppPath -ErrorAction SilentlyContinue) {
@@ -586,11 +506,14 @@ function Invoke-PowerShellHistoryCredentialCheck {
     #>
 
     [CmdletBinding()]
-    param()
+    param(
+        [UInt32] $BaseSeverity
+    )
 
     $HistoryFilePath = "$env:APPDATA\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt"
     $HistoryFileContent = Get-Content -Path $HistoryFilePath -ErrorAction SilentlyContinue -ErrorVariable ErrorGetContent
 
+    $Results = @()
     if (-not $ErrorGetContent) {
 
         $HistoryCount = $HistoryFileContent.Count
@@ -604,8 +527,13 @@ function Invoke-PowerShellHistoryCredentialCheck {
         $Item | Add-Member -MemberType "NoteProperty" -Name "LastWriteTime" -Value $FileItem.LastWriteTime
         $Item | Add-Member -MemberType "NoteProperty" -Name "Lines" -Value $HistoryCount
         $Item | Add-Member -MemberType "NoteProperty" -Name "Matches" -Value $AllMatchesCount
-        $Item
+        $Results += $Item
     }
+
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Results
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Results) { $BaseSeverity } else { $script:SeverityLevel::None })
+    $Result
 }
 
 function Invoke-HiveFilePermissionCheck {

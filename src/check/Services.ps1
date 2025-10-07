@@ -18,9 +18,16 @@ function Invoke-InstalledServiceCheck {
     #>
 
     [CmdletBinding()]
-    param()
+    param(
+        [UInt32] $BaseSeverity
+    )
 
-    Get-ServiceFromRegistry -FilterLevel 3 | Select-Object -Property Name, DisplayName, ImagePath, User, StartMode
+    $Results = Get-ServiceFromRegistry -FilterLevel 3 | Select-Object -Property Name, DisplayName, ImagePath, User, StartMode
+
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Results
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Results) { $BaseSeverity } else { $script:SeverityLevel::None })
+    $Result
 }
 
 function Invoke-ServiceRegistryPermissionCheck {
@@ -347,7 +354,9 @@ function Invoke-ThirdPartyDriverCheck {
     #>
 
     [CmdletBinding()]
-    param()
+    param(
+        [UInt32] $BaseSeverity
+    )
 
     begin {
         $FsRedirectionValue = Disable-Wow64FileSystemRedirection
@@ -355,6 +364,7 @@ function Invoke-ThirdPartyDriverCheck {
 
     process {
 
+        $Results = @()
         foreach ($Driver in (Get-KernelDriver)) {
 
             $ImageFile = Get-Item -Path $Driver.ImagePathResolved -ErrorAction SilentlyContinue
@@ -364,15 +374,20 @@ function Invoke-ThirdPartyDriverCheck {
 
             $VersionInfo = $ImageFile | Select-Object -ExpandProperty VersionInfo
 
-            $Result = $Driver | Select-Object Name, ImagePath, StartMode, Type
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $(Get-ServiceStatus -Name $Driver.Name)
-            $Result | Add-Member -MemberType "NoteProperty" -Name "ProductName" -Value $(if ($VersionInfo.ProductName) { $VersionInfo.ProductName.trim() } else { "Unknown" })
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Company" -Value $(if ($VersionInfo.CompanyName) { $VersionInfo.CompanyName.trim() } else { "Unknown" })
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $(if ($VersionInfo.FileDescription) { $VersionInfo.FileDescription.trim() } else { "Unknown" })
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Version" -Value $(if ($VersionInfo.FileVersion) { $VersionInfo.FileVersion.trim() } else { "Unknown" })
-            $Result | Add-Member -MemberType "NoteProperty" -Name "Copyright" -Value $(if ($VersionInfo.LegalCopyright) { $VersionInfo.LegalCopyright.trim() } else { "Unknown" })
-            $Result
+            $DriverEntry = $Driver | Select-Object Name, ImagePath, StartMode, Type
+            $DriverEntry | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $(Get-ServiceStatus -Name $Driver.Name)
+            $DriverEntry | Add-Member -MemberType "NoteProperty" -Name "ProductName" -Value $(if ($VersionInfo.ProductName) { $VersionInfo.ProductName.trim() } else { "Unknown" })
+            $DriverEntry | Add-Member -MemberType "NoteProperty" -Name "Company" -Value $(if ($VersionInfo.CompanyName) { $VersionInfo.CompanyName.trim() } else { "Unknown" })
+            $DriverEntry | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $(if ($VersionInfo.FileDescription) { $VersionInfo.FileDescription.trim() } else { "Unknown" })
+            $DriverEntry | Add-Member -MemberType "NoteProperty" -Name "Version" -Value $(if ($VersionInfo.FileVersion) { $VersionInfo.FileVersion.trim() } else { "Unknown" })
+            $DriverEntry | Add-Member -MemberType "NoteProperty" -Name "Copyright" -Value $(if ($VersionInfo.LegalCopyright) { $VersionInfo.LegalCopyright.trim() } else { "Unknown" })
+            $Results += $DriverEntry
         }
+
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Results
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Results) { $BaseSeverity } else { $script:SeverityLevel::None })
+        $Result
     }
 
     end {
@@ -554,7 +569,9 @@ function Invoke-NamedKernelDeviceCheck {
     #>
 
     [CmdletBinding()]
-    param ()
+    param (
+        [UInt32] $BaseSeverity
+    )
 
     begin {
         $IgnoredDevices = @("Beep", "Mailslot", "NamedPipe", "Null")
@@ -564,6 +581,7 @@ function Invoke-NamedKernelDeviceCheck {
 
         $Devices = Get-NtObjectItem -Path "\Device" | Where-Object { $_.Type -eq "Device" } | Sort-Object -Property Name
 
+        $Results = @()
         foreach ($Device in $Devices) {
 
             if ($Device.Name -match "0000[0-9a-fA-F]{4}") { continue }
@@ -580,8 +598,13 @@ function Invoke-NamedKernelDeviceCheck {
                 $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiablePath" -Value $ModifiablePath.ModifiablePath
                 $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $ModifiablePath.IdentityReference
                 $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value ($ModifiablePath.Permissions -join ", ")
-                $Result
+                $Results += $Result
             }
         }
+
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Results
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Results) { $BaseSeverity } else { $script:SeverityLevel::None })
+        $Result
     }
 }

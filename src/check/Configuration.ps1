@@ -599,11 +599,14 @@ function Invoke-SccmCacheFolderCheck {
     #>
 
     [CmdletBinding()]
-    param()
+    param(
+        [UInt32] $BaseSeverity
+    )
 
     process {
         $SccmCacheFolders = Get-SccmCacheFolderFromRegistry
 
+        $Results = @()
         foreach ($SccmCacheFolder in $SccmCacheFolders) {
 
             if ([string]::IsNullOrEmpty($SccmCacheFolder.Path)) { continue }
@@ -625,8 +628,13 @@ function Invoke-SccmCacheFolderCheck {
             $SccmCacheFolderItem | Add-Member -MemberType "NoteProperty" -Name "ScriptFiles" -Value ($ScriptFileRelativePaths -join "; ")
             $SccmCacheFolderItem | Add-Member -MemberType "NoteProperty" -Name "TextFileCount" -Value $TextFiles.Count
             $SccmCacheFolderItem | Add-Member -MemberType "NoteProperty" -Name "TextFiles" -Value ($TextFileRelativePaths -join "; ")
-            $SccmCacheFolderItem
+            $Results += $SccmCacheFolderItem
         }
+
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Results
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Results) { $BaseSeverity } else { $script:SeverityLevel::None })
+        $Result
     }
 }
 
@@ -776,13 +784,19 @@ function Invoke-DefenderExclusionCheck {
     #>
 
     [CmdletBinding()]
-    param()
+    param(
+        [UInt32] $BaseSeverity
+    )
 
     process {
-        $Exclusions = @()
-        $Exclusions += Get-WindowsDefenderExclusion -Source Registry
-        $Exclusions += Get-WindowsDefenderExclusion -Source EventLog
-        $Exclusions
+        $Results = @()
+        $Results += Get-WindowsDefenderExclusion -Source Registry
+        $Results += Get-WindowsDefenderExclusion -Source EventLog
+
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Results
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Results) { $BaseSeverity } else { $script:SeverityLevel::None })
+        $Result
     }
 }
 

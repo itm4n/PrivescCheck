@@ -14,12 +14,15 @@ function Invoke-SystemInformationCheck {
 
     Name    : Windows 10 Home
     Version : 10.0.18363 Version 1909 (18363.535)
+
     .LINK
     https://techthoughts.info/windows-version-numbers/
     #>
 
     [CmdletBinding()]
-    param()
+    param(
+        [UInt32] $BaseSeverity
+    )
 
     $OsVersion = Get-WindowsVersionFromRegistry
     $SystemInformation = Get-SystemInformation
@@ -41,6 +44,7 @@ function Invoke-SystemInformationCheck {
         $ProductName = $ProductName -replace "Windows 10", "Windows 11"
     }
 
+    $Results = @()
     $Result = New-Object -TypeName PSObject
     $Result | Add-Member -MemberType "NoteProperty" -Name "ProductName" -Value $ProductName
     $Result | Add-Member -MemberType "NoteProperty" -Name "Version" -Value $OsVersionStr
@@ -55,6 +59,11 @@ function Invoke-SystemInformationCheck {
     $Result | Add-Member -MemberType "NoteProperty" -Name "SystemManufacturer" -Value $SystemInformation.SystemManufacturer
     $Result | Add-Member -MemberType "NoteProperty" -Name "SystemProductName" -Value $SystemInformation.SystemProductName
     $Result | Add-Member -MemberType "NoteProperty" -Name "SystemSKU" -Value $SystemInformation.SystemSKU
+    $Results += $Result
+
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Results
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Results) { $BaseSeverity } else { $script:SeverityLevel::None })
     $Result
 }
 
@@ -98,10 +107,13 @@ function Invoke-SystemStartupHistoryCheck {
 
     [CmdletBinding()]
     param(
-        [Int] $TimeSpanInDays = 31
+        [UInt32] $BaseSeverity
     )
 
+    $Results = @()
+
     try {
+        $TimeSpanInDays = 31
         $SystemStartupHistoryResult = New-Object -TypeName System.Collections.ArrayList
 
         $StartDate = (Get-Date).AddDays(-$TimeSpanInDays)
@@ -121,12 +133,17 @@ function Invoke-SystemStartupHistoryCheck {
             $EventNumber += 1
         }
 
-        $SystemStartupHistoryResult | Select-Object -First 10
+        $Results += $SystemStartupHistoryResult | Select-Object -First 10
     }
     catch {
         # We might get an "access denied"
         Write-Verbose "Error while querying the Event Log."
     }
+
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Results
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Results) { $BaseSeverity } else { $script:SeverityLevel::None })
+    $Result
 }
 
 function Invoke-SystemDriveCheck {
@@ -150,8 +167,11 @@ function Invoke-SystemDriveCheck {
     #>
 
     [CmdletBinding()]
-    param()
+    param(
+        [UInt32] $BaseSeverity
+    )
 
+    $Results = @()
     $Drives = Get-PSDrive -PSProvider "FileSystem"
 
     foreach ($Drive in $Drives) {
@@ -159,8 +179,13 @@ function Invoke-SystemDriveCheck {
         $Result | Add-Member -MemberType "NoteProperty" -Name "Root" -Value "$($Drive.Root)"
         $Result | Add-Member -MemberType "NoteProperty" -Name "DisplayRoot" -Value "$($Drive.DisplayRoot)"
         $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value "$($Drive.Description)"
-        $Result
+        $Results += $Result
     }
+
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Results
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Results) { $BaseSeverity } else { $script:SeverityLevel::None })
+    $Result
 }
 
 function Invoke-LocalAdminGroupCheck {
@@ -187,8 +212,11 @@ function Invoke-LocalAdminGroupCheck {
     #>
 
     [CmdletBinding()]
-    param()
+    param(
+        [UInt32] $BaseSeverity
+    )
 
+    $Results = @()
     $LocalAdminGroupFullname = ([Security.Principal.SecurityIdentifier]"S-1-5-32-544").Translate([Security.Principal.NTAccount]).Value
     $LocalAdminGroupName = $LocalAdminGroupFullname.Split('\')[1]
     Write-Verbose "Admin group name: $LocalAdminGroupName"
@@ -234,13 +262,18 @@ function Invoke-LocalAdminGroupCheck {
                 $Result | Add-Member -MemberType "NoteProperty" -Name "Type" -Value $MemberType
                 $Result | Add-Member -MemberType "NoteProperty" -Name "IsLocal" -Value $MemberIsLocal
                 $Result | Add-Member -MemberType "NoteProperty" -Name "IsEnabled" -Value $MemberIsEnabled
-                $Result
+                $Results += $Result
             }
         }
     }
     catch {
         Write-Verbose "$($_.Exception)"
     }
+
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Results
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Results) { $BaseSeverity } else { $script:SeverityLevel::None })
+    $Result
 }
 
 function Invoke-UserHomeFolderCheck {
@@ -265,8 +298,11 @@ function Invoke-UserHomeFolderCheck {
     #>
 
     [CmdletBinding()]
-    param()
+    param(
+        [UInt32] $BaseSeverity
+    )
 
+    $Results = @()
     $UsersHomeFolder = Join-Path -Path $((Get-Item $env:windir).Root) -ChildPath Users
 
     foreach ($HomeFolder in $(Get-ChildItem -Path $UsersHomeFolder)) {
@@ -287,8 +323,13 @@ function Invoke-UserHomeFolderCheck {
         $Result | Add-Member -MemberType "NoteProperty" -Name "HomeFolderPath" -Value $FolderPath
         $Result | Add-Member -MemberType "NoteProperty" -Name "Read" -Value $ReadAccess
         $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $WriteAccess
-        $Result
+        $Results += $Result
     }
+
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Results
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Results) { $BaseSeverity } else { $script:SeverityLevel::None })
+    $Result
 }
 
 function Invoke-MachineRoleCheck {
@@ -316,9 +357,16 @@ function Invoke-MachineRoleCheck {
     #>
 
     [CmdletBinding()]
-    param()
+    param(
+        [UInt32] $BaseSeverity
+    )
 
-    Get-MachineRole
+    $Results = Get-MachineRole
+
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Results
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Results) { $BaseSeverity } else { $script:SeverityLevel::None })
+    $Result
 }
 
 function Invoke-EndpointProtectionCheck {
@@ -355,12 +403,14 @@ function Invoke-EndpointProtectionCheck {
     #>
 
     [CmdletBinding()]
-    param()
+    param(
+        [UInt32] $BaseSeverity
+    )
 
     begin {
         $Signatures = @{}
 
-        ConvertFrom-EmbeddedTextBlob -TextBlob $script:GlobalConstant.EndpointProtectionSignatureBlob | ConvertFrom-Csv | ForEach-Object {
+        ConvertFrom-EmbeddedTextBlob -TextBlob $script:GlobalConstant.EndpointProtectionSignature | ConvertFrom-Csv | ForEach-Object {
             $Signatures.Add($_.Name, $_.Signature)
         }
 
@@ -391,11 +441,11 @@ function Invoke-EndpointProtectionCheck {
     }
 
     process {
-        # Need to store all the results into one ArrayList so we can sort them on the product name.
-        $Results = New-Object System.Collections.ArrayList
+        # Need to store all the results into a list so we can sort them on the product name.
+        $Results = @()
 
         # Check DLLs loaded in the current process
-        Get-Process -Id $PID -Module | ForEach-Object {
+        $Results += Get-Process -Id $PID -Module | ForEach-Object {
 
             if (Test-Path -Path $_.FileName -ErrorAction SilentlyContinue) {
 
@@ -406,13 +456,13 @@ function Invoke-EndpointProtectionCheck {
                     $Result | Add-Member -MemberType "NoteProperty" -Name "ProductName" -Value "$($_.ProductName)"
                     $Result | Add-Member -MemberType "NoteProperty" -Name "Source" -Value "Loaded DLL"
                     $Result | Add-Member -MemberType "NoteProperty" -Name "Pattern" -Value "$($_.Pattern)"
-                    [void] $Results.Add($Result)
+                    $Result
                 }
             }
         }
 
         # Check running processes
-        Get-Process | Select-Object -Property ProcessName, Name, Path, Company, Product, Description | ForEach-Object {
+        $Results += Get-Process | Select-Object -Property ProcessName, Name, Path, Company, Product, Description | ForEach-Object {
 
             Find-ProtectionSoftware -Object $_ | ForEach-Object {
 
@@ -420,12 +470,12 @@ function Invoke-EndpointProtectionCheck {
                 $Result | Add-Member -MemberType "NoteProperty" -Name "ProductName" -Value "$($_.ProductName)"
                 $Result | Add-Member -MemberType "NoteProperty" -Name "Source" -Value "Running process"
                 $Result | Add-Member -MemberType "NoteProperty" -Name "Pattern" -Value "$($_.Pattern)"
-                [void] $Results.Add($Result)
+                $Result
             }
         }
 
         # Check installed applications
-        Get-InstalledApplication | Select-Object -Property Name | ForEach-Object {
+        $Results += Get-InstalledApplication | Select-Object -Property Name | ForEach-Object {
 
             Find-ProtectionSoftware -Object $_ | ForEach-Object {
 
@@ -433,12 +483,12 @@ function Invoke-EndpointProtectionCheck {
                 $Result | Add-Member -MemberType "NoteProperty" -Name "ProductName" -Value "$($_.ProductName)"
                 $Result | Add-Member -MemberType "NoteProperty" -Name "Source" -Value "Installed application"
                 $Result | Add-Member -MemberType "NoteProperty" -Name "Pattern" -Value "$($_.Pattern)"
-                [void] $Results.Add($Result)
+                $Result
             }
         }
 
         # Check installed services
-        Get-ServiceFromRegistry -FilterLevel 1 | ForEach-Object {
+        $Results += Get-ServiceFromRegistry -FilterLevel 1 | ForEach-Object {
 
             Find-ProtectionSoftware -Object $_ | ForEach-Object {
 
@@ -446,11 +496,16 @@ function Invoke-EndpointProtectionCheck {
                 $Result | Add-Member -MemberType "NoteProperty" -Name "ProductName" -Value "$($_.ProductName)"
                 $Result | Add-Member -MemberType "NoteProperty" -Name "Source" -Value "Service"
                 $Result | Add-Member -MemberType "NoteProperty" -Name "Pattern" -Value "$($_.Pattern)"
-                [void] $Results.Add($Result)
+                $Result
             }
         }
 
-        $Results | Sort-Object -Property ProductName, Source
+        $Results = $Results | Sort-Object -Property ProductName, Source
+
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Results
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Results) { $BaseSeverity } else { $script:SeverityLevel::None })
+        $Result
     }
 }
 
@@ -476,13 +531,20 @@ function Invoke-AmsiProviderCheck {
     #>
 
     [CmdletBinding()]
-    param ()
+    param (
+        [UInt32] $BaseSeverity
+    )
 
     process {
-        Get-ChildItem -Path "Registry::HKLM\SOFTWARE\Microsoft\AMSI\Providers" -ErrorAction SilentlyContinue | ForEach-Object {
+        $Results = Get-ChildItem -Path "Registry::HKLM\SOFTWARE\Microsoft\AMSI\Providers" -ErrorAction SilentlyContinue | ForEach-Object {
             $ChildKeyName = $_.PSChildName
             Get-ComClassFromRegistry | Where-Object { $ChildKeyName -like "*$($_.Id)*" }
         }
+
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Results
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Results) { $BaseSeverity } else { $script:SeverityLevel::None })
+        $Result
     }
 }
 
@@ -533,7 +595,9 @@ function Invoke-HijackableDllCheck {
     #>
 
     [CmdletBinding()]
-    param()
+    param(
+        [UInt32] $BaseSeverity
+    )
 
     function Test-DllExistence {
 
@@ -585,19 +649,21 @@ function Invoke-HijackableDllCheck {
         }
     }
 
+    $Results = @()
+
     $OsVersion = Get-WindowsVersionFromRegistry
 
     # Windows 10, 11, ?
     if ($OsVersion.Major -ge 10) {
-        Test-HijackableDll -ServiceName "CDPSvc" -DllName "cdpsgshims.dll" -Description "Loaded by the Connected Devices Platform Service (CDPSvc) upon startup." -Link "https://nafiez.github.io/security/eop/2019/11/05/windows-service-host-process-eop.html"
-        Test-HijackableDll -ServiceName "Schedule" -DllName "WptsExtensions.dll" -Description "Loaded by the Task Scheduler service (Schedule) upon startup." -Link "http://remoteawesomethoughts.blogspot.com/2019/05/windows-10-task-schedulerservice.html"
-        Test-HijackableDll -ServiceName "StorSvc" -DllName "SprintCSP.dll" -Description "Loaded by the Storage Service (StorSvc) when the RPC procedure 'SvcRebootToFlashingMode' is invoked." -RebootRequired $false -Link "https://github.com/blackarrowsec/redteam-research/tree/master/LPE%20via%20StorSvc"
+        $Results += Test-HijackableDll -ServiceName "CDPSvc" -DllName "cdpsgshims.dll" -Description "Loaded by the Connected Devices Platform Service (CDPSvc) upon startup." -Link "https://nafiez.github.io/security/eop/2019/11/05/windows-service-host-process-eop.html"
+        $Results += Test-HijackableDll -ServiceName "Schedule" -DllName "WptsExtensions.dll" -Description "Loaded by the Task Scheduler service (Schedule) upon startup." -Link "http://remoteawesomethoughts.blogspot.com/2019/05/windows-10-task-schedulerservice.html"
+        $Results += Test-HijackableDll -ServiceName "StorSvc" -DllName "SprintCSP.dll" -Description "Loaded by the Storage Service (StorSvc) when the RPC procedure 'SvcRebootToFlashingMode' is invoked." -RebootRequired $false -Link "https://github.com/blackarrowsec/redteam-research/tree/master/LPE%20via%20StorSvc"
     }
 
     # Windows 7, 8, 8.1
     if (($OsVersion.Major -eq 6) -and ($OsVersion.Minor -ge 1) -and ($OsVersion.Minor -le 3)) {
-        Test-HijackableDll -ServiceName "DiagTrack" -DllName "windowsperformancerecordercontrol.dll" -Description "Loaded by the Connected User Experiences and Telemetry service (DiagTrack) upon startup or shutdown." -Link "https://www.reddit.com/r/hacking/comments/b0lr05/a_few_binary_plating_0days_for_windows/"
-        Test-HijackableDll -ServiceName "DiagTrack" -DllName "diagtrack_win.dll" -Description "Loaded by the Connected User Experiences and Telemetry service (DiagTrack) upon startup." -Link "https://www.reddit.com/r/hacking/comments/b0lr05/a_few_binary_plating_0days_for_windows/"
+        $Results += Test-HijackableDll -ServiceName "DiagTrack" -DllName "windowsperformancerecordercontrol.dll" -Description "Loaded by the Connected User Experiences and Telemetry service (DiagTrack) upon startup or shutdown." -Link "https://www.reddit.com/r/hacking/comments/b0lr05/a_few_binary_plating_0days_for_windows/"
+        $Results += Test-HijackableDll -ServiceName "DiagTrack" -DllName "diagtrack_win.dll" -Description "Loaded by the Connected User Experiences and Telemetry service (DiagTrack) upon startup." -Link "https://www.reddit.com/r/hacking/comments/b0lr05/a_few_binary_plating_0days_for_windows/"
     }
 
     # Windows Vista, 7, 8
@@ -607,18 +673,23 @@ function Invoke-HijackableDllCheck {
         if ($ServiceStatus -eq $script:ServiceState::Stopped) {
             $RebootRequired = $false
         }
-        Test-HijackableDll -ServiceName "IKEEXT" -DllName "wlbsctrl.dll" -Description "Loaded by the IKE and AuthIP IPsec Keying Modules service (IKEEXT) upon startup." -RebootRequired $RebootRequired -Link "https://www.reddit.com/r/hacking/comments/b0lr05/a_few_binary_plating_0days_for_windows/"
+        $Results += Test-HijackableDll -ServiceName "IKEEXT" -DllName "wlbsctrl.dll" -Description "Loaded by the IKE and AuthIP IPsec Keying Modules service (IKEEXT) upon startup." -RebootRequired $RebootRequired -Link "https://www.reddit.com/r/hacking/comments/b0lr05/a_few_binary_plating_0days_for_windows/"
     }
 
     # Windows 7
     if (($OsVersion.Major -eq 6) -and ($OsVersion.Minor -eq 1)) {
-        Test-HijackableDll -ServiceName "NetMan" -DllName "wlanhlp.dll" -Description "Loaded by the Network Connections service (NetMan) when listing network interfaces." -RebootRequired $false -Link "https://itm4n.github.io/windows-server-netman-dll-hijacking/"
+        $Results += Test-HijackableDll -ServiceName "NetMan" -DllName "wlanhlp.dll" -Description "Loaded by the Network Connections service (NetMan) when listing network interfaces." -RebootRequired $false -Link "https://itm4n.github.io/windows-server-netman-dll-hijacking/"
     }
 
     # Windows 8, 8.1, 10
     if (($OsVersion.Major -ge 10) -or (($OsVersion.Major -eq 6) -and ($OsVersion.Minor -ge 2) -and ($OsVersion.Minor -le 3))) {
-        Test-HijackableDll -ServiceName "NetMan" -DllName "wlanapi.dll" -Description "Loaded by the Network Connections service (NetMan) when listing network interfaces." -RebootRequired $false -Link "https://itm4n.github.io/windows-server-netman-dll-hijacking/"
+        $Results += Test-HijackableDll -ServiceName "NetMan" -DllName "wlanapi.dll" -Description "Loaded by the Network Connections service (NetMan) when listing network interfaces." -RebootRequired $false -Link "https://itm4n.github.io/windows-server-netman-dll-hijacking/"
     }
+
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Results
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Results) { $BaseSeverity } else { $script:SeverityLevel::None })
+    $Result
 }
 
 function Invoke-NamedPipePermissionCheck {
@@ -658,10 +729,13 @@ function Invoke-NamedPipePermissionCheck {
     #>
 
     [CmdletBinding()]
-    param ()
+    param (
+        [UInt32] $BaseSeverity
+    )
 
     process {
 
+        $Results = @()
         $PipeItems = Get-ChildItem -Path "\\.\pipe\"
 
         foreach ($PipeItem in $PipeItems) {
@@ -675,9 +749,14 @@ function Invoke-NamedPipePermissionCheck {
                 $Result | Add-Member -MemberType "NoteProperty" -Name "Owner" -Value "$($ModifiablePath.Owner) ($($ModifiablePath.OwnerSid))"
                 $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $ModifiablePath.IdentityReference
                 $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value $($ModifiablePath.Permissions -join ", ")
-                $Result
+                $Results += $Result
             }
         }
+
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Results
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Results) { $BaseSeverity } else { $script:SeverityLevel::None })
+        $Result
     }
 }
 
@@ -703,7 +782,11 @@ function Invoke-UserSessionCheck {
     #>
 
     [CmdletBinding()]
-    param()
+    param(
+        [UInt32] $BaseSeverity
+    )
+
+    $Results = @()
 
     foreach ($Session in (Get-RemoteDesktopUserSession)) {
 
@@ -724,8 +807,13 @@ function Invoke-UserSessionCheck {
         $Result | Add-Member -MemberType "NoteProperty" -Name "UserName" -Value $UserName
         $Result | Add-Member -MemberType "NoteProperty" -Name "Id" -Value $Session.SessionId
         $Result | Add-Member -MemberType "NoteProperty" -Name "State" -Value $Session.State
-        $Result
+        $Results += $Result
     }
+
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Results
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Results) { $BaseSeverity } else { $script:SeverityLevel::None })
+    $Result
 }
 
 function Invoke-ExploitableLeakedHandleCheck {
@@ -951,7 +1039,9 @@ function Invoke-MsiCustomActionCheck {
     #>
 
     [CmdletBinding()]
-    param ()
+    param (
+        [UInt32] $BaseSeverity
+    )
 
     begin {
         $MsiItems = [object[]] (Get-MsiFileItem)
@@ -959,6 +1049,7 @@ function Invoke-MsiCustomActionCheck {
     }
 
     process {
+        $Results = @()
         foreach ($MsiItem in $MsiItems) {
 
             Write-Verbose "Analyzing file: $($MsiItem.Path)"
@@ -984,8 +1075,13 @@ function Invoke-MsiCustomActionCheck {
             $MsiItem | Add-Member -MemberType "NoteProperty" -Name "Candidates" -Value "$(($CandidateCustomActions | Select-Object -ExpandProperty "Action") -join "; ")"
             $MsiItem | Add-Member -MemberType "NoteProperty" -Name "AnalyzeCommand" -Value $AnalyzeCommand
             $MsiItem | Add-Member -MemberType "NoteProperty" -Name "RepairCommand" -Value $RepairCommand
-            $MsiItem | Select-Object -Property * -ExcludeProperty "CustomActions"
+            $Results += $MsiItem | Select-Object -Property * -ExcludeProperty "CustomActions"
         }
+
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Results
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Results) { $BaseSeverity } else { $script:SeverityLevel::None })
+        $Result
     }
 
     end {
@@ -1042,10 +1138,17 @@ function Invoke-TpmDeviceInformationCheck {
     #>
 
     [CmdletBinding()]
-    param ()
+    param (
+        [UInt32] $BaseSeverity
+    )
 
     process {
-        Get-TpmDeviceInformation
+        $Results = Get-TpmDeviceInformation
+
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Results
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Results) { $BaseSeverity } else { $script:SeverityLevel::None })
+        $Result
     }
 }
 

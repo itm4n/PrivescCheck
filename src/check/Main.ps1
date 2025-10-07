@@ -52,7 +52,7 @@ function Invoke-PrivescCheck {
         [switch] $Force = $false,
         [switch] $Silent = $false,
         [string] $Report,
-        [ValidateSet("TXT","HTML","CSV","XML")]
+        [ValidateSet("TXT", "HTML", "CSV", "XML")]
         [string[]] $Format
     )
 
@@ -102,9 +102,9 @@ function Invoke-PrivescCheck {
             $IgnoreCheck = $true
             switch ($Check.Type) {
                 "Base" { $IgnoreCheck = $false }
-                "Extended" { if ($Extended) { $IgnoreCheck = $false }}
-                "Audit" { if ($Audit) { $IgnoreCheck = $false }}
-                "Experimental" { if ($Experimental) { $IgnoreCheck = $false }}
+                "Extended" { if ($Extended) { $IgnoreCheck = $false } }
+                "Audit" { if ($Audit) { $IgnoreCheck = $false } }
+                "Experimental" { if ($Experimental) { $IgnoreCheck = $false } }
                 default {
                     throw "Unhandled check type for '$($Check.Id)': $($Check.Type)"
                 }
@@ -128,8 +128,7 @@ function Invoke-PrivescCheck {
 
             # Set the default base severity level of the check based on the information stored in the input
             # CSV file.
-            $BaseSeverity = $Check.Severity -as $script:SeverityLevel
-            $Check | Add-Member -MemberType "NoteProperty" -Name "BaseSeverity" -Value $BaseSeverity
+            $Check | Add-Member -MemberType "NoteProperty" -Name "BaseSeverity" -Value $($Check.Severity -as $script:SeverityLevel)
 
             # Reset and start the StopWatch.
             $StopWatch.Reset()
@@ -185,10 +184,10 @@ function Invoke-PrivescCheck {
                 # filename.
                 $ReportFileName = "$($Report.Trim()).$($_.ToLower())"
                 switch ($_) {
-                    "TXT"   { Write-TxtReport  -AllResults $script:GlobalVariable.CheckResultList | Out-File $ReportFileName }
-                    "HTML"  { Write-HtmlReport -AllResults $script:GlobalVariable.CheckResultList | Out-File $ReportFileName }
-                    "CSV"   { Write-CsvReport  -AllResults $script:GlobalVariable.CheckResultList | Out-File $ReportFileName }
-                    "XML"   { Write-XmlReport  -AllResults $script:GlobalVariable.CheckResultList | Out-File $ReportFileName }
+                    "TXT" { Write-TxtReport  -AllResults $script:GlobalVariable.CheckResultList | Out-File $ReportFileName }
+                    "HTML" { Write-HtmlReport -AllResults $script:GlobalVariable.CheckResultList | Out-File $ReportFileName }
+                    "CSV" { Write-CsvReport  -AllResults $script:GlobalVariable.CheckResultList | Out-File $ReportFileName }
+                    "XML" { Write-XmlReport  -AllResults $script:GlobalVariable.CheckResultList | Out-File $ReportFileName }
                     default { Write-Warning "`nReport format not implemented: $($Format.ToUpper())`n" }
                 }
             }
@@ -231,17 +230,22 @@ function Invoke-Check {
     )
 
     $Check.Severity = $Check.Severity -as $script:SeverityLevel
-    $IsVulnerabilityCheck = $Check.Severity -ne $script:SeverityLevel::None
 
-    if ($IsVulnerabilityCheck) {
-        $Result = Invoke-DynamicCommand -Command "$($Check.Command) -BaseSeverity $([UInt32] $Check.BaseSeverity)"
-        $Check | Add-Member -MemberType "NoteProperty" -Name "ResultRaw" -Value $Result.Result
-        if ($Check.Severity) { $Check.Severity = $Result.Severity }
-    }
-    else {
-        $Result = Invoke-DynamicCommand -Command "$($Check.Command)"
-        $Check | Add-Member -MemberType "NoteProperty" -Name "ResultRaw" -Value $Result
-    }
+    $Result = Invoke-DynamicCommand -Command "$($Check.Command) -BaseSeverity $([UInt32] $Check.BaseSeverity)"
+    $Check | Add-Member -MemberType "NoteProperty" -Name "ResultRaw" -Value $Result.Result
+    $Check.Severity = $Result.Severity -as $script:SeverityLevel
+
+    # $IsVulnerabilityCheck = $Check.Severity -ne $script:SeverityLevel::None
+
+    # if ($IsVulnerabilityCheck) {
+    #     $Result = Invoke-DynamicCommand -Command "$($Check.Command) -BaseSeverity $([UInt32] $Check.BaseSeverity)"
+    #     $Check | Add-Member -MemberType "NoteProperty" -Name "ResultRaw" -Value $Result.Result
+    #     if ($Check.Severity) { $Check.Severity = $Result.Severity }
+    # }
+    # else {
+    #     $Result = Invoke-DynamicCommand -Command "$($Check.Command)"
+    #     $Check | Add-Member -MemberType "NoteProperty" -Name "ResultRaw" -Value $Result
+    # }
 
     if ($Check.Format -eq "Table") {
         $Check | Add-Member -MemberType "NoteProperty" -Name "ResultRawString" -Value $($Check.ResultRaw | Format-Table | Out-String)
@@ -286,16 +290,16 @@ function Write-CheckBanner {
         $DescriptionSplit
     }
 
-    $HeavyVertical =          [char] $(if ($Ascii) { '|' } else { 0x2503 })
-    $HeavyHorizontal =        [char] $(if ($Ascii) { '-' } else { 0x2501 })
-    $HeavyVerticalAndRight =  [char] $(if ($Ascii) { '+' } else { 0x2523 })
-    $HeavyVerticalAndLeft =   [char] $(if ($Ascii) { '+' } else { 0x252B })
+    $HeavyVertical = [char] $(if ($Ascii) { '|' } else { 0x2503 })
+    $HeavyHorizontal = [char] $(if ($Ascii) { '-' } else { 0x2501 })
+    $HeavyVerticalAndRight = [char] $(if ($Ascii) { '+' } else { 0x2523 })
+    $HeavyVerticalAndLeft = [char] $(if ($Ascii) { '+' } else { 0x252B })
     $HeavyDownAndHorizontal = [char] $(if ($Ascii) { '+' } else { 0x2533 })
-    $HeavyUpAndHorizontal =   [char] $(if ($Ascii) { '+' } else { 0x253B })
-    $HeavyDownAndLeft =       [char] $(if ($Ascii) { '+' } else { 0x2513 })
-    $HeavyDownAndRight =      [char] $(if ($Ascii) { '+' } else { 0x250F })
-    $HeavyUpAndRight =        [char] $(if ($Ascii) { '+' } else { 0x2517 })
-    $HeavyUpAndLeft =         [char] $(if ($Ascii) { '+' } else { 0x251B })
+    $HeavyUpAndHorizontal = [char] $(if ($Ascii) { '+' } else { 0x253B })
+    $HeavyDownAndLeft = [char] $(if ($Ascii) { '+' } else { 0x2513 })
+    $HeavyDownAndRight = [char] $(if ($Ascii) { '+' } else { 0x250F })
+    $HeavyUpAndRight = [char] $(if ($Ascii) { '+' } else { 0x2517 })
+    $HeavyUpAndLeft = [char] $(if ($Ascii) { '+' } else { 0x251B })
 
     $Result = ""
     $Result += "$($HeavyDownAndRight)$("$HeavyHorizontal" * 10)$($HeavyDownAndHorizontal)$("$HeavyHorizontal" * 51)$($HeavyDownAndLeft)`n"
@@ -321,15 +325,15 @@ function Write-CheckResult {
     begin {
         $ResultOutput = ""
         $IsVulnerabilityCheck = $CheckResult.BaseSeverity -ne $script:SeverityLevel::None
-        $Severity = $(if ($CheckResult.Severity) { $CheckResult.Severity} else { $script:SeverityLevel::None }) -as $script:SeverityLevel
+        $Severity = $(if ($CheckResult.Severity) { $CheckResult.Severity } else { $script:SeverityLevel::None }) -as $script:SeverityLevel
     }
 
     process {
         # Show the raw output of the check first.
         switch ($CheckResult.Format) {
-            "Table"     { $ResultOutput += $CheckResult.ResultRaw | Format-Table -AutoSize | Out-String }
-            "List"      { $ResultOutput += $CheckResult.ResultRaw | Format-List | Out-String }
-            default     { throw "Unknown output format: $($CheckResult.Format)" }
+            "Table" { $ResultOutput += $CheckResult.ResultRaw | Format-Table -AutoSize | Out-String }
+            "List" { $ResultOutput += $CheckResult.ResultRaw | Format-List | Out-String }
+            default { throw "Unknown output format: $($CheckResult.Format)" }
         }
 
         # Then show a status message.
@@ -377,7 +381,7 @@ function Write-CsvReport {
         [object[]] $AllResults
     )
 
-    $AllResults | Sort-Object -Property "Category","DisplayName" | Select-Object Id,Category,DisplayName,Description,Severity,ResultRawString | ConvertTo-Csv -NoTypeInformation
+    $AllResults | Sort-Object -Property "Category", "DisplayName" | Select-Object Id, Category, DisplayName, Description, Severity, ResultRawString | ConvertTo-Csv -NoTypeInformation
 }
 
 function Write-XmlReport {
@@ -399,7 +403,7 @@ function Write-XmlReport {
     $AllResults | ForEach-Object {
         $_.ResultRawString = [System.Text.RegularExpressions.Regex]::Replace($_.ResultRawString, $AuthorizedXmlCharactersRegex, "")
         $_
-    } | Sort-Object -Property "Category","DisplayName" | Select-Object Id,Category,DisplayName,Description,Severity,ResultRawString | ConvertTo-Xml -As String
+    } | Sort-Object -Property "Category", "DisplayName" | Select-Object Id, Category, DisplayName, Description, Severity, ResultRawString | ConvertTo-Xml -As String
 }
 
 function Write-HtmlReport {
@@ -676,7 +680,7 @@ $($JavaScript)
 </html>
 "@
 
-    $TableHtml = $AllResults | Sort-Object -Property "Category","DisplayName" | ConvertTo-Html -Property "Category","DisplayName","Description","Severity","ResultRawString" -Fragment
+    $TableHtml = $AllResults | Sort-Object -Property "Category", "DisplayName" | ConvertTo-Html -Property "Category", "DisplayName", "Description", "Severity", "ResultRawString" -Fragment
     $Html = $Html.Replace("BODY_TO_REPLACE", $TableHtml)
     $Html
 }

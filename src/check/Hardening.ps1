@@ -997,10 +997,17 @@ function Invoke-AttackSurfaceReductionRuleCheck {
     #>
 
     [CmdletBinding()]
-    param()
+    param(
+        [UInt32] $BaseSeverity
+    )
 
     process {
-        Get-AttackSurfaceReductionRuleFromRegistry | Where-Object { ($null -ne $_.State) -and ($_.State -ne 0) }
+        $Results = Get-AttackSurfaceReductionRuleFromRegistry | Where-Object { ($null -ne $_.State) -and ($_.State -ne 0) }
+
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Results
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Results) { $BaseSeverity } else { $script:SeverityLevel::None })
+        $Result
     }
 }
 

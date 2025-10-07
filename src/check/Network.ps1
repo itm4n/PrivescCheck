@@ -30,9 +30,16 @@ function Invoke-NetworkAdapterCheck {
     #>
 
     [CmdletBinding()]
-    param()
+    param(
+        [UInt32] $BaseSeverity
+    )
 
-    Get-NetworkAdapter | Where-Object { $_.Type -eq "Ethernet" -or $_.Type -eq "IEEE80211" } | Select-Object -Property Name,FriendlyName,Type,Status,DnsSuffix,Description,PhysicalAddress,Flags,IPv6,IPv4,Gateway,DHCPv4Server,DHCPv6Server,DnsServers,DNSSuffixList
+    $Results = Get-NetworkAdapter | Where-Object { $_.Type -eq "Ethernet" -or $_.Type -eq "IEEE80211" } | Select-Object -Property Name, FriendlyName, Type, Status, DnsSuffix, Description, PhysicalAddress, Flags, IPv6, IPv4, Gateway, DHCPv4Server, DHCPv6Server, DnsServers, DNSSuffixList
+
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Results
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Results) { $BaseSeverity } else { $script:SeverityLevel::None })
+    $Result
 }
 
 function Invoke-TcpEndpointCheck {
@@ -76,39 +83,13 @@ function Invoke-TcpEndpointCheck {
 
     [CmdletBinding()]
     param(
-        [switch] $Filtered
+        [UInt32] $BaseSeverity
     )
-
-    $IgnoredPorts = @(135, 139, 445)
 
     $Endpoints = Get-NetworkEndpoint
     $Endpoints += Get-NetworkEndpoint -IPv6
 
-    if ($Filtered) {
-        $FilteredEndpoints = @()
-        $AllPorts = @()
-        $Endpoints | ForEach-Object { $AllPorts += $_.LocalPort }
-        $AllPorts = $AllPorts | Sort-Object -Unique
-
-        $RpcRange = Get-RpcRange -Ports $AllPorts
-        Write-Verbose "Excluding port range: $($RpcRange.MinPort)-$($RpcRange.MaxPort)"
-
-        $Endpoints | ForEach-Object {
-
-            if (-not ($IgnoredPorts -contains $_.LocalPort)) {
-
-                if ($RpcRange) {
-
-                    if (($_.LocalPort -lt $RpcRange.MinPort) -or ($_.LocalPort -ge $RpcRange.MaxPort)) {
-
-                        $FilteredEndpoints += $_
-                    }
-                }
-            }
-        }
-        $Endpoints = $FilteredEndpoints
-    }
-
+    $Results = @()
     $Endpoints | ForEach-Object {
         $TcpEndpoint = New-Object -TypeName PSObject
         $TcpEndpoint | Add-Member -MemberType "NoteProperty" -Name "IP" -Value $_.IP
@@ -117,8 +98,13 @@ function Invoke-TcpEndpointCheck {
         $TcpEndpoint | Add-Member -MemberType "NoteProperty" -Name "State" -Value $_.State
         $TcpEndpoint | Add-Member -MemberType "NoteProperty" -Name "PID" -Value $_.PID
         $TcpEndpoint | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $_.Name
-        $TcpEndpoint
+        $Results += $TcpEndpoint
     }
+
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Results
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Results) { $BaseSeverity } else { $script:SeverityLevel::None })
+    $Result
 }
 
 function Invoke-UdpEndpointCheck {
@@ -162,25 +148,13 @@ function Invoke-UdpEndpointCheck {
 
     [CmdletBinding()]
     param(
-        [switch] $Filtered
+        [UInt32] $BaseSeverity
     )
-
-    # https://support.microsoft.com/en-us/help/832017/service-overview-and-network-port-requirements-for-windows
-    $IgnoredPorts = @(53, 67, 123, 137, 138, 139, 500, 1701, 2535, 4500, 445, 1900, 5050, 5353, 5355)
 
     $Endpoints = Get-NetworkEndpoint -UDP
     $Endpoints += Get-NetworkEndpoint -UDP -IPv6
 
-    if ($Filtered) {
-        $FilteredEndpoints = @()
-        $Endpoints | ForEach-Object {
-            if (-not ($IgnoredPorts -contains $_.LocalPort)) {
-                $FilteredEndpoints += $_
-            }
-        }
-        $Endpoints = $FilteredEndpoints
-    }
-
+    $Results = @()
     $Endpoints | ForEach-Object {
         if (-not ($_.Name -eq "dns")) {
             $UdpEndpoint = New-Object -TypeName PSObject
@@ -190,9 +164,14 @@ function Invoke-UdpEndpointCheck {
             $UdpEndpoint | Add-Member -MemberType "NoteProperty" -Name "State" -Value $_.State
             $UdpEndpoint | Add-Member -MemberType "NoteProperty" -Name "PID" -Value $_.PID
             $UdpEndpoint | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $_.Name
-            $UdpEndpoint
+            $Results += $UdpEndpoint
         }
     }
+
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Results
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Results) { $BaseSeverity } else { $script:SeverityLevel::None })
+    $Result
 }
 
 function Invoke-WlanProfileCheck {
@@ -268,7 +247,7 @@ function Invoke-WlanProfileCheck {
 
             if ($Vulnerable) {
                 $_ | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
-                $AllResults += $_ | Select-Object -Property * -ExcludeProperty Eap,InnerEap
+                $AllResults += $_ | Select-Object -Property * -ExcludeProperty Eap, InnerEap
             }
         }
 
@@ -381,14 +360,14 @@ function Convert-SocketAddressToObject {
         $MidZero = $true
         $Result = ""
         $(for ($i = 0; $i -lt $Addr.Addr.Addr.Length; $i += 2) {
-            $c = $Addr.Addr.Addr[$i]
-            $d = $Addr.Addr.Addr[$i + 1]
-            $t = $c * 256 + $d
+                $c = $Addr.Addr.Addr[$i]
+                $d = $Addr.Addr.Addr[$i + 1]
+                $t = $c * 256 + $d
 
-            if (($t -eq 0) -and $LeadingZero) { if ($i -eq 0) { $Result += "::" }; continue } else { $LeadingZero = $false }
-            if (($t -eq 0) -and (-not $LeadingZero)) { if ($MidZero) { $Result += ":"; $MidZero = $false }; continue }
-            $Result += "$('{0:x}' -f $t):"
-        })
+                if (($t -eq 0) -and $LeadingZero) { if ($i -eq 0) { $Result += "::" }; continue } else { $LeadingZero = $false }
+                if (($t -eq 0) -and (-not $LeadingZero)) { if ($MidZero) { $Result += ":"; $MidZero = $false }; continue }
+                $Result += "$('{0:x}' -f $t):"
+            })
         $StringAddr = $Result.TrimEnd(":")
     }
     else {

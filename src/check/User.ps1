@@ -24,7 +24,9 @@ function Invoke-UserCheck {
     #>
 
     [CmdletBinding()]
-    param()
+    param(
+        [UInt32] $BaseSeverity
+    )
 
     $TokenUser = Get-TokenInformationUser
     $TokenIntegrityLevel = Get-TokenInformationIntegrityLevel
@@ -35,16 +37,22 @@ function Invoke-UserCheck {
 
     $TokenSourceName = [System.Text.Encoding]::ASCII.GetString($TokenSource.SourceName).Trim([char]0) -replace " ", ""
 
+    $Results = @()
+    $UserInfo = New-Object -TypeName PSObject
+    $UserInfo | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $TokenUser.DisplayName
+    $UserInfo | Add-Member -MemberType "NoteProperty" -Name "SID" -Value $TokenUser.SID
+    $UserInfo | Add-Member -MemberType "NoteProperty" -Name "IntegrityLevel" -Value "$($TokenIntegrityLevel.Name) ($($TokenIntegrityLevel.SID))"
+    $UserInfo | Add-Member -MemberType "NoteProperty" -Name "SessionId" -Value $TokenSessionId
+    $UserInfo | Add-Member -MemberType "NoteProperty" -Name "TokenId" -Value "$('{0:x8}' -f $TokenStatistics.TokenId.HighPart)-$('{0:x8}' -f $TokenStatistics.TokenId.LowPart)"
+    $UserInfo | Add-Member -MemberType "NoteProperty" -Name "AuthenticationId" -Value "$('{0:x8}' -f $TokenStatistics.AuthenticationId.HighPart)-$('{0:x8}' -f $TokenStatistics.AuthenticationId.LowPart)"
+    $UserInfo | Add-Member -MemberType "NoteProperty" -Name "OriginId" -Value "$('{0:x8}' -f $TokenOrigin.OriginatingLogonSession.HighPart)-$('{0:x8}' -f $TokenOrigin.OriginatingLogonSession.LowPart)"
+    $UserInfo | Add-Member -MemberType "NoteProperty" -Name "ModifiedId" -Value "$('{0:x8}' -f $TokenStatistics.ModifiedId.HighPart)-$('{0:x8}' -f $TokenStatistics.ModifiedId.LowPart)"
+    $UserInfo | Add-Member -MemberType "NoteProperty" -Name "Source" -Value $(if ([String]::IsNullOrEmpty($TokenSourceName)) { "" } else { "$($TokenSourceName) ($('{0:x8}' -f $TokenSource.SourceIdentifier.HighPart)-$('{0:x8}' -f $TokenSource.SourceIdentifier.LowPart))" })
+    $Results += $UserInfo
+
     $Result = New-Object -TypeName PSObject
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $TokenUser.DisplayName
-    $Result | Add-Member -MemberType "NoteProperty" -Name "SID" -Value $TokenUser.SID
-    $Result | Add-Member -MemberType "NoteProperty" -Name "IntegrityLevel" -Value "$($TokenIntegrityLevel.Name) ($($TokenIntegrityLevel.SID))"
-    $Result | Add-Member -MemberType "NoteProperty" -Name "SessionId" -Value $TokenSessionId
-    $Result | Add-Member -MemberType "NoteProperty" -Name "TokenId" -Value "$('{0:x8}' -f $TokenStatistics.TokenId.HighPart)-$('{0:x8}' -f $TokenStatistics.TokenId.LowPart)"
-    $Result | Add-Member -MemberType "NoteProperty" -Name "AuthenticationId" -Value "$('{0:x8}' -f $TokenStatistics.AuthenticationId.HighPart)-$('{0:x8}' -f $TokenStatistics.AuthenticationId.LowPart)"
-    $Result | Add-Member -MemberType "NoteProperty" -Name "OriginId" -Value "$('{0:x8}' -f $TokenOrigin.OriginatingLogonSession.HighPart)-$('{0:x8}' -f $TokenOrigin.OriginatingLogonSession.LowPart)"
-    $Result | Add-Member -MemberType "NoteProperty" -Name "ModifiedId" -Value "$('{0:x8}' -f $TokenStatistics.ModifiedId.HighPart)-$('{0:x8}' -f $TokenStatistics.ModifiedId.LowPart)"
-    $Result | Add-Member -MemberType "NoteProperty" -Name "Source" -Value $(if ([String]::IsNullOrEmpty($TokenSourceName)) { "" } else { "$($TokenSourceName) ($('{0:x8}' -f $TokenSource.SourceIdentifier.HighPart)-$('{0:x8}' -f $TokenSource.SourceIdentifier.LowPart))" })
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Results
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Results) { $BaseSeverity } else { $script:SeverityLevel::None })
     $Result
 }
 
@@ -80,9 +88,16 @@ function Invoke-UserGroupCheck {
     #>
 
     [CmdletBinding()]
-    param()
+    param(
+        [UInt32] $BaseSeverity
+    )
 
-    Get-TokenInformationGroup -InformationClass Groups | Select-Object Name,Type,SID
+    $Results = Get-TokenInformationGroup -InformationClass Groups | Select-Object Name, Type, SID
+
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Results
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Results) { $BaseSeverity } else { $script:SeverityLevel::None })
+    $Result
 }
 
 function Invoke-UserRestrictedSidCheck {
@@ -111,9 +126,16 @@ function Invoke-UserRestrictedSidCheck {
     #>
 
     [CmdletBinding()]
-    param()
+    param(
+        [UInt32] $BaseSeverity
+    )
 
-    Get-TokenInformationGroup -InformationClass RestrictedSids | Select-Object Name,Type,SID
+    $Results = Get-TokenInformationGroup -InformationClass RestrictedSids | Select-Object Name, Type, SID
+
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Results
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Results) { $BaseSeverity } else { $script:SeverityLevel::None })
+    $Result
 }
 
 function Invoke-UserPrivilegeCheck {
@@ -212,7 +234,7 @@ function Invoke-UserPrivilegeGpoCheck {
 
                     # The identity list is represented like this:
                     # *S-1-2-3-123,*S-1-2-3-456,*S-1-2-3-789
-                    $Identities = $IdentityList.Split(',') | ForEach-Object { $_ -replace '\*','' }
+                    $Identities = $IdentityList.Split(',') | ForEach-Object { $_ -replace '\*', '' }
 
                     foreach ($Identity in $Identities) {
 
@@ -254,8 +276,11 @@ function Invoke-UserEnvironmentCheck {
     #>
 
     [CmdletBinding()]
-    param()
+    param(
+        [UInt32] $BaseSeverity
+    )
 
+    $Results = @()
     Get-ChildItem -Path env: | ForEach-Object {
 
         $EntryName = $_.Name
@@ -266,12 +291,17 @@ function Invoke-UserEnvironmentCheck {
 
             if ($CheckVal -Like "*$($Keyword)*") {
 
-                $Result = New-Object -TypeName PSObject
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $EntryName
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $EntryValue
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Keyword" -Value $Keyword
-                $Result
+                $EnvItem = New-Object -TypeName PSObject
+                $EnvItem | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $EntryName
+                $EnvItem | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $EntryValue
+                $EnvItem | Add-Member -MemberType "NoteProperty" -Name "Keyword" -Value $Keyword
+                $Results += $EnvItem
             }
         }
     }
+
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Results
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Results) { $BaseSeverity } else { $script:SeverityLevel::None })
+    $Result
 }

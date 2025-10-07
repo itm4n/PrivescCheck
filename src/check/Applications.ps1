@@ -11,9 +11,11 @@ function Invoke-InstalledApplicationCheck {
     #>
 
     [CmdletBinding()]
-    param()
+    param(
+        [UInt32] $BaseSeverity
+    )
 
-    Get-InstalledApplication | Where-Object { $_.Publisher -like "*Microsoft*"} | ForEach-Object {
+    $Results = Get-InstalledApplication | Where-Object { $_.Publisher -like "*Microsoft*" } | ForEach-Object {
 
         $AppName = $_.DisplayName
         if ([String]::IsNullOrEmpty($AppName)) {
@@ -36,6 +38,11 @@ function Invoke-InstalledApplicationCheck {
         $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $_.Location
         $Result
     } | Sort-Object -Unique -Property Name, Version
+
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Results
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Results) { $BaseSeverity } else { $script:SeverityLevel::None })
+    $Result
 }
 
 function Invoke-InstalledApplicationThirdPartyCheck {
@@ -51,9 +58,11 @@ function Invoke-InstalledApplicationThirdPartyCheck {
     #>
 
     [CmdletBinding()]
-    param ()
+    param (
+        [UInt32] $BaseSeverity
+    )
 
-    Get-InstalledApplication | Where-Object { $_.Publisher -notlike "*Microsoft*" } | ForEach-Object {
+    $Results = Get-InstalledApplication | Where-Object { $_.Publisher -notlike "*Microsoft*" } | ForEach-Object {
 
         $AppName = $_.DisplayName
         if ([String]::IsNullOrEmpty($AppName)) {
@@ -76,6 +85,11 @@ function Invoke-InstalledApplicationThirdPartyCheck {
         $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $_.Location
         $Result
     } | Sort-Object -Unique -Property Name, Version
+
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Results
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Results) { $BaseSeverity } else { $script:SeverityLevel::None })
+    $Result
 }
 
 function Invoke-InstalledApplicationPermissionCheck {
@@ -300,55 +314,43 @@ function Invoke-RunningProcessCheck {
 
     [CmdletBinding()]
     param(
-        [switch] $Self = $false
+        [UInt32] $BaseSeverity
     )
 
     $CurrentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
     $IgnoredProcessNames = @("Idle", "services", "Memory Compression", "TrustedInstaller", "PresentationFontCache", "Registry", "ServiceShell", "System", "csrss", "dwm", "msdtc", "smss", "svchost")
 
-    $AllProcess = Get-Process
-    if ($null -eq $AllProcess) { return }
-
-    foreach ($Process in $AllProcess) {
+    $Results = @()
+    foreach ($Process in $(Get-Process)) {
 
         if (-not ($IgnoredProcessNames -contains $Process.Name )) {
 
             $ProcessUser = (Get-TokenInformationUser -ProcessId $Process.Id).DisplayName
 
-            $ReturnProcess = $false
+            if (-not ($ProcessUser -eq $CurrentUser)) {
 
-            if ($Self) {
-                if ($ProcessUser -eq $CurrentUser) {
-                    $ReturnProcess = $true
+                $Result = $Process | Select-Object -Property Id, SessionId, Name, Path | Add-Member -MemberType "NoteProperty" -Name "User" -Value $ProcessUser -PassThru
+
+                $Resolved = Resolve-ModulePath -Name $Process.Name
+                if ($Resolved) {
+                    $Result.Path = $Resolved
                 }
-            }
-            else {
-                if (-not ($ProcessUser -eq $CurrentUser)) {
-
-                    # Here, I check whether 'C:\Windows\System32\<PROC_NAME>.exe' exists. Not ideal but it's a quick
-                    # way to check whether it's a built-in binary. There might be some issues because of the
-                    # FileSystem Redirector if the script is run from a 32-bits instance of powershell.exe (->
-                    # SysWow64 instead of System32).
-                    $PotentialImagePath = Join-Path -Path $env:SystemRoot -ChildPath "System32"
-                    $PotentialImagePath = Join-Path -Path $PotentialImagePath -ChildPath "$($Process.name).exe"
-
-                    # If we can't find it in System32, add it to the list
-                    if (-not (Test-Path -Path $PotentialImagePath -ErrorAction SilentlyContinue)) {
-                        $ReturnProcess = $true
+                else {
+                    $Resolved = Resolve-ModulePath -Name "$($Process.Name).exe"
+                    if ($Resolved) {
+                        $Result.Path = $Resolved
                     }
-                    $ReturnProcess = $true
                 }
-            }
 
-            if ($ReturnProcess) {
-                $Process | Select-Object -Property Name, Id, Path, SessionId | Add-Member -MemberType "NoteProperty" -Name "User" -Value $ProcessUser -PassThru
+                $Results += $Result
             }
-
-        }
-        else {
-            Write-Verbose "Ignored: $($Process.Name)"
         }
     }
+
+    $Result = New-Object -TypeName PSObject
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Results
+    $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Results) { $BaseSeverity } else { $script:SeverityLevel::None })
+    $Result
 }
 
 function Invoke-RootFolderPermissionCheck {

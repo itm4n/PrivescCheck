@@ -2046,7 +2046,7 @@ function Resolve-ModulePath {
         $RetVal = $script:Kernel32::LoadLibrary($Name)
         if ($RetVal -eq [IntPtr]::Zero) {
             $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-            Write-Warning "LoadLibrary(`"$($Name)`") - $(Format-Error $LastError)"
+            # Write-Warning "LoadLibrary(`"$($Name)`") - $(Format-Error $LastError)"
             return
         }
 
