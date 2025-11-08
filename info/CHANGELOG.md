@@ -5,6 +5,7 @@
 ### Added
 
 - Add progress status to COM registry permission check and COM server image permission check.
+- Add progress status to application permission check and root folder permission check.
 
 ### Modified
 

@@ -116,12 +116,18 @@ function Invoke-InstalledApplicationPermissionCheck {
     process {
         $Results = @()
         $Candidates = Get-InstalledApplication | Select-Object -ExpandProperty Location | Where-Object { -not [String]::IsNullOrEmpty($_) }
+        $ProgressCount = 0
+        Write-Progress -Activity "Checking application file and folder permissions (0/$($Candidates.Count))..." -Status "0% Complete:" -PercentComplete 0
         foreach ($Candidate in $Candidates) {
+            $ProgressPercent = [UInt32] ($ProgressCount * 100 / $Candidates.Count)
+            Write-Progress -Activity "Checking application file and folder permissions ($($ProgressCount)/$($Candidates.Count)): $($Candidate)" -Status "$($ProgressPercent)% Complete:" -PercentComplete $ProgressPercent
             Get-ModifiableApplicationFile -Path $Candidate | ForEach-Object {
                 $_.Permissions = $_.Permissions -join ', '
                 $Results += $_
             }
+            $ProgressCount += 1
         }
+        Write-Progress -Activity "Checking application file and folder permissions ($($Candidates.Count)/$($Candidates.Count))..." -Status "100% Complete:" -Completed
 
         $CheckResult = New-Object -TypeName PSObject
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Results
@@ -382,11 +388,17 @@ function Invoke-RootFolderPermissionCheck {
             if ($null -eq $RootFolders) { continue }
 
             $Candidates = $RootFolders | Select-Object -ExpandProperty "Fullname"
+            $ProgressCount = 0
+            Write-Progress -Activity "Checking root folder permissions (0/$($Candidates.Count))..." -Status "0% Complete:" -PercentComplete 0
             foreach ($Candidate in $Candidates) {
+                $ProgressPercent = [UInt32] ($ProgressCount * 100 / $Candidates.Count)
+                Write-Progress -Activity "Checking root folder permissions ($($ProgressCount)/$($Candidates.Count)): $($Candidate)" -Status "$($ProgressPercent)% Complete:" -PercentComplete $ProgressPercent
                 Get-ModifiableRootFolder -Path $Candidate | ForEach-Object {
                     $Results += $_
                 }
+                $ProgressCount += 1
             }
+            Write-Progress -Activity "Checking root folder permissions ($($Candidates.Count)/$($Candidates.Count))..." -Status "100% Complete:" -Completed
         }
 
         $Vulnerable = ($Results | Where-Object { $_.Vulnerable }).Count -gt 0
