@@ -65,11 +65,11 @@ function Get-ComClassEntryFromRegistry {
         }
 
         $ClassName = $ClassProperties | Get-ItemProperty -Name "(default)" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty "(default)"
-        $ClassTypeLibId = $ClassSubProperties | Where-Object { "TypeLib" -eq $_.PSChildName } | Get-ItemProperty -Name "(default)" | Select-Object -ExpandProperty "(default)" | ForEach-Object { ([Guid] $_).Guid.ToUpper() }
+        $ClassTypeLibId = $ClassSubProperties | Where-Object { "TypeLib" -eq $_.PSChildName } | Get-ItemProperty -Name "(default)" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty "(default)" | ForEach-Object { ([Guid] $_).Guid.ToUpper() }
 
         $ClassProgIds = [String[]] @()
-        $ClassProgIds += $ClassSubProperties | Where-Object { "ProgID" -eq $_.PSChildName } | Get-ItemProperty -Name "(default)" | Select-Object -ExpandProperty "(default)"
-        $ClassProgIds += $ClassSubProperties | Where-Object { "VersionIndependentProgID" -eq $_.PSChildName } | Get-ItemProperty -Name "(default)" | Select-Object -ExpandProperty "(default)"
+        $ClassProgIds += $ClassSubProperties | Where-Object { "ProgID" -eq $_.PSChildName } | Get-ItemProperty -Name "(default)" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty "(default)"
+        $ClassProgIds += $ClassSubProperties | Where-Object { "VersionIndependentProgID" -eq $_.PSChildName } | Get-ItemProperty -Name "(default)" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty "(default)"
 
         $Result = New-Object -TypeName PSObject
         $Result | Add-Member -MemberType "NoteProperty" -Name "Id" -Value $ClassId
@@ -188,12 +188,21 @@ function Get-ComClassFromRegistry {
                 }
             }
 
-            # Then, for each valid CLSID, enumerate the COM class properties.
-            $ComClassRegistryClsid |
-            Invoke-CommandMultithread -InitialSessionState $(Get-InitialSessionState) -Command "Get-ComClassEntryFromRegistry" -InputParameter "Clsid" |
-            ForEach-Object {
-                $RegisteredComList += $_
+            $Candidates = $ComClassRegistryClsid
+            $ProgressCount = 0
+            $ProgressIter = [UInt32] ($Candidates.Count / 100)
+            Write-Progress -Activity "Enumerating COM classes from registry (0/$($Candidates.Count))..." -Status "0% Complete:" -PercentComplete 0
+            foreach ($Candidate in $Candidates) {
+                Get-ComClassEntryFromRegistry -Clsid $Candidate | ForEach-Object {
+                    $RegisteredComList += $_
+                }
+                if (($ProgressCount % $ProgressIter) -eq 0) {
+                    $ProgressPercent = [UInt32] ($ProgressCount * 100 / $Candidates.Count)
+                    Write-Progress -Activity "Enumerating COM classes from registry ($($ProgressCount)/$($Candidates.Count))..." -Status "$($ProgressPercent)% Complete:" -PercentComplete $ProgressPercent
+                }
+                $ProgressCount += 1
             }
+            Write-Progress -Activity "Enumerating COM classes from registry ($($Candidates.Count)/$($Candidates.Count))..." -Status "100% Complete:" -Completed
 
             Set-CachedData -Name "RegisteredComList" -Data $RegisteredComList
         }
@@ -417,7 +426,7 @@ function Get-TpmDeviceInformation {
         $DapLockoutInterval = 0
         $DapLockoutRecovery = 0
 
-        $TpmCoreProvisioningModulePath = Resolve-ModulePath -Name "TpmCoreProvisioning"
+        $TpmCoreProvisioningModulePath = Resolve-ModuleSearchPath -Name "TpmCoreProvisioning"
         if ($null -ne $TpmCoreProvisioningModulePath) {
             $TpmCoreProvisioningModulePresent = $true
         }

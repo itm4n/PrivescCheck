@@ -1,18 +1,3 @@
-function Get-InitialSessionState {
-
-    [OutputType([Management.Automation.Runspaces.InitialSessionState])]
-    [CmdletBinding()]
-    param ()
-
-    process {
-        if ($null -eq $script:GlobalVariable.InitialSessionState) {
-            $script:GlobalVariable.InitialSessionState = New-InitialSessionState
-        }
-
-        return $script:GlobalVariable.InitialSessionState
-    }
-}
-
 function Test-IsRunningInConsole {
     return $Host.Name -match "ConsoleHost"
 }
@@ -839,7 +824,7 @@ function Resolve-CommandLine {
         }
 
         if (-not [System.IO.Path]::IsPathRooted($Arguments[0])) {
-            $PathResolved = Resolve-ModulePath -Name $Arguments[0]
+            $PathResolved = Resolve-ModuleSearchPath -Name $Arguments[0]
             if (-not [String]::IsNullOrEmpty($PathResolved)) { $Arguments[0] = $PathResolved }
         }
 

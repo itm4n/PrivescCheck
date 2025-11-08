@@ -2007,95 +2007,28 @@ function ConvertTo-ArgumentList {
     }
 }
 
-function Resolve-ModulePath {
-    <#
-    .SYNOPSIS
-    Resolve the full path of a module given its filename.
+function Resolve-ModuleSearchPath {
 
-    Author: @itm4n
-    License: BSD 3-Clause
-
-    .DESCRIPTION
-    This cmdlet uses the Windows APIs LoadLibrary and GetModuleFileName to retrieve the full path of a module given its name. If the module is not found, the return value is null.
-
-    .PARAMETER Name
-    The name of a module (EXE or DLL).
-
-    .EXAMPLE
-    PS C:\> Resolve-ModulePath -Name combase
-    C:\Windows\System32\combase.dll
-
-    .NOTES
-    According to the documentation, using LoadLibrary is the recommended method for finding a module. The API SearchPath is not recommended as it is not guaranteed to use the same search order as LoadLibrary.
-
-    .LINK
-    https://learn.microsoft.com/en-us/windows/win32/api/processenv/nf-processenv-searchpatha#remarks
-    #>
     [CmdletBinding()]
     param (
         [Parameter(Mandatory = $true)]
-        [String] $Name
+        [String] $Name,
+
+        [String] $Extension = ".dll"
     )
 
-    begin {
-        $ModuleHandle = [IntPtr]::Zero
-        $MaxPathLength = 32767
-    }
-
     process {
-        $RetVal = $script:Kernel32::LoadLibrary($Name)
-        if ($RetVal -eq [IntPtr]::Zero) {
+        $FilePath = New-Object -TypeName System.Text.StringBuilder
+        $FilePath.EnsureCapacity(260) | Out-Null
+
+        $RetVal = $script:Kernel32::SearchPathW([IntPtr]::Zero, $Name, $Extension, 260, $FilePath, [IntPtr]::Zero)
+        if ($RetVal -eq 0) {
             $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-            # Write-Warning "LoadLibrary(`"$($Name)`") - $(Format-Error $LastError)"
+            Write-Verbose "SearchPathW - $(Format-Error $LastError)"
             return
         }
 
-        $ModuleHandle = $RetVal
-
-        $ModuleFileNameLength = 64
-        $ModuleFileName = New-Object -TypeName System.Text.StringBuilder
-
-        do {
-            if ($ModuleFileNameLength -gt $MaxPathLength) { break }
-
-            $ModuleFileName.EnsureCapacity($ModuleFileNameLength) | Out-Null
-
-            # If the return value of GetModuleFileName is 0, it means that the API
-            # failed. In that case, get the last error code, print the error
-            # message, and return.
-            $RetVal = $script:Kernel32::GetModuleFileName($ModuleHandle, $ModuleFileName, $ModuleFileNameLength)
-            if ($RetVal -eq 0) {
-                $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-                Write-Warning "GetModuleFileName - $(Format-Error $LastError)"
-                return
-            }
-
-            # If the return value is the length of our string buffer, it could mean that
-            # it is too small. In that case, check the last error code. If the error code
-            # is "insufficient buffer", then double the size of the buffer and try again.
-            # Otherwise, print an error.
-            if ($RetVal -eq $ModuleFileNameLength) {
-                $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-                if ($LastError -eq $script:SystemErrorCode::ERROR_INSUFFICIENT_BUFFER) {
-                    $ModuleFileNameLength = $ModuleFileNameLength * 2
-                    continue
-                }
-                else {
-                    Write-Warning "GetModuleFileName - $(Format-Error $LastError)"
-                    return
-                }
-            }
-
-            $ModuleFileName.ToString()
-            break
-
-        } while ($true)
-    }
-
-    end {
-        if ($ModuleHandle -ne [IntPtr]::Zero) {
-            $script:Kernel32::FreeLibrary($ModuleHandle) | Out-Null
-        }
+        $FilePath.ToString()
     }
 }
 

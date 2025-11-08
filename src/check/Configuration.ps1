@@ -929,19 +929,27 @@ function Invoke-ComServerRegistryPermissionCheck {
         [UInt32] $BaseSeverity
     )
 
-    begin {
-        $AllResults = @()
-    }
-
     process {
-        Get-ComClassFromRegistry |
-        Where-Object { $null -ne $_.HandlerRegPath } |
-        Invoke-CommandMultithread -InitialSessionState $(Get-InitialSessionState) -Command "Get-ModifiableComClassEntryRegistryPath" -InputParameter "ComClassEntry" |
-        ForEach-Object { $AllResults += $_ }
+        $Results = @()
+        $Candidates = Get-ComClassFromRegistry | Where-Object { $null -ne $_.HandlerRegPath }
+        $ProgressCount = 0
+        $ProgressIter = [UInt32] ($Candidates.Count / 100)
+        Write-Progress -Activity "Checking COM class registry permissions (0/$($Candidates.Count))..." -Status "0% Complete:" -PercentComplete 0
+        foreach ($Candidate in $Candidates) {
+            Get-ModifiableComClassEntryRegistryPath -ComClassEntry $Candidate | ForEach-Object {
+                $Results += $_
+            }
+            if (($ProgressCount % $ProgressIter) -eq 0) {
+                $ProgressPercent = [UInt32] ($ProgressCount * 100 / $Candidates.Count)
+                Write-Progress -Activity "Checking COM class registry permissions ($($ProgressCount)/$($Candidates.Count))..." -Status "$($ProgressPercent)% Complete:" -PercentComplete $ProgressPercent
+            }
+            $ProgressCount += 1
+        }
+        Write-Progress -Activity "Checking COM class registry permissions ($($Candidates.Count)/$($Candidates.Count))..." -Status "100% Complete:" -Completed
 
         $CheckResult = New-Object -TypeName PSObject
-        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
-        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AllResults.Count -gt 0) { $BaseSeverity } else { $script:SeverityLevel::None })
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Results
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Results.Count -gt 0) { $BaseSeverity } else { $script:SeverityLevel::None })
         $CheckResult
     }
 }
@@ -964,23 +972,35 @@ function Invoke-ComServerImagePermissionCheck {
     )
 
     begin {
-        $AllResults = @()
-        # Create a synchronized list that we will use to store file paths which were
-        # tested and are not vulnerable. This list will be populated by the threads,
-        # hence why we need to use a thread-safe collection object.
-        $AlreadyCheckedPaths = [System.Collections.ArrayList]::Synchronized((New-Object System.Collections.ArrayList))
+        $FsRedirectionValue = Disable-Wow64FileSystemRedirection
     }
 
     process {
-        Get-ComClassFromRegistry |
-        Where-Object { ($_.HandlerType -like "*server*") -and ($null -ne $_.HandlerData) } |
-        Invoke-CommandMultithread -InitialSessionState $(Get-InitialSessionState) -Command "Get-ModifiableComClassEntryImagePath" -InputParameter "ComClassEntry" -OptionalParameter @{ "CheckedPaths" = $AlreadyCheckedPaths } |
-        ForEach-Object { $AllResults += $_ }
+        $Results = @()
+        $Candidates = Get-ComClassFromRegistry | Where-Object { ($_.HandlerType -like "*server*") -and ($null -ne $_.HandlerData) }
+        $ProgressCount = 0
+        $ProgressIter = [UInt32] ($Candidates.Count / 100)
+        Write-Progress -Activity "Checking COM server image permissions (0/$($Candidates.Count))..." -Status "0% Complete:" -PercentComplete 0
+        foreach ($Candidate in $Candidates) {
+            Get-ModifiableComClassEntryImagePath -ComClassEntry $Candidate | ForEach-Object {
+                $Results += $_
+            }
+            if (($ProgressCount % $ProgressIter) -eq 0) {
+                $ProgressPercent = [UInt32] ($ProgressCount * 100 / $Candidates.Count)
+                Write-Progress -Activity "Checking COM server image permissions ($($ProgressCount)/$($Candidates.Count))..." -Status "$($ProgressPercent)% Complete:" -PercentComplete $ProgressPercent
+            }
+            $ProgressCount += 1
+        }
+        Write-Progress -Activity "Checking COM server image permissions ($($Candidates.Count)/$($Candidates.Count))..." -Status "100% Complete:" -Completed
 
         $CheckResult = New-Object -TypeName PSObject
-        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
-        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AllResults.Count -gt 0) { $BaseSeverity } else { $script:SeverityLevel::None })
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Results
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Results.Count -gt 0) { $BaseSeverity } else { $script:SeverityLevel::None })
         $CheckResult
+    }
+
+    end {
+        Restore-Wow64FileSystemRedirection -OldValue $FsRedirectionValue
     }
 }
 
@@ -1030,7 +1050,7 @@ function Invoke-ComServerGhostDllHijackingCheck {
                             $CandidatePaths += $PathToAnalyze
                         }
                         else {
-                            Resolve-ModulePath -Name $PathToAnalyze | ForEach-Object { $CandidatePaths += $_ }
+                            Resolve-ModuleSearchPath -Name $PathToAnalyze | ForEach-Object { $CandidatePaths += $_ }
                         }
                     }
                 }
@@ -1041,7 +1061,7 @@ function Invoke-ComServerGhostDllHijackingCheck {
                 if ($AlreadyChecked -contains $CandidatePath) { continue }
                 if ([System.IO.Path]::IsPathRooted($CandidatePath)) { $AlreadyChecked += $CandidatePath; continue }
 
-                $ResolvedPath = Resolve-ModulePath -Name $CandidatePath
+                $ResolvedPath = Resolve-ModuleSearchPath -Name $CandidatePath
 
                 if ($null -ne $ResolvedPath) { $AlreadyChecked += $CandidatePath; continue }
 
@@ -1106,7 +1126,7 @@ function Invoke-ComServerMissingModuleFileCheck {
                             $CandidatePaths += $PathToAnalyze
                         }
                         else {
-                            Resolve-ModulePath -Name $PathToAnalyze | ForEach-Object { $CandidatePaths += $_ }
+                            Resolve-ModuleSearchPath -Name $PathToAnalyze | ForEach-Object { $CandidatePaths += $_ }
                         }
                     }
                 }
@@ -1126,7 +1146,7 @@ function Invoke-ComServerMissingModuleFileCheck {
                     $MissingFiles += $CandidatePath
                 }
                 else {
-                    $ResolvedPath = Resolve-ModulePath -Name $CandidatePath
+                    $ResolvedPath = Resolve-ModuleSearchPath -Name $CandidatePath
                     if ($null -ne $ResolvedPath) {
                         $AlreadyChecked += $CandidatePath
                         continue

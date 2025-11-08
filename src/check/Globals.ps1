@@ -1,6 +1,5 @@
 $script:GlobalVariable = @{
     CheckResultList     = $null
-    InitialSessionState = $null
 }
 
 $script:GlobalCache = @{

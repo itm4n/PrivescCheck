@@ -75,10 +75,6 @@ function Invoke-PrivescCheck {
         # Reset global cache.
         Clear-CachedData
 
-        # Once the cache is fully initialized, we can build an InitialSessionState
-        # object that we can use in different runspaces.
-        $script:GlobalVariable.InitialSessionState = New-InitialSessionState
-
         $script:GlobalVariable.CheckResultList = @()
         $AllChecks = New-Object System.Collections.ArrayList
 

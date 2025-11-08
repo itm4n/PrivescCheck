@@ -462,9 +462,6 @@ function Get-ModifiableComClassEntryImagePath {
     .PARAMETER ComClassEntry
     A mandatory COM class registry entry returned by 'Get-ComClassFromRegistry'.
 
-    .PARAMETER CheckedPaths
-    An optional synchronized array list. This list is populated each time a filesystem path is analyzed and is found to not be vulnerable. This helps reduce the overall time it takes to check a large number of paths by avoiding to inspect them multiple times.
-
     .EXAMPLE
     PS C:\> $RegisteredComClasses = Get-ComClassFromRegistry
     PS C:\> Get-ModifiableComClassEntryImagePath -ComClassEntry $RegisteredComClasses[0]
@@ -473,22 +470,15 @@ function Get-ModifiableComClassEntryImagePath {
     [CmdletBinding()]
     param (
         [Parameter(Position=0, Mandatory=$true, ValueFromPipeline=$true, ValueFromPipelineByPropertyName=$true)]
-        [Object] $ComClassEntry,
-
-        [System.Collections.ArrayList] $CheckedPaths = $null
+        [Object] $ComClassEntry
     )
-
-    begin {
-        $FsRedirectionValue = Disable-Wow64FileSystemRedirection
-        if ($null -eq $CheckedPaths) { $CheckedPaths = New-Object System.Collections.ArrayList }
-    }
 
     process {
         $CandidatePaths = @()
 
         switch ($ComClassEntry.HandlerDataType) {
             "FileName" {
-                Resolve-ModulePath -Name $ComClassEntry.HandlerData | ForEach-Object { $CandidatePaths += $_ }
+                Resolve-ModuleSearchPath -Name $ComClassEntry.HandlerData | ForEach-Object { $CandidatePaths += $_ }
             }
             "FilePath" {
                 $CandidatePaths += [System.Environment]::ExpandEnvironmentVariables($ComClassEntry.HandlerData).Trim('"')
@@ -505,7 +495,7 @@ function Get-ModifiableComClassEntryImagePath {
                         $CandidatePaths += $PathToAnalyze
                     }
                     else {
-                        Resolve-ModulePath -Name $PathToAnalyze | ForEach-Object { $CandidatePaths += $_ }
+                        Resolve-ModuleSearchPath -Name $PathToAnalyze | ForEach-Object { $CandidatePaths += $_ }
                     }
                 }
             }
@@ -518,10 +508,9 @@ function Get-ModifiableComClassEntryImagePath {
         foreach ($CandidatePath in $CandidatePaths) {
 
             if ([String]::IsNullOrEmpty($CandidatePath)) { continue }
-            if ($CheckedPaths -contains $CandidatePath) { continue }
 
             $ModifiablePaths = Get-ModifiablePath -Path $CandidatePath | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
-            if ($null -eq $ModifiablePaths) { $null = $CheckedPaths.Add($CandidatePath); continue }
+            if ($null -eq $ModifiablePaths) { continue }
 
             foreach ($ModifiablePath in $ModifiablePaths) {
 
@@ -532,10 +521,6 @@ function Get-ModifiableComClassEntryImagePath {
                 $Result
             }
         }
-    }
-
-    end {
-        Restore-Wow64FileSystemRedirection -OldValue $FsRedirectionValue
     }
 }
 

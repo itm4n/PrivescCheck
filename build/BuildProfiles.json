@@ -185,7 +185,6 @@
             "Id": "CORE",
             "Files": [
                 "CORE_COMPRESSION",
-                "CORE_MULTITHREADING",
                 "CORE_REFLECTION",
                 "CORE_WINAPI_ENUM",
                 "CORE_WINAPI_STRUCT",

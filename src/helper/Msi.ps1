@@ -767,9 +767,10 @@ function Get-MsiFileItem {
 
     process {
         if ([string]::IsNullOrEmpty($FilePath)) {
-            Get-ChildItem -Path "$($InstallerPath)\*.msi" -ErrorAction SilentlyContinue |
-                Select-Object -ExpandProperty FullName |
-                    Invoke-CommandMultithread -InitialSessionState $(Get-InitialSessionState) -Command "Get-MsiItem" -InputParameter "Path"
+            $Candidates = Get-ChildItem -Path "$($InstallerPath)\*.msi" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName
+            foreach ($Candidate in $Candidates) {
+                Get-MsiItem -Path $Candidate
+            }
         }
         else {
             Get-MsiItem -Path $FilePath

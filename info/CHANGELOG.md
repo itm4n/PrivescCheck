@@ -1,5 +1,21 @@
 # Changelog
 
+## 2025-11-08
+
+### Added
+
+- Add progress status to COM registry permission check and COM server image permission check.
+
+### Modified
+
+- Changed type of COM class checks from "Base" to "Extended".
+
+## 2025-11-01
+
+### Removed
+
+- Multithreading was removed as it caused issues with certain security products.
+
 ## 2025-10-07
 
 ### Fixed

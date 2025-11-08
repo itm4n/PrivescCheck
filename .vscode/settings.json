@@ -232,6 +232,7 @@
         "TCPROW",
         "TCPTABLE",
         "TEAP",
+        "TERMSRV",
         "themecpl",
         "themepack",
         "THREADENTRY",
@@ -277,6 +278,7 @@
         "WPAD",
         "Wpts",
         "Wtsapi",
+        "wuapi",
         "wuauserv"
     ]
 }
