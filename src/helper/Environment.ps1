@@ -224,7 +224,9 @@ function Get-InstalledApplicationHelper {
                 # as it seems to be accurate. However, this value is not always populated.
                 if (-not [String]::IsNullOrEmpty($Values.InstallLocation)) {
                     $Location = (Resolve-Path -Path $Values.InstallLocation.Trim('"') -ErrorAction SilentlyContinue).Path
-                    $Location = $Location.Trim("\")
+                    if ($null -ne $Location) {
+                        $Location = $Location.Trim("\")
+                    }
                 }
                 else {
                     # If the 'InstallLocation' value is not populated, the next value we fall back
