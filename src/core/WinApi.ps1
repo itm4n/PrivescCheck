@@ -79,14 +79,6 @@ $FunctionDefinitions = @(
     (New-Function vaultcli VaultFree ([UInt32]) @([IntPtr]) -EntryPoint VaultFree),
     (New-Function vaultcli VaultCloseVault ([UInt32]) @([IntPtr].MakeByRefType()) -EntryPoint VaultCloseVault),
 
-    (New-Function winspool.drv AddPrinterDriverEx ([Bool]) @([String], [UInt32], [IntPtr], [UInt32]) -Charset Auto -SetLastError -EntryPoint AddPrinterDriverEx),
-    (New-Function winspool.drv EnumPrinterDrivers ([Bool]) @([String], [String], [UInt32], [IntPtr], [UInt32], [UInt32].MakeByRefType(), [UInt32].MakeByRefType()) -Charset Auto -SetLastError -EntryPoint EnumPrinterDrivers),
-    (New-Function winspool.drv DeletePrinterDriver ([Bool]) @([String], [String], [String]) -Charset Auto -SetLastError -EntryPoint DeletePrinterDriver),
-    (New-Function winspool.drv DeletePrinterDriverEx ([Bool]) @([String], [String], [String], [UInt32], [UInt32]) -Charset Auto -SetLastError -EntryPoint DeletePrinterDriverEx),
-    (New-Function winspool.drv AddPrinter ([IntPtr]) @([String], [UInt32], [IntPtr]) -Charset Auto -SetLastError -EntryPoint AddPrinter),
-    (New-Function winspool.drv DeletePrinter ([Bool]) @([IntPtr]) -SetLastError -EntryPoint DeletePrinter),
-    (New-Function winspool.drv ClosePrinter ([Bool]) @([IntPtr]) -SetLastError -EntryPoint ClosePrinter),
-
     (New-Function wlanapi WlanOpenHandle ([UInt32]) @([UInt32], [IntPtr], [UInt32].MakeByRefType(), [IntPtr].MakeByRefType()) -EntryPoint WlanOpenHandle),
     (New-Function wlanapi WlanCloseHandle ([UInt32]) @([IntPtr], [IntPtr]) -EntryPoint WlanCloseHandle),
     (New-Function wlanapi WlanEnumInterfaces ([UInt32]) @([IntPtr], [IntPtr], [IntPtr].MakeByRefType()) -EntryPoint WlanEnumInterfaces),

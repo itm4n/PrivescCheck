@@ -111,11 +111,6 @@ jobs:
         run: |
           . ./build/Build.ps1
           Invoke-Build -Name "PrivescCheck" -NoNewSeed
-      - name: Build PointAndPrint script
-        shell: pwsh
-        run: |
-          . ./build/Build.ps1
-          Invoke-Build -Name "PointAndPrint" -NoNewSeed
       - name: Create release
         env:
           GH_TOKEN: ${{ github.token }}

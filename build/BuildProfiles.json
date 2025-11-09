@@ -220,12 +220,6 @@
                 "CHECK_CREDENTIALS",
                 "CHECK_MISC"
             ]
-        },
-        {
-            "Id": "EXPLOIT_POINT_AND_PRINT",
-            "Files": [
-                "EXPLOIT_POINT_AND_PRINT"
-            ]
         }
     ],
     "Profiles": [
@@ -236,14 +230,6 @@
                 "CORE",
                 "HELPERS",
                 "CHECKS"
-            ]
-        },
-        {
-            "Id": "POINT_AND_PRINT",
-            "Name": "PointAndPrint",
-            "Includes": [
-                "CORE",
-                "EXPLOIT_POINT_AND_PRINT"
             ]
         }
     ]

@@ -3,7 +3,7 @@ function Invoke-Build {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
-        [ValidateSet("PrivescCheck", "PointAndPrint")]
+        [ValidateSet("PrivescCheck")]
         [String] $Name,
 
         [Switch] $NoNewSeed
@@ -24,7 +24,6 @@ function Invoke-Build {
             $SanityCheck = $false
         }
 
-        $ScriptHeader = "#Requires -Version 2`r`n`r`n"
         $RootPath = Split-Path -Path (Split-Path -Path $PSCommandPath -Parent) -Parent
 
         $WordList = Get-FileContent -Type "data" -FileName "WordList.txt" | Where-Object { -not [String]::IsNullOrEmpty($_) }
@@ -70,7 +69,7 @@ function Invoke-Build {
 
         $ScriptFilename = "$($BuildProfileObject.Name).ps1"
         $ScriptPath = Join-Path -Path $RootPath -ChildPath "release\$($ScriptFilename)"
-        $ScriptContent = "$($ScriptHeader)"
+        $ScriptContent = ""
         $ErrorCount = 0
         $Modules = @()
 

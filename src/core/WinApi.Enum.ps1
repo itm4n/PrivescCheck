@@ -430,18 +430,6 @@ $script:WTS_CONNECTSTATE_CLASS = New-Enum $Module WinApiModule.WTS_CONNECTSTATE_
     Init                                = 9
 }
 
-$script:APD_FILE_COPY_FLAGS = New-Enum $Module WinApiModule.APD_FILE_COPY_FLAGS UInt32 @{
-    APD_STRICT_UPGRADE                  = 0x00000001
-    APD_STRICT_DOWNGRADE                = 0x00000002
-    APD_COPY_ALL_FILES                  = 0x00000004
-    APD_COPY_NEW_FILES                  = 0x00000008
-    APD_COPY_FROM_DIRECTORY             = 0x00000010
-    APD_DONT_COPY_FILES_TO_CLUSTER      = 0x00001000
-    APD_COPY_TO_ALL_SPOOLERS            = 0x00002000
-    APD_INSTALL_WARNED_DRIVER           = 0x00008000
-    APD_RETURN_BLOCKING_STATUS_CODE     = 0x00010000
-} -BitField
-
 $script:ASSOCF = New-Enum $Module WinApiModule.ASSOCF UInt32 @{
     ASSOCF_NONE                         = 0x00000000
     ASSOCF_INIT_NOREMAPCLSID            = 0x00000001

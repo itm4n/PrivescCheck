@@ -1,5 +1,11 @@
 # Changelog
 
+## 2025-11-09
+
+### Removed
+
+- Point and Print exploit PoC moved to a dedicated repository.
+
 ## 2025-11-08
 
 ### Added

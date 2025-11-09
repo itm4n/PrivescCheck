@@ -128,12 +128,6 @@ Get-Content .\PrivescCheck.ps1 | Out-String | Invoke-Expression
 
 ### PowerShell Version 2
 
-If you see this at the beginning of the script, it just means that the **minimum** PowerShell version required for it to run is PSv2.
-
-```powershell
-#Requires -Version 2
-```
-
 A common way to bypass [Constrained Language Mode](https://devblogs.microsoft.com/powershell/powershell-constrained-language-mode/) consists in using PSv2 as it does not implement this protection. Therefore, a significant part of the development effort goes into maintaining this retro-compatibility.
 
 > :information_source: Although PowerShell version 2 ~~is still enabled by default on recent versions of Windows~~ ([PowerShell 2.0 removal from Windows](https://support.microsoft.com/en-us/topic/powershell-2-0-removal-from-windows-fe6d1edc-2ed2-4c33-b297-afe82a64200a)), it cannot run without the .Net framework version 2.0, which requires a manual install.
