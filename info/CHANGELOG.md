@@ -1,5 +1,11 @@
 # Changelog
 
+## 2025-11-19
+
+### Fixed
+
+- Incorrect severity level in root folder permission check when there is a single vulnerable folder (see issue #79).
+
 ## 2025-11-09
 
 ### Removed
