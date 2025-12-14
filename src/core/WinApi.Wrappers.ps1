@@ -2032,6 +2032,62 @@ function Resolve-ModuleSearchPath {
     }
 }
 
+function Get-ModuleHandle {
+
+    [OutputType([IntPtr])]
+    [CmdletBinding()]
+    param (
+        [String] $Name
+    )
+
+    process {
+        $RetVal = $script:Kernel32::LoadLibrary($Name)
+        if ($RetVal -eq [IntPtr]::Zero) {
+            $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+            Write-Verbose "LoadLibrary - $(Format-Error $LastError)"
+            return
+        }
+
+        return $RetVal
+    }
+}
+
+function Remove-ModuleHandle {
+
+    [CmdletBinding()]
+    param (
+        [IntPtr] $Module
+    )
+
+    process {
+        $RetVal = $script:Kernel32::FreeLibrary($Module)
+        if ($RetVal -eq $false) {
+            $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+            Write-Verbose "FreeLibrary - $(Format-Error $LastError)"
+            return
+        }
+    }
+}
+
+function Get-ProcedureAddress {
+
+    [OutputType([IntPtr])]
+    [CmdletBinding()]
+    param (
+        [IntPtr] $Module,
+        [String] $Name
+    )
+
+    process {
+        $RetVal = $script:Kernel32::GetProcAddress($Module, $Name)
+        if ($RetVal -eq [IntPtr]::Zero) {
+            $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+            Write-Verbose "GetProcAddress - $(Format-Error $LastError)"
+        }
+        return $RetVal
+    }
+}
+
 function Resolve-PathRelativeTo {
     <#
     .SYNOPSIS

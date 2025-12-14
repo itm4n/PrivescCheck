@@ -44,6 +44,7 @@ $FunctionDefinitions = @(
     (New-Function kernel32 LoadLibrary ([IntPtr]) @([String]) ([Runtime.InteropServices.CallingConvention]::Winapi) ([Runtime.InteropServices.CharSet]::Unicode) -SetLastError -EntryPoint LoadLibraryW),
     (New-Function kernel32 FreeLibrary ([Bool]) @([IntPtr]) -SetLastError -EntryPoint FreeLibrary),
     (New-Function kernel32 SearchPathW ([UInt32]) @([IntPtr], [String], [String], [UInt32], [System.Text.StringBuilder], [IntPtr]) ([Runtime.InteropServices.CallingConvention]::Winapi) ([Runtime.InteropServices.CharSet]::Unicode) -SetLastError -EntryPoint SearchPathW),
+    (New-Function kernel32 GetProcAddress ([IntPtr]) @([IntPtr], [String]) ([Runtime.InteropServices.CallingConvention]::Winapi) ([Runtime.InteropServices.CharSet]::Ansi) -SetLastError -EntryPoint GetProcAddress),
 
     (New-Function netapi32 NetGetJoinInformation ([UInt32]) @([IntPtr], [IntPtr].MakeByRefType(), $script:NETSETUP_JOIN_STATUS.MakeByRefType()) -Charset Unicode -EntryPoint NetGetJoinInformation),
     (New-Function netapi32 NetGetAadJoinInformation ([Int32]) @([String], [IntPtr].MakeByRefType()) -Charset Unicode -EntryPoint NetGetAadJoinInformation),

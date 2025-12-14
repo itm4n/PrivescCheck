@@ -425,7 +425,7 @@ function Get-TpmDeviceInformation {
     param ()
 
     begin {
-        $TpmCoreProvisioningModulePresent = $false
+        $RequirementCheck = $false
 
         # Parameter for TpmIsLockedOut
         $IsLockedOut = 0
@@ -437,18 +437,36 @@ function Get-TpmDeviceInformation {
         $DapLockoutInterval = 0
         $DapLockoutRecovery = 0
 
+        $TpmCoreProvisioningProcedures = @(
+            "TpmGetDeviceInformation",
+            "TpmIsLockedOut",
+            "TpmGetCapLockoutInfo",
+            "TpmGetDictionaryAttackParameters"
+        )
+
         $TpmCoreProvisioningModulePath = Resolve-ModuleSearchPath -Name "TpmCoreProvisioning"
         if ($null -ne $TpmCoreProvisioningModulePath) {
-            $TpmCoreProvisioningModulePresent = $true
+
+            $TpmCoreProvisioningProceduresPresent = $true
+            foreach ($Proc in $TpmCoreProvisioningProcedures) {
+                if (-not (Test-Procedure -Module "TpmCoreProvisioning" -Name $Proc)) {
+                    Write-Warning "TPM Core Provisioning procedure not found: TpmCoreProvisioning!$($Proc)"
+                    $TpmCoreProvisioningProceduresPresent = $false
+                }
+            }
+
+            if ($TpmCoreProvisioningProceduresPresent) {
+                $RequirementCheck = $true
+            }
         }
 
-        if ($TpmCoreProvisioningModulePresent) {
+        if ($RequirementCheck) {
             $Result = New-Object -TypeName PSObject
         }
     }
 
     process {
-        if (-not $TpmCoreProvisioningModulePresent) { return }
+        if (-not $RequirementCheck) { return }
 
         $TpmDeviceInformation = [Activator]::CreateInstance($script:TPM_DEVICE_INFORMATION)
 
@@ -528,7 +546,7 @@ function Get-TpmDeviceInformation {
     }
 
     end {
-        if ($TpmCoreProvisioningModulePresent) {
+        if ($RequirementCheck) {
             $Result
         }
     }

@@ -7,6 +7,7 @@
 - False positive in IPv6 configuration check.
 - Improved handling of AppId and TypeLibId values when enumerating COM, so that parsing errors are properly handled and reported with warning messages (issue #78).
 - Errors caused by EDR denying access to the WMI object database file are now properly handled (issue #81).
+- Check TPM Core Provisioning procedure existence before trying to call them to avoid unexpected exceptions (issue #80).
 
 ## 2025-11-19
 

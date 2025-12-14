@@ -82,6 +82,41 @@ function Test-IsDomainJoined {
     return $false
 }
 
+function Test-Procedure {
+
+    [OutputType([Bool])]
+    [CmdletBinding()]
+    param (
+        [String] $Module,
+        [String] $Name
+    )
+
+    begin {
+        $ModuleHandle = [IntPtr]::Zero
+    }
+
+    process {
+        $ModuleHandle = Get-ModuleHandle -Name $Module
+
+        if ($ModuleHandle -ne [IntPtr]::Zero) {
+
+            $ProcAddress = Get-ProcedureAddress -Module $ModuleHandle -Name $Name
+
+            if ($ProcAddress -ne [IntPtr]::Zero) {
+                return $true
+            }
+        }
+
+        return $false
+    }
+
+    end {
+        if ($ModuleHandle -ne [IntPtr]::Zero) {
+            Remove-ModuleHandle -Module $ModuleHandle
+        }
+    }
+}
+
 function Convert-FiletimeToDatetime {
     [OutputType([DateTime])]
     [CmdletBinding()]
