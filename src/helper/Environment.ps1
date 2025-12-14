@@ -774,6 +774,12 @@ function Get-SccmNetworkAccessAccountCredential {
 
         if (-not $SanityCheck) { return }
 
+        $ReadAccess = Get-ObjectAccessRight -Name $Path -Type File -AccessRights @($script:FileAccessRight::ReadData)
+        if ($null -eq $ReadAccess) {
+            Write-Warning "Read access to file is not allowed: $($Path)"
+            return
+        }
+
         $Candidates = Select-String -Path $Path -Pattern "$($BasePattern)`0`0$($PolicyPatternBegin)"
         if ($null -eq $Candidates) { return }
 
