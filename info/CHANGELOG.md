@@ -1,5 +1,11 @@
 # Changelog
 
+## 2025-12-14
+
+### Fixed
+
+- False positive in IPv6 configuration check.
+
 ## 2025-11-19
 
 ### Fixed

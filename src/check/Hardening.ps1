@@ -1088,7 +1088,7 @@ function Invoke-Ipv6ConfigurationCheck {
 
     process {
         $Vulnerable = $false
-        if ((-not $Configuration.PreferIPv4OverIPv6) -or (-not $Configuration.DisableIPv6OnAllTunnelInterfaces) -or (-not $DisableIPv6OnAllNonTunnelInterfaces)) {
+        if ((-not $Configuration.PreferIPv4OverIPv6) -or (-not $Configuration.DisableIPv6OnAllTunnelInterfaces) -or (-not $Configuration.DisableIPv6OnAllNonTunnelInterfaces)) {
             $Vulnerable = $true
         }
 
