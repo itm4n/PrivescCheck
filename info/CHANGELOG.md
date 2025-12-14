@@ -5,6 +5,7 @@
 ### Fixed
 
 - False positive in IPv6 configuration check.
+- Improved handling of AppId and TypeLibId values when enumerating COM, so that parsing errors are properly handled and reported with warning messages (issue #78).
 
 ## 2025-11-19
 

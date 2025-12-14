@@ -184,6 +184,24 @@ function Convert-StringToDate {
     }
 }
 
+function Convert-StringToGuid {
+
+    [OutputType([Guid])]
+    [CmdletBinding()]
+    param (
+        [String] $Text
+    )
+
+    process {
+        try {
+            [Guid] $Text
+        }
+        catch {
+            return $null
+        }
+    }
+}
+
 function Convert-SidToName {
 
     [OutputType([String])]

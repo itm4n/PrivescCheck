@@ -40,8 +40,13 @@ function Get-ComClassEntryFromRegistry {
             $ClassSubProperties = $null
         }
 
-
-        $ClassAppId = $ClassProperties | Get-ItemProperty -Name "AppId" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty "AppId" | ForEach-Object { ([Guid] $_).Guid.ToUpper() }
+        $ClassAppId = $ClassProperties | Get-ItemProperty -Name "AppId" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty "AppId" | ForEach-Object {
+            $AppId = Convert-StringToGuid -Text $_
+            if ($null -eq $AppId) {
+                Write-Warning "[CLSID=$($ClassId)] Failed to convert attribute to AppID: $($_)"
+            }
+            $AppId
+        }
 
         # Enumerate the COM class properties we are the most interested in.
         $ClassServerProperties = $ClassSubProperties | Where-Object { $FilteredComSubProperties -contains $_.PSChildName }
@@ -65,7 +70,13 @@ function Get-ComClassEntryFromRegistry {
         }
 
         $ClassName = $ClassProperties | Get-ItemProperty -Name "(default)" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty "(default)"
-        $ClassTypeLibId = $ClassSubProperties | Where-Object { "TypeLib" -eq $_.PSChildName } | Get-ItemProperty -Name "(default)" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty "(default)" | ForEach-Object { ([Guid] $_).Guid.ToUpper() }
+        $ClassTypeLibId = $ClassSubProperties | Where-Object { "TypeLib" -eq $_.PSChildName } | Get-ItemProperty -Name "(default)" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty "(default)" | ForEach-Object {
+            $TypeLibId = Convert-StringToGuid -Text $_
+            if ($null -eq $TypeLibId) {
+                Write-Warning "[CLSID=$($ClassId)] Failed to convert attribute to TypeLib ID: $($_)"
+            }
+            $TypeLibId
+        }
 
         $ClassProgIds = [String[]] @()
         $ClassProgIds += $ClassSubProperties | Where-Object { "ProgID" -eq $_.PSChildName } | Get-ItemProperty -Name "(default)" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty "(default)"
