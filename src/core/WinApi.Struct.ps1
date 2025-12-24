@@ -585,3 +585,79 @@ $script:SERVICE_STATUS_PROCESS = New-Structure $Module WinApiModule.SERVICE_STAT
     ProcessId                   = New-StructureField 7 UInt32
     ServiceFlags                = New-StructureField 8 UInt32
 }
+
+$script:CRYPTOAPI_BLOB = New-Structure $Module WinApiModule.CRYPTOAPI_BLOB @{
+    DataSize                    = New-StructureField 0 UInt32
+    Data                        = New-StructureField 1 IntPtr
+}
+
+$script:CERT_CONTEXT = New-Structure $Module WinApiModule.CERT_CONTEXT @{
+    CertEncodingType            = New-StructureField 0 UInt32
+    CertEncoded                 = New-StructureField 1 IntPtr
+    CertEncodedSize             = New-StructureField 2 UInt32
+    CertInfo                    = New-StructureField 3 IntPtr
+    CertStore                   = New-StructureField 4 IntPtr
+}
+
+$script:CRYPT_ALGORITHM_IDENTIFIER = New-Structure $Module WinApiModule.CRYPT_ALGORITHM_IDENTIFIER @{
+    ObjId                       = New-StructureField 0 String -MarshalAs @('LPStr')
+    Parameters                  = New-StructureField 1 $script:CRYPTOAPI_BLOB
+}
+
+$script:CRYPT_BIT_BLOB = New-Structure $Module WinApiModule.CRYPT_BIT_BLOB @{
+    DataSize                    = New-StructureField 0 UInt32
+    Data                        = New-StructureField 1 IntPtr
+    UnusedBits                  = New-StructureField 2 UInt32
+}
+
+$script:CERT_PUBLIC_KEY_INFO = New-Structure $Module WinApiModule.CERT_PUBLIC_KEY_INFO @{
+    Algorithm = New-StructureField 0 $script:CRYPT_ALGORITHM_IDENTIFIER
+    PublicKey = New-StructureField 1 $script:CRYPT_BIT_BLOB
+}
+
+$script:CERT_EXTENSION = New-Structure $Module WinApiModule.CERT_EXTENSION @{
+    ObjId                       = New-StructureField 0 String -MarshalAs @('LPStr')
+    Critical                    = New-StructureField 1 Bool
+    Value                       = New-StructureField 2 $script:CRYPTOAPI_BLOB
+}
+
+$script:CERT_INFO = New-Structure $Module WinApiModule.CERT_INFO @{
+    Version = New-StructureField 0 UInt32
+    SerialNumber = New-StructureField 1 $script:CRYPTOAPI_BLOB
+    SignatureAlgorithm = New-StructureField 2 $script:CRYPT_ALGORITHM_IDENTIFIER
+    Issuer = New-StructureField 3 $script:CRYPTOAPI_BLOB
+    NotBefore = New-StructureField 4 $script:FILETIME
+    NotAfter = New-StructureField 5 $script:FILETIME
+    Subject = New-StructureField 6 $script:CRYPTOAPI_BLOB
+    SubjectPublicKeyInfo = New-StructureField 7 $script:CERT_PUBLIC_KEY_INFO
+    IssuerUniqueId = New-StructureField 8 $script:CRYPT_BIT_BLOB
+    SubjectUniqueId = New-StructureField 9 $script:CRYPT_BIT_BLOB
+    ExtensionCount = New-StructureField 10 UInt32
+    Extensions = New-StructureField 11 $script:CERT_EXTENSION.MakeArrayType() -MarshalAs @('ByValArray', 1)
+}
+
+$script:CRYPT_OID_INFO = New-Structure $Module WinApiModule.CRYPT_OID_INFO @{
+    Size = New-StructureField 0 UInt32
+    Oid = New-StructureField 1 String -MarshalAs @('LPStr')
+    Name = New-StructureField 2 String -MarshalAs @('LPWStr')
+    GroupId = New-StructureField 3 UInt32
+    Dummy = New-StructureField 4 UInt32
+    ExtraInfo = New-StructureField 5 $script:CRYPTOAPI_BLOB
+    CngAlgid = New-StructureField 6 String -MarshalAs @('LPWStr')
+    CngExtraAlgid = New-StructureField 7 String -MarshalAs @('LPWStr')
+}
+
+$script:CRYPT_KEY_PROV_INFO = New-Structure $Module WinApiModule.CRYPT_KEY_PROV_INFO @{
+    ContainerName = New-StructureField 0 String -MarshalAs @('LPWStr')
+    ProvName = New-StructureField 1 String -MarshalAs @('LPWStr')
+    ProvType = New-StructureField 2 UInt32
+    Flags = New-StructureField 3 UInt32
+    ProvParamCount = New-StructureField 4 UInt32
+    ProvParam = New-StructureField 5 IntPtr
+    KeySpec = New-StructureField 6 UInt32
+}
+
+$script:CTL_USAGE = New-Structure $Module WinApiModule.CTL_USAGE @{
+    UsageIdentifierCount = New-StructureField 0 UInt32
+    UsageIdentifiers = New-StructureField 1 IntPtr
+}

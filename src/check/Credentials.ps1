@@ -966,3 +966,30 @@ function Invoke-VncCredentialCheck {
         $CheckResult
     }
 }
+
+function Invoke-PersonalCertificateCheck {
+    <#
+    .SYNOPSIS
+    Get information about machine and user personal certificates.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet enumerates machine and user personal certificates.
+    #>
+
+    [CmdletBinding()]
+    param (
+        [UInt32] $BaseSeverity
+    )
+
+    process {
+        $Results = Get-PersonalCertificateInformation
+
+        $CheckResult = New-Object -TypeName PSObject
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Results
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Results) { $BaseSeverity } else { $script:SeverityLevel::None })
+        $CheckResult
+    }
+}

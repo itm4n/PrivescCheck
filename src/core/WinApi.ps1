@@ -19,6 +19,15 @@ $FunctionDefinitions = @(
     (New-Function advapi32 GetSidSubAuthorityCount ([IntPtr]) @([IntPtr]) -SetLastError -EntryPoint GetSidSubAuthorityCount),
     (New-Function advapi32 RegOpenKeyEx ([UInt32]) @([IntPtr], [String], [UInt32], [UInt32], [IntPtr].MakeByRefType()) ([Runtime.InteropServices.CallingConvention]::Winapi) ([Runtime.InteropServices.CharSet]::Unicode) -SetLastError -EntryPoint RegOpenKeyExW),
 
+    (New-Function crypt32 CryptQueryObject ([Bool]) @([UInt32], [IntPtr], [UInt32], [UInt32], [UInt32], [UInt32].MakeByRefType(), [UInt32].MakeByRefType(), [UInt32].MakeByRefType(), [IntPtr].MakeByRefType(), [IntPtr].MakeByRefType(), [IntPtr].MakeByRefType()) -SetLastError -EntryPoint CryptQueryObject),
+    (New-Function crypt32 CertCloseStore ([Bool]) @([IntPtr], [UInt32]) -SetLastError -EntryPoint CertCloseStore),
+    (New-Function crypt32 CryptMsgClose ([Bool]) @([IntPtr]) -SetLastError -EntryPoint CryptMsgClose),
+    (New-Function crypt32 CertFreeCertificateContext ([Bool]) @([IntPtr]) -SetLastError -EntryPoint CertFreeCertificateContext),
+    (New-Function crypt32 CertNameToStrW ([UInt32]) @([UInt32], $script:CRYPTOAPI_BLOB.MakeByRefType(), [UInt32], [System.Text.StringBuilder], [UInt32]) -EntryPoint CertNameToStrW),
+    (New-Function crypt32 CryptFindOIDInfo ([IntPtr]) @([UInt32], [String], [UInt32]) -EntryPoint CryptFindOIDInfo -Charset Ansi),
+    (New-Function crypt32 CertGetCertificateContextProperty ([Bool]) @([IntPtr], [UInt32], [IntPtr], [UInt32].MakeByRefType()) -SetLastError -EntryPoint CertGetCertificateContextProperty),
+    (New-Function crypt32 CertGetEnhancedKeyUsage ([Bool]) @([IntPtr], [UInt32], [IntPtr], [UInt32].MakeByRefType()) -SetLastError -EntryPoint CertGetEnhancedKeyUsage),
+
     (New-Function firewallapi FWOpenPolicyStore ([Void]) @([UInt32], [IntPtr], $script:FW_STORE_TYPE, $script:FW_POLICY_ACCESS_RIGHT, [UInt32], [IntPtr].MakeByRefType()) -EntryPoint FWOpenPolicyStore),
     (New-Function firewallapi FWClosePolicyStore ([UInt32]) @([IntPtr]) -EntryPoint FWClosePolicyStore),
     (New-Function firewallapi FWGetConfig2 ([Void]) @([IntPtr], $script:FW_PROFILE_CONFIG, $script:FW_PROFILE_TYPE, $script:FW_CONFIG_FLAGS, [IntPtr], [UInt32].MakeByRefType(), [UInt32].MakeByRefType()) -EntryPoint FWGetConfig2),
@@ -93,6 +102,7 @@ $FunctionDefinitions = @(
 
 $Types = $FunctionDefinitions | Add-Win32Type -Module $Module -Namespace 'WinApiModule.NativeMethods'
 $script:Advapi32 = $Types['advapi32']
+$script:Crypt32  = $Types['crypt32']
 $script:Iphlpapi = $Types['iphlpapi']
 $script:FirewallApi = $Types['firewallapi']
 $script:Kernel32 = $Types['kernel32']

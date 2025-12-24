@@ -1436,3 +1436,93 @@ function Get-NetworkEndpoint {
         Write-Verbose "GetExtended***Table - $(Format-Error $LastError)"
     }
 }
+
+function Get-PersonalCertificateInformation {
+    <#
+    .SYNOPSIS
+    Collect information about machine and user personal certificates.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet enumerates personal certificates stored as serialized objects in the registry and on the filesystem.
+
+    .EXAMPLE
+    PS C:\> Get-PersonalCertificateInformation
+
+    FriendlyName       : IIS Express Development Certificate
+    Description        :
+    Subject            : CN=localhost
+    Issuer             : CN=localhost
+    NotBefore          : 01/04/2025 08:25:30
+    NotAfter           : 01/04/2030 00:00:00
+    Version            : 3
+    Provider           : Microsoft RSA SChannel Cryptographic Provider
+    ExtendedKeyUsage   : Server Authentication
+    PublicKeyAlgorithm : RSA
+    SignatureAlgorithm : sha256RSA
+    SerialNumber       : 1765E8D36BA810A141A814328248D1D9
+    Hash               : 2A37BC6C47B06F99FD028E1382BEA20C6029C74B
+    Path               : HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\SystemCertificates\MY\Certificates\2A37BC6C47B06F99FD028E1382BEA20C6029C74B
+
+    FriendlyName       : Microsoft Your Phone
+    Description        :
+    Subject            : CN=7453be6b-bfe7-45ea-8bf8-7c78246de025
+    Issuer             : CN=7453be6b-bfe7-45ea-8bf8-7c78246de025
+    NotBefore          : 21/08/2025 05:08:12
+    NotAfter           : 21/08/2026 17:08:12
+    Version            : 3
+    Provider           : Microsoft Software Key Storage Provider
+    ExtendedKeyUsage   :
+    PublicKeyAlgorithm : ECC
+    SignatureAlgorithm : sha384ECDSA
+    SerialNumber       : 00D6800F552D747C4C
+    Hash               : B74755D3600AFFC32344F18BD854875F888981A8
+    Path               : C:\Users\Admin\AppData\Roaming\Microsoft\SystemCertificates\My\Certificates\B74755D3600AFFC32344F18BD854875F888981A8
+    #>
+
+    [CmdletBinding()]
+    param ()
+
+    process {
+
+        Get-ChildItem -Path "registry::HKLM\SOFTWARE\Microsoft\SystemCertificates\MY\Certificates" -ErrorAction SilentlyContinue | ForEach-Object {
+
+            $Blob = $_ | Get-ItemProperty -Name "Blob" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Blob
+            if ($null -ne $Blob) {
+                $Result = Get-SerializedCertificateInformation -Blob $Blob
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $_.Name
+                $Result
+            }
+        }
+
+        Get-ChildItem -Path "registry::HKU\" -ErrorAction SilentlyContinue | ForEach-Object {
+
+            $Path = Join-Path -Path $_.Name -ChildPath "SOFTWARE\Microsoft\SystemCertificates\MY\Certificates"
+
+            Get-ChildItem -Path "registry::$($Path)" -ErrorAction SilentlyContinue | ForEach-Object {
+
+                $Blob = $_ | Get-ItemProperty -Name "Blob" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Blob
+                if ($null -ne $Blob) {
+                    $Result = Get-SerializedCertificateInformation -Blob $Blob
+                    $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $_.Name
+                    $Result
+                }
+            }
+        }
+
+        Get-ChildItem -Path $(Join-Path -Path $env:SystemDrive -ChildPath "Users") -ErrorAction SilentlyContinue | ForEach-Object {
+
+            $Path = Join-Path -Path $_.FullName -ChildPath "AppData\Roaming\Microsoft\SystemCertificates\My\Certificates"
+
+            Get-ChildItem -Path $Path -ErrorAction SilentlyContinue | ForEach-Object {
+
+                $Blob = [System.IO.File]::ReadAllBytes($_.FullName)
+                $Result = Get-SerializedCertificateInformation -Blob $Blob
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $_.FullName
+                $Result
+            }
+        }
+    }
+}

@@ -1,5 +1,12 @@
 # Changelog
 
+## 2025-12-24
+
+### Added
+
+- Add helper function to enumerate machine and user personal certificates.
+- Add check to enumerate machine and user personal certificates (see issue #77).
+
 ## 2025-12-14
 
 ### Fixed

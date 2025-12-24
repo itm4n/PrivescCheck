@@ -2439,3 +2439,331 @@ function Get-NtObjectItem {
         $null = $script:Ntdll::NtClose($ObjectHandle)
     }
 }
+
+function Convert-CertificateOid {
+    <#
+    .SYNOPSIS
+    Wrapper for CryptFindOIDInfo
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet invokes the CryptFindOIDInfo API to convert an OID (as an ANSI string) to its friendly name. If a friendly name cannot be found, the input OID value is returned instead.
+
+    .PARAMETER Oid
+    An OID string to convert
+
+    .LINK
+    https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/nf-wincrypt-cryptfindoidinfo
+    #>
+
+    [OutputType([Object])]
+    [CmdletBinding()]
+    param (
+        [String] $Oid
+    )
+
+    process {
+        # CRYPT_OID_INFO_OID_KEY = 1
+        $InfoPtr = $script:Crypt32::CryptFindOIDInfo(1, $Oid, 0)
+        if ($InfoPtr -ne [IntPtr]::Zero) {
+            return [System.Runtime.InteropServices.Marshal]::PtrToStructure($InfoPtr, [type] $script:CRYPT_OID_INFO)
+        }
+        else {
+            Write-Verbose "CryptFindOIDInfo error - OID info not found for value: $($Oid)"
+        }
+    }
+}
+
+function Get-CertificateContextProperty {
+    <#
+    .SYNOPSIS
+    Wrapper for CertGetCertificateContextProperty
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet invokes the CertGetCertificateContextProperty API to retrieve specific information about a certificate given its context.
+
+    .PARAMETER ContextPtr
+    A pointer to a certificate context.
+
+    .PARAMETER PropId
+    The ID of a certificate property to retrieve.
+
+    .LINK
+    https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/nf-wincrypt-certgetcertificatecontextproperty
+    #>
+
+    [OutputType([String])]
+    [CmdletBinding()]
+    param (
+        [IntPtr] $ContextPtr,
+        [UInt32] $PropId
+    )
+
+    process {
+        $DataSize = [UInt32] 0
+        $Success = $script:Crypt32::CertGetCertificateContextProperty($ContextPtr, $PropId, [IntPtr]::Zero, [ref] $DataSize)
+        if ($Success) {
+            $PropertyPtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($DataSize)
+            $Success = $script:Crypt32::CertGetCertificateContextProperty($ContextPtr, $PropId, $PropertyPtr, [ref] $DataSize)
+            if ($Success) {
+                switch ($PropId) {
+                    # CERT_KEY_PROV_INFO_PROP_ID
+                    2 {
+                        $ProviderInfo = [System.Runtime.InteropServices.Marshal]::PtrToStructure($PropertyPtr, [type] $script:CRYPT_KEY_PROV_INFO)
+                        Write-Verbose $ProviderInfo.ContainerName
+                        return $ProviderInfo.ProvName
+                    }
+                    # CERT_HASH_PROP_ID
+                    3 {
+                        $HashBytes = [Byte[]]::New($DataSize)
+                        [System.Runtime.InteropServices.Marshal]::Copy($PropertyPtr, $HashBytes, 0, $DataSize)
+                        return [System.BitConverter]::ToString($HashBytes) -replace '-',''
+                    }
+                    # CERT_FRIENDLY_NAME_PROP_ID
+                    11 {
+                        return [System.Runtime.InteropServices.Marshal]::PtrToStringUni($PropertyPtr)
+                    }
+                    # CERT_PVK_FILE_PROP_ID
+                    12 {
+                        return [System.Runtime.InteropServices.Marshal]::PtrToStringUni($PropertyPtr)
+                    }
+                    # CERT_DESCRIPTION_PROP_ID
+                    13 {
+                        return [System.Runtime.InteropServices.Marshal]::PtrToStringUni($PropertyPtr)
+                    }
+                    # CERT_AUTO_ENROLL_PROP_ID
+                    21 {
+                        return [System.Runtime.InteropServices.Marshal]::PtrToStringUni($PropertyPtr)
+                    }
+                    # Unhandled ID
+                    default {
+                        throw "Unhandled property type: $($PropId)"
+                    }
+                }
+            }
+            else {
+                $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+                Write-Warning "CertGetCertificateContextProperty - $(Format-Error $LastError)"
+            }
+            $null = [System.Runtime.InteropServices.Marshal]::FreeHGlobal($PropertyPtr)
+        }
+        else {
+            $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+            Write-Verbose "CertGetCertificateContextProperty - $(Format-Error $LastError)"
+        }
+    }
+}
+
+function Get-CertificateExtendedKeyUsage {
+    <#
+    .SYNOPSIS
+    Wrapper for CertGetEnhancedKeyUsage
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet invokes the CertGetEnhancedKeyUsage API to retrieve a list of EKUs associated to a certificate.
+
+    .PARAMETER ContextPtr
+    A pointer to a certificate context.
+
+    .LINK
+    https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/nf-wincrypt-certgetenhancedkeyusage
+    #>
+
+    [OutputType([String[]])]
+    [CmdletBinding()]
+    param (
+        [IntPtr] $ContextPtr
+    )
+
+    process {
+        $Result = @()
+        # CERT_FIND_EXT_ONLY_ENHKEY_USAGE_FLAG = 2
+        $BufferSize = 0
+        $Success = $script:Crypt32::CertGetEnhancedKeyUsage($ContextPtr, 2, [IntPtr]::Zero, [ref] $BufferSize)
+        if ($Success) {
+            $UsagePtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($BufferSize)
+            $Success = $script:Crypt32::CertGetEnhancedKeyUsage($ContextPtr, 2, $UsagePtr, [ref] $BufferSize)
+            if ($Success) {
+                $Usage = [System.Runtime.InteropServices.Marshal]::PtrToStructure($UsagePtr, [type] $script:CTL_USAGE)
+                for ($i = 0; $i -lt $Usage.UsageIdentifierCount; $i++) {
+                    $UsageOidPtrPtr = [IntPtr] ($Usage.UsageIdentifiers.ToInt64() + [IntPtr]::Size * $i)
+                    $UsageOidPtr = [System.Runtime.InteropServices.Marshal]::ReadIntPtr($UsageOidPtrPtr)
+                    $UsageOid = [System.Runtime.InteropServices.Marshal]::PtrToStringAnsi($UsageOidPtr)
+                    $UsageName = Convert-CertificateOid -Oid $UsageOid | Select-Object -ExpandProperty Name
+                    if ($null -eq $UsageName) {
+                        $Result += $UsageOid
+                    }
+                    else {
+                        $Result += $UsageName
+                    }
+                    Write-Verbose "$($UsageOid) - $($UsageName)"
+                }
+            }
+            else {
+                $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+                Write-Warning "CertGetEnhancedKeyUsage - $(Format-Error $LastError)"
+            }
+
+            $null = [System.Runtime.InteropServices.Marshal]::FreeHGlobal($UsagePtr)
+        }
+        else {
+            $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+            Write-Verbose "CertGetEnhancedKeyUsage - $(Format-Error $LastError)"
+        }
+
+        return $Result
+    }
+}
+
+function Get-SerializedCertificateInformation {
+    <#
+    .SYNOPSIS
+    Wrapper for CryptQueryObject
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet invokes the CryptQueryObject API to retrieve basic information about a certificate.
+
+    .PARAMETER Blob
+    A byte array containing a serialized certificate.
+
+    .EXAMPLE
+    PS C:\> $Blob = [System.IO.File]::ReadAllBytes("C:\Users\Admin\AppData\Roaming\Microsoft\SystemCertificates\My\Certificates\B74755D3600AFFC32344F18BD854875F888981A8")
+    PS C:\> Get-SerializedCertificateInformation -Blob $Blob
+
+    FriendlyName       : Microsoft Your Phone
+    Description        :
+    Subject            : CN=7453be6b-bfe7-45ea-8bf8-7c78246de025
+    Issuer             : CN=7453be6b-bfe7-45ea-8bf8-7c78246de025
+    NotBefore          : 21/08/2025 05:08:12
+    NotAfter           : 21/08/2026 17:08:12
+    Version            : 3
+    PublicKeyAlgorithm : ECC
+    SignatureAlgorithm : sha384ECDSA
+    Provider           : Microsoft Software Key Storage Provider
+    SerialNumber       : 00D6800F552D747C4C
+    Hash               : B74755D3600AFFC32344F18BD854875F888981A8
+
+    .LINK
+    https://medium.com/tenable-techblog/code-for-reading-windows-serialized-certificates-8634d3487ec7
+    #>
+
+    [OutputType([Object])]
+    [CmdletBinding()]
+    param (
+        [Byte[]] $Blob
+    )
+
+    begin {
+        function Convert-SerialNumberBlob {
+            param (
+                [IntPtr] $Data,
+                [UInt32] $Size
+            )
+
+            $Result = ""
+            $DataBytes = [Byte[]]::New($Size)
+            [System.Runtime.InteropServices.Marshal]::Copy($Data, $DataBytes, 0, $Size)
+
+            for ($i = 0; $i -lt $Size; $i++) {
+                $Result = "$("{0:X2}" -f $DataBytes[$i])$($Result)"
+            }
+
+            return $Result
+        }
+
+        function Convert-CertNameBlob {
+            param (
+                [UInt32] $EncodingType,
+                [Object] $Blob
+            )
+
+            $Name = New-Object -TypeName System.Text.StringBuilder
+            $Name.EnsureCapacity(0x100) | Out-Null
+
+            # CERT_X500_NAME_STR = 3
+            $Result = $script:Crypt32::CertNameToStrW($EncodingType, [ref] $Blob, 3, $Name, 0x100)
+            if ($Result -gt 0) {
+                return $Name.ToString()
+            }
+            else {
+                Write-Verbose "CertNameToStrW error"
+            }
+        }
+    }
+
+    process {
+        $CertBlob = [Activator]::CreateInstance($script:CRYPTOAPI_BLOB)
+        $CertBlob.DataSize = $Blob.Count
+        $CertBlob.Data = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($Blob.Count)
+        [System.Runtime.InteropServices.Marshal]::Copy($Blob, 0, $CertBlob.Data, $Blob.Count)
+
+        $CertBlobPtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($script:CRYPTOAPI_BLOB::GetSize())
+        [System.Runtime.InteropServices.Marshal]::StructureToPtr($CertBlob, $CertBlobPtr, $true)
+
+        $MsgAndCertEncodingType = 0
+        $ContentType = 0
+        $FormatType = 0
+        $CertStore = [IntPtr]::Zero
+        $Msg = [IntPtr]::Zero
+        $CertContextPtr = [IntPtr]::Zero
+
+        # CERT_QUERY_OBJECT_BLOB = 2
+        # CERT_QUERY_CONTENT_FLAG_ALL = 0x00003ffe
+        # CERT_QUERY_FORMAT_FLAG_ALL = 0x0000000e
+        $Success = $script:Crypt32::CryptQueryObject(2, $CertBlobPtr, 0x00003ffe, 0x0000000e, 0, [ref] $MsgAndCertEncodingType, [ref] $ContentType, [ref] $FormatType, [ref] $CertStore, [ref] $Msg, [ref] $CertContextPtr)
+
+        if ($Success) {
+
+            if ($CertContextPtr -ne [IntPtr]::Zero) {
+
+                $CertContext = [System.Runtime.InteropServices.Marshal]::PtrToStructure($CertContextPtr, [type] $script:CERT_CONTEXT)
+                $CertInfo = [System.Runtime.InteropServices.Marshal]::PtrToStructure($CertContext.CertInfo, [type] $script:CERT_INFO)
+
+                $ProviderName = Get-CertificateContextProperty -ContextPtr $CertContextPtr -PropId 2
+                $CertificateHash = Get-CertificateContextProperty -ContextPtr $CertContextPtr -PropId 3
+                $FriendlyName = Get-CertificateContextProperty -ContextPtr $CertContextPtr -PropId 11
+                $Description = Get-CertificateContextProperty -ContextPtr $CertContextPtr -PropId 13
+
+                $ExtendedKeyUsage = Get-CertificateExtendedKeyUsage -ContextPtr $CertContextPtr
+
+                $Result = New-Object -TypeName PSObject
+                $Result | Add-Member -MemberType "NoteProperty" -Name "FriendlyName" -Value $FriendlyName
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Subject" -Value $(Convert-CertNameBlob -EncodingType $CertContext.CertEncodingType -Blob $CertInfo.Subject)
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Issuer" -Value $(Convert-CertNameBlob -EncodingType $CertContext.CertEncodingType -Blob $CertInfo.Issuer)
+                $Result | Add-Member -MemberType "NoteProperty" -Name "NotBefore" -Value $(Convert-FiletimeToDatetime -FileTime $CertInfo.NotBefore)
+                $Result | Add-Member -MemberType "NoteProperty" -Name "NotAfter" -Value $(Convert-FiletimeToDatetime -FileTime $CertInfo.NotAfter)
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Version" -Value $($CertInfo.Version + 1)
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Provider" -Value $ProviderName
+                $Result | Add-Member -MemberType "NoteProperty" -Name "ExtendedKeyUsage" -Value $ExtendedKeyUsage
+                $Result | Add-Member -MemberType "NoteProperty" -Name "PublicKeyAlgorithm" -Value $(Convert-CertificateOid -Oid $CertInfo.SubjectPublicKeyInfo.Algorithm.ObjId | Select-Object -ExpandProperty Name)
+                $Result | Add-Member -MemberType "NoteProperty" -Name "SignatureAlgorithm" -Value $(Convert-CertificateOid -Oid $CertInfo.SignatureAlgorithm.ObjId | Select-Object -ExpandProperty Name)
+                $Result | Add-Member -MemberType "NoteProperty" -Name "SerialNumber" -Value $(Convert-SerialNumberBlob -Data $CertInfo.SerialNumber.Data -Size $CertInfo.SerialNumber.DataSize)
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Hash" -Value $CertificateHash
+                $Result
+            }
+
+            $null = $script:Crypt32::CertCloseStore($CertStore, 0)
+            $null = $script:Crypt32::CryptMsgClose($Msg)
+            $null = $script:Crypt32::CertFreeCertificateContext($CertContextPtr)
+        }
+        else {
+            $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+            Write-Warning "CryptQueryObject - $(Format-Error $LastError)"
+        }
+
+        $null = [System.Runtime.InteropServices.Marshal]::FreeHGlobal($CertBlobPtr)
+        $null = [System.Runtime.InteropServices.Marshal]::FreeHGlobal($CertBlob.Data)
+    }
+}
