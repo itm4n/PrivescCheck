@@ -1,5 +1,11 @@
 # Changelog
 
+## 2025-12-25
+
+### Added
+
+- Attempt to determine private key file path when enumerating machine and user personal certificates (issue #77).
+
 ## 2025-12-24
 
 ### Added

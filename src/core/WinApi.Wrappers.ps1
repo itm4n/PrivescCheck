@@ -2501,7 +2501,8 @@ function Get-CertificateContextProperty {
     [CmdletBinding()]
     param (
         [IntPtr] $ContextPtr,
-        [UInt32] $PropId
+        [UInt32] $PropId,
+        [String] $PropName
     )
 
     process {
@@ -2515,8 +2516,16 @@ function Get-CertificateContextProperty {
                     # CERT_KEY_PROV_INFO_PROP_ID
                     2 {
                         $ProviderInfo = [System.Runtime.InteropServices.Marshal]::PtrToStructure($PropertyPtr, [type] $script:CRYPT_KEY_PROV_INFO)
-                        Write-Verbose $ProviderInfo.ContainerName
-                        return $ProviderInfo.ProvName
+                        if ([String]::IsNullOrEmpty($PropName)) {
+                            return $ProviderInfo.ProvName
+                        }
+                        else {
+                            switch ($PropName) {
+                                "ProviderName" { return $ProviderInfo.ProvName }
+                                "ContainerName" { return $ProviderInfo.ContainerName }
+                                default { throw "Unhandled property name: $($PropName)"}
+                            }
+                        }
                     }
                     # CERT_HASH_PROP_ID
                     3 {
@@ -2555,6 +2564,117 @@ function Get-CertificateContextProperty {
         else {
             $LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
             Write-Verbose "CertGetCertificateContextProperty - $(Format-Error $LastError)"
+        }
+    }
+}
+
+function Get-CertificateNCryptProperty {
+    <#
+    .SYNOPSIS
+    Wrapper for NCryptGetProperty
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet invokes the NCryptGetProperty CNG API to retrieve a property of a certificate.
+
+    .PARAMETER ContextPtr
+    A pointer to a certificate context.
+
+    .PARAMETER Property
+    The name of a certificate property to retrieve.
+    #>
+
+    [OutputType([String])]
+    [CmdletBinding()]
+    param (
+        [IntPtr] $ContextPtr,
+        [String] $Property
+    )
+
+    begin {
+        $FlagValues = @(
+            0x00000000,
+            # NCRYPT_MACHINE_KEY_FLAG
+            0x00000020
+        )
+        $LegacyKeySpecValues = @(
+            0x00000000,
+            # AT_KEYEXCHANGE
+            0x00000001,
+            # AT_SIGNATURE
+            0x00000002
+        )
+    }
+
+    process {
+        $ProviderName = Get-CertificateContextProperty -ContextPtr $ContextPtr -PropId 2 -PropName "ProviderName"
+        $ContainerName = Get-CertificateContextProperty -ContextPtr $ContextPtr -PropId 2 -PropName "ContainerName"
+
+        $ProviderHandle = [UIntPtr]::Zero
+        $Status = $script:Ncrypt::NCryptOpenStorageProvider([ref] $ProviderHandle, $ProviderName, 0)
+        if ($Status -eq 0) {
+
+            $KeyHandle = [UIntPtr]::Zero
+            foreach ($FlagValue in $FlagValues) {
+                foreach ($LegacyKeySpecValue in $LegacyKeySpecValues) {
+                    # NCRYPT_SILENT_FLAG = 0x00000040
+                    # Provide the "silent" flag to avoid interactive prompts that would block the execution.
+                    # This is especially relevant for Smart Card readers.
+                    $Flags = 0x00000040 + $FlagValue
+                    $Status = $script:Ncrypt::NCryptOpenKey($ProviderHandle, [ref] $KeyHandle, $ContainerName, $LegacyKeySpecValue, $Flags)
+                    # SCARD_E_NO_READERS_AVAILABLE = 0x8010002e
+                    # Access to a Smart Card reader is required, so this case should be ignored.
+                    if ($Status -eq 0x8010002e) { break }
+                    if ($KeyHandle -ne [UIntPtr]::Zero) { break }
+                }
+                if ($KeyHandle -ne [UIntPtr]::Zero) { break }
+            }
+
+            if (($Status -ne 0) -and ($Status -ne 0x8010002e)) {
+                # NTE_BAD_KEYSET = 0x80090016
+                if ($Status -eq 0x80090016) {
+                    Write-Warning "Key '$($ProviderName)' -> '$($ContainerName)' not found. Administrator privileges might be required to open it."
+                }
+                else {
+                    Write-Warning "NCryptOpenKey('$($ContainerName)') - 0x$("{0:x8}" -f $Status)"
+                }
+            }
+
+            if ($KeyHandle -ne [UIntPtr]::Zero) {
+                $BufferSize = 0
+                $Status = $script:Ncrypt::NCryptGetProperty($KeyHandle, $Property, [IntPtr]::Zero, 0, [ref] $BufferSize, 0x00000040)
+                if ($Status -eq 0) {
+                    $PropertyValuePtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($BufferSize)
+                    $Status = $script:Ncrypt::NCryptGetProperty($KeyHandle, $Property, $PropertyValuePtr, $BufferSize, [ref] $BufferSize, 0x00000040)
+                    if ($Status -eq 0) {
+                        switch ($Property) {
+                            "Unique Name" {
+                                return [System.Runtime.InteropServices.Marshal]::PtrToStringUni($PropertyValuePtr)
+                            }
+                            default {
+                                throw "Unhandled property name: $($Property)"
+                            }
+                        }
+                    }
+                    else {
+                        Write-Warning "NCryptGetProperty('$($Property)') - 0x$("{0:x8}" -f $Status)"
+                    }
+
+                    $null = [System.Runtime.InteropServices.Marshal]::FreeHGlobal($PropertyValuePtr)
+                }
+                else {
+                    Write-Warning "NCryptGetProperty('$($Property)') - 0x$("{0:x8}" -f $Status)"
+                }
+
+                $null = $script:Ncrypt::NCryptFreeObject($KeyHandle)
+            }
+
+            $null = $script:Ncrypt::NCryptFreeObject($ProviderHandle)
+        }
+        else {
+            Write-Warning "NCryptOpenStorageProvider('$($ProviderName)') - 0x$("{0:x8}" -f $Status)"
         }
     }
 }
@@ -2731,21 +2851,22 @@ function Get-SerializedCertificateInformation {
                 $CertInfo = [System.Runtime.InteropServices.Marshal]::PtrToStructure($CertContext.CertInfo, [type] $script:CERT_INFO)
 
                 $ProviderName = Get-CertificateContextProperty -ContextPtr $CertContextPtr -PropId 2
+                $ContainerName = Get-CertificateContextProperty -ContextPtr $CertContextPtr -PropId 2 -PropName "ContainerName"
                 $CertificateHash = Get-CertificateContextProperty -ContextPtr $CertContextPtr -PropId 3
                 $FriendlyName = Get-CertificateContextProperty -ContextPtr $CertContextPtr -PropId 11
-                $Description = Get-CertificateContextProperty -ContextPtr $CertContextPtr -PropId 13
-
                 $ExtendedKeyUsage = Get-CertificateExtendedKeyUsage -ContextPtr $CertContextPtr
+                $UniqueName = Get-CertificateNCryptProperty -ContextPtr $CertContextPtr -Property "Unique Name"
 
                 $Result = New-Object -TypeName PSObject
-                $Result | Add-Member -MemberType "NoteProperty" -Name "FriendlyName" -Value $FriendlyName
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
                 $Result | Add-Member -MemberType "NoteProperty" -Name "Subject" -Value $(Convert-CertNameBlob -EncodingType $CertContext.CertEncodingType -Blob $CertInfo.Subject)
                 $Result | Add-Member -MemberType "NoteProperty" -Name "Issuer" -Value $(Convert-CertNameBlob -EncodingType $CertContext.CertEncodingType -Blob $CertInfo.Issuer)
+                $Result | Add-Member -MemberType "NoteProperty" -Name "FriendlyName" -Value $FriendlyName
                 $Result | Add-Member -MemberType "NoteProperty" -Name "NotBefore" -Value $(Convert-FiletimeToDatetime -FileTime $CertInfo.NotBefore)
                 $Result | Add-Member -MemberType "NoteProperty" -Name "NotAfter" -Value $(Convert-FiletimeToDatetime -FileTime $CertInfo.NotAfter)
                 $Result | Add-Member -MemberType "NoteProperty" -Name "Version" -Value $($CertInfo.Version + 1)
                 $Result | Add-Member -MemberType "NoteProperty" -Name "Provider" -Value $ProviderName
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Container" -Value $ContainerName
+                $Result | Add-Member -MemberType "NoteProperty" -Name "UniqueName" -Value $UniqueName
                 $Result | Add-Member -MemberType "NoteProperty" -Name "ExtendedKeyUsage" -Value $ExtendedKeyUsage
                 $Result | Add-Member -MemberType "NoteProperty" -Name "PublicKeyAlgorithm" -Value $(Convert-CertificateOid -Oid $CertInfo.SubjectPublicKeyInfo.Algorithm.ObjId | Select-Object -ExpandProperty Name)
                 $Result | Add-Member -MemberType "NoteProperty" -Name "SignatureAlgorithm" -Value $(Convert-CertificateOid -Oid $CertInfo.SignatureAlgorithm.ObjId | Select-Object -ExpandProperty Name)

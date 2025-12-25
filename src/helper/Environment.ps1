@@ -1437,6 +1437,64 @@ function Get-NetworkEndpoint {
     }
 }
 
+function Get-CertificatePrivateKeyFilePath {
+    <#
+    .SYNOPSIS
+    Get the path of a certificate's private key.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet attempts to retrieve the path of a certificate's private given its "Unique Name" property.
+
+    .PARAMETER UniqueName
+    The "Unique Name" property of a certificate.
+    #>
+
+    [OutputType([String])]
+    [CmdletBinding()]
+    param (
+        [String] $UniqueName
+    )
+
+    begin {
+        $CandidatePaths = @(
+            # Legacy CryptoAPI private key locations
+            "$($env:APPDATA)\Microsoft\Crypto\RSA",
+            "$($env:APPDATA)\Microsoft\Crypto\DSS",
+            "$($env:ALLUSERSPROFILE)\Application Data\Microsoft\Crypto\RSA\S-1-5-18",
+            "$($env:ALLUSERSPROFILE)\Application Data\Microsoft\Crypto\DSS\S-1-5-18",
+            "$($env:ALLUSERSPROFILE)\Application Data\Microsoft\Crypto\RSA\S-1-5-19",
+            "$($env:ALLUSERSPROFILE)\Application Data\Microsoft\Crypto\DSS\S-1-5-19",
+            "$($env:ALLUSERSPROFILE)\Application Data\Microsoft\Crypto\RSA\S-1-5-20",
+            "$($env:ALLUSERSPROFILE)\Application Data\Microsoft\Crypto\DSS\S-1-5-20",
+            "$($env:ALLUSERSPROFILE)\Application Data\Microsoft\Crypto\RSA\MachineKeys",
+            "$($env:ALLUSERSPROFILE)\Application Data\Microsoft\Crypto\DSS\MachineKeys",
+            # Cryptography API next generation private key locations
+            "$($env:APPDATA)\Microsoft\Crypto\Keys",
+            "$($env:ALLUSERSPROFILE)\Application Data\Microsoft\Crypto\SystemKeys",
+            "$($env:windir)\ServiceProfiles\LocalService",
+            "$($env:windir)\ServiceProfiles\NetworkService",
+            "$($env:ALLUSERSPROFILE)\Application Data\Microsoft\Crypto\Keys"
+        )
+    }
+
+    process {
+        $PrivateKeyFilePath = ""
+        if (-not [String]::IsNullOrEmpty($UniqueName)) {
+            foreach ($CandidatePath in $CandidatePaths) {
+                $FileItem = Get-ChildItem -Path $CandidatePath -Recurse -ErrorAction SilentlyContinue | Where-Object { $_.Name -eq $UniqueName }
+                if ($FileItem) {
+                    $PrivateKeyFilePath = $FileItem.FullName
+                    break
+                }
+            }
+        }
+        return $PrivateKeyFilePath
+    }
+}
+
 function Get-PersonalCertificateInformation {
     <#
     .SYNOPSIS
@@ -1482,10 +1540,13 @@ function Get-PersonalCertificateInformation {
     Path               : C:\Users\Admin\AppData\Roaming\Microsoft\SystemCertificates\My\Certificates\B74755D3600AFFC32344F18BD854875F888981A8
     #>
 
+    [OutputType([Object[]])]
     [CmdletBinding()]
     param ()
 
     process {
+
+        $Certificates = @()
 
         Get-ChildItem -Path "registry::HKLM\SOFTWARE\Microsoft\SystemCertificates\MY\Certificates" -ErrorAction SilentlyContinue | ForEach-Object {
 
@@ -1493,7 +1554,7 @@ function Get-PersonalCertificateInformation {
             if ($null -ne $Blob) {
                 $Result = Get-SerializedCertificateInformation -Blob $Blob
                 $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $_.Name
-                $Result
+                $Certificates += $Result
             }
         }
 
@@ -1507,7 +1568,7 @@ function Get-PersonalCertificateInformation {
                 if ($null -ne $Blob) {
                     $Result = Get-SerializedCertificateInformation -Blob $Blob
                     $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $_.Name
-                    $Result
+                    $Certificates += $Result
                 }
             }
         }
@@ -1521,8 +1582,14 @@ function Get-PersonalCertificateInformation {
                 $Blob = [System.IO.File]::ReadAllBytes($_.FullName)
                 $Result = Get-SerializedCertificateInformation -Blob $Blob
                 $Result | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $_.FullName
-                $Result
+                $Certificates += $Result
             }
+        }
+
+        $Certificates | ForEach-Object {
+            $PrivateKeyFilePath = Get-CertificatePrivateKeyFilePath -UniqueName $_.UniqueName
+            $_ | Add-Member -MemberType "NoteProperty" -Name "PrivateKeyFilePath" -Value $PrivateKeyFilePath
+            $_
         }
     }
 }

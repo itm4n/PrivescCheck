@@ -55,6 +55,11 @@ $FunctionDefinitions = @(
     (New-Function kernel32 SearchPathW ([UInt32]) @([IntPtr], [String], [String], [UInt32], [System.Text.StringBuilder], [IntPtr]) ([Runtime.InteropServices.CallingConvention]::Winapi) ([Runtime.InteropServices.CharSet]::Unicode) -SetLastError -EntryPoint SearchPathW),
     (New-Function kernel32 GetProcAddress ([IntPtr]) @([IntPtr], [String]) ([Runtime.InteropServices.CallingConvention]::Winapi) ([Runtime.InteropServices.CharSet]::Ansi) -SetLastError -EntryPoint GetProcAddress),
 
+    (New-Function ncrypt NCryptOpenStorageProvider ([Int32]) @([UIntPtr].MakeByRefType(), [String], [UInt32]) -Charset Unicode -EntryPoint NCryptOpenStorageProvider),
+    (New-Function ncrypt NCryptOpenKey ([Int32]) @([UIntPtr], [UIntPtr].MakeByRefType(), [String], [UInt32], [UInt32]) -Charset Unicode -EntryPoint NCryptOpenKey),
+    (New-Function ncrypt NCryptGetProperty ([Int32]) @([UIntPtr], [String], [IntPtr], [UInt32], [UInt32].MakeByRefType(), [UInt32]) -Charset Unicode -EntryPoint NCryptGetProperty),
+    (New-Function ncrypt NCryptFreeObject ([Int32]) @([UIntPtr]) -EntryPoint NCryptFreeObject),
+
     (New-Function netapi32 NetGetJoinInformation ([UInt32]) @([IntPtr], [IntPtr].MakeByRefType(), $script:NETSETUP_JOIN_STATUS.MakeByRefType()) -Charset Unicode -EntryPoint NetGetJoinInformation),
     (New-Function netapi32 NetGetAadJoinInformation ([Int32]) @([String], [IntPtr].MakeByRefType()) -Charset Unicode -EntryPoint NetGetAadJoinInformation),
     (New-Function netapi32 NetUserEnum ([UInt32]) @([IntPtr], [UInt32], [UInt32], [IntPtr].MakeByRefType(), [UInt32], [UInt32].MakeByRefType(), [UInt32].MakeByRefType(), [UInt32].MakeByRefType()) -EntryPoint NetUserEnum),
@@ -106,6 +111,7 @@ $script:Crypt32  = $Types['crypt32']
 $script:Iphlpapi = $Types['iphlpapi']
 $script:FirewallApi = $Types['firewallapi']
 $script:Kernel32 = $Types['kernel32']
+$script:Ncrypt   = $Types['ncrypt']
 $script:Netapi32 = $Types['netapi32']
 $script:Ntdll    = $Types['ntdll']
 $script:Shell32  = $Types['shell32']
