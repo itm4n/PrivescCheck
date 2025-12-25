@@ -152,7 +152,7 @@ function Get-CustomAction {
 
     begin {
         $SystemFolders = Get-MsiSystemFolderProperty -Arch $Arch -AllUsers $AllUsers
-        $QuietExecFunctions = @("CAQuietExec", "CAQuietExec64", "WixQuietExec", "WixQuietExec64")
+        # $QuietExecFunctions = @("CAQuietExec", "CAQuietExec64", "WixQuietExec", "WixQuietExec64")
     }
 
     process {
@@ -179,7 +179,6 @@ function Get-CustomAction {
                 $SecurityContextFlags = ([string[]] (Get-CustomActionSecurityContextFlag -Type $Type)) -join ","
 
                 $TargetExpanded = Get-MsiExpandedString -String $Target -Database $Database -SystemFolders $SystemFolders
-                if ($TargetExpanded -eq $Target) { $TargetExpanded = $null }
 
                 # 0x0800 -> no impersonation, run in system context
                 $RunAsSystem = $([bool] ($Type -band 0x0800))
@@ -198,7 +197,7 @@ function Get-CustomAction {
                     $BinaryExtractCommand = "Invoke-MsiExtractBinaryData -Path `"$($FilePath)`" -Name `"$($Source)`" -OutputPath `"$($OutputFilename)`""
                 }
                 else {
-                    $BinaryExtractCommand = "(null)"
+                    $BinaryExtractCommand = "N/A (non-binary source)"
                 }
 
                 $Candidate = $false
@@ -206,15 +205,16 @@ function Get-CustomAction {
                     # CA must not be configured to run only on patch uninstall
                     (-not $RunOnPatchUninstallOnly) -and
                     # CA must run as SYSTEM
-                    ($RunAsSystem) -and
+                    ($RunAsSystem)
+                    # ($RunAsSystem) -and
                     # If CA is a DLL, it must not be a "quiet exec" function
-                    (
-                        ($ExeType -ne "Dll") -or
-                        (
-                            ($ExeType -eq "Dll") -and
-                            (-not ($QuietExecFunctions -contains $Target))
-                        )
-                    )
+                    # (
+                    #     ($ExeType -ne "Dll") -or
+                    #     (
+                    #         ($ExeType -eq "Dll") -and
+                    #         (-not ($QuietExecFunctions -contains $Target))
+                    #     )
+                    # )
                 ) {
                     $Candidate = $true
                 }
@@ -224,7 +224,7 @@ function Get-CustomAction {
                 $CustomAction | Add-Member -MemberType "NoteProperty" -Name "Type" -Value $Type
                 $CustomAction | Add-Member -MemberType "NoteProperty" -Name "Source" -Value $Source
                 $CustomAction | Add-Member -MemberType "NoteProperty" -Name "Target" -Value $Target
-                if ($TargetExpanded) { $CustomAction | Add-Member -MemberType "NoteProperty" -Name "TargetExpanded" -Value $TargetExpanded }
+                $CustomAction | Add-Member -MemberType "NoteProperty" -Name "TargetExpanded" -Value $TargetExpanded
                 $CustomAction | Add-Member -MemberType "NoteProperty" -Name "ExeType" -Value $ExeType
                 $CustomAction | Add-Member -MemberType "NoteProperty" -Name "SourceType" -Value $SourceType
                 $CustomAction | Add-Member -MemberType "NoteProperty" -Name "ReturnProcessing" -Value $ReturnProcessing
@@ -715,15 +715,15 @@ function Get-MsiItem {
         $Installer = New-Object -ComObject WindowsInstaller.Installer
         $Database = Invoke-MsiOpenDatabase -Installer $Installer -Path $Path -Mode 0
 
-        $IdentifyingNumber = [string] (Get-MsiProperty -Database $Database -Property "ProductCode")
+        $ProductCode = [string] (Get-MsiProperty -Database $Database -Property "ProductCode")
         $Name = [string] (Get-MsiProperty -Database $Database -Property "ProductName")
         $Vendor = [string] (Get-MsiProperty -Database $Database -Property "Manufacturer")
         $Version = [string] (Get-MsiProperty -Database $Database -Property "ProductVersion")
         $AllUsers = Get-MsiProperty -Database $Database -Property "ALLUSERS"
 
         # Extract the GUID value, without the curly braces.
-        if ($IdentifyingNumber -match "(\d|[A-F]){8}-((\d|[A-F]){4}-){3}((\d|[A-F]){12})") {
-            $IdentifyingNumber = $Matches[0]
+        if ($ProductCode -match "(\d|[A-F]){8}-((\d|[A-F]){4}-){3}((\d|[A-F]){12})") {
+            $ProductCode = $Matches[0]
         }
 
         # If ALLUSERS is not defined, the default is "per-user", which corresponds to a value of 0.
@@ -732,7 +732,7 @@ function Get-MsiItem {
 
         $MsiItem = New-Object -TypeName PSObject
         $MsiItem | Add-Member -MemberType "NoteProperty" -Name "Path" -Value $Path
-        $MsiItem | Add-Member -MemberType "NoteProperty" -Name "IdentifyingNumber" -Value $(if ($IdentifyingNumber) { $IdentifyingNumber.Trim() })
+        $MsiItem | Add-Member -MemberType "NoteProperty" -Name "ProductCode" -Value $(if ($ProductCode) { $ProductCode.Trim() })
         $MsiItem | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $(if ($Name) { $Name.Trim() })
         $MsiItem | Add-Member -MemberType "NoteProperty" -Name "Vendor" -Value $(if ($Vendor) { $Vendor.Trim() })
         $MsiItem | Add-Member -MemberType "NoteProperty" -Name "Version" -Value $(if ($Version) { $Version.Trim() })
@@ -774,6 +774,48 @@ function Get-MsiFileItem {
         }
         else {
             Get-MsiItem -Path $FilePath
+        }
+    }
+}
+
+function Find-MsiFile {
+
+    [OutputType([String[]])]
+    [CmdletBinding()]
+    param (
+        [String[]] $ProductCode
+    )
+
+    begin {
+        $InstallerPath = Join-Path -Path $env:windir -ChildPath "Installer"
+        $MsiFilePaths = [String[]] (Get-ChildItem -Path "$($InstallerPath)\*.msi" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName)
+    }
+
+    process {
+        for ($i = 0; $i -lt $ProductCode.Count; $i++) {
+            $ProductCode[$i] = ($ProductCode[$i] -replace '{','') -replace '}',''
+        }
+
+        $ProgressCount = 0
+        Write-Progress -Activity "Enumerating MSI files (0/$($MsiFilePaths.Count))..." -Status "0% Complete:" -PercentComplete 0
+        foreach ($MsiFilePath in $MsiFilePaths) {
+            $ProgressPercent = [UInt32] ($ProgressCount * 100 / $MsiFilePaths.Count)
+            Write-Progress -Activity "Enumerating MSI files ($($ProgressCount)/$($MsiFilePaths.Count)): $($MsiFilePath)" -Status "$($ProgressPercent)% Complete:" -PercentComplete $ProgressPercent
+
+            $Installer = New-Object -ComObject WindowsInstaller.Installer
+            $Database = Invoke-MsiOpenDatabase -Installer $Installer -Path $MsiFilePath -Mode 0
+            $MsiProductCode = ([String] (Get-MsiProperty -Database $Database -Property "ProductCode")).Trim()
+            $null = [System.Runtime.InteropServices.Marshal]::ReleaseComObject($Installer)
+
+            if ($MsiProductCode -match "(\d|[A-F]){8}-((\d|[A-F]){4}-){3}((\d|[A-F]){12})") {
+                $MsiProductCode = $Matches[0]
+            }
+
+            if ($ProductCode -contains $MsiProductCode) {
+                $MsiFilePath
+            }
+
+            $ProgressCount += 1
         }
     }
 }

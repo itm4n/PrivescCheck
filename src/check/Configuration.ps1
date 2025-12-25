@@ -1194,7 +1194,8 @@ function Invoke-MsiAutomaticRepairUacPromptCheck {
 
     begin {
         $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows\Installer"
-        $RegValue = "DisableLUAInRepair"
+        $RegValueDisableLUAInRepair = "DisableLUAInRepair"
+        $RegValueSecureRepairPolicy = "SecureRepairPolicy"
 
         $DisableLUAInRepairDescriptions = @(
             "The User Account Control (UAC) prompts for credentials before initiating an application repair.",
@@ -1203,18 +1204,139 @@ function Invoke-MsiAutomaticRepairUacPromptCheck {
     }
 
     process {
-        $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
-        $Vulnerable = $RegData -ge 1
+        $Vulnerable = $False
+        $DisableLUAInRepair = (Get-ItemProperty -Path "registry::$($RegKey)" -Name $RegValueDisableLUAInRepair -ErrorAction SilentlyContinue).$RegValueDisableLUAInRepair
+        $SecureRepairPolicy = (Get-ItemProperty -Path "registry::$($RegKey)" -Name $RegValueSecureRepairPolicy -ErrorAction SilentlyContinue).$RegValueSecureRepairPolicy
+        $SecureRepairWhitelist = Get-Item -Path "registry::$($RegKey)\SecureRepairWhitelist" -ErrorAction SilentlyContinue
+        $SecureRepairWhitelistCount = $(if ($SecureRepairWhitelist) { $SecureRepairWhitelist.ValueCount } else { 0 })
+
+        if ($DisableLUAInRepair -ge 1) {
+            $Vulnerable = $True
+            $Description = $DisableLUAInRepairDescriptions[1]
+        }
+        else {
+            $Description = $DisableLUAInRepairDescriptions[0]
+            if (($SecureRepairWhitelistCount -gt 0) -and ($SecureRepairPolicy -eq 2)) {
+                $Vulnerable = $True
+                $BaseSeverity = $script:SeverityLevel::Low
+                $Description = "$($Description) A whitelist of MSI packages is set."
+            }
+        }
 
         $Result = New-Object -TypeName PSObject
         $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
+        $Result | Add-Member -MemberType "NoteProperty" -Name "DisableLUAInRepair" -Value $(if ($null -eq $DisableLUAInRepair) { "(null)" } else { $DisableLUAInRepair })
+        $Result | Add-Member -MemberType "NoteProperty" -Name "SecureRepairPolicy" -Value $(if ($null -eq $SecureRepairPolicy) { "(null)" } else { $SecureRepairPolicy })
+        $Result | Add-Member -MemberType "NoteProperty" -Name "SecureRepairWhitelistCount" -Value $SecureRepairWhitelistCount
         $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $DisableLUAInRepairDescriptions[[UInt32]$Vulnerable]
 
         $CheckResult = New-Object -TypeName PSObject
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Result
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevel::None })
+        $CheckResult
+    }
+}
+
+function Invoke-MsiAutomaticRepairWhitelistCheck {
+    <#
+    .SYNOPSIS
+    Enumerate whitelisted MSI packages with custom actions that may be leveraged for local privilege escalation.
+
+    .DESCRIPTION
+    This cmdlet enumerates MSI packages in the 'SecureRepairWhitelist' (Windows Installer registry key) and attempts to determine if they have custom actions set that may be exploited for elevating privileges locally.
+
+    .EXAMPLE
+    PS C:\> Invoke-MsiAutomaticRepairWhitelistCheck
+
+    ...
+
+    Path                   : C:\WINDOWS\Installer\1b4a8b.msi
+    ProductCode            : C53ECC06-72B1-FEBF-D241-038A4BC83E57
+    Name                   : Application Verifier x64 External Package (OnecoreUAP)
+    Vendor                 : Microsoft
+    Version                : 10.1.22621.5040
+    AllUsers               : 1
+    CAName                 : AVRFInstall_UnInstallwow64External
+    CASource               : WixCA
+    CATarget               : CAQuietExec
+    CATargetExpanded       : CAQuietExec
+    CAExeType              : Dll
+    CASecurityContextFlags : NoImpersonate
+    CARunAsSystem          : True
+    CABinaryExtractCommand : Invoke-MsiExtractBinaryData -Path "C:\WINDOWS\Installer\1b4a8b.msi" -Name "WixCA" -OutputPath "WixCA.dll"
+
+    ...
+
+    .NOTES
+    This check is inspired by previous work from @garatc (https://github.com/garatc), see MSIAudit (https://github.com/garatc/MSIAudit).
+
+    .LINK
+    https://support.microsoft.com/en-us/topic/unexpected-uac-prompts-when-running-msi-repair-operations-after-installing-the-august-2025-windows-security-update-5806f583-e073-4675-9464-fe01974df273
+    #>
+
+    [CmdletBinding()]
+    param (
+        [UInt32] $BaseSeverity
+    )
+
+    begin {
+        # https://support.microsoft.com/en-us/topic/unexpected-uac-prompts-when-running-msi-repair-operations-after-installing-the-august-2025-windows-security-update-5806f583-e073-4675-9464-fe01974df273
+        $InstallerKeyPath = "HKLM\SOFTWARE\Policies\Microsoft\Windows\Installer"
+    }
+
+    process {
+        $Results = @()
+        $SecureRepairPolicyValue = Get-ItemProperty -Path "registry::$($InstallerKeyPath)" -Name "SecureRepairPolicy" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty SecureRepairPolicy
+
+        if ($SecureRepairPolicyValue -eq 2) {
+
+            $Exceptions = [String[]] (Get-Item -Path "registry::$($InstallerKeyPath)\SecureRepairWhitelist" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Property)
+            $WhitelistedMsiFiles = Find-MsiFile -ProductCode $Exceptions | Where-Object { -not [String]::IsNullOrEmpty($_) }
+
+            $ProgressCount = 0
+            Write-Progress -Activity "Checking whitelisted MSI files (0/$($WhitelistedMsiFiles.Count))..." -Status "0% Complete:" -PercentComplete 0
+            foreach ($WhitelistedMsiFile in $WhitelistedMsiFiles) {
+                $ProgressPercent = [UInt32] ($ProgressCount * 100 / $WhitelistedMsiFiles.Count)
+                Write-Progress -Activity "Checking whitelisted MSI files ($($ProgressCount)/$($WhitelistedMsiFiles.Count)): $($WhitelistedMsiFile)" -Status "$($ProgressPercent)% Complete:" -PercentComplete $ProgressPercent
+
+                $Candidates = Get-MsiFileItem -FilePath $WhitelistedMsiFile
+                foreach ($Candidate in $Candidates) {
+
+                    $CandidateCustomActions = [Object[]] ($Candidate.CustomActions | Where-Object { $_.Candidate -eq $true })
+                    if ($Candidate.AllUsers -ne 1) { continue }
+                    if ($null -eq $Candidate.CustomActions) { continue }
+                    if ($CandidateCustomActions.Count -eq 0) { continue }
+
+                    $MsiObject = $Candidate | Select-Object -Property Path,ProductCode,Name,Vendor,Version,AllUsers
+
+                    $AnalyzeCommand = "Get-MsiFileItem -FilePath `"$($MsiObject.Path)`" | Select-Object -ExpandProperty CustomActions | Where-Object { `$_.Candidate }"
+                    $RepairCommand = "Start-Process -FilePath `"msiexec.exe`" -ArgumentList `"/fa $($MsiObject.Path)`""
+
+                    $MsiObject | Add-Member -MemberType "NoteProperty" -Name "AnalyzeCommand" -Value $AnalyzeCommand
+                    $MsiObject | Add-Member -MemberType "NoteProperty" -Name "RepairCommand" -Value $RepairCommand
+
+                    foreach ($CandidateCustomAction in $CandidateCustomActions) {
+
+                        $MsiObjectCopy = $MsiObject.PSObject.Copy()
+                        $MsiObjectCopy | Add-Member -MemberType "NoteProperty" -Name "CAName" -Value $CandidateCustomAction.Action
+                        $MsiObjectCopy | Add-Member -MemberType "NoteProperty" -Name "CASource" -Value $CandidateCustomAction.Source
+                        $MsiObjectCopy | Add-Member -MemberType "NoteProperty" -Name "CATarget" -Value $CandidateCustomAction.Target
+                        $MsiObjectCopy | Add-Member -MemberType "NoteProperty" -Name "CATargetExpanded" -Value $CandidateCustomAction.TargetExpanded
+                        $MsiObjectCopy | Add-Member -MemberType "NoteProperty" -Name "CAExeType" -Value $CandidateCustomAction.ExeType
+                        $MsiObjectCopy | Add-Member -MemberType "NoteProperty" -Name "CASecurityContextFlags" -Value $CandidateCustomAction.SecurityContextFlags
+                        $MsiObjectCopy | Add-Member -MemberType "NoteProperty" -Name "CARunAsSystem" -Value $CandidateCustomAction.RunAsSystem
+                        $MsiObjectCopy | Add-Member -MemberType "NoteProperty" -Name "CABinaryExtractCommand" -Value $CandidateCustomAction.BinaryExtractCommand
+                        $Results += $MsiObjectCopy
+                    }
+                }
+
+                $ProgressCount += 1
+            }
+        }
+
+        $CheckResult = New-Object -TypeName PSObject
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Results
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Results) { $BaseSeverity } else { $script:SeverityLevel::None })
         $CheckResult
     }
 }

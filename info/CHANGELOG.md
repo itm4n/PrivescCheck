@@ -5,6 +5,7 @@
 ### Added
 
 - Attempt to determine private key file path when enumerating machine and user personal certificates (issue #77).
+- Check for whitelisted MSI packages with potentially interesting custom actions (issue #76).
 
 ## 2025-12-24
 
