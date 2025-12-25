@@ -280,17 +280,25 @@ function Invoke-ServicePermissionCheck {
     process {
         $AllResults = @()
 
-        Get-ServiceFromRegistry -FilterLevel 1 | ForEach-Object {
-            $ServiceObject = $_
-            Get-ObjectAccessRight -Name $ServiceObject.Name -Type Service | ForEach-Object {
-                $Result = $ServiceObject.PSObject.Copy()
-                $Result | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $(Get-ServiceStatus -Name $ServiceObject.Name)
-                $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStart" -Value $($null -ne (Get-ObjectAccessRight -Name $ServiceObject.Name -Type Service -AccessRights @($script:ServiceAccessRight::Start)))
-                $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStop" -Value $($null -ne (Get-ObjectAccessRight -Name $ServiceObject.Name -Type Service -AccessRights @($script:ServiceAccessRight::Stop)))
+        $Candidates = Get-ServiceFromRegistry -FilterLevel 1
+
+        $ProgressCount = 0
+        Write-Progress -Activity "Checking service permissions (0/$($Candidates.Count))..." -Status "0% Complete:" -PercentComplete 0
+        foreach ($Candidate in $Candidates) {
+            $ProgressPercent = [UInt32] ($ProgressCount * 100 / $Candidates.Count)
+            Write-Progress -Activity "Checking service permissions ($($ProgressCount)/$($Candidates.Count)): $($Candidate.Name)" -Status "$($ProgressPercent)% Complete:" -PercentComplete $ProgressPercent
+
+            Get-ObjectAccessRight -Name $Candidate.Name -Type Service | ForEach-Object {
+                $Result = $Candidate.PSObject.Copy()
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $(Get-ServiceStatus -Name $Candidate.Name)
+                $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStart" -Value $($null -ne (Get-ObjectAccessRight -Name $Candidate.Name -Type Service -AccessRights @($script:ServiceAccessRight::Start)))
+                $Result | Add-Member -MemberType "NoteProperty" -Name "UserCanStop" -Value $($null -ne (Get-ObjectAccessRight -Name $Candidate.Name -Type Service -AccessRights @($script:ServiceAccessRight::Stop)))
                 $Result | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value $_.IdentityReference
                 $Result | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value ($_.Permissions -join ", ")
                 $AllResults += $Result
             }
+
+            $ProgressCount += 1
         }
 
         $CheckResult = New-Object -TypeName PSObject

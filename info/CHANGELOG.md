@@ -10,6 +10,7 @@
 ### Modified
 
 - Add progress status to known vulnerable driver enumeration.
+- Add progress status to service permission check.
 
 ## 2025-12-24
 
