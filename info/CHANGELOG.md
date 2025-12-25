@@ -7,6 +7,10 @@
 - Attempt to determine private key file path when enumerating machine and user personal certificates (issue #77).
 - Check for whitelisted MSI packages with potentially interesting custom actions (issue #76).
 
+### Modified
+
+- Add progress status to known vulnerable driver enumeration.
+
 ## 2025-12-24
 
 ### Added

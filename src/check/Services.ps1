@@ -432,13 +432,24 @@ function Invoke-VulnerableDriverCheck {
     }
 
     process {
-        Get-KernelDriver | Get-KnownVulnerableKernelDriver | ForEach-Object {
 
-            $ServiceObjectResult = $_ | Select-Object Name, DisplayName, ImagePath, StartMode, Type
-            $ServiceObjectResult | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $(Get-ServiceStatus -Name $_.Name)
-            $ServiceObjectResult | Add-Member -MemberType "NoteProperty" -Name "Hash" -Value $_.FileHash
-            $ServiceObjectResult | Add-Member -MemberType "NoteProperty" -Name "Url" -Value $_.Url
-            $AllResults += $ServiceObjectResult
+        $Candidates = Get-KernelDriver
+
+        $ProgressCount = 0
+        Write-Progress -Activity "Searching for vulnerable drivers (0/$($Candidates.Count))..." -Status "0% Complete:" -PercentComplete 0
+        foreach ($Candidate in $Candidates) {
+            $ProgressPercent = [UInt32] ($ProgressCount * 100 / $Candidates.Count)
+            Write-Progress -Activity "Searching for vulnerable drivers ($($ProgressCount)/$($Candidates.Count)): $($Candidate.Name)" -Status "$($ProgressPercent)% Complete:" -PercentComplete $ProgressPercent
+
+            $Candidate | Get-KnownVulnerableKernelDriver | ForEach-Object {
+                $ServiceObjectResult = $_ | Select-Object Name, DisplayName, ImagePath, StartMode, Type
+                $ServiceObjectResult | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $(Get-ServiceStatus -Name $_.Name)
+                $ServiceObjectResult | Add-Member -MemberType "NoteProperty" -Name "Hash" -Value $_.FileHash
+                $ServiceObjectResult | Add-Member -MemberType "NoteProperty" -Name "Url" -Value $_.Url
+                $AllResults += $ServiceObjectResult
+            }
+
+            $ProgressCount += 1
         }
 
         $CheckResult = New-Object -TypeName PSObject
