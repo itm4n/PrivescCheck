@@ -205,8 +205,14 @@ function Invoke-ServiceImagePermissionCheck {
     }
 
     process {
-        Write-Verbose "Enumerating $($Services.Count) services..."
+        $ProgressCount = 0
+        Write-Progress -Activity "Checking service image file permissions (0/$($Services.Count))..." -Status "0% Complete:" -PercentComplete 0
+
         foreach ($Service in $Services) {
+
+            $ProgressPercent = [UInt32] ($ProgressCount * 100 / $Services.Count)
+            Write-Progress -Activity "Checking service image file permissions ($($ProgressCount)/$($Services.Count)): $($Service.Name)" -Status "$($ProgressPercent)% Complete:" -PercentComplete $ProgressPercent
+            $ProgressCount += 1
 
             if ([String]::IsNullOrEmpty($Service.ImagePath)) { continue }
 
@@ -231,6 +237,8 @@ function Invoke-ServiceImagePermissionCheck {
                 $AllResults += $ResultWithPath
             }
         }
+
+        Write-Progress -Activity "Checking service image file permissions ($($Services.Count)/$($Services.Count))..." -Status "100% Complete:" -Completed
 
         $CheckResult = New-Object -TypeName PSObject
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
