@@ -308,6 +308,7 @@ function Invoke-ServicePermissionCheck {
 
             $ProgressCount += 1
         }
+        Write-Progress -Activity "Checking service permission ($($Candidates.Count)/$($Candidates.Count))..." -Status "100% Complete:" -Completed
 
         $CheckResult = New-Object -TypeName PSObject
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
@@ -452,10 +453,10 @@ function Invoke-VulnerableDriverCheck {
         $Candidates = Get-KernelDriver
 
         $ProgressCount = 0
-        Write-Progress -Activity "Searching for vulnerable drivers (0/$($Candidates.Count))..." -Status "0% Complete:" -PercentComplete 0
+        Write-Progress -Activity "Checking for known vulnerable drivers (0/$($Candidates.Count))..." -Status "0% Complete:" -PercentComplete 0
         foreach ($Candidate in $Candidates) {
             $ProgressPercent = [UInt32] ($ProgressCount * 100 / $Candidates.Count)
-            Write-Progress -Activity "Searching for vulnerable drivers ($($ProgressCount)/$($Candidates.Count)): $($Candidate.Name)" -Status "$($ProgressPercent)% Complete:" -PercentComplete $ProgressPercent
+            Write-Progress -Activity "Checking for known vulnerable drivers ($($ProgressCount)/$($Candidates.Count)): $($Candidate.Name)" -Status "$($ProgressPercent)% Complete:" -PercentComplete $ProgressPercent
 
             $Candidate | Get-KnownVulnerableKernelDriver | ForEach-Object {
                 $ServiceObjectResult = $_ | Select-Object Name, DisplayName, ImagePath, StartMode, Type
@@ -467,6 +468,7 @@ function Invoke-VulnerableDriverCheck {
 
             $ProgressCount += 1
         }
+        Write-Progress -Activity "Checking for known vulnerable drivers ($($Candidates.Count)/$($Candidates.Count))..." -Status "100% Complete:" -Completed
 
         $CheckResult = New-Object -TypeName PSObject
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
