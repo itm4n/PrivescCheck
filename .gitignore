@@ -4,7 +4,7 @@
 /*.txt
 /*.xml
 
-# Ignore release files. The 'release' folder serves only as a temporary
+# Ignore release files. The 'dist' folder serves only as a temporary
 # location for building scripts, and then creating GitHub releases.
 # The only exception is the '.gitkeep' file, which allows to keep the
 # 'release' folder even if it's empty.
