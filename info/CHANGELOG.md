@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-03-28
+
+### Added
+
+- Add a wrapper for the FVE API to get the status of a BitLocker drive.
+
+### Modified
+
+- Refactor the BitLocker check to get its actual status on the system drive and thus eliminate false positives (issue #84).
+
 ## 2026-01-30
 
 ### Added

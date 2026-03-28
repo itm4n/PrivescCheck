@@ -394,159 +394,77 @@ function Get-SmbConfiguration {
     }
 }
 
-function Get-BitLockerConfiguration {
+function Get-BitLockerSystemDriveStatus {
     <#
     .SYNOPSIS
-    Get the BitLocker startup authentication configuration.
+    Get the status of BitLocker encryption on the system drive.
 
     Author: @itm4n
     License: BSD 3-Clause
 
     .DESCRIPTION
-    This cmdlet retrieves information about the authentication mode used by the BitLocker configuration from the 'HKLM\Software\Policies\Microsoft\FVE' key (e.g. 'TPM only', 'TPM+PIN', etc.).
+    This cmdlet retrieves the status of BitLocker encryption on the system drive, and interpret the results to determine which protectors are configured and enabled.
 
     .EXAMPLE
-    PS C:\> Get-BitLockerConfiguration
+    Ps C:\> Get-BitLockerSystemDriveStatus
 
-    Status             : @{Value=1; Description=BitLocker is enabled}
-    UseTPM             : @{Value=1; Description=Require TPM (default)}
-    UseAdvancedStartup : @{Value=0; Description=Do not require additional authentication at startup (default)}
-    EnableBDEWithNoTPM : @{Value=0; Description=Do not allow BitLocker without a compatible TPM (default)}
-    UseTPMPIN          : @{Value=0; Description=Do not allow startup PIN with TPM (default)}
-    UseTPMKey          : @{Value=0; Description=Do not allow startup key with TPM (default)}
-    UseTPMKeyPIN       : @{Value=0; Description=Do not allow startup key and PIN with TPM (default)}
-
-    .LINK
-    https://www.geoffchappell.com/studies/windows/win32/fveapi/policy/index.htm
+    Encrypted             : True
+    FveVersion            : 2
+    ConvertedPercent      : 100
+    HasTpmSecureKey       : True
+    HasTpmPlusPinKey      : True
+    HasTpmPlusStartupKey  : False
+    HasNonTpmSecureKey    : True
+    HasExternalKey        : False
+    HasPasswordKey        : True
+    HasPassphraseKey      : False
+    HasUserCertificateKey : False
     #>
 
     [CmdletBinding()]
-    param()
+    param ()
 
     begin {
-        # Default values for FVE parameters in HKLM\Software\Policies\Microsoft\FVE
-        $FveConfig = @{
-            UseAdvancedStartup = 0
-            EnableBDEWithNoTPM = 0
-            UseTPM             = 1
-            UseTPMPIN          = 0
-            UseTPMKey          = 0
-            UseTPMKeyPIN       = 0
-        }
-
-        $FveUseAdvancedStartup = @(
-            "Do not require additional authentication at startup (default)",
-            "Require additional authentication at startup."
-        )
-
-        $FveEnableBDEWithNoTPM = @(
-            "Do not allow BitLocker without a compatible TPM (default)",
-            "Allow BitLocker without a compatible TPM"
-        )
-
-        $FveUseTPM = @(
-            "Do not allow TPM",
-            "Require TPM (default)",
-            "Allow TPM"
-        )
-
-        $FveUseTPMPIN = @(
-            "Do not allow startup PIN with TPM (default)",
-            "Require startup PIN with TPM",
-            "Allow startup PIN with TPM"
-        )
-
-        $FveUseTPMKey = @(
-            "Do not allow startup key with TPM (default)",
-            "Require startup key with TPM",
-            "Allow startup key with TPM"
-        )
-
-        $FveUseTPMKeyPIN = @(
-            "Do not allow startup key and PIN with TPM (default)",
-            "Require startup key and PIN with TPM",
-            "Allow startup key and PIN with TPM"
-        )
-
-        $FveConfigValues = @{
-            UseAdvancedStartup = $FveUseAdvancedStartup
-            EnableBDEWithNoTPM = $FveEnableBDEWithNoTPM
-            UseTPM             = $FveUseTPM
-            UseTPMPIN          = $FveUseTPMPIN
-            UseTPMKey          = $FveUseTPMKey
-            UseTPMKeyPIN       = $FveUseTPMKeyPIN
-        }
+        $FVE_FLAG_HAS_NON_TPM_SECURE_KEY     = 0x00000100
+        $FVE_FLAG_HAS_TPM_SECURE_KEY         = 0x00000200
+        $FVE_FLAG_HAS_EXTERNAL_KEY           = 0x00020000
+        $FVE_FLAG_HAS_PASSWORD_KEY           = 0x00040000
+        $FVE_FLAG_HAS_TPM_PLUS_PIN_KEY       = 0x00080000
+        $FVE_FLAG_HAS_TPM_PLUS_STARTUP_KEY   = 0x00100000
+        $FVE_FLAG_HAS_PASSPHRASE_KEY         = 0x00200000
+        $FVE_FLAG_HAS_USER_CERTIFICATE_KEY   = 0x00800000
     }
 
     process {
+        $VolumeStatus = Get-BitLockerVolumeStatus -VolumeName "\\?\$($env:SystemDrive)"
+        if ($null -eq $VolumeStatus) { return }
+
+        $VolumeEncrypted = $false
+        if (($VolumeStatus.FveVersion -gt 0) -and ($VolumeStatus.ConvertedPercent -eq 100)) {
+            $VolumeEncrypted = $true
+        }
+
+        $HasTpmSecureKey = ($VolumeStatus.Flags -band $FVE_FLAG_HAS_TPM_SECURE_KEY) -eq $FVE_FLAG_HAS_TPM_SECURE_KEY
+        $HasTpmPlusPinKey = ($VolumeStatus.Flags -band $FVE_FLAG_HAS_TPM_PLUS_PIN_KEY) -eq $FVE_FLAG_HAS_TPM_PLUS_PIN_KEY
+        $HasTpmPlusStartupKey = ($VolumeStatus.Flags -band $FVE_FLAG_HAS_TPM_PLUS_STARTUP_KEY) -eq $FVE_FLAG_HAS_TPM_PLUS_STARTUP_KEY
+        $HasNonTpmSecureKey = ($VolumeStatus.Flags -band $FVE_FLAG_HAS_NON_TPM_SECURE_KEY) -eq $FVE_FLAG_HAS_NON_TPM_SECURE_KEY
+        $HasExternalKey = ($VolumeStatus.Flags -band $FVE_FLAG_HAS_EXTERNAL_KEY) -eq $FVE_FLAG_HAS_EXTERNAL_KEY
+        $HasPasswordKey = ($VolumeStatus.Flags -band $FVE_FLAG_HAS_PASSWORD_KEY) -eq $FVE_FLAG_HAS_PASSWORD_KEY
+        $HasPassphraseKey = ($VolumeStatus.Flags -band $FVE_FLAG_HAS_PASSPHRASE_KEY) -eq $FVE_FLAG_HAS_PASSPHRASE_KEY
+        $HasUserCertificateKey = ($VolumeStatus.Flags -band $FVE_FLAG_HAS_USER_CERTIFICATE_KEY) -eq $FVE_FLAG_HAS_USER_CERTIFICATE_KEY
 
         $Result = New-Object -TypeName PSObject
-
-        $RegKey = "HKLM\SYSTEM\CurrentControlSet\Control\BitLockerStatus"
-        $RegValue = "BootStatus"
-        $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
-
-        $BitLockerEnabled = $false
-
-        if ($null -eq $RegData) {
-            $StatusDescription = "BitLocker is not configured."
-        }
-        else {
-            if ($RegData -ge 1) {
-                $BitLockerEnabled = $true
-                $StatusDescription = "BitLocker is enabled."
-            }
-            else {
-                $StatusDescription = "BitLocker is not enabled."
-            }
-        }
-
-        $Item = New-Object -TypeName PSObject
-        $Item | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegData
-        $Item | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $StatusDescription
-        $Result | Add-Member -MemberType "NoteProperty" -Name "Status" -Value $Item
-
-        $RegKey = "HKLM\SOFTWARE\Policies\Microsoft\FVE"
-
-        $FveConfig.Clone().GetEnumerator() | ForEach-Object {
-            $RegValue = $_.name
-            $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
-            if ($null -ne $RegData) {
-                $FveConfig[$_.name] = $RegData
-            }
-        }
-
-        if ($BitLockerEnabled) {
-            foreach ($FveConfigItem in $FveConfig.GetEnumerator()) {
-
-                $FveConfigValue = $FveConfigItem.name
-                $FveConfigValueDescriptions = $FveConfigValues[$FveConfigValue]
-                $IsValid = $true
-
-                if (($FveConfigValue -eq "UseAdvancedStartup") -or ($FveConfigValue -eq "EnableBDEWithNoTPM")) {
-                    if (($FveConfig[$FveConfigValue] -ne 0) -and ($FveConfig[$FveConfigValue] -ne 1)) {
-                        $IsValid = $false
-                    }
-                }
-                elseif (($FveConfigValue -eq "UseTPM") -or ($FveConfigValue -eq "UseTPMPIN") -or ($FveConfigValue -eq "UseTPMKey") -or ($FveConfigValue -eq "UseTPMKeyPIN")) {
-                    if (($FveConfig[$FveConfigValue] -lt 0) -or ($FveConfig[$FveConfigValue] -gt 2)) {
-                        $IsValid = $false
-                    }
-                }
-
-                if (-not $IsValid) {
-                    Write-Warning "Unexpected value for $($FveConfigValue): $($FveConfig[$FveConfigValue])"
-                    continue
-                }
-
-                $Item = New-Object -TypeName PSObject
-                $Item | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $($FveConfig[$FveConfigValue])
-                $Item | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $($FveConfigValueDescriptions[$FveConfig[$FveConfigValue]])
-
-                $Result | Add-Member -MemberType "NoteProperty" -Name $FveConfigValue -Value $Item
-            }
-        }
-
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Encrypted" -Value $VolumeEncrypted
+        $Result | Add-Member -MemberType "NoteProperty" -Name "FveVersion" -Value $VolumeStatus.FveVersion
+        $Result | Add-Member -MemberType "NoteProperty" -Name "ConvertedPercent" -Value $VolumeStatus.ConvertedPercent
+        $Result | Add-Member -MemberType "NoteProperty" -Name "HasTpmSecureKey" -Value $HasTpmSecureKey
+        $Result | Add-Member -MemberType "NoteProperty" -Name "HasTpmPlusPinKey" -Value $HasTpmPlusPinKey
+        $Result | Add-Member -MemberType "NoteProperty" -Name "HasTpmPlusStartupKey" -Value $HasTpmPlusStartupKey
+        $Result | Add-Member -MemberType "NoteProperty" -Name "HasNonTpmSecureKey" -Value $HasNonTpmSecureKey
+        $Result | Add-Member -MemberType "NoteProperty" -Name "HasExternalKey" -Value $HasExternalKey
+        $Result | Add-Member -MemberType "NoteProperty" -Name "HasPasswordKey" -Value $HasPasswordKey
+        $Result | Add-Member -MemberType "NoteProperty" -Name "HasPassphraseKey" -Value $HasPassphraseKey
+        $Result | Add-Member -MemberType "NoteProperty" -Name "HasUserCertificateKey" -Value $HasUserCertificateKey
         $Result
     }
 }

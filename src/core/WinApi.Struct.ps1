@@ -661,3 +661,27 @@ $script:CTL_USAGE = New-Structure $Module WinApiModule.CTL_USAGE @{
     UsageIdentifierCount = New-StructureField 0 UInt32
     UsageIdentifiers = New-StructureField 1 IntPtr
 }
+
+$script:FVE_STATUS_V8 = New-Structure $Module WinApiModule.FVE_STATUS_V8 @{
+    StructureSize = New-StructureField 0 UInt32
+    StructureVersion = New-StructureField 1 UInt32
+    FveVersion = New-StructureField 2 UInt16
+    Flags = New-StructureField 3 UInt32
+    ConvertedPercent = New-StructureField 4 Double
+    LastConvertStatus = New-StructureField 5 Int32
+    VolArriveTime = New-StructureField 6 Int64
+    WipedPercent = New-StructureField 7 Double
+    WipeState = New-StructureField 8 UInt32
+    WipeCount = New-StructureField 9 UInt32
+    ExtendedFlags = New-StructureField 10 UInt64
+    WimBootHashedSizeRequired = New-StructureField 11 UInt64
+    WimBootHashedSizeActual = New-StructureField 12 UInt64
+    ExtendedFlags2 = New-StructureField 13 UInt64
+    WcosOsMainProtectLevel = New-StructureField 14 UInt32
+    WcosOsDataProtectLevel = New-StructureField 15 UInt32
+    WcosPreInstalledProtectLevel = New-StructureField 16 UInt32
+    WcosUserDataProtectLevel = New-StructureField 17 UInt32
+    WcosBspProtectLevel = New-StructureField 18 UInt32
+    WcosWspProtectLevel = New-StructureField 19 UInt32
+    WcosDppProtectLevel = New-StructureField 20 UInt32
+}

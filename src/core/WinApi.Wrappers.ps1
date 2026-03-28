@@ -2888,3 +2888,89 @@ function Get-SerializedCertificateInformation {
         $null = [System.Runtime.InteropServices.Marshal]::FreeHGlobal($CertBlob.Data)
     }
 }
+
+function Get-BitLockerVolumeStatus {
+    <#
+    .SYNOPSIS
+    Wrapper for FveGetStatus
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet first invokes FveOpenVolumeW to open a BitLocker volume, then queries its status by invoking FveGetStatus, and finally closes it by invoking FveCloseVolume.
+
+    .PARAMETER VolumeName
+    A mandatory parameter representing a volume name. For instance, specify '\\?\C:' to open the main C: drive.
+
+    .EXAMPLE
+    PS C:\> Get-BitLockerVolumeStatus -VolumeName "\\?\C:"
+
+    StructureSize                : 120
+    StructureVersion             : 8
+    FveVersion                   : 2
+    Flags                        : 17584905
+    ConvertedPercent             : 100
+    LastConvertStatus            : 0
+    VolArriveTime                : 15625000
+    WipedPercent                 : 0
+    WipeState                    : 1
+    WipeCount                    : 0
+    ExtendedFlags                : 66
+    WimBootHashedSizeRequired    : 0
+    WimBootHashedSizeActual      : 0
+    ExtendedFlags2               : 0
+    WcosOsMainProtectLevel       : 0
+    WcosOsDataProtectLevel       : 0
+    WcosPreInstalledProtectLevel : 0
+    WcosUserDataProtectLevel     : 0
+    WcosBspProtectLevel          : 0
+    WcosWspProtectLevel          : 0
+    WcosDppProtectLevel          : 0
+    #>
+
+    [OutputType([Object])]
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)]
+        [String] $VolumeName
+    )
+
+    begin {
+        $VolumeHandle = [IntPtr]::Zero
+    }
+
+    process {
+        try {
+            $Hresult = $script:FveApi::FveOpenVolumeW($VolumeName, $False, [ref] $VolumeHandle)
+            if ($Hresult -ne 0) {
+                Write-Warning "FveOpenVolumeW('$($VolumeName)') - 0x$('{0:x8}' -f $Hresult)"
+                return
+            }
+
+            $VolumeStatus = [Activator]::CreateInstance($script:FVE_STATUS_V8)
+            $VolumeStatus.StructureSize = $script:FVE_STATUS_V8::GetSize()
+            $VolumeStatus.StructureVersion = 8
+
+            $Hresult = $script:FveApi::FveGetStatus($VolumeHandle, [ref] $VolumeStatus)
+            if ($Hresult -ne 0) {
+                Write-Warning "FveGetStatus() - 0x$('{0:x8}' -f $Hresult)"
+                return
+            }
+
+            return $VolumeStatus
+        } catch {
+            Write-Warning "Get-BitLockerVolumeStatus: $($_.Exception.Message)"
+        }
+    }
+
+    end {
+        if ($VolumeHandle -ne [IntPtr]::Zero) {
+            $Hresult = $script:FveApi::FveCloseVolume($VolumeHandle)
+            if ($Hresult -ne 0) {
+                Write-Warning "FveCloseVolume() - 0x$('{0:x8}' -f $Hresult)"
+                return
+            }
+        }
+    }
+}

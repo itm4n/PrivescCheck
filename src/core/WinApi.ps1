@@ -32,6 +32,10 @@ $FunctionDefinitions = @(
     (New-Function firewallapi FWClosePolicyStore ([UInt32]) @([IntPtr]) -EntryPoint FWClosePolicyStore),
     (New-Function firewallapi FWGetConfig2 ([Void]) @([IntPtr], $script:FW_PROFILE_CONFIG, $script:FW_PROFILE_TYPE, $script:FW_CONFIG_FLAGS, [IntPtr], [UInt32].MakeByRefType(), [UInt32].MakeByRefType()) -EntryPoint FWGetConfig2),
 
+    (New-Function fveapi FveOpenVolumeW ([Int32]) @([String], [Bool], [IntPtr].MakeByRefType()) -EntryPoint FveOpenVolumeW -Charset Unicode),
+    (New-Function fveapi FveCloseVolume ([Int32]) @([IntPtr]) -EntryPoint FveCloseVolume),
+    (New-Function fveapi FveGetStatus ([Int32]) @([IntPtr], $script:FVE_STATUS_V8.MakeByRefType()) -EntryPoint FveGetStatus -Charset None),
+
     (New-Function iphlpapi GetAdaptersAddresses ([UInt32]) @([UInt32], [UInt32], [IntPtr], [IntPtr], [UInt32].MakeByRefType()) -EntryPoint GetAdaptersAddresses),
     (New-Function iphlpapi GetExtendedTcpTable ([UInt32]) @([IntPtr], [UInt32].MakeByRefType(), [Bool], [UInt32], $script:TCP_TABLE_CLASS, [UInt32]) -SetLastError -EntryPoint GetExtendedTcpTable),
     (New-Function iphlpapi GetExtendedUdpTable ([UInt32]) @([IntPtr], [UInt32].MakeByRefType(), [Bool], [UInt32], $script:UDP_TABLE_CLASS , [UInt32]) -SetLastError -EntryPoint GetExtendedUdpTable),
@@ -110,6 +114,7 @@ $script:Advapi32 = $Types['advapi32']
 $script:Crypt32  = $Types['crypt32']
 $script:Iphlpapi = $Types['iphlpapi']
 $script:FirewallApi = $Types['firewallapi']
+$script:FveApi = $Types['fveapi']
 $script:Kernel32 = $Types['kernel32']
 $script:Ncrypt   = $Types['ncrypt']
 $script:Netapi32 = $Types['netapi32']

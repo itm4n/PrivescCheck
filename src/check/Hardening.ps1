@@ -479,93 +479,110 @@ function Invoke-BitLockerCheck {
     }
 
     process {
+        $DescriptionElements = @()
+
         # The machine is not a workstation, no need to check BitLocker configuration.
         if ($MachineRole.Name -ne "WinNT") {
-            $Description = "Not a workstation, BitLocker configuration is irrelevant."
+            $DescriptionElements += "Not a workstation, BitLocker configuration is irrelevant."
         }
         else {
-            $BitLockerConfig = Get-BitLockerConfiguration
-            $Description = "$($BitLockerConfig.Status.Description)"
+            $BitLockerStatus = Get-BitLockerSystemDriveStatus
+            if ($null -ne $BitLockerStatus) {
 
-            if ($BitLockerConfig.Status.Value -ne 1) {
-                # BitLocker is not enabled.
-                $Vulnerable = $true
-                $Severity = $script:SeverityLevel::High
-                $Description = "BitLocker is not enabled."
+                $Config | Add-Member -MemberType "NoteProperty" -Name "Encrypted" -Value $BitLockerStatus.Encrypted
 
-                if ($null -ne $TpmDeviceInformation) {
-                    if ($TpmDeviceInformation.TpmPresent) {
-                        # BitLocker not enabled + TPM present -> Is it a virtual machine?
-                        if (($TpmType -band $script:TPM_DEVICE_TYPE::Virtual) -gt 0) {
-                            $Description = "$($Description) The installed TPM seems to be a virtual one, this check is probably irrelevant."
-                            $Severity = $script:SeverityLevel::Low
-                        }
+                if ($BitLockerStatus.Encrypted -eq $true) {
+                    # BitLocker is not enabled.
+                    $Config | Add-Member -MemberType "NoteProperty" -Name "HasTpmSecureKey" -Value $BitLockerStatus.HasTpmSecureKey
+                    $Config | Add-Member -MemberType "NoteProperty" -Name "HasTpmPlusPinKey" -Value $BitLockerStatus.HasTpmPlusPinKey
+                    $Config | Add-Member -MemberType "NoteProperty" -Name "HasTpmPlusStartupKey" -Value $BitLockerStatus.HasTpmPlusStartupKey
+                    $Config | Add-Member -MemberType "NoteProperty" -Name "HasExternalKey" -Value $BitLockerStatus.HasExternalKey
+                    $Config | Add-Member -MemberType "NoteProperty" -Name "HasPasswordKey" -Value $BitLockerStatus.HasPasswordKey
+
+                    $Protectors = @()
+                    $TpmOnly = $false
+
+                    if ($BitLockerStatus.HasTpmSecureKey) {
+                        $TpmOnly = $true
+                        $TpmProtector = @("TPM")
+                        if ($BitLockerStatus.HasTpmPlusPinKey) { $TpmProtector += "PIN"; $TpmOnly = $false }
+                        if ($BitLockerStatus.HasTpmPlusStartupKey) { $TpmProtector += "Startup Key"; $TpmOnly = $false }
+                        $Protectors += ($TpmProtector -join " + ")
                     }
-                    else {
-                        # BitLocker not enabled + TPM not present -> Most probably a virtual machine?!
-                        $Description = "$($Description) No TPM found on this machine, this check is probably irrelevant."
-                        $Severity = $script:SeverityLevel::Low
+
+                    if ($BitLockerStatus.HasExternalKey) {
+                        $Protectors += "External Key"
                     }
-                }
-            }
-            else {
-                # BitLocker is enabled
-                $Config | Add-Member -MemberType "NoteProperty" -Name "UseAdvancedStartup" -Value "$($BitLockerConfig.UseAdvancedStartup.Value) - $($BitLockerConfig.UseAdvancedStartup.Description)"
-                $Config | Add-Member -MemberType "NoteProperty" -Name "EnableBDEWithNoTPM" -Value "$($BitLockerConfig.EnableBDEWithNoTPM.Value) - $($BitLockerConfig.EnableBDEWithNoTPM.Description)"
-                $Config | Add-Member -MemberType "NoteProperty" -Name "UseTPM" -Value "$($BitLockerConfig.UseTPM.Value) - $($BitLockerConfig.UseTPM.Description)"
-                $Config | Add-Member -MemberType "NoteProperty" -Name "UseTPMPIN" -Value "$($BitLockerConfig.UseTPMPIN.Value) - $($BitLockerConfig.UseTPMPIN.Description)"
-                $Config | Add-Member -MemberType "NoteProperty" -Name "UseTPMKey" -Value "$($BitLockerConfig.UseTPMKey.Value) - $($BitLockerConfig.UseTPMKey.Description)"
-                $Config | Add-Member -MemberType "NoteProperty" -Name "UseTPMKeyPIN" -Value "$($BitLockerConfig.UseTPMKeyPIN.Value) - $($BitLockerConfig.UseTPMKeyPIN.Description)"
 
-                if ($BitLockerConfig.UseAdvancedStartup.Value -ne 1) {
-                    # Advanced startup is not enabled. This means that a second factor of authentication
-                    # cannot be configured. We can report this and return.
-                    $Vulnerable = $true
-                    $Severity = $script:SeverityLevel::Medium
-                    $Description = "$($Description) Additional authentication is not required at startup."
+                    if ($BitLockerStatus.HasPasswordKey) {
+                        $Protectors += "Recovery Key"
+                    }
 
-                    if ($BitLockerConfig.UseTPM.Value -eq 1) {
-                        $Description = "$($Description) Authentication mode is 'TPM only'."
+                    $Config | Add-Member -MemberType "NoteProperty" -Name "Protectors" -Value ($Protectors -join ", ")
+
+                    if ($TpmOnly) {
+                        $DescriptionElements += "A TPM protector is configured without a second factor of authentication (TPM only)."
+
                         if ($null -ne $TpmDeviceInformation) {
+
                             if ($TpmDeviceInformation.TpmPresent) {
+
                                 # BitLocker TPM only + TPM present -> Is the TPM a discrete TPM?
                                 if (($TpmType -band $script:TPM_DEVICE_TYPE::Discrete) -gt 0) {
+
                                     # BitLocker TPM only + dTPM -> TPM sniffing attack possible, max severity.
-                                    $Description = "$($Description) A discrete TPM (dTPM) seems to be installed on this machine, a TPM sniffing attack is more likely to be performed."
+                                    $DescriptionElements += "The machine seems to be equipped with a discrete TPM (dTPM), a TPM sniffing attack is more likely to be performed."
                                     $Severity = $script:SeverityLevel::High
                                 }
                                 else {
                                     # BitLocker TPM only + vTPM, iTPM, or fTPM -> TPM sniffing attack not possible,
                                     # lower the severity.
-                                    $Description = "$($Description) The installed TPM does not seem to be a discrete one, a TPM sniffing attack is therefore less likely to be performed."
+                                    $DescriptionElements += "The machine does not seem to be equipped with a discrete TPM, a TPM sniffing attack is therefore not possible."
                                     $Severity = $script:SeverityLevel::Medium
                                 }
                             }
                             else {
                                 # BitLocker enabled without TPM
-                                $Description = "$($Description) No TPM found on this machine, this check is probably irrelevant."
+                                $DescriptionElements += "The machine does not seem to be equipped with a TPM, this check is probably irrelevant."
                                 $Severity = $script:SeverityLevel::Low
                             }
                         }
+                    } else {
+                        if ($BitLockerStatus.HasTpmSecureKey) {
+                            $DescriptionElements += "A TPM protector is configured with an additional factor of authentication."
+                        } else {
+                            $DescriptionElements += "No TPM protector is configured."
+                        }
                     }
-                }
-                else {
-                    # Advanced startup is enabled, but is a second factor of authentication enforced?
-                    if (($BitLockerConfig.UseTPMPIN.Value -ne 1) -and ($BitLockerConfig.UseTPMKey.Value -ne 1) -and ($BitLockerConfig.UseTPMKeyPIN -ne 1)) {
-                        # A second factor of authentication is not explicitly enforced.
-                        $Vulnerable = $true
-                        $Severity = $script:SeverityLevel::Medium
-                        $Description = "$($Description) A second factor of authentication (PIN, startup key) is not explicitly required."
 
-                        if ($BitLockerConfig.EnableBDEWithNoTPM.Value -eq 1) {
-                            $Description = "$($Description) BitLocker without a compatible TPM is allowed."
+                } else {
+                    # BitLocker is not enabled.
+                    $Vulnerable = $true
+                    $Severity = $script:SeverityLevel::High
+                    $DescriptionElements += "BitLocker is not enabled."
+
+                    if ($null -ne $TpmDeviceInformation) {
+
+                        if ($TpmDeviceInformation.TpmPresent) {
+                            # BitLocker not enabled + TPM present -> Is it a virtual machine?
+                            if (($TpmType -band $script:TPM_DEVICE_TYPE::Virtual) -gt 0) {
+                                $DescriptionElements += "The machine seems to be equipped with a virtual TPM, this check is probably irrelevant."
+                                $Severity = $script:SeverityLevel::Low
+                            }
+                        }
+                        else {
+                            # BitLocker not enabled + TPM not present -> Most probably a virtual machine?!
+                            $DescriptionElements += "The machine does not seem to be equipped with a TPM, this check is probably irrelevant."
+                            $Severity = $script:SeverityLevel::Low
                         }
                     }
                 }
+            } else {
+                $DescriptionElements += "Failed to retrieve BitLocker encryption status on system drive."
             }
         }
 
-        $Config | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+        $Config | Add-Member -MemberType "NoteProperty" -Name "Description" -Value ($DescriptionElements -join " ")
 
         $CheckResult = New-Object -TypeName PSObject
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Config
