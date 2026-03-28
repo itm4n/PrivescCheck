@@ -8,7 +8,11 @@
 
 ### Modified
 
-- Refactor the BitLocker check to get its actual status on the system drive and thus eliminate false positives (issue #84).
+- Refactor the BitLocker check to get its actual status on the system drive and thus resolve false positives (issue #84).
+
+### Fixed
+
+- Attempt to handle exceptions thrown by Get-MpPreference (issue #83).
 
 ## 2026-01-30
 

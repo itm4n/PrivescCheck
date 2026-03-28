@@ -857,7 +857,7 @@ function Invoke-DefenderForEndpointConfigurationCheck {
         $Result | Add-Member -MemberType "NoteProperty" -Name "MsSenseDllVersion" -Value $MsSenseDllVersion
         $Result | Add-Member -MemberType "NoteProperty" -Name "ConfigurationVersion" -Value $ConfigurationVersion
 
-        $MpPreference = Get-MpPreference
+        $MpPreference = Get-MpPreference -ErrorAction SilentlyContinue
         if ($MpPreference) {
             $RealtimeMonitoringEnabled = -not $MpPreference.DisableRealtimeMonitoring
             $BehaviorMonitoringEnabled = -not $MpPreference.DisableBehaviorMonitoring
