@@ -8,8 +8,8 @@
 # location for building scripts, and then creating GitHub releases.
 # The only exception is the '.gitkeep' file, which allows to keep the
 # 'release' folder even if it's empty.
-/release/*
-!/release/.gitkeep
+/dist/*
+!/dist/.gitkeep
 
 # Ignore all markdown files, except the README and other files located in the
 # info folder.
