@@ -193,3 +193,20 @@ jobs:
           else
             echo "[*] No release to create"
           fi
+
+  clean-up-release-history:
+    name: Clean up release history
+    needs: [create-release]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out master branch
+        uses: actions/checkout@v5
+        with:
+          ref: master
+      - name: Clean up release and tag history (keep last 10 entries)
+        id: clean-up-release-history
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          bash ./.github/workflows/clean_up_release_and_tag_history.sh
