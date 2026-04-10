@@ -1,5 +1,11 @@
 # Changelog
 
+## 2024-04-10
+
+### Modified
+
+- Implemented a better alternative for "Invoke-Expression" when testing modules in the build script + better error handling.
+
 ## 2026-04-05
 
 ### Added

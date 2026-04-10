@@ -143,12 +143,28 @@ function Invoke-Build {
 
                 if ($TestModuleImport) {
                     try {
-                        $ScriptBlock | Invoke-Expression
+                        & $ExecutionContext.InvokeCommand.NewScriptBlock($ScriptBlock)
                         Write-Message "File '$($ModuleFilename)' (name: '$($ModuleName)') was loaded successfully."
                     }
                     catch {
-                        $ErrorCount += 1
-                        Write-Message -Type Error "Failed to load file '$($ModuleFilename)' (name: '$($ModuleName)'): $($_.Exception.Message.Trim())"
+                        if ($_.FullyQualifiedErrorId -like "ScriptContainedMaliciousContent*") {
+                            # Exception triggered because of AMSI.
+                            $ErrorCount += 1
+                            Write-Message -Type Error "Malicious content detected in module '$($ModuleFilename)' (name: '$($ModuleName)'): $($_.Exception.Message.Trim())"
+                        }
+                        elseif ($_.FullyQualifiedErrorId -eq "CommandNotFoundException") {
+                            # Exception triggered because a non-existing command is invoked. This is expected
+                            # in certain files.
+                            if (@("New-Enum", "New-StructureField", "New-Function") -notcontains $_.TargetObject) {
+                                $ErrorCount += 1
+                                Write-Message -Type Error "Unexpected error while importing module '$($ModuleFilename)' (name: '$($ModuleName)'): $($_.Exception.Message.Trim())"
+                            }
+                        }
+                        else {
+                            # Other unexpected exception
+                            $ErrorCount += 1
+                            Write-Message -Type Error "Unexpected error while importing module '$($ModuleFilename)' (name: '$($ModuleName)'): $($_.Exception.Message.Trim())"
+                        }
                     }
                 }
 
@@ -166,7 +182,6 @@ function Invoke-Build {
         }
 
         if ($ErrorCount -eq 0) {
-
             Write-Message -Type Success "Build successful, writing result to file '$($ScriptPath)'..."
             $ScriptContent += "`r`n$(Get-ScriptLoader -Modules $Modules -EncodedKey ([System.Convert]::ToBase64String($EncryptionKey)))"
             $ScriptContent | Out-File -FilePath $ScriptPath -Encoding ascii
@@ -179,6 +194,9 @@ function Invoke-Build {
                 Write-Message -Type Info "Copying result to file '$($ScriptPath)'..."
                 $ScriptContent | Out-File -FilePath $ScriptPath -Encoding ascii
             }
+        }
+        else {
+            Write-Message -Type Error "Build failed, check the build logs for more information."
         }
     }
 }
