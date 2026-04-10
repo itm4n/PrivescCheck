@@ -55,6 +55,8 @@ function Invoke-Build {
         if ($TestModuleImport -eq $false) {
             Write-Message -Type Warning -Message "Unsupported platform for module import testing: $($CurrentPlatform)"
         }
+
+        $EncryptionKey = New-RandomByteArray -Size 32
     }
 
     process {
@@ -157,6 +159,7 @@ function Invoke-Build {
                     $ScriptEncoded = [Text.Encoding]::UTF8.GetBytes($ScriptBlock)
                 }
 
+                $ScriptEncoded = ConvertTo-AesEncrypted -InputBuffer $ScriptEncoded -Key $EncryptionKey
                 $ScriptEncoded = [System.Convert]::ToBase64String($ScriptEncoded)
                 $ScriptContent += "`$$($ModuleName) = `"$($ScriptEncoded)`"`r`n"
             }
@@ -165,7 +168,7 @@ function Invoke-Build {
         if ($ErrorCount -eq 0) {
 
             Write-Message -Type Success "Build successful, writing result to file '$($ScriptPath)'..."
-            $ScriptContent += "`r`n$(Get-ScriptLoader -Modules $Modules)"
+            $ScriptContent += "`r`n$(Get-ScriptLoader -Modules $Modules -EncodedKey ([System.Convert]::ToBase64String($EncryptionKey)))"
             $ScriptContent | Out-File -FilePath $ScriptPath -Encoding ascii
 
             if ($BuildProfileName -eq "PrivescCheck") {
@@ -414,37 +417,35 @@ function Update-WordList {
 
 function Get-ScriptLoader {
 
-    [CmdletBinding()]
-    param(
-        [string[]] $Modules
+    [OutputType([String])]
+    param (
+        [String[]] $Modules,
+        [String] $EncodedKey
     )
 
-    begin {
-        $LoaderBlock = @"
-`$Modules = @({{MODULE_LIST}})
-`$Modules | ForEach-Object {
-    `$Decoded = [System.Convert]::FromBase64String(`$_)
-    if (`$_ -like "H4s*") {
-        `$Decoded = ConvertFrom-Gzip -Bytes `$Decoded
+    $LoaderBlock = @"
+@({{MODULE_LIST}}) | ForEach-Object {
+    `$dec = [Convert]::FromBase64String(`$_)
+    `$aes = [Security.Cryptography.Aes]::Create()
+    `$outbuf = New-Object Byte[] (`$dec.Length - `$aes.IV.Length)
+    `$aes.Key = [Convert]::FromBase64String("{{ENCODED_KEY}}")
+    `$aes.IV = `$dec[0..(`$aes.IV.Length - 1)]
+    `$rc = (New-Object Security.Cryptography.CryptoStream (New-Object IO.MemoryStream (, `$dec[`$aes.IV.Length..(`$dec.Length - 1)])), (`$aes.CreateDecryptor()), ([Security.Cryptography.CryptoStreamMode]::Read)).Read(`$outbuf, 0, `$outbuf.Length)
+    try {
+        `$sb = `$ExecutionContext.InvokeCommand.NewScriptBlock((ConvertFrom-Gzip -InputBuffer `$outbuf[0..(`$rc - 1)]))
+    } catch {
+        `$sb = `$ExecutionContext.InvokeCommand.NewScriptBlock(([Text.Encoding]::UTF8.GetString(`$outbuf[0..(`$rc - 1)])))
     }
-    else {
-        `$Decoded = [Text.Encoding]::UTF8.GetString(`$Decoded)
-    }
-    `$ScriptBlock = `$ExecutionContext.InvokeCommand.NewScriptBlock(`$Decoded)
-    . `$ScriptBlock
-    Remove-Variable -Name "Decoded"
-    Remove-Variable -Name "ScriptBlock"
+    . `$sb
 }
-Remove-Variable -Name "Modules"
-@({{MODULE_STR_LIST}}) | ForEach-Object { Remove-Variable -Name `$_ }
 "@
-    }
 
-    process {
-        $ModuleList = ($Modules | ForEach-Object { "`$$($_)" }) -join ','
-        $ModuleStrList = ($Modules | ForEach-Object { "`"$($_)`"" }) -join ','
-        ($LoaderBlock -replace "{{MODULE_LIST}}", $ModuleList) -replace "{{MODULE_STR_LIST}}", $ModuleStrList
-    }
+    $ModuleList = ($Modules | ForEach-Object { "`$$($_)" }) -join ','
+    $LoaderBlockResult = $LoaderBlock
+    $LoaderBlockResult = $LoaderBlockResult -replace "{{MODULE_LIST}}", $ModuleList
+    $LoaderBlockResult = $LoaderBlockResult -replace "{{ENCODED_KEY}}", $EncodedKey
+
+    return $LoaderBlockResult
 }
 
 function Remove-CommentFromScriptBlock {
@@ -502,4 +503,78 @@ function ConvertTo-Gzip {
         $MemoryStream.Close()
         $MemoryStream.ToArray()
     }
+}
+
+function New-RandomByteArray {
+
+    [OutputType([Byte[]])]
+    param (
+        [Parameter(Mandatory=$true)]
+        [ValidateSet(16, 32)]
+        [UInt32] $Size
+    )
+
+    # https://gist.github.com/lennybacon/9fcce97f84d1b760e8da0e9d0738536a
+    $Random = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+    $Buffer = New-Object Byte[] $Size
+    $Random.GetBytes($Buffer)
+    return $Buffer
+}
+
+function ConvertTo-AesEncrypted {
+
+    [OutputType([Byte[]])]
+    param (
+        [Parameter(Mandatory=$true)]
+        [Byte[]] $InputBuffer,
+        [Parameter(Mandatory=$true)]
+        [Byte[]] $Key
+    )
+
+    # https://learn.microsoft.com/en-us/dotnet/api/system.security.cryptography.aes
+    $AesAlg = [System.Security.Cryptography.Aes]::Create()
+
+    $AesAlg.Key = $Key
+    $AesAlg.IV = New-RandomByteArray -Size 16
+
+    $Encryptor = $AesAlg.CreateEncryptor()
+    $MemoryStream = New-Object IO.MemoryStream
+    $CryptoStream = New-Object System.Security.Cryptography.CryptoStream $MemoryStream, $Encryptor, ([System.Security.Cryptography.CryptoStreamMode]::Write)
+    $CryptoStream.Write($InputBuffer, 0, $InputBuffer.Length)
+    $CryptoStream.FlushFinalBlock()
+    $Encrypted = $MemoryStream.ToArray()
+    $MemoryStream.Close()
+    $CryptoStream.Close()
+
+    return $AesAlg.IV + $Encrypted
+}
+
+function ConvertFrom-AesEncrypted {
+
+    [OutputType([Byte[]])]
+    param (
+        [Parameter(Mandatory=$true)]
+        [Byte[]] $InputBuffer,
+        [Parameter(Mandatory=$true)]
+        [Byte[]] $Key
+    )
+
+    # https://learn.microsoft.com/en-us/dotnet/api/system.security.cryptography.aes
+    $AesAlg = [System.Security.Cryptography.Aes]::Create()
+
+    $IV = $InputBuffer[0..($AesAlg.IV.Length - 1)]
+    $Encrypted = $InputBuffer[$AesAlg.IV.Length..($InputBuffer.Length - 1)]
+    $Buffer = New-Object Byte[] ($InputBuffer.Length - $AesAlg.IV.Length)
+
+    $AesAlg.Key = $Key
+    $AesAlg.IV = $IV
+
+    $Decryptor = $AesAlg.CreateDecryptor()
+    $MemoryStream = New-Object IO.MemoryStream (, $Encrypted)
+    $CryptoStream = New-Object System.Security.Cryptography.CryptoStream $MemoryStream, $Decryptor, ([System.Security.Cryptography.CryptoStreamMode]::Read)
+    $ReadCount = $CryptoStream.Read($Buffer, 0, $Buffer.Length)
+    $CryptoStream.Close()
+    $MemoryStream.Close()
+
+    return $Buffer[0..($ReadCount - 1)]
 }

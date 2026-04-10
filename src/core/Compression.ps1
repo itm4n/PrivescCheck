@@ -1,7 +1,7 @@
 function ConvertFrom-Gzip {
     [CmdletBinding()]
-    param([byte[]] $Bytes)
-    $is = New-Object IO.MemoryStream(, $Bytes)
+    param ([Byte[]] $InputBuffer)
+    $is = New-Object IO.MemoryStream(, $InputBuffer)
     $gs = New-Object IO.Compression.GzipStream $is, ([IO.Compression.CompressionMode]::Decompress)
     $sr = New-Object IO.StreamReader($gs)
     $sbd = $sr.ReadToEnd()

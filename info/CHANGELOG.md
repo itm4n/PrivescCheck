@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-04-05
+
+### Added
+
+- Add AES encryption on top of GZIP compression to scramble the output script.
+
 ## 2026-03-28
 
 ### Added

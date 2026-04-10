@@ -202,7 +202,7 @@ function Invoke-PrivescCheck {
 function ConvertFrom-EmbeddedTextBlob {
     param([String] $TextBlob)
     $Decoded = [System.Convert]::FromBase64String($TextBlob)
-    ConvertFrom-Gzip -Bytes $Decoded
+    ConvertFrom-Gzip -InputBuffer $Decoded
 }
 
 function Invoke-DynamicCommand {
