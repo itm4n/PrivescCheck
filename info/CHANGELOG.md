@@ -5,6 +5,7 @@
 ### Fixed
 
 - Added TPM vendor IDs to fix improper TPM type resolution (issue #86).
+- Properly set "Vulnerable" flag in BitLocker check (issue #87).
 
 ## 2026-04-10
 

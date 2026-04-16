@@ -521,6 +521,8 @@ function Invoke-BitLockerCheck {
                     $Config | Add-Member -MemberType "NoteProperty" -Name "Protectors" -Value ($Protectors -join ", ")
 
                     if ($TpmOnly) {
+
+                        $Vulnerable = $true
                         $DescriptionElements += "A TPM protector is configured without a second factor of authentication (TPM only)."
 
                         if ($null -ne $TpmDeviceInformation) {
