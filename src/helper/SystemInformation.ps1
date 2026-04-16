@@ -581,7 +581,7 @@ function Get-TpmDeviceType {
         # for 'NSM' and 'STM', which are padded with a space! Interestingly enough,
         # this is not defined by the TCG, but rather by the ID requestor (ie the
         # vendor).
-        $DiscreteTpmVendorIds = @("ATML", "CSCO", "FLYS", "IFX", "NSG", "NSM ", "NTC", "NTZ", "SNS", "STM ")
+        $DiscreteTpmVendorIds = @("ATML", "CSCO", "FLYS", "IFX", "NSG", "NSM ", "NTC", "NTZ", "SEAL", "SNS", "STM ", "WEC")
         $IntegratedTpmVendorIds = @("BRCM", "INTC", "ROCC", "SMSC", "TXN")
         $FirmwareTpmVendorIds = @("AMD", "HISI", "HPE", "INTC", "LEN", "QCOM", "SECE", "SMSN")
         $VirtualTpmVendorIds = @("IBM", "GOOG", "MSFT")

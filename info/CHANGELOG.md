@@ -1,6 +1,12 @@
 # Changelog
 
-## 2024-04-10
+## 2026-04-16
+
+### Fixed
+
+- Added TPM vendor IDs to fix improper TPM type resolution (issue #86).
+
+## 2026-04-10
 
 ### Modified
 
