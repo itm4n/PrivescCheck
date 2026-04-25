@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-04-25
+
+### Modified
+
+- Added check for "RunAsPPLBoot" registry value, in addition to "RunAsPPL".
+
 ## 2026-04-16
 
 ### Fixed

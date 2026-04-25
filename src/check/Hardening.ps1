@@ -602,15 +602,23 @@ function Invoke-LsaProtectionCheck {
     License: BSD 3-Clause
 
     .DESCRIPTION
-    Invokes the helper function Get-LsaRunAsPPLStatus
+    This cmdlet checks the status of LSA Protection based on the registry values "RunAsPPL" and "RunAsPPLBoot" under "HKLM\SYSTEM\CurrentControlSet\Control\Lsa". If LSA Protection is enabled, and then the registry values are deleted, this check will report a false positive. Ideally, we would want to check the PPL status of the process directly, but this would require administrator privileges.
 
     .EXAMPLE
     PS C:\> Invoke-LsaProtectionCheck
 
-    Key         : HKLM\SYSTEM\CurrentControlSet\Control\Lsa
-    Value       : RunAsPPL
-    Data        : (null)
-    Description : LSA protection is not enabled.
+    Key          : HKLM\SYSTEM\CurrentControlSet\Control\Lsa
+    RunAsPPL     : 2
+    RunAsPPLBoot : 2
+    Description  : LSA Protection is enabled without UEFI lock (i.e. the feature is not backed by a UEFI variable).
+
+    .EXAMPLE
+    PS C:\> Invoke-LsaProtectionCheck
+
+    Key          : HKLM\SYSTEM\CurrentControlSet\Control\Lsa
+    RunAsPPL     : 0
+    RunAsPPLBoot : 0
+    Description  : LSA Protection is not enabled.
     #>
 
     [CmdletBinding()]
@@ -620,7 +628,6 @@ function Invoke-LsaProtectionCheck {
 
     begin {
         $RegKey = "HKLM\SYSTEM\CurrentControlSet\Control\Lsa"
-        $RegValue = "RunAsPPL"
         $OsVersion = Get-WindowsVersionFromRegistry
 
         $RunAsPplDescriptions = @(
@@ -631,33 +638,57 @@ function Invoke-LsaProtectionCheck {
     }
 
     process {
-        $Vulnerable = $false
+        # Assume the machine is vulnerable
+        $Vulnerable = $true
 
         if (-not ($OsVersion.Major -ge 10 -or (($OsVersion.Major -eq 6) -and ($OsVersion.Minor -ge 3)))) {
             $Description = "LSA protection is not supported on this version of Windows."
-            $Vulnerable = $true
         }
         else {
-            $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+            # Get the value of RunAsPPL
+            $RegValue = "RunAsPPL"
+            $RunAsPplValue = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
 
-            if ($null -ne $RegData) {
-                $Description = $RunAsPplDescriptions[$RegData]
-                if ($RegData -eq 0) { $Vulnerable = $true }
+            # Get the value of RunAsPPLBoot
+            $RegValue = "RunAsPPLBoot"
+            $RunAsPplBootValue = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+
+            # By default, assume that LSA Protection is not enabled
+            $RunAsPpl = 0
+            if ($null -ne $RunAsPplValue) {
+                # If RunAsPPL is not null, use this value
+                $RunAsPpl = $RunAsPplValue
             }
             else {
-                $Description = $RunAsPplDescriptions[0]
-                $Vulnerable = $true
+                # If RunAsPPL is null, but RunAsPPLBoot is not null, use this value
+                if ($null -ne $RunAsPplBootValue) {
+                    $RunAsPpl = $RunAsPplBootValue
+                }
+            }
+
+            # RunAsPPL value should be 0, 1, or 2
+            if (($RunAsPpl -lt 0) -or ($RunAsPpl -gt 2)) {
+                Write-Warning "Unexpected RunAsPPL value: $($RunAsPpl)"
+                $Description = "Unexpected RunAsPPL value: $($RunAsPpl)"
+            }
+            else {
+                # If RunAsPPL is greater than 0, LSA Protection is enabled
+                if ($RunAsPpl -gt 0) {
+                    # LSA Protection is enabled, not vulnerable
+                    $Vulnerable = $false
+                }
+                $Description = $RunAsPplDescriptions[$RunAsPpl]
             }
         }
 
-        $Config = New-Object -TypeName PSObject
-        $Config | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
-        $Config | Add-Member -MemberType "NoteProperty" -Name "Value" -Value $RegValue
-        $Config | Add-Member -MemberType "NoteProperty" -Name "Data" -Value $(if ($null -eq $RegData) { "(null)" } else { $RegData })
-        $Config | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Key" -Value $RegKey
+        $Result | Add-Member -MemberType "NoteProperty" -Name "RunAsPPL" -Value $(if ($null -eq $RunAsPplValue) { "(null)" } else { $RunAsPplValue })
+        $Result | Add-Member -MemberType "NoteProperty" -Name "RunAsPPLBoot" -Value $(if ($null -eq $RunAsPplBootValue) { "(null)" } else { $RunAsPplBootValue })
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value $Description
 
         $CheckResult = New-Object -TypeName PSObject
-        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Config
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Result
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevel::None })
         $CheckResult
     }
