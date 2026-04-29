@@ -162,8 +162,26 @@
             "MatchAndReplace": null
         },
         {
-            "Id": "CHECK_MISC",
-            "Path": ".\\src\\check\\Misc.ps1",
+            "Id": "CHECK_MISC_ACCESS_CONTROL",
+            "Path": ".\\src\\check\\Misc.AccessControl.ps1",
+            "Compression": true,
+            "MatchAndReplace": null
+        },
+        {
+            "Id": "CHECK_MISC_ENVIRONMENT",
+            "Path": ".\\src\\check\\Misc.Environment.ps1",
+            "Compression": true,
+            "MatchAndReplace": null
+        },
+        {
+            "Id": "CHECK_MISC_MSI",
+            "Path": ".\\src\\check\\Misc.Msi.ps1",
+            "Compression": true,
+            "MatchAndReplace": null
+        },
+        {
+            "Id": "CHECK_MISC_SYSTEM_INFORMATION",
+            "Path": ".\\src\\check\\Misc.SystemInformation.ps1",
             "Compression": true,
             "MatchAndReplace": null
         },
@@ -246,7 +264,10 @@
                 "CHECK_NETWORK",
                 "CHECK_UPDATES",
                 "CHECK_CREDENTIALS",
-                "CHECK_MISC"
+                "CHECK_MISC_ACCESS_CONTROL",
+                "CHECK_MISC_ENVIRONMENT",
+                "CHECK_MISC_MSI",
+                "CHECK_MISC_SYSTEM_INFORMATION"
             ]
         }
     ],
