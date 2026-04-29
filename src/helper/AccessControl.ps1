@@ -509,6 +509,24 @@ function Get-ModifiableComClassEntryImagePath {
 
             if ([String]::IsNullOrEmpty($CandidatePath)) { continue }
 
+            # If a path starts with "\\?\", it may cause an "Illegal characters in path"
+            # exception when calling Get-Item. Normally, we would have to convert this
+            # type of path properly, but we don't expect paths other than "\\?\C:\...",
+            # so we can safely remove the prefix "\\?\" (and hope for the best ^^').
+            #
+            # Note that this behavior seems to only be triggered by a few EDRs. There is
+            # no issue with this type of path on a standard Windows installation. For
+            # instance, the following command works as intended on Windows 11 + Defender.
+            #
+            # PS C:> Get-Item -Path "\\?\C:\Windows"
+            #
+            #     Directory: \\?\C:
+            #
+            # Mode                 LastWriteTime         Length Name
+            # ----                 -------------         ------ ----
+            # d-----        24/04/2026     19:15                Windows
+            if ($CandidatePath.StartsWith("\\?\")) { $CandidatePath = $CandidatePath.Replace("\\?\", "") }
+
             $ModifiablePaths = Get-ModifiablePath -Path $CandidatePath | Where-Object { $_ -and (-not [String]::IsNullOrEmpty($_.ModifiablePath)) }
             if ($null -eq $ModifiablePaths) { continue }
 

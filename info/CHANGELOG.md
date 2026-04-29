@@ -9,6 +9,10 @@
 - Split misc checks into multiple files.
 - Reorganize code of main file.
 
+### Fixed
+
+- Handle DOS paths starting with "\\?\" in COM image file permission check to avoid "illegal characters in path" exceptions (issue #82).
+
 ## 2026-04-25
 
 ### Modified
