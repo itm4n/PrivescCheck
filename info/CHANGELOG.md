@@ -6,6 +6,7 @@
 
 - Split core reflection code in separate files.
 - Update build script and profiles.
+- Split misc checks into multiple files.
 
 ## 2026-04-25
 
