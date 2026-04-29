@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-04-29
+
+### Modified
+
+- Split core reflection code in separate files.
+
 ## 2026-04-25
 
 ### Modified
