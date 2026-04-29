@@ -159,6 +159,9 @@ function Invoke-Build {
                                 $ErrorCount += 1
                                 Write-Message -Type Error "Unexpected error while importing module '$($ModuleFilename)' (name: '$($ModuleName)'): $($_.Exception.Message.Trim())"
                             }
+                            else {
+                                Write-Message "File '$($ModuleFilename)' (name: '$($ModuleName)') was not loaded successfully (expected)."
+                            }
                         }
                         else {
                             # Other unexpected exception

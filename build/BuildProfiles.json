@@ -13,8 +13,32 @@
             "MatchAndReplace": null
         },
         {
-            "Id": "CORE_REFLECTION",
-            "Path": ".\\src\\core\\Reflection.ps1",
+            "Id": "CORE_REFLECTION_DYNAMIC_MODULE",
+            "Path": ".\\src\\core\\Reflection.DynamicModule.ps1",
+            "Compression": true,
+            "MatchAndReplace": null
+        },
+        {
+            "Id": "CORE_REFLECTION_ENUM",
+            "Path": ".\\src\\core\\Reflection.Enum.ps1",
+            "Compression": true,
+            "MatchAndReplace": null
+        },
+        {
+            "Id": "CORE_REFLECTION_STRUCTURE",
+            "Path": ".\\src\\core\\Reflection.Structure.ps1",
+            "Compression": true,
+            "MatchAndReplace": null
+        },
+        {
+            "Id": "CORE_REFLECTION_FUNCTION",
+            "Path": ".\\src\\core\\Reflection.Function.ps1",
+            "Compression": true,
+            "MatchAndReplace": null
+        },
+        {
+            "Id": "CORE_REFLECTION_WIN32_TYPE",
+            "Path": ".\\src\\core\\Reflection.Win32Type.ps1",
             "Compression": true,
             "MatchAndReplace": null
         },
@@ -185,7 +209,11 @@
             "Id": "CORE",
             "Files": [
                 "CORE_COMPRESSION",
-                "CORE_REFLECTION",
+                "CORE_REFLECTION_DYNAMIC_MODULE",
+                "CORE_REFLECTION_ENUM",
+                "CORE_REFLECTION_STRUCTURE",
+                "CORE_REFLECTION_FUNCTION",
+                "CORE_REFLECTION_WIN32_TYPE",
                 "CORE_WINAPI_ENUM",
                 "CORE_WINAPI_STRUCT",
                 "CORE_WINAPI_WRAPPERS",
