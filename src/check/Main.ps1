@@ -199,12 +199,6 @@ function Invoke-PrivescCheck {
     }
 }
 
-function ConvertFrom-EmbeddedTextBlob {
-    param([String] $TextBlob)
-    $Decoded = [System.Convert]::FromBase64String($TextBlob)
-    ConvertFrom-Gzip -InputBuffer $Decoded
-}
-
 function Invoke-DynamicCommand {
 
     [CmdletBinding()]
@@ -231,18 +225,6 @@ function Invoke-Check {
     $Check | Add-Member -MemberType "NoteProperty" -Name "ResultRaw" -Value $Result.Result
     $Check.Severity = $Result.Severity -as $script:SeverityLevel
 
-    # $IsVulnerabilityCheck = $Check.Severity -ne $script:SeverityLevel::None
-
-    # if ($IsVulnerabilityCheck) {
-    #     $Result = Invoke-DynamicCommand -Command "$($Check.Command) -BaseSeverity $([UInt32] $Check.BaseSeverity)"
-    #     $Check | Add-Member -MemberType "NoteProperty" -Name "ResultRaw" -Value $Result.Result
-    #     if ($Check.Severity) { $Check.Severity = $Result.Severity }
-    # }
-    # else {
-    #     $Result = Invoke-DynamicCommand -Command "$($Check.Command)"
-    #     $Check | Add-Member -MemberType "NoteProperty" -Name "ResultRaw" -Value $Result
-    # }
-
     if ($Check.Format -eq "Table") {
         $Check | Add-Member -MemberType "NoteProperty" -Name "ResultRawString" -Value $($Check.ResultRaw | Format-Table | Out-String)
     }
@@ -253,6 +235,27 @@ function Invoke-Check {
     $script:GlobalVariable.CheckResultList += $Check
     $Check
 }
+
+function ConvertFrom-EmbeddedTextBlob {
+    param([String] $TextBlob)
+    $Decoded = [System.Convert]::FromBase64String($TextBlob)
+    ConvertFrom-Gzip -InputBuffer $Decoded
+}
+
+function Get-SeverityColor {
+
+    param (
+        [UInt32] $Severity
+    )
+
+    switch ($Severity -as $script:SeverityLevel) {
+        $script:SeverityLevel::Low    { "DarkCyan" }
+        $script:SeverityLevel::Medium { "DarkYellow" }
+        $script:SeverityLevel::High   { "Red" }
+        default { Write-Warning "Get-SeverityColor > Unhandled severity level: $($Severity)" }
+    }
+}
+
 
 function Write-CheckBanner {
 
@@ -286,16 +289,16 @@ function Write-CheckBanner {
         $DescriptionSplit
     }
 
-    $HeavyVertical = [char] $(if ($Ascii) { '|' } else { 0x2503 })
-    $HeavyHorizontal = [char] $(if ($Ascii) { '-' } else { 0x2501 })
-    $HeavyVerticalAndRight = [char] $(if ($Ascii) { '+' } else { 0x2523 })
-    $HeavyVerticalAndLeft = [char] $(if ($Ascii) { '+' } else { 0x252B })
-    $HeavyDownAndHorizontal = [char] $(if ($Ascii) { '+' } else { 0x2533 })
-    $HeavyUpAndHorizontal = [char] $(if ($Ascii) { '+' } else { 0x253B })
-    $HeavyDownAndLeft = [char] $(if ($Ascii) { '+' } else { 0x2513 })
-    $HeavyDownAndRight = [char] $(if ($Ascii) { '+' } else { 0x250F })
-    $HeavyUpAndRight = [char] $(if ($Ascii) { '+' } else { 0x2517 })
-    $HeavyUpAndLeft = [char] $(if ($Ascii) { '+' } else { 0x251B })
+    $HeavyVertical = [char] $(if ($Ascii) { 0x007C } else { 0x2503 })
+    $HeavyHorizontal = [char] $(if ($Ascii) { 0x002D } else { 0x2501 })
+    $HeavyVerticalAndRight = [char] $(if ($Ascii) { 0x002B } else { 0x2523 })
+    $HeavyVerticalAndLeft = [char] $(if ($Ascii) { 0x002B } else { 0x252B })
+    $HeavyDownAndHorizontal = [char] $(if ($Ascii) { 0x002B } else { 0x2533 })
+    $HeavyUpAndHorizontal = [char] $(if ($Ascii) { 0x002B } else { 0x253B })
+    $HeavyDownAndLeft = [char] $(if ($Ascii) { 0x002B } else { 0x2513 })
+    $HeavyDownAndRight = [char] $(if ($Ascii) { 0x002B } else { 0x250F })
+    $HeavyUpAndRight = [char] $(if ($Ascii) { 0x002B } else { 0x2517 })
+    $HeavyUpAndLeft = [char] $(if ($Ascii) { 0x002B } else { 0x251B })
 
     $Result = ""
     $Result += "$($HeavyDownAndRight)$("$HeavyHorizontal" * 10)$($HeavyDownAndHorizontal)$("$HeavyHorizontal" * 51)$($HeavyDownAndLeft)`n"
@@ -679,20 +682,6 @@ $($JavaScript)
     $TableHtml = $AllResults | Sort-Object -Property "Category", "DisplayName" | ConvertTo-Html -Property "Category", "DisplayName", "Description", "Severity", "ResultRawString" -Fragment
     $Html = $Html.Replace("BODY_TO_REPLACE", $TableHtml)
     $Html
-}
-
-function Get-SeverityColor {
-
-    param (
-        [UInt32] $Severity
-    )
-
-    switch ($Severity -as $script:SeverityLevel) {
-        $script:SeverityLevel::Low    { "DarkCyan" }
-        $script:SeverityLevel::Medium { "DarkYellow" }
-        $script:SeverityLevel::High   { "Red" }
-        default { Write-Warning "Get-SeverityColor > Unhandled severity level: $($Severity)" }
-    }
 }
 
 function Write-ShortReport {
