@@ -1657,3 +1657,107 @@ function Invoke-NtlmDowngradeAttackCheck {
         $CheckResult
     }
 }
+
+function Invoke-InstallServiceRegistryPermissionCheck {
+    <#
+    .SYNOPSIS
+    Check for CVE-2026-50343 vulnerability in Windows InstallService registry.
+
+    Author: @KenjiEndo15
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet checks whether the current user can write to the InstallService plugin registry keys
+    (PlugInList and StaticPluginMap), which can be abused to load and execute arbitrary DLLs as SYSTEM.
+
+    This vulnerability affects Windows 11 (build 22000+).
+
+    .EXAMPLE
+    PS C:\> Invoke-InstallServiceRegistryPermissionCheck
+
+    RegPath     : HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\InstallService\State\PlugInList
+    CanWrite    : True
+    Description : Can write to PlugInList - VULNERABLE to CVE-2026-50343
+
+    RegPath     : HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\InstallService\State\StaticPluginMap
+    CanWrite    : True
+    Description : Can write to StaticPluginMap - VULNERABLE to CVE-2026-50343
+    #>
+
+    [CmdletBinding()]
+    param (
+        [UInt32] $BaseSeverity
+    )
+
+    begin {
+        $AllResults = @()
+        $StatePath = "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\InstallService\State"
+        $PluginKeys = @("PlugInList", "StaticPluginMap")
+        $CreatedKeys = @()
+    }
+
+    process {
+        # CVE-2026-50343 only affects Windows 11 (build 22000+)
+        $OsVersion = Get-WindowsVersionFromRegistry
+        if ($OsVersion.Build -lt 22000) {
+            Write-Verbose "CVE-2026-50343 affects Windows 11+ (build 22000+). Current build: $($OsVersion.Build)"
+            $CheckResult = New-Object -TypeName PSObject
+            $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value @()
+            $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $script:SeverityLevel::None
+            return $CheckResult
+        }
+
+        foreach ($KeyName in $PluginKeys) {
+            # Keys to test:
+            # - HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\InstallService\State\PlugInList
+            # - HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\InstallService\State\StaticPluginMap
+            $FullPath = "$StatePath\$KeyName"
+            $KeyExistedBefore = Test-Path "Registry::$FullPath" -ErrorAction SilentlyContinue
+
+            # Try to create plugin key if it doesn't exist.
+            if (-not $KeyExistedBefore) {
+                try {
+                    $null = New-Item -Path "Registry::$FullPath" -Force -ErrorAction Stop
+                    $CreatedKeys += $FullPath
+                }
+                catch {
+                    Write-Verbose "Cannot create $KeyName"
+                }
+            }
+
+            # Test write access to plugin keys and clean up test value.
+            try {
+                $TestValue = "PrivescCheck_Test_$(Get-Random)"
+                New-ItemProperty -Path "Registry::$FullPath" -Name $TestValue -Value "PrivescCheck_Test" -Force -ErrorAction Stop | Out-Null
+                Remove-ItemProperty -Path "Registry::$FullPath" -Name $TestValue -Force -ErrorAction SilentlyContinue
+
+                $Result = New-Object -TypeName PSObject
+                $Result | Add-Member -MemberType "NoteProperty" -Name "RegPath" -Value $FullPath
+                $Result | Add-Member -MemberType "NoteProperty" -Name "CanWrite" -Value $true
+                $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value "Can write to $KeyName - VULNERABLE to CVE-2026-50343"
+                $AllResults += $Result
+            }
+            catch {
+                Write-Verbose "No write access to $FullPath"
+            }
+        }
+
+        # Clean up any plugin keys we created during testing.
+        foreach ($CreatedKey in $CreatedKeys) {
+            try {
+                Remove-Item -Path "Registry::$CreatedKey" -Force -ErrorAction Stop
+                Write-Verbose "Cleaned up test key: $CreatedKey"
+            }
+            catch {
+                Write-Verbose "Could not remove test key: $CreatedKey"
+            }
+        }
+
+        $CheckResult = New-Object -TypeName PSObject
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(
+            if ($AllResults.Count -eq 2) { $BaseSeverity } else { $script:SeverityLevel::None }
+        )
+        $CheckResult
+    }
+}
