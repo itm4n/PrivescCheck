@@ -95,7 +95,7 @@ jobs:
         shell: pwsh
         run: |
           . ./build/Build.ps1
-          Invoke-Build -Name "PrivescCheck" -NoNewSeed
+          Invoke-Build -Name "PrivescCheck" -NoNewSeed -NoNewKey
       - name: Upload script artifact
         uses: actions/upload-artifact@v6
         with:
