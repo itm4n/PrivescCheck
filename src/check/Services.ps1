@@ -604,20 +604,7 @@ function Invoke-VulnerableDriverBlockingPolicyCheck {
     .EXAMPLE
     PS C:\> Invoke-VulnerableDriverBlockingPolicyCheck
 
-    Name    : termdd.sys
-    Version : 6.1.7601.17514 (win7sp1_rtm.101119-1850)
-    Id      : ef848b1c-e197-4f98-aa19-4580f41a98b8
-    Url     : https://www.loldrivers.io/drivers/ef848b1c-e197-4f98-aa19-4580f41a98b8
-
-    Name    : HwOs2Ec.sys
-    Version : 1.0.0.1
-    Id      : 3ab0d182-6365-47a7-89f4-34121e889503
-    Url     : https://www.loldrivers.io/drivers/3ab0d182-6365-47a7-89f4-34121e889503
-
-    Name    : dsark.sys
-    Version : 1.0.0.1219, 1.0.0.1221
-    Id      : 399fb787-5b06-46f0-86cb-dff7374bb015
-    Url     : https://www.loldrivers.io/drivers/399fb787-5b06-46f0-86cb-dff7374bb015
+    ...
 
     Name    : afd.sys
     Version : 10.0.22621.1105 (WinBuild.160101.0800), 10.0.22621.608 (WinBuild.160101.0800)
@@ -1050,6 +1037,112 @@ function Invoke-NamedKernelDeviceCheck {
         $Result = New-Object -TypeName PSObject
         $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Results
         $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Results) { $BaseSeverity } else { $script:SeverityLevel::None })
+        $Result
+    }
+}
+
+function Invoke-ServiceRestartAsUserCheck {
+    <#
+    .SYNOPSIS
+    Get information about services that can be restarted by unprivileged users.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This check enumerates system services that can be restarted by unprivileged users.
+
+    .EXAMPLE
+    PS C:\> Invoke-ServiceRestartAsUserCheck
+
+    ...
+
+    Name              : RmSvc
+    User              : NT AUTHORITY\LocalService
+    ImagePath         : C:\WINDOWS\System32\svchost.exe -k LocalServiceNetworkRestricted
+    StartMode         : Manual
+    Type              : Win32ShareProcess
+    Status            : Running
+    IdentityReference : BUILTIN\Users (S-1-5-32-545)
+    Permissions       : Start, Stop
+
+    ...
+    #>
+
+    [CmdletBinding()]
+    param (
+        [UInt32] $BaseSeverity
+    )
+
+    begin {
+        $ServiceStartStopAccessRights = @(
+            $script:ServiceAccessRight::Start,
+            $script:ServiceAccessRight::Stop
+        )
+
+        $ExcludedServiceTypes = @(
+            $script:ServiceType::UserService,
+            $script:ServiceType::UserOwnProcess,
+            $script:ServiceType::UserShareProcess,
+            $script:ServiceType::UserServiceInstance
+        )
+    }
+
+    process {
+        $Win32Services = Get-ServiceFromRegistry -FilterLevel 2 | Where-Object {
+            (-not [String]::IsNullOrEmpty($_.User)) -and (-not [String]::IsNullOrEmpty($_.Name)) -and ($ExcludedServiceTypes -notcontains $_.Type) -and ($_.StartMode -ne "Disabled")
+        }
+
+        $AllResults = @()
+
+        $ProgressCount = 0
+        Write-Progress -Activity "Checking service start and stop permissions (0/$($Win32Services.Count))..." -Status "0% Complete:" -PercentComplete 0
+
+        foreach ($Service in $Win32Services) {
+
+            $ProgressPercent = [UInt32] ($ProgressCount * 100 / $Win32Services.Count)
+            Write-Progress -Activity "Checking service start and stop permissions ($($ProgressCount)/$($Win32Services.Count)): $($Service.Name)" -Status "$($ProgressPercent)% Complete:" -PercentComplete $ProgressPercent
+
+            $Candidate = New-Object -TypeName PSObject
+            $Candidate | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $Service.Name
+            $Candidate | Add-Member -MemberType "NoteProperty" -Name "User" -Value $Service.User
+            $Candidate | Add-Member -MemberType "NoteProperty" -Name "ImagePath" -Value $Service.ImagePath
+            $Candidate | Add-Member -MemberType "NoteProperty" -Name "StartMode" -Value $Service.StartMode
+            $Candidate | Add-Member -MemberType "NoteProperty" -Name "Type" -Value $Service.Type
+            $Candidate | Add-Member -MemberType "NoteProperty" -Name "Status" -Value ""
+            $Candidate | Add-Member -MemberType "NoteProperty" -Name "IdentityReference" -Value ([String[]] @())
+            $Candidate | Add-Member -MemberType "NoteProperty" -Name "Permissions" -Value @()
+
+            Get-ObjectAccessRight -Name $Service.Name -Type Service -AccessRights $ServiceStartStopAccessRights | ForEach-Object {
+
+                $Candidate.IdentityReference += $_.IdentityReference
+
+                if ($_.Permissions -contains $script:ServiceAccessRight::Start) {
+                    $Candidate.Permissions += $script:ServiceAccessRight::Start
+                }
+
+                if ($_.Permissions -contains $script:ServiceAccessRight::Stop) {
+                    $Candidate.Permissions += $script:ServiceAccessRight::Stop
+                }
+            }
+
+            $IsValidCandidate = $Candidate.Permissions -contains $script:ServiceAccessRight::Start -and $Candidate.Permissions -contains $script:ServiceAccessRight::Stop
+
+            if ($IsValidCandidate) {
+                $Candidate.Status = Get-ServiceStatus -Name $Service.Name
+                $Candidate.IdentityReference = ($Candidate.IdentityReference | Sort-Object -Unique) -join ", "
+                $Candidate.Permissions = ($Candidate.Permissions | Sort-Object -Unique) -join ", "
+                $AllResults += $Candidate
+            }
+
+            $ProgressCount += 1
+        }
+
+        Write-Progress -Activity "Checking service start and stop permissions ($($ProgressCount)/$($Win32Services.Count))..." -Status "100% Complete:" -Completed
+
+        $Result = New-Object -TypeName PSObject
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($AllResults) { $BaseSeverity } else { $script:SeverityLevel::None })
         $Result
     }
 }

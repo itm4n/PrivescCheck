@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-09-12
+
+### Added
+
+- Add a check to enumerate system services that can be restarted by unprivileged users.
+
 ## 2026-09-02
 
 ### Modified
