@@ -170,9 +170,17 @@ function Invoke-ProgramDataPermissionCheck {
     }
 
     process {
-        $ProgramDataFolders = Get-ChildItem -Path $env:ProgramData -Force -ErrorAction SilentlyContinue | Where-Object { ($_ -is [System.IO.DirectoryInfo]) -and (-not ($IgnoredProgramData -contains $_.Name)) }
+        $ProgramDataFolders = [Object[]] (Get-ChildItem -Path $env:ProgramData -Force -ErrorAction SilentlyContinue | Where-Object { ($_ -is [System.IO.DirectoryInfo]) -and (-not ($IgnoredProgramData -contains $_.Name)) })
+
+        $ProgressCount = 0
+        Write-Progress -Activity "Checking ProgramData folder and file permissions (0/$($ProgramDataFolders.Count))..." -Status "0% Complete:" -PercentComplete 0
 
         foreach ($ProgramDataFolder in $ProgramDataFolders) {
+
+            $ProgressPercent = [UInt32] ($ProgressCount * 100 / $ProgramDataFolders.Count)
+            Write-Progress -Activity "Checking ProgramData folder and file permissions ($($ProgressCount)/$($ProgramDataFolders.Count)): $($ProgramDataFolder.FullName)" -Status "$($ProgressPercent)% Complete:" -PercentComplete $ProgressPercent
+
+            $ProgressCount += 1
 
             $ProgramDataFolderChildItems = Get-ChildItem -Path $ProgramDataFolder.FullName -Recurse -Force -ErrorAction SilentlyContinue
             if ($null -eq $ProgramDataFolderChildItems) { continue }
@@ -196,6 +204,8 @@ function Invoke-ProgramDataPermissionCheck {
                 }
             }
         }
+
+        Write-Progress -Activity "Checking ProgramData folder and file permission ($($ProgramDataFolders.Count)/$($ProgramDataFolders.Count))..." -Status "100% Complete:" -Completed
 
         $CheckResult = New-Object -TypeName PSObject
         $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $AllResults

@@ -6,6 +6,7 @@
 
 - Add a 'Stats' switch to generate a CSV file with execution times for each check.
 - Add 'FilePath' option to specify output file name or directory.
+- Add progress status information to 'Invoke-ProgramDataPermissionCheck'.
 
 ### Modified
 
