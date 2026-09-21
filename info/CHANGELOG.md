@@ -14,6 +14,7 @@
 ### Fixed
 
 - Implement better error handling for 'Resolve-CommandLine'.
+- Add exception handling to 'Convert-DateToString'.
 
 ## 2026-09-12
 

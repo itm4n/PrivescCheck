@@ -185,14 +185,24 @@ function Convert-DateToString {
             return
         }
 
-        if ([string]::IsNullOrEmpty($DateString)) {
-            $Date = [DateTime] $Date
-        }
-        else {
-            $Date = [DateTime] $DateString
-        }
+        try {
+            if ([string]::IsNullOrEmpty($DateString)) {
+                $Date = [DateTime] $Date
+            }
+            else {
+                $Date = [DateTime] $DateString
+            }
 
-        $Date.ToString($DateFormat)
+            return $Date.ToString($DateFormat)
+        }
+        catch {
+            if ($DateString) {
+                Write-Warning "[Convert-DateToString] Failed to convert date: $($DateString)"
+            }
+            else {
+                Write-Warning "[Convert-DateToString] Failed to convert date: $($Date)"
+            }
+        }
     }
 }
 
