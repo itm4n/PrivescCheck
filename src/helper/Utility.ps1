@@ -1026,12 +1026,11 @@ function Resolve-CommandLine {
 
         $Arguments = [String[]] (ConvertTo-ArgumentList -CommandLine $CommandLineResolved)
         if ($Arguments.Length -eq 0) {
-            Write-Warning "Resolve-CommandLine failed for input: $($CommandLine)"
             return $null
         }
 
         if ([String]::IsNullOrEmpty($Arguments[0])) {
-            Write-Warning "Input command line seems to be empty: $($CommandLine)"
+            Write-Warning "[Resolve-CommandLine] Input command line seems to be empty: $($CommandLine)"
             return $null
         }
 
@@ -1057,7 +1056,7 @@ function Resolve-CommandLine {
             }
         }
 
-        Write-Error "Resolve-CommandLine failed for input: $($CommandLine)"
+        Write-Warning "[Resolve-CommandLine] Failed to resolve command line: $($CommandLine)"
     }
 }
 

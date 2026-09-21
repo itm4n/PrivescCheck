@@ -11,6 +11,10 @@
 
 - Refactor main 'Report' option to specify output file formats instead of file path, and mark option 'Format' as deprecated.
 
+### Fixed
+
+- Implement better error handling for 'Resolve-CommandLine'.
+
 ## 2026-09-12
 
 ### Added
