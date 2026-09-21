@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-09-21
+
+### Added
+
+- Add a 'Stats' switch to generate a CSV file with execution times for each check.
+
 ## 2026-09-12
 
 ### Added

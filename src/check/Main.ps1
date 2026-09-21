@@ -61,7 +61,9 @@ function Invoke-PrivescCheck {
         [String] $Report,
 
         [ValidateSet("TXT", "HTML", "CSV", "XML")]
-        [String[]] $Format
+        [String[]] $Format,
+
+        [Switch] $Stats = $false
     )
 
     begin {
@@ -199,6 +201,27 @@ function Invoke-PrivescCheck {
                 }
             }
         }
+
+        # ==============================================================================
+        # Generate a CSV file containing the execution time of each check. The goal is
+        # to have have data that can later be used to know which check to improve in
+        # priority, performance-wise.
+        # ==============================================================================
+
+        if ($PSBoundParameters['Stats']) {
+
+            $AllStats = @()
+
+            $script:GlobalVariable.CheckResultList | ForEach-Object {
+                $Stat = New-Object -TypeName PSObject
+                $Stat | Add-Member -MemberType "NoteProperty" -Name "Id" -Value $_.Id
+                $Stat | Add-Member -MemberType "NoteProperty" -Name "Command" -Value $_.Command
+                $Stat | Add-Member -MemberType "NoteProperty" -Name "TimeElapsed" -Value $_.TimeElapsed
+                $AllStats += $Stat
+            }
+
+            $AllStats | Export-Csv -Path "$(Get-ReportFilename)_stats.csv" -NoTypeInformation -Encoding unicode
+        }
     }
 
     end {
@@ -331,8 +354,6 @@ function Invoke-Check {
             $Check | Add-Member -MemberType "NoteProperty" -Name "ResultRawString" -Value $($Check.ResultRaw | Format-List | Out-String)
         }
 
-        $script:GlobalVariable.CheckResultList += $Check
-
         # ==============================================================================
         # Stop the StopWatch and add the elapsed time object as a new property to the
         # check result.
@@ -351,6 +372,8 @@ function Invoke-Check {
         else {
             Write-CheckResult -Check $Check
         }
+
+        $script:GlobalVariable.CheckResultList += $Check
     }
 }
 
@@ -367,6 +390,20 @@ function ConvertFrom-EmbeddedTextBlob {
     process {
         $Decoded = [Convert]::FromBase64String($TextBlob)
         ConvertFrom-Gzip -InputBuffer $Decoded
+    }
+}
+
+function Get-ReportFilename {
+
+    [OutputType([String])]
+    [CmdletBinding()]
+    param ()
+
+    process {
+        $ComputerName = $env:COMPUTERNAME
+        if ([String]::IsNullOrEmpty($ComputerName)) { $ComputerName = "UNKNOWN" }
+        $CurrentDateTime = (Get-Date).ToString("yyyyMMdd_HHmmss")
+        return "PrivescCheck_$($ComputerName)_$($CurrentDateTime)"
     }
 }
 
