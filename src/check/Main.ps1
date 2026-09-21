@@ -46,27 +46,31 @@ function Invoke-PrivescCheck {
     [CmdletBinding()]
     param(
         [Switch] $Extended = $false,
-
         [Switch] $Audit = $false,
-
-        [Switch] $Experimental = $false,
-
         [Switch] $Risky = $false,
-
+        [Switch] $Experimental = $false,
+        [Switch] $Silent = $false,
+        [Switch] $Stats = $false,
         [Switch] $Force = $false,
 
-        [Switch] $Silent = $false,
+        # TODO: Replace with format set after deprecation
+        [ValidateNotNullOrEmpty()]
+        # [ValidateSet("TXT", "HTML", "CSV", "XML", "ALL")]
+        [String[]] $Report,
 
         [ValidateNotNullOrEmpty()]
-        [String] $Report,
+        [String] $FilePath,
 
-        [ValidateSet("TXT", "HTML", "CSV", "XML")]
-        [String[]] $Format,
-
-        [Switch] $Stats = $false
+        # TODO: Remove after deprecation
+        [ValidateSet("TXT", "HTML", "CSV", "XML", "ALL")]
+        [String[]] $Format
     )
 
     begin {
+
+        $FileFormatsSupported = @("TXT", "HTML", "CSV", "XML")
+
+        $WarningMessageSleepDuration = 0
 
         # ==============================================================================
         # Check whether the current process has admin privileges (check borrowed from
@@ -76,8 +80,8 @@ function Invoke-PrivescCheck {
         $IsAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")
         if ($IsAdmin) {
             if (-not $Force) {
-                Write-Warning "You are running this script as an administrator! Some checks will be automatically disabled. You can specify the '-Force' option to disable this warning message."
-                Start-Sleep -Seconds 10
+                Write-Warning "[MAIN] You are running this script as an administrator! Some checks will be automatically disabled."
+                $WarningMessageSleepDuration += 10
             }
         }
 
@@ -93,9 +97,85 @@ function Invoke-PrivescCheck {
         Clear-CachedData
 
         $script:GlobalVariable.CheckResultList = @()
+
+        # ==============================================================================
+        # Input parameter handling.
+        # ==============================================================================
+
+        $OutputReportFilePath = Get-ReportFilename
+        $OutputReportFormats = @()
+
+        if ($PSBoundParameters['Report']) {
+
+            # TODO: Temporary check, refactor after deprecation
+            if (($Report.Count -eq 1) -and ($FileFormatsSupported -notcontains $Report[0])) {
+                Write-Warning "[MAIN] Option '-Report <FILEPATH>' is deprecated! Check out README for more information."
+                # Replicate previous default behavior
+                $OutputReportFilePath = $Report
+                $OutputReportFormats = @("TXT")
+                $WarningMessageSleepDuration += 5
+            }
+            else {
+                if ($Report -contains "ALL") {
+                    $OutputReportFormats = $FileFormatsSupported
+                }
+                else {
+                    # TODO: This check won't be necessary when 'Report' is replaced by a "validated set"
+                    $FileFormatsSpecified = @()
+                    $Report | ForEach-Object {
+                        if ($FileFormatsSupported -contains $_) {
+                            $FileFormatsSpecified += $_
+                        }
+                        else {
+                            throw "[MAIN] Unknown file format: $($_)"
+                        }
+                    }
+                    $FileFormatsSpecified = [String[]] ($FileFormatsSpecified | Sort-Object -Unique)
+                    if ($FileFormatsSpecified.Count -eq $FileFormatsSupported.Count) {
+                        Write-Warning "[MAIN] Use alias 'ALL' to specify all file formats."
+                        $WarningMessageSleepDuration += 5
+                    }
+                    $OutputReportFormats = $FileFormatsSpecified
+                }
+            }
+        }
+
+        if ($PSBoundParameters['FilePath']) {
+            if ([IO.Directory]::Exists($FilePath)) {
+                $OutputReportFilePath = Join-Path -Path $FilePath -ChildPath $OutputReportFilePath
+            }
+            else {
+                $OutputReportFilePath = $FilePath
+            }
+        }
+
+        # TODO: Remove after deprecation
+        if ($PSBoundParameters['Format']) {
+            Write-Warning "[MAIN] Option '-Format' is deprecated! Check out README for more information."
+            $Format = $Format | Sort-Object -Unique
+            if ($Format -contains "ALL") {
+                $OutputReportFormats = @("TXT", "HTML", "CSV", "XML")
+            }
+            else {
+                # Replicate previous default behavior
+                $Format | ForEach-Object {
+                    if ($FileFormatsSupported -notcontains $_) {
+                        throw "[MAIN] Unknown file format: $($_)"
+                    }
+                    $OutputReportFormats += $Format
+                }
+            }
+        }
     }
 
     process {
+
+        if (($WarningMessageSleepDuration -gt 0) -and (-not $PSBoundParameters['Force'])) {
+            Write-Warning "[MAIN] Use option '-Force' to ignore warning messages and run immediately."
+            $WarningMessageSleepDuration += 5
+            Start-Sleep -Seconds $WarningMessageSleepDuration
+        }
+
         $CheckList = Get-CheckList
 
         foreach ($Check in $CheckList) {
@@ -109,9 +189,9 @@ function Invoke-PrivescCheck {
 
             switch ($Check.Type) {
                 "Base"         { $IgnoreCheck = $false }
-                "Extended"     { if ($Extended)     { $IgnoreCheck = $false } }
-                "Audit"        { if ($Audit)        { $IgnoreCheck = $false } }
-                "Experimental" { if ($Experimental) { $IgnoreCheck = $false } }
+                "Extended"     { if ($PSBoundParameters['Extended'])     { $IgnoreCheck = $false } }
+                "Audit"        { if ($PSBoundParameters['Audit'])        { $IgnoreCheck = $false } }
+                "Experimental" { if ($PSBoundParameters['Experimental']) { $IgnoreCheck = $false } }
                 default {
                     throw "[MAIN] Check type '$($Check.Type)' is unknown (ID=$($Check.Id))."
                 }
@@ -131,7 +211,7 @@ function Invoke-PrivescCheck {
             # ==============================================================================
 
             if ($IsAdmin -and (-not [Convert]::ToBoolean($Check.RunIfAdmin))) {
-                Write-Warning "Check '$($Check.DisplayName)' won't give proper results when run as an administrator, ignoring..."
+                Write-Warning "[MAIN] Check '$($Check.DisplayName)' won't give proper results when run as an administrator, ignoring..."
                 $IgnoreCheck = $true
             }
 
@@ -141,7 +221,7 @@ function Invoke-PrivescCheck {
             # ==============================================================================
 
             if ([Convert]::ToBoolean($Check.Risky) -and (-not $Risky)) {
-                Write-Warning "Check '$($Check.DisplayName)' is categorized as risky, but the option '-Risky' was not specified, ignoring..."
+                Write-Warning "[MAIN] Check '$($Check.DisplayName)' is categorized as risky, but the option '-Risky' was not specified, ignoring..."
                 $IgnoreCheck = $true
             }
 
@@ -155,16 +235,12 @@ function Invoke-PrivescCheck {
             Invoke-Check -Id $Check.Id -List $CheckList -Silent:$Silent
         }
 
-        # Print a report on the terminal as an 'ASCII-art' table with colors using 'Write-Host'. Therefore,
-        # this will be only visible if run from a 'real' terminal.
-        # Show-PrivescCheckAsciiReport
-
         # ==============================================================================
         # All the checks have been executed. We can now print a short report summarizing
         # the findings and their severity level.
         # ==============================================================================
 
-        if (-not $Silent) {
+        if (-not $PSBoundParameters['Silent']) {
             Write-ShortReport -AllResults $script:GlobalVariable.CheckResultList
         }
 
@@ -173,31 +249,23 @@ function Invoke-PrivescCheck {
         # was specified, assume 'TXT' by default.
         # ==============================================================================
 
-        if ($Report) {
+        $OutputReportFormats | ForEach-Object {
 
-            if ($null -eq $Format) {
-                # If a format or a format list was not specified, default to the TXT format.
-                $Format = [String[]] @("TXT")
-            }
+            # ==============================================================================
+            # For each format, build the name of the output report file as BASENAME||.||EXT.
+            # Then, generate the report corresponding to the current format and write the
+            # output to a file using the previously formatted filename or file path.
+            # ==============================================================================
 
-            $Format | ForEach-Object {
+            $Ext = $_.ToLower()
 
-                # ==============================================================================
-                # For each format, build the name of the output report file as BASENAME||.||EXT.
-                # Then, generate the report corresponding to the current format and write the
-                # output to a file using the previously formatted filename or file path.
-                # ==============================================================================
-
-                $ReportFileName = "$($Report.Trim()).$($_.ToLower())"
-
-                switch ($_) {
-                    "TXT"  { Write-TxtReportOutput  -AllResults $script:GlobalVariable.CheckResultList | Out-File $ReportFileName -Encoding unicode }
-                    "HTML" { Write-HtmlReportOutput -AllResults $script:GlobalVariable.CheckResultList | Out-File $ReportFileName -Encoding unicode }
-                    "CSV"  { Write-CsvReportOutput  -AllResults $script:GlobalVariable.CheckResultList | Out-File $ReportFileName -Encoding unicode }
-                    "XML"  { Write-XmlReportOutput  -AllResults $script:GlobalVariable.CheckResultList | Out-File $ReportFileName -Encoding unicode }
-                    default {
-                        throw "[MAIN] Report output file format '$($_.ToUpper())' is unknown."
-                    }
+            switch ($_) {
+                "TXT"  { Write-TxtReportOutput  -AllResults $script:GlobalVariable.CheckResultList | Out-File "$($OutputReportFilePath).$($Ext)" -Encoding unicode }
+                "HTML" { Write-HtmlReportOutput -AllResults $script:GlobalVariable.CheckResultList | Out-File "$($OutputReportFilePath).$($Ext)" -Encoding unicode }
+                "CSV"  { Write-CsvReportOutput  -AllResults $script:GlobalVariable.CheckResultList | Out-File "$($OutputReportFilePath).$($Ext)" -Encoding unicode }
+                "XML"  { Write-XmlReportOutput  -AllResults $script:GlobalVariable.CheckResultList | Out-File "$($OutputReportFilePath).$($Ext)" -Encoding unicode }
+                default {
+                    throw "[MAIN] Report output file format '$($_.ToUpper())' is unknown."
                 }
             }
         }
@@ -221,19 +289,6 @@ function Invoke-PrivescCheck {
             }
 
             $AllStats | Export-Csv -Path "$(Get-ReportFilename)_stats.csv" -NoTypeInformation -Encoding unicode
-        }
-    }
-
-    end {
-
-        # ==============================================================================
-        # If the '-Extended' option was not used, print a warning message to show the
-        # user that more information can be obtained in this mode, unless the '-Force'
-        # switch is present.
-        # ==============================================================================
-
-        if ((-not $Extended) -and (-not $Force) -and (-not $Silent)) {
-            Write-Warning "To get more info, run this script with the option '-Extended'."
         }
     }
 }
@@ -402,7 +457,7 @@ function Get-ReportFilename {
     process {
         $ComputerName = $env:COMPUTERNAME
         if ([String]::IsNullOrEmpty($ComputerName)) { $ComputerName = "UNKNOWN" }
-        $CurrentDateTime = (Get-Date).ToString("yyyyMMdd_HHmmss")
+        $CurrentDateTime = (Get-Date).ToString("yyyyMMddHHmmss")
         return "PrivescCheck_$($ComputerName)_$($CurrentDateTime)"
     }
 }

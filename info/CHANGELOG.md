@@ -5,6 +5,11 @@
 ### Added
 
 - Add a 'Stats' switch to generate a CSV file with execution times for each check.
+- Add 'FilePath' option to specify output file name or directory.
+
+### Modified
+
+- Refactor main 'Report' option to specify output file formats instead of file path, and mark option 'Format' as deprecated.
 
 ## 2026-09-12
 

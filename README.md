@@ -3,69 +3,59 @@
 Quickly identify common Windows **vulnerabilities** and **configuration issues** that are not necessarily covered by public security standards, and collect useful information for exploitation and post-exploitation tasks.
 
 > [!IMPORTANT]
-> A major aspect to be aware of when using this tool is that all access control checks are done in the context of the current user. Therefore, if it is run with administrator privileges, a lot of vulnerability checks are actually skipped to avoid generating incorrect findings.
+> A major aspect to be aware of when using this tool is that all access control checks are done in the context of the current user. Therefore, if it is run with administrator privileges, a lot of vulnerability checks are skipped to avoid generating incorrect findings.
 
-## :rocket: Quick Start
+## Quick Start
 
 Download the script here: [PrivescCheck.ps1](https://github.com/itm4n/PrivescCheck/releases/latest/download/PrivescCheck.ps1)
 
 > [!TIP]
 > The link above can also be used directly in a PowerShell terminal with `(New-Object Net.WebClient).DownloadString(...)`.
 
-### Use Case 1 (Pentest): Run Basic Checks Only
-
-Is there an obvious way to escalate privileges locally?
+### Use Case 1: Quick Assessment
 
 ```bat
-powershell -ep bypass -c ". .\PrivescCheck.ps1; Invoke-PrivescCheck"
+powershell -ep bypass -c ". .\PrivescCheck.ps1; Invoke-PrivescCheck -Report TXT,HTML"
 ```
 
-### Use Case 2 (Research): Run Extended Checks + Write Human-Readable Reports
-
-Is there additional information that can be leveraged for post-exploitation or for finding vulnerabilities in third-party software?
+### Use Case 2: Extensive Assessment
 
 ```bat
-powershell -ep bypass -c ". .\PrivescCheck.ps1; Invoke-PrivescCheck -Extended -Report PrivescCheck_$($env:COMPUTERNAME) -Format TXT,HTML"
+powershell -ep bypass -c ". .\PrivescCheck.ps1; Invoke-PrivescCheck -Extended -Report TXT,HTML"
 ```
 
-### Use Case 3 (Audit): Run All Checks + Write All Reports
-
-Are there configuration issues that are not covered by common security standards?
+### Use Case 3: Comprehensive Assessment
 
 ```bat
-powershell -ep bypass -c ". .\PrivescCheck.ps1; Invoke-PrivescCheck -Extended -Audit -Report PrivescCheck_$($env:COMPUTERNAME) -Format TXT,HTML,CSV,XML"
+powershell -ep bypass -c ". .\PrivescCheck.ps1; Invoke-PrivescCheck -Extended -Audit -Report ALL"
 ```
 
-## :open_book: Detailed Usage
+## Detailed Usage
 
 ```txt
-Invoke-PrivescCheck [-Extended] [-Audit] [-Experimental] [-Report <PREFIX>]
-    [-Format <FORMAT>[,...]] [-Risky] [-Silent] [-Force]
+Invoke-PrivescCheck [-Extended] [-Audit] [-Risky] [-Report <FORMAT>[,...]]
+    [-FilePath <PREFIX>]  [-Silent] [-Force]
 
     -Extended
-        Include all "extended" checks in the scan (see README).
+        Include all "extended" checks in the scan.
 
     -Audit
         Include all "audit" checks in the scan.
 
-    -Experimental
-        Include all "experimental" checks in the scan. Use only if you know
-        what you are doing.
-
-    -Report <PREFIX>
-        Generate at least one report file. The output filename will be
-        "PREFIX.txt" by default. The extension is automatically appended
-        based on the report format (see "-Format <FORMAT>[,...]").
-
-    -Format <FORMAT>[,...]
-        Specify the format of the output report file(s). If not set, the
-        default value is "TXT". Supported formats are: "TXT", "HTML", "CSV",
-        and "XML".
-
     -Risky
-        Include checks marked as "risky", i.e. checks that are likely to
-        trigger a blocking action by an endpoint protection solution. Use with
-        caution.
+        Include all "risky" checks in the scan. Those are checks that are
+        likely to trigger active EDR counter measures due to their behavior.
+
+    -Report <FORMAT>[,...]
+        Specify output report file formats (TXT, HTML, CSV, XML). Use alias
+        'ALL' to generate all report files. By default, the output filename
+        is automatically generated. Use option '-FilePath' to specify one
+        explicitly.
+
+    -FilePath <PREFIX>
+        Specify the output report file name or directory. The file extension
+        is automatically appended. If a directory path is supplied, the
+        filename is automatically generated at runtime.
 
     -Silent
         Suppress terminal output. This can be useful if you want to run the
@@ -77,38 +67,42 @@ Invoke-PrivescCheck [-Extended] [-Audit] [-Experimental] [-Report <PREFIX>]
         execute it anyway.
 ```
 
-### Report Format > TXT (`-Format TXT`)
+## Report File Formats
 
-Use the option `-Report <PREFIX>` (with `-Format TXT`) to specify that you want to generate a **raw text report**. The output is similar to what you would see in the terminal, except that it contains only ASCII characters for better (retro-)compatibility will all text editors.
+### Report File Format > TXT
+
+Use the option `-Report TXT` to generate a **raw text report**. The output is similar to the terminal output, except that it contains only ASCII characters for better compatibility will text editors.
 
 ![Screenshot of a raw text report generated by PrivescCheck](./img/screenshot_txt_report.png)
 
-### Report Format > HTML (`-Format HTML`)
+### Report File Format > HTML
 
-Use the option `-Report <PREFIX>` with `-Format HTML` to specify that you want to generate an **HTML report**. The output file can be opened in a web browser. It is more convenient for visualizing the data than the raw text report. Additionally, it offers **sorting** and **filtering** capabilities!
+Use the option `-Report HTML` to generate an **HTML report**. The output file can be opened in a web browser. No Internet connection is required as it has no external dependencies. It is more convenient for visualizing the data than the raw text report. Additionally, it offers **sorting** and **filtering** capabilities!
 
 ![Screenshot of an HTML report generated by PrivescCheck](./img/screenshot_html_report.png)
 
-### Report Format > CSV  (`-Format CSV`) & XML  (`-Format XML`)
+### Report File Format > CSV or XML
 
-Use the option `-Report <PREFIX>` with `-Format CSV` or `-Format XML` to specify that you want to generate a **CSV or XML report**. The output file is intended to facilitate the parsing of the results by automated reporting tools.
+Use the option `-Report CSV`  or `-Report XML` to generate a **CSV or XML report**. The output file is intended to facilitate the parsing of the results by automated reporting tools.
 
 > [!NOTE]
-> Although the output format is not documented (yet), you can easily figure it out by analyzing the structure of an already generated file. You can use the `Id` value of each check to uniquely identify them.
+> Although the output format is not documented (yet), you can easily figure it out by analyzing the structure of an already generated file. You can use the `Id` value of each check as a unique identifier.
+
+## Check Types
 
 ### Check Type > Base
 
 Checks of type `Base` will always be executed, unless the script is run as an administrator. They are mainly intended for identifying privilege escalation vulnerabilities, or other important issues.
 
-### Check Type > Extended (`-Extended`)
+### Check Type > Extended
 
 Checks of type `Extended` can only be executed if the option `-Extended` is specified on the command line. They are mainly intended for providing additional information that could be useful for exploit development, or post-exploitation.
 
-### Check Type > Audit (`-Audit`)
+### Check Type > Audit
 
 Checks of type `Audit` can only be executed if the option `-Audit` is specified on the command line. They are mainly intended for providing information that is relevant in the context of a configuration audit.
 
-## :bulb: Tips & Tricks
+## Tips & Tricks
 
 ### PowerShell Execution Policy
 
@@ -132,7 +126,7 @@ A common way to bypass [Constrained Language Mode](https://devblogs.microsoft.co
 > [!NOTE]
 > Although PowerShell version 2 ~~is still enabled by default on recent versions of Windows~~ ([PowerShell 2.0 removal from Windows](https://support.microsoft.com/en-us/topic/powershell-2-0-removal-from-windows-fe6d1edc-2ed2-4c33-b297-afe82a64200a)), it cannot run without the .Net framework version 2.0, which requires a manual install.
 
-### Metasploit timeout
+### Metasploit Timeout
 
 If you run this script within a Meterpreter session, you will likely get a "timeout" error. This is because Metasploit uses a default timeout value of 15 seconds, which is not enough for a typical execution of the script to complete.
 
@@ -153,7 +147,7 @@ msf6 exploit(multi/handler) > sessions -t 120 -i 1
 meterpreter > powershell_execute "Invoke-PrivescCheck"
 ```
 
-## :building_construction: Build
+## Build
 
 ### Update the Data
 
@@ -183,7 +177,7 @@ The build script uses AES encryption with a randomly-generated **key** to obfusc
 powershell -ep bypass ". .\build\Build.ps1; Invoke-Build -Name PrivescCheck -NoNewKey"
 ```
 
-## :bookmark_tabs: Credits
+## Credits
 
 - Word list - [CBHue/PyFuscation](https://github.com/CBHue/PyFuscation)
 - Known vulnerable driver list - [https://www.loldrivers.io/](https://www.loldrivers.io/)
