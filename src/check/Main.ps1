@@ -108,7 +108,7 @@ function Invoke-PrivescCheck {
         if ($PSBoundParameters['Report']) {
 
             # TODO: Temporary check, refactor after deprecation
-            if (($Report.Count -eq 1) -and ($FileFormatsSupported -notcontains $Report[0])) {
+            if (($Report.Count -eq 1) -and ($FileFormatsSupported -notcontains $Report[0]) -and ($Report[0] -ne "ALL")) {
                 Write-Warning "[MAIN] Option '-Report <FILEPATH>' is deprecated! Check out README for more information."
                 # Replicate previous default behavior
                 $OutputReportFilePath = $Report
