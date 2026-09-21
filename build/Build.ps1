@@ -698,6 +698,68 @@ function Get-LolDriver {
     }
 }
 
+function Update-WordList {
+
+    [CmdletBinding()]
+    param (
+        [UInt32] $WordLength = 10
+    )
+
+    begin {
+        $WordListUrl = "https://raw.githubusercontent.com/CBHue/PyFuscation/master/wordList.txt"
+    }
+
+    process {
+        try {
+            $WordList = (New-Object Net.WebClient).DownloadString($WordListUrl)
+        }
+        catch {
+            Write-Message Warning "[Update-WordList] Failed to download word list: $($_.Exception.Message.Trim())"
+            return
+        }
+
+        if ([String]::IsNullOrEmpty($WordList)) {
+            Write-Message Warning "[Update-WordList] Word list is empty, aborting..."
+            return
+        }
+
+        $WordList = [String[]] ($WordList -split "`n" | ForEach-Object { $_.Trim() })
+        Write-Message Info "Downloaded word list (count=$($WordList.Count))."
+
+        if ($WordList.Count -lt 10000) {
+            Write-Message Warning "[Update-WordList] Word list is too small, aborting..."
+            return
+        }
+
+        $WordListFiltered = [String[]] ($WordList | Where-Object { (-not [string]::IsNullOrEmpty($_)) -and ($_.Length -eq $WordLength) -and ($_.ToLower() -match "^[a-z]+$") })
+        Write-Message Info "Filtered word list (count=$($WordListFiltered.Count))."
+
+        if ($WordListFiltered.Count -lt 1000) {
+            Write-Warning "[Update-WordList] Filtered word list is too small, aborting..."
+            return
+        }
+
+        $LocalWordListContent = Get-FileContent -Type "data" -FileName "WordList.txt" -ErrorAction SilentlyContinue | Out-String
+
+        if (-not [String]::IsNullOrEmpty($LocalWordListContent)) {
+
+            $LocalWordList = [String[]] ($LocalWordListContent.Split("`n") | Where-Object { -not [String]::IsNullOrEmpty($_) })
+
+            Write-Message Info "Found local word list (count=$($LocalWordList.Count))."
+
+            if ($LocalWordList.Count -eq $WordListFiltered.Count) {
+                Write-Message Success "Word list is already up-to-date."
+                return
+            }
+        }
+
+        $WordListOutput = $WordListFiltered -join "`n"
+        Set-FileContent -Type "data" -FileName "WordList.txt" -Content $WordListOutput
+
+        Write-Message Success "Updated word list file."
+    }
+}
+
 function Update-LolDriverFile {
 
     [CmdletBinding()]
@@ -714,10 +776,10 @@ function Update-LolDriverFile {
 
         # Retrieve our local and processed version of the LOL driver list.
         $LocalLolDriversContent = Get-FileContent -Type "data" -FileName $VulnerableDriversFileName -ErrorAction SilentlyContinue | Out-String
-        $LocalLolDriversContentSize = [Math]::Round($LocalLolDriversContent.Length / 1024, 2)
 
         if (-not [String]::IsNullOrEmpty($LocalLolDriversContent)) {
 
+            $LocalLolDriversContentSize = [Math]::Round($LocalLolDriversContent.Length / 1024, 2)
             $LocalLolDrivers = $LocalLolDriversContent | ConvertFrom-Csv
 
             Write-Message Info "Found local LOL driver sample list (size=$($LocalLolDriversContentSize) KB, count=$($LocalLolDrivers.Count))."
@@ -726,12 +788,12 @@ function Update-LolDriverFile {
             $Comparison = Compare-Object -ReferenceObject $LocalLolDrivers -DifferenceObject $LolDrivers -Property Id
             if ($null -eq $Comparison) {
 
-                Write-Message Success "The local copy of the LOL driver sample list is already up-to-date."
+                Write-Message Success "LOL driver sample list is already up-to-date."
                 return
             }
         }
 
-        Write-Message Info "The local copy of the LOL driver sample list needs to be created or updated..."
+        Write-Message Info "LOL driver sample list needs to be created or updated..."
 
         # Convert the list to CSV and write to file.
         $LolDriversCsv = $LolDrivers | ConvertTo-Csv -Delimiter "," -NoTypeInformation | Out-String
@@ -741,26 +803,6 @@ function Update-LolDriverFile {
 
         Write-Message Success "Updated LOL driver sample list file (size=$($LolDriversCsvSize) KB, count=$($LolDrivers.Count)): $($VulnerableDriversFileName)"
     }
-}
-
-function Update-WordList {
-
-    [CmdletBinding()]
-    param (
-        [UInt32] $WordLength = 8
-    )
-
-    $WordListUrl = "https://raw.githubusercontent.com/CBHue/PyFuscation/master/wordList.txt"
-    $WordList = (New-Object Net.WebClient).DownloadString($WordListUrl)
-
-    if ($null -eq $WordList) {
-        throw "Word list is empty"
-    }
-
-    $WordList = $WordList -split "`n" | ForEach-Object { $_.Trim() }
-    $WordList = $WordList | Where-Object { (-not [string]::IsNullOrEmpty($_)) -and ($_.Length -eq $WordLength) -and ($_.ToLower() -match "^[a-z]+$") }
-
-    Set-FileContent -Type "data" -FileName "WordList.txt" -Content ($WordList | Out-String)
 }
 
 function Get-ScriptLoader {

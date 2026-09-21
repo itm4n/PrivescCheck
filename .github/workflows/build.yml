@@ -43,8 +43,13 @@ jobs:
         uses: actions/checkout@v5
         with:
           ref: master
-      - name: Update LOL driver list
-        # Continue even if we fail to update the LOL driver list.
+      - name: Update word list
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          . ./build/Build.ps1
+          Update-WordList
+      - name: Update LOL driver sample list
         continue-on-error: true
         shell: pwsh
         run: |
