@@ -322,7 +322,7 @@ function Invoke-HardenedUNCPathCheck {
     }
 }
 
-function Invoke-DllHijackingCheck {
+function Invoke-SystemPathFolderPermissionCheck {
     <#
     .SYNOPSIS
     Checks whether any of the system path folders is modifiable
