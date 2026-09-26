@@ -1815,3 +1815,159 @@ function Get-LanManagerConfiguration {
         $Result
     }
 }
+
+function Get-RemoteDesktopConfigurationAndStatus {
+    <#
+    .SYNOPSIS
+    Helper - Get the configuration and status of the Terminal Server
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet retrieves key information about the Terminal Server's configuration, and determine whether it is fully operational and ready to accept connections. This cmdlet does not check whether inbound connections from remote hosts are allowed on the firewall, though.
+
+    .EXAMPLE
+    PS C:\> Get-RemoteDesktopConfigurationAndStatus
+
+    UmRdpServiceStatus    : Running
+    SessionEnvStatus      : Running
+    TermServiceStatus     : Running
+    ServicesRunning       : True
+    ServerPort            : 3389
+    ServerListening       : True
+    ConnectionsDenied     : False
+    ServerRunningAndReady : True
+    NlaEnabled            : True
+    PnPRedirectionEnabled : False
+    #>
+
+    [CmdletBinding()]
+    param ()
+
+    begin {
+        $TerminalServerRegKey = "HKLM\System\CurrentControlSet\Control\Terminal Server"
+        $RemoteDesktopServices = @("TermService", "SessionEnv", "UmRdpService")
+    }
+
+    process {
+
+        # ==============================================================================
+        # Check whether Remote Desktop Services are running.
+        # ==============================================================================
+
+        $ServiceStatus = @{}
+        foreach ($RemoteDesktopService in $RemoteDesktopServices) {
+            $Service = Get-Service -Name $RemoteDesktopService -ErrorAction SilentlyContinue
+            if ($null -ne $Service) {
+                $ServiceStatus[$RemoteDesktopService] = $Service.Status
+            }
+            else {
+                $ServiceStatus[$RemoteDesktopService] = "Unknown"
+            }
+        }
+
+        $ServicesRunning = $false
+        if (($ServiceStatus['TermService'] -eq "Running") -and ($ServiceStatus['UmRdpService'] -eq "Running")) {
+            $ServicesRunning = $true
+        }
+
+        # ==============================================================================
+        # Retrieve TCP port number.
+        # ==============================================================================
+
+        $ServerPort = 3389
+
+        $RegKey = Join-Path -Path $TerminalServerRegKey -ChildPath "WinStations\RDP-Tcp"
+        $RegValue = "PortNumber"
+        $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+
+        if ($null -ne $RegData) {
+            $ServerPort = $RegData
+        }
+
+        # ==============================================================================
+        # Check connection to RDP listener
+        # ==============================================================================
+
+        $ServerListening = $false
+
+        $ConnectionStatus = Test-NetConnection -ComputerName "localhost" -Port 3389 -ErrorAction SilentlyContinue
+        if ($null -ne $ConnectionStatus) {
+            if ($ConnectionStatus.TcpTestSucceeded) {
+                $ServerListening = $true
+            }
+        }
+
+        # ==============================================================================
+        # Check whether Remote Desktop connections are enabled.
+        # ==============================================================================
+
+        $ConnectionsDenied = $true
+
+        $RegKey = $TerminalServerRegKey
+        $RegValue = "fDenyTSConnections"
+        $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+
+        if (($null -ne $RegData) -and ($RegData -eq 0)) {
+            $ConnectionsDenied = $false
+        }
+
+        # ==============================================================================
+        # Check Network Level Authentication status.
+        # ==============================================================================
+
+        $NetworkLevelAuthenticationEnabled = $false
+
+        $RegKey = Join-Path -Path $TerminalServerRegKey -ChildPath "WinStations\RDP-Tcp"
+        $RegValue = "UserAuthentication"
+        $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+
+        if (($null -ne $RegData) -and ($RegData -ge 1)) {
+            $NetworkLevelAuthenticationEnabled = $true
+        }
+
+        # ==============================================================================
+        # Check PnP redirection setting. PnP redirection is disabled by default. The
+        # setting 'fDisablePNPRedir' must be set to 0 to allow it.
+        # ==============================================================================
+
+        $PlugAndPlayRedirectionEnabled = $false
+
+        $RegKey = "HKLM\Software\Policies\Microsoft\Windows NT\Terminal Services"
+        $RegValue = "fDisablePNPRedir"
+        $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+
+        if (($null -ne $RegData) -and ($RegData -eq 0)) {
+            $PlugAndPlayRedirectionEnabled = $true
+        }
+
+        # ==============================================================================
+        # Determine whether the Terminal Server is fully operational.
+        # ==============================================================================
+
+        $ServerRunningAndReady = $false
+        if ($ServicesRunning -and $ServerListening -and (-not $ConnectionsDenied)) {
+            $ServerRunningAndReady = $true
+        }
+
+        # ==============================================================================
+        # Build and return result object.
+        # ==============================================================================
+
+        $Result = New-Object -TypeName PSObject
+
+        foreach ($ServiceName in $ServiceStatus.Keys) {
+            $Result | Add-Member -MemberType "NoteProperty" -Name "$($ServiceName)Status" -Value $ServiceStatus[$ServiceName]
+        }
+
+        $Result | Add-Member -MemberType "NoteProperty" -Name "ServicesRunning" -Value $ServicesRunning
+        $Result | Add-Member -MemberType "NoteProperty" -Name "ServerPort" -Value $ServerPort
+        $Result | Add-Member -MemberType "NoteProperty" -Name "ServerListening" -Value $ServerListening
+        $Result | Add-Member -MemberType "NoteProperty" -Name "ConnectionsDenied" -Value $ConnectionsDenied
+        $Result | Add-Member -MemberType "NoteProperty" -Name "ServerRunningAndReady" -Value $ServerRunningAndReady
+        $Result | Add-Member -MemberType "NoteProperty" -Name "NlaEnabled" -Value $NetworkLevelAuthenticationEnabled
+        $Result | Add-Member -MemberType "NoteProperty" -Name "PnPRedirectionEnabled" -Value $PlugAndPlayRedirectionEnabled
+        $Result
+    }
+}

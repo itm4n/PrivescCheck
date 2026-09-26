@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-09-26
+
+### Added
+
+- Add a helper function to get the configuration and status of the Terminal Server.
+
 ## 2026-09-21
 
 ### Added
