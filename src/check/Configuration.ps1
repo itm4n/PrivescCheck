@@ -1657,3 +1657,68 @@ function Invoke-NtlmDowngradeAttackCheck {
         $CheckResult
     }
 }
+
+function Invoke-TSPnPRedirectionCheck {
+    <#
+    .SYNOPSIS
+    Check whether Terminal Server is running, and whether Plug and Play redirection is enabled (Plug & Pwn).
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet first determines whether Terminal Server is active and accepting connections. Then, it checks whether Plug and Play redirection is enabled. If both are true, the configuration is considered vulnerable.
+
+    .EXAMPLE
+    PS C:\> Invoke-TSPnPRedirectionCheck
+
+    UmRdpServiceStatus    : Running
+    SessionEnvStatus      : Running
+    TermServiceStatus     : Running
+    ServicesRunning       : True
+    ServerPort            : 3389
+    ServerListening       : True
+    ConnectionsDenied     : False
+    ServerRunningAndReady : True
+    NlaEnabled            : True
+    PnPRedirectionEnabled : False
+    Description           : Terminal Server appears to be up and running. Plug and Play redirection is disabled (default).
+    #>
+
+    [CmdletBinding()]
+    param (
+        [UInt32] $BaseSeverity
+    )
+
+    process {
+        $Vulnerable = $false
+        $DescriptionList = @()
+        $TSConfigAndStatus = Get-RemoteDesktopConfigurationAndStatus
+
+        if ($null -ne $TSConfigAndStatus) {
+            $Vulnerable = $TSConfigAndStatus.ServerRunningAndReady -and $TSConfigAndStatus.PnPRedirectionEnabled
+
+            if ($TSConfigAndStatus.ServerRunningAndReady) {
+                $DescriptionList += "Terminal Server appears to be up and running."
+            }
+            else {
+                $DescriptionList += "Terminal Server is not running or does not accept connections."
+            }
+
+            if ($TSConfigAndStatus.PnPRedirectionEnabled) {
+                $DescriptionList += "Plug and Play redirection is **enabled**."
+            }
+            else {
+                $DescriptionList += "Plug and Play redirection is disabled (default)."
+            }
+        }
+
+        $Result = $TSConfigAndStatus
+        $Result | Add-Member -MemberType "NoteProperty" -Name "Description" -Value ($DescriptionList -join " ")
+
+        $CheckResult = New-Object -TypeName PSObject
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Result
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $(if ($Vulnerable) { $BaseSeverity } else { $script:SeverityLevel::None })
+        $CheckResult
+    }
+}
