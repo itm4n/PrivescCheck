@@ -6,9 +6,7 @@ function Invoke-Build {
         [ValidateSet("PrivescCheck")]
         [String] $Name,
 
-        [Switch] $NoNewSeed,
-
-        [Switch] $NoNewKey
+        [Switch] $NoNewSeed
     )
 
     begin {
@@ -34,7 +32,12 @@ function Invoke-Build {
             $SanityCheck = $false
         }
 
-        if ($NoNewSeed) {
+        # ==============================================================================
+        # Set a seed to use for random number generators. If '-NoNewSeed' is used,
+        # reuse the one saved previously. Otherwise, generate a new one.
+        # ==============================================================================
+
+        if ($PSBoundParameters['NoNewSeed']) {
             $Seed = Get-FileContent -Type "build" -FileName "Seed.txt" -ErrorAction SilentlyContinue | Out-String
             if ([String]::IsNullOrEmpty($Seed)) {
                 Write-Message Error "Failed to read seed from file."
@@ -51,28 +54,6 @@ function Invoke-Build {
             Set-FileContent -Type "build" -FileName "Seed.txt" -Content "$($Seed)"
         }
 
-        if ($NoNewKey) {
-            $EncryptionKeyHexString = Get-FileContent -Type "build" -FileName "EncryptionKey.txt" -ErrorAction SilentlyContinue | Out-String
-            if ([String]::IsNullOrEmpty($EncryptionKeyHexString)) {
-                Write-Message Error "Failed to read encryption key from file."
-                $SanityCheck = $false
-            }
-            else {
-                $EncryptionKeyHexString = $EncryptionKeyHexString.Trim()
-                Write-Message Info "Using encryption key: $($EncryptionKeyHexString)"
-                $EncryptionKey = New-Object -TypeName Byte[] -ArgumentList ($EncryptionKeyHexString.Length / 2)
-                for ($i = 0; $i -lt ($EncryptionKeyHexString.Length / 2); $i++) {
-                    $EncryptionKey[$i] = [Convert]::ToByte($EncryptionKeyHexString.Substring($i * 2, 2), 16)
-                }
-            }
-        }
-        else {
-            $EncryptionKey = New-RandomByteArray -Size 32
-            $EncryptionKeyHexString = [System.BitConverter]::ToString($EncryptionKey).ToLower() -replace '-',''
-            Write-Message Info "Generated encryption key: $($EncryptionKeyHexString)"
-            Set-FileContent -Type "build" -FileName "EncryptionKey.txt" -Content "$($EncryptionKeyHexString)"
-        }
-
         # https://learn.microsoft.com/en-us/dotnet/api/system.platformid
         $CurrentPlatform = [System.Environment]::OSVersion.Platform
         $TestModuleImport = $CurrentPlatform -eq "Win32NT"
@@ -84,6 +65,8 @@ function Invoke-Build {
     process {
 
         if (-not $SanityCheck) { return }
+
+        $EncryptionKey = Get-RandomByteArray -Seed $Seed -Count 32
 
         $BuildProfileObject = $BuildProfilesJson.Profiles | Where-Object { $_.Name -eq $Name }
         if ($null -eq $BuildProfileObject) {
@@ -160,10 +143,13 @@ function Invoke-Build {
                     Write-Message Info "Embedded data file '$($MatchAndReplace.DataFile)' into '$($ModuleFilename)' (orig=$($DataToReplaceSize) KB, blob=$($DataToReplaceBlobSize) KB)."
                 }
 
+                # ==============================================================================
                 # Is the script block detected by AMSI after stripping the comments?
-                # Note: if the script block is caught by AMSI, an exception is triggered, so we go
-                # directly to the "catch" block. Otherwise, it means that the module was successfully
-                # loaded.
+                # Note: if the script block is caught by AMSI, an exception is triggered, so we
+                # go directly to the "catch" block. Otherwise, it means that the module was
+                # successfully loaded.
+                # ==============================================================================
+
                 $ScriptBlock = Remove-CommentFromScriptBlock -ScriptBlock $ScriptBlock
 
                 if ($TestModuleImport) {
@@ -203,7 +189,8 @@ function Invoke-Build {
                     $ScriptEncoded = [Text.Encoding]::UTF8.GetBytes($ScriptBlock)
                 }
 
-                $ScriptEncoded = ConvertTo-AesEncrypted -InputBuffer $ScriptEncoded -Key $EncryptionKey
+                $EncryptionIV = Get-RandomByteArray -Seed $Seed -Count 16
+                $ScriptEncoded = ConvertTo-AesEncrypted -InputBuffer $ScriptEncoded -Key $EncryptionKey -InitVector $EncryptionIV
                 $ScriptEncoded = [System.Convert]::ToBase64String($ScriptEncoded)
                 $ScriptContent += "`$$($ModuleName) = `"$($ScriptEncoded)`"`r`n"
             }
@@ -271,6 +258,29 @@ function Get-RandomInt {
     }
 
     return $Rand.Next()
+}
+
+function Get-RandomByteArray {
+
+    [OutputType([Byte[]])]
+    [CmdletBinding()]
+    param (
+        [Int32] $Seed,
+        [UInt32] $Count
+    )
+
+    process {
+        $ResultBytes = @()
+        for ($i = 0; $i -lt $Count; $i++) {
+            if ($PSBoundParameters['Seed']) {
+                $ResultBytes += Get-RandomInt -Min 0 -Max 256 -Seed $Seed
+            }
+            else {
+                $ResultBytes += Get-RandomInt -Min 0 -Max 256
+            }
+        }
+        return $ResultBytes
+    }
 }
 
 function Get-FilePath {
@@ -356,6 +366,7 @@ function Get-LolDriverJson {
             return
         }
 
+        # ==============================================================================
         # ISSUE: ConvertFrom-Json cannot be used to parse the JSON file in PS 5.1
         # because the "Sections" dictionary may contain section names that are
         # considered duplicates, such as "INIT" and "init". This is due to the fact
@@ -369,6 +380,7 @@ function Get-LolDriverJson {
         # LINKS:
         # https://github.com/PowerShell/PowerShell/issues/3705
         # https://github.com/PowerShell/PowerShell/issues/3705#issuecomment-350022987
+        # ==============================================================================
 
         $LolDrivers = $null
 
@@ -896,38 +908,25 @@ function ConvertTo-Gzip {
     }
 }
 
-function New-RandomByteArray {
-
-    [OutputType([Byte[]])]
-    param (
-        [Parameter(Mandatory=$true)]
-        [ValidateSet(16, 32)]
-        [UInt32] $Size
-    )
-
-    # https://gist.github.com/lennybacon/9fcce97f84d1b760e8da0e9d0738536a
-    $Random = [System.Security.Cryptography.RandomNumberGenerator]::Create()
-    $Buffer = New-Object Byte[] $Size
-    $Random.GetBytes($Buffer)
-    return $Buffer
-}
-
 function ConvertTo-AesEncrypted {
 
     [OutputType([Byte[]])]
     param (
         [Parameter(Mandatory=$true)]
         [Byte[]] $InputBuffer,
+
         [Parameter(Mandatory=$true)]
-        [Byte[]] $Key
+        [Byte[]] $Key,
+
+        [Parameter(Mandatory=$true)]
+        [Byte[]] $InitVector
     )
 
     # https://learn.microsoft.com/en-us/dotnet/api/system.security.cryptography.aes
     $AesAlg = [System.Security.Cryptography.Aes]::Create()
 
     $AesAlg.Key = $Key
-    # Fixe IV is bad, but we are not doing real cryptography, just obfuscation.
-    $AesAlg.IV = [Byte[]] @(0xde, 0xad, 0xbe, 0xef, 0x8b, 0xad, 0xf0, 0x0d, 0xca, 0xfe, 0xba, 0xbe, 0xfa, 0xce, 0xfe, 0xed)
+    $AesAlg.IV = $InitVector
 
     $Encryptor = $AesAlg.CreateEncryptor()
     $MemoryStream = New-Object IO.MemoryStream
@@ -947,6 +946,7 @@ function ConvertFrom-AesEncrypted {
     param (
         [Parameter(Mandatory=$true)]
         [Byte[]] $InputBuffer,
+
         [Parameter(Mandatory=$true)]
         [Byte[]] $Key
     )

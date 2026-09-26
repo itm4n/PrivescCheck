@@ -171,12 +171,6 @@ The build script uses a pseudo-random number generator with a randomly-generated
 powershell -ep bypass ". .\build\Build.ps1; Invoke-Build -Name PrivescCheck -NoNewSeed"
 ```
 
-The build script uses AES encryption with a randomly-generated **key** to obfuscate the content of each module. If you want to generate reproducible results across builds, you can choose to reuse the previously generated **key** by using the option `-NoNewKey`.
-
-```bat
-powershell -ep bypass ". .\build\Build.ps1; Invoke-Build -Name PrivescCheck -NoNewKey"
-```
-
 ## Credits
 
 - Word list - [CBHue/PyFuscation](https://github.com/CBHue/PyFuscation)
