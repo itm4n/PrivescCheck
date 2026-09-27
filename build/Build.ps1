@@ -66,7 +66,7 @@ function Invoke-Build {
 
         if (-not $SanityCheck) { return }
 
-        $EncryptionKey = [Byte[]] (Get-RandomInt -Seed $Seed -Min 0 -Max 256 -Count 32)
+        $EncryptionKeySeed = $Seed
         $EncryptionIVSeed = $Seed
 
         $BuildProfileObject = $BuildProfilesJson.Profiles | Where-Object { $_.Name -eq $Name }
@@ -190,9 +190,11 @@ function Invoke-Build {
                     $ScriptEncoded = [Text.Encoding]::UTF8.GetBytes($ScriptBlock)
                 }
 
+                $EncryptionKeySeed = Get-RandomInt -Seed $EncryptionKeySeed
+                $EncryptionKey = [Byte[]] (Get-RandomInt -Seed $EncryptionKeySeed -Min 0 -Max 256 -Count 32)
                 $EncryptionIVSeed = Get-RandomInt -Seed $EncryptionIVSeed
                 $EncryptionIV = [Byte[]] (Get-RandomInt -Seed $EncryptionIVSeed -Min 0 -Max 256 -Count 16)
-                $ScriptEncoded = ConvertTo-AesEncrypted -InputBuffer $ScriptEncoded -Key $EncryptionKey -InitVector $EncryptionIV
+                $ScriptEncoded = ConvertTo-AesEncrypted -InputBuffer $ScriptEncoded -EncryptionKey $EncryptionKey -EncryptionIV $EncryptionIV
                 $ScriptEncoded = [System.Convert]::ToBase64String($ScriptEncoded)
                 $ScriptContent += "`$$($ModuleName) = `"$($ScriptEncoded)`"`r`n"
             }
@@ -200,7 +202,7 @@ function Invoke-Build {
 
         if ($ErrorCount -eq 0) {
             Write-Message Success "Build successful, writing result to file '$($ScriptPath)'..."
-            $ScriptContent += "`r`n$(Get-ScriptLoader -Modules $Modules -EncodedKey ([System.Convert]::ToBase64String($EncryptionKey)))"
+            $ScriptContent += "`r`n$(Get-ScriptLoader -Modules $Modules)"
             $ScriptContent | Out-File -FilePath $ScriptPath -Encoding ascii
             Write-Message Info "File hash: $((Get-FileHash -Path $ScriptPath).Hash.ToLower())"
         }
@@ -813,18 +815,17 @@ function Get-ScriptLoader {
 
     [OutputType([String])]
     param (
-        [String[]] $Modules,
-        [String] $EncodedKey
+        [String[]] $Modules
     )
 
     $LoaderBlock = @"
 @({{MODULE_LIST}}) | ForEach-Object {
     `$dec = [Convert]::FromBase64String(`$_)
     `$aes = [Security.Cryptography.Aes]::Create()
-    `$outbuf = New-Object Byte[] (`$dec.Length - `$aes.IV.Length)
-    `$aes.Key = [Convert]::FromBase64String("{{ENCODED_KEY}}")
-    `$aes.IV = `$dec[0..(`$aes.IV.Length - 1)]
-    `$rc = (New-Object Security.Cryptography.CryptoStream (New-Object IO.MemoryStream (, `$dec[`$aes.IV.Length..(`$dec.Length - 1)])), (`$aes.CreateDecryptor()), ([Security.Cryptography.CryptoStreamMode]::Read)).Read(`$outbuf, 0, `$outbuf.Length)
+    `$outbuf = New-Object Byte[] (`$dec.Length - (`$aes.Key.Length + `$aes.IV.Length))
+    `$aes.Key =  `$dec[0..(`$aes.Key.Length - 1)]
+    `$aes.IV = `$dec[`$aes.Key.Length..(`$aes.Key.Length + `$aes.IV.Length - 1)]
+    `$rc = (New-Object Security.Cryptography.CryptoStream (New-Object IO.MemoryStream (, `$dec[(`$aes.Key.Length + `$aes.IV.Length)..(`$dec.Length - 1)])), (`$aes.CreateDecryptor()), ([Security.Cryptography.CryptoStreamMode]::Read)).Read(`$outbuf, 0, `$outbuf.Length)
     try {
         `$sb = `$ExecutionContext.InvokeCommand.NewScriptBlock((ConvertFrom-Gzip -InputBuffer `$outbuf[0..(`$rc - 1)]))
     } catch {
@@ -908,17 +909,17 @@ function ConvertTo-AesEncrypted {
         [Byte[]] $InputBuffer,
 
         [Parameter(Mandatory=$true)]
-        [Byte[]] $Key,
+        [Byte[]] $EncryptionKey,
 
         [Parameter(Mandatory=$true)]
-        [Byte[]] $InitVector
+        [Byte[]] $EncryptionIV
     )
 
     # https://learn.microsoft.com/en-us/dotnet/api/system.security.cryptography.aes
     $AesAlg = [System.Security.Cryptography.Aes]::Create()
 
-    $AesAlg.Key = $Key
-    $AesAlg.IV = $InitVector
+    $AesAlg.Key = $EncryptionKey
+    $AesAlg.IV = $EncryptionIV
 
     $Encryptor = $AesAlg.CreateEncryptor()
     $MemoryStream = New-Object IO.MemoryStream
@@ -929,7 +930,7 @@ function ConvertTo-AesEncrypted {
     $MemoryStream.Close()
     $CryptoStream.Close()
 
-    return $AesAlg.IV + $Encrypted
+    return $AesAlg.Key + $AesAlg.IV + $Encrypted
 }
 
 function ConvertFrom-AesEncrypted {
@@ -937,18 +938,16 @@ function ConvertFrom-AesEncrypted {
     [OutputType([Byte[]])]
     param (
         [Parameter(Mandatory=$true)]
-        [Byte[]] $InputBuffer,
-
-        [Parameter(Mandatory=$true)]
-        [Byte[]] $Key
+        [Byte[]] $InputBuffer
     )
 
     # https://learn.microsoft.com/en-us/dotnet/api/system.security.cryptography.aes
     $AesAlg = [System.Security.Cryptography.Aes]::Create()
 
-    $IV = $InputBuffer[0..($AesAlg.IV.Length - 1)]
-    $Encrypted = $InputBuffer[$AesAlg.IV.Length..($InputBuffer.Length - 1)]
-    $Buffer = New-Object Byte[] ($InputBuffer.Length - $AesAlg.IV.Length)
+    $Key = $InputBuffer[0..($AesAlg.Key.Length - 1)]
+    $IV = $InputBuffer[$AesAlg.Key.Length..($AesAlg.Key.Length + $AesAlg.IV.Length - 1)]
+    $Encrypted = $InputBuffer[($AesAlg.Key.Length + $AesAlg.IV.Length)..($InputBuffer.Length - 1)]
+    $Buffer = New-Object Byte[] ($InputBuffer.Length - ($AesAlg.Key.Length + $AesAlg.IV.Length))
 
     $AesAlg.Key = $Key
     $AesAlg.IV = $IV
