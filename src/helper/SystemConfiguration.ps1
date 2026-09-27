@@ -1971,3 +1971,191 @@ function Get-RemoteDesktopConfigurationAndStatus {
         $Result
     }
 }
+
+function Get-DeviceInstallationRestriction {
+    <#
+    .SYNOPSIS
+    Helper - Get device installation restrictions
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet enumerates the device restriction policies. For each policy, it returns its state (Not configured, enabled, disabled) and options (where relevant). The options may contain a list of classes, instance IDs, and IDs, for "Allow" and "Deny" policies. For "Deny" policies, the options also contain a flag indicating whether the policy applies to already installed devices.
+
+    .EXAMPLE
+    PS C:\> Get-DeviceInstallationRestriction
+
+    Name        : DenyDeviceClasses
+    DisplayName : Prevent installation of devices using drivers that match these device setup classes
+    State       : Enabled
+    Options     : {List, Retroactive}
+
+    Name        : DenyDeviceIDs
+    DisplayName : Prevent installation of devices that match any of these device IDs
+    State       : Not Configured
+    Options     : {Retroactive}
+
+    Name        : DenyInstanceIDs
+    DisplayName : Prevent installation of devices that match any of these device instance IDs
+    State       : Not Configured
+    Options     : {Retroactive}
+
+    Name        : DenyRemovableDevices
+    DisplayName : Prevent installation of removable devices
+    State       : Not Configured
+    Options     : {}
+
+    Name        : DenyUnspecified
+    DisplayName : Prevent installation of devices not described by other policy settings (deprecated)
+    State       : Not Configured
+    Options     : {}
+
+    Name        : AllowDenyLayered
+    DisplayName : Apply layered order of evaluation for Allow and Prevent device installation policies across all device
+                match criteria
+    State       : Not Configured
+    Options     : {}
+
+    Name        : AllowDeviceClasses
+    DisplayName : Allow installation of devices using drivers that match these device setup classes
+    State       : Not Configured
+    Options     : {}
+
+    Name        : AllowDeviceIDs
+    DisplayName : Allow installation of devices that match any of these device IDs
+    State       : Not Configured
+    Options     : {}
+
+    Name        : AllowInstanceIDs
+    DisplayName : Allow installation of devices that match any of these device IDs
+    State       : Not Configured
+    Options     : {}
+
+    .LINK
+    https://learn.microsoft.com/en-us/windows/client-management/client-tools/manage-device-installation-with-group-policy#scenario-5-prevent-installation-of-all-usb-devices-while-allowing-an-installation-of-only-an-authorized-usb-thumb-drive
+
+    .LINK
+    https://learn.microsoft.com/en-us/windows-hardware/drivers/usbcon/supported-usb-classes
+    #>
+
+    [CmdletBinding()]
+    param ()
+
+    begin {
+        $DeviceInstallationRestrictionRegKey = "HKLM\SOFTWARE\Policies\Microsoft\Windows\DeviceInstall\Restrictions"
+        $USBDeviceClasses = @{
+            "USBDevice"     = "{88BAE032-5A81-49f0-BC3D-A4FF138216D6}"
+            "Audio"         = "{4d36e96c-e325-11ce-bfc1-08002be10318}"
+            "CDCPorts"      = "{4D36E978-E325-11CE-BFC1-08002BE10318}"
+            "CDCModem"      = "{4D36E96D-E325-11CE-BFC1-08002BE10318}"
+            "CDCNet"        = "{4d36e972-e325-11ce-bfc1-08002be10318}"
+            "HID"           = "{745a17a0-74d3-11d0-b6fe-00a0c90f57da}"
+            "ImageVideo"    = "{6bdd1fc6-810f-11d0-bec7-08002be2092f}"
+            "Printer"       = "{4d36e979-e325-11ce-bfc1-08002be10318}"
+            "MassStorage"   = "{4d36e97b-e325-11ce-bfc1-08002be10318}"
+            "Hub"           = "{36fc9e60-c465-11cf-8056-444553540000}"
+            "SmartCard"     = "{50dd5230-ba8a-11d1-bf5d-0000f805f530}"
+            "Bluetooth"     = "{e0cbf06c-cd8b-4647-bb8a-263b43f0f974}"
+        }
+
+        function GetPolicyConfiguration {
+
+            param (
+                [String] $PolicyName,
+                [String] $ValueName,
+                [Bool] $Retroactive
+            )
+
+            $PolicyState = "Not Configured"
+            $PolicyOptions = @{}
+            $RegKey = $DeviceInstallationRestrictionRegKey
+            $RegValue = $ValueName
+            $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+
+            if ($null -ne $RegData) {
+                if ($RegData -eq 0) { $PolicyState = "Disabled" } else { $PolicyState = "Enabled" }
+            }
+
+            $DeviceList = @()
+            $RegKey = Join-Path -Path $DeviceInstallationRestrictionRegKey -ChildPath $ValueName
+            $RegItem = Get-Item -Path "registry::$($RegKey)" -ErrorAction SilentlyContinue
+            if ($null -ne $RegItem) {
+                $RegItem | Select-Object -ExpandProperty "Property" | ForEach-Object {
+                    $Item = $RegItem | Get-ItemPropertyValue -Name $_
+                    foreach ($USBDeviceClass in $USBDeviceClasses.Keys) {
+                        if ($USBDeviceClasses[$USBDeviceClass] -eq $Item) {
+                            $Item = $USBDeviceClass
+                            break
+                        }
+                    }
+                    $DeviceList += $Item
+                }
+                $PolicyOptions['List'] = $DeviceList
+            }
+
+            if ($Retroactive) {
+                $RetroactiveValue = $false
+                $RegKey = $DeviceInstallationRestrictionRegKey
+                $RegValue = "$($RetroactiveValueName)Retroactive"
+                $RegData = (Get-ItemProperty -Path "Registry::$($RegKey)" -Name $RegValue -ErrorAction SilentlyContinue).$RegValue
+                if (($null -ne $RegData) -and ($RegData -ge 1)) { $RetroactiveValue = $true }
+                $PolicyOptions['Retroactive'] = $RetroactiveValue
+            }
+
+            $Policy = New-Object -TypeName PSObject
+            $Policy | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $ValueName
+            $Policy | Add-Member -MemberType "NoteProperty" -Name "DisplayName" -Value $PolicyName
+            $Policy | Add-Member -MemberType "NoteProperty" -Name "State" -Value $PolicyState
+            $Policy | Add-Member -MemberType "NoteProperty" -Name "Options" -Value $PolicyOptions
+            $Policy
+        }
+    }
+
+    process {
+
+        $Policies = [ordered] @{
+            "DenyDeviceClasses" = @{
+                "DisplayName" = "Prevent installation of devices using drivers that match these device setup classes"
+                "Retroactive" = $true
+            }
+            "DenyDeviceIDs" = @{
+                "DisplayName" = "Prevent installation of devices that match any of these device IDs"
+                "Retroactive" = $true
+            }
+            "DenyInstanceIDs" = @{
+                "DisplayName" = "Prevent installation of devices that match any of these device instance IDs"
+                "Retroactive" = $true
+            }
+            "DenyRemovableDevices" = @{
+                "DisplayName" = "Prevent installation of removable devices"
+                "Retroactive" = $false
+            }
+            "DenyUnspecified" = @{
+                "DisplayName" = "Prevent installation of devices not described by other policy settings (deprecated)"
+                "Retroactive" = $false
+            }
+            "AllowDenyLayered" = @{
+                "DisplayName" = "Apply layered order of evaluation for Allow and Prevent device installation policies across all device match criteria"
+                "Retroactive" = $false
+            }
+            "AllowDeviceClasses" = @{
+                "DisplayName" = "Allow installation of devices using drivers that match these device setup classes"
+                "Retroactive" = $false
+            }
+            "AllowDeviceIDs" = @{
+                "DisplayName" = "Allow installation of devices that match any of these device IDs"
+                "Retroactive" = $false
+            }
+            "AllowInstanceIDs" = @{
+                "DisplayName" = "Allow installation of devices that match any of these device IDs"
+                "Retroactive" = $false
+            }
+        }
+
+        foreach ($PolicyName in $Policies.Keys) {
+            $Policy = $Policies[$PolicyName]
+            GetPolicyConfiguration -PolicyName $Policy['DisplayName'] -ValueName $PolicyName -Retroactive:$Policy['Retroactive']
+        }
+    }
+}
