@@ -402,6 +402,13 @@ function Invoke-Check {
         $Check | Add-Member -MemberType "NoteProperty" -Name "ResultRaw" -Value $CheckResult.Result
         $Check.Severity = $CheckResult.Severity -as $script:SeverityLevel
 
+        $CheckSummary = $CheckResult.Summary
+        if ($null -eq $CheckResult.Summary) {
+            $CheckSummary = "No summary available yet."
+        }
+
+        $Check | Add-Member -MemberType "NoteProperty" -Name "Summary" -Value $CheckSummary
+
         if ($Check.Format -eq "Table") {
             $Check | Add-Member -MemberType "NoteProperty" -Name "ResultRawString" -Value $($Check.ResultRaw | Format-Table | Out-String)
         }
@@ -591,26 +598,33 @@ function Write-CheckResult {
         }
 
         # Then show a status message.
-        $ResultOutput += "[*] Status:"
+        $ResultOutput += "[*] STATUS  : "
 
         if ($Severity -eq $script:SeverityLevel::None) {
-            $ResultOutput += " Informational"
+            $ResultOutput += "INFO"
             if ($IsVulnerabilityCheck) {
-                $ResultOutput += " (not vulnerable)"
+                $ResultOutput += " (not vulnerable)`n"
             }
             else {
-                if (-not $Check.ResultRaw) {
-                    $ResultOutput += " (nothing found)"
+                if ($Check.ResultRaw) {
+                    $ResultOutput += "`n"
+                }
+                else {
+                    $ResultOutput += " (nothing found)`n"
                 }
             }
         }
         else {
-            $ResultOutput += " Vulnerable"
+            $ResultOutput += "VULNERABLE ($($Severity))`n"
         }
 
-        $ResultOutput += " - Severity: $($Severity) - Execution time: $($Check.TimeElapsed.ToString("hh\:mm\:ss\.fff"))"
-        $ResultOutput += "`n`n"
+        $ResultOutput += "[*] TIME    : $($Check.TimeElapsed.ToString("hh\:mm\:ss\.fff"))`n"
 
+        if ($Check.Summary) {
+            $ResultOutput += "[*] SUMMARY : $($Check.Summary)`n"
+        }
+
+        $ResultOutput += "`n"
         $ResultOutput
     }
 }
@@ -852,9 +866,7 @@ for (const [idx, cell] of headerCells.entries()) {
         cell.append(" ");
         cell.append(filterButton);
     }
-
 }
-
 "@
 
     $Css = @"
@@ -885,12 +897,28 @@ td {
     max-width: 800px;
 }
 
+/* Category column */
+tbody td:nth-child(1) {
+    max-width: 100px;
+}
+
+/* DisplayName column */
+tbody td:nth-child(2) {
+    max-width: 150px;
+}
+
+/* Description column */
 tbody td:nth-child(3) {
     text-align: left;
 }
 
-/* Render output results with 'pre' style */
+/* Summary column */
 tbody td:nth-child(5) {
+    text-align: left;
+}
+
+/* ResultRawString column, render it as a code block. */
+tbody td:nth-child(6) {
     white-space: pre;
     margin: 1em 0px;
     padding: .2rem .4rem;
@@ -901,7 +929,7 @@ tbody td:nth-child(5) {
 
 .scroll {
     max-height: 200px;
-    max-width: 800px;
+    /* max-width: 400px; */
     overflow: auto;
 }
 
@@ -945,7 +973,7 @@ $($JavaScript)
 </html>
 "@
 
-    $TableHtml = $AllResults | Sort-Object -Property "Category", "DisplayName" | ConvertTo-Html -Property "Category", "DisplayName", "Description", "Severity", "ResultRawString" -Fragment
+    $TableHtml = $AllResults | Sort-Object -Property "Category", "DisplayName" | ConvertTo-Html -Property "Category", "DisplayName", "Description", "Severity", "Summary", "ResultRawString" -Fragment
     $Html = $Html.Replace("BODY_TO_REPLACE", $TableHtml)
     $Html
 }
