@@ -66,7 +66,8 @@ function Invoke-Build {
 
         if (-not $SanityCheck) { return }
 
-        $EncryptionKey = Get-RandomByteArray -Seed $Seed -Count 32
+        $EncryptionKey = [Byte[]] (Get-RandomInt -Seed $Seed -Min 0 -Max 256 -Count 32)
+        $EncryptionIVSeed = $Seed
 
         $BuildProfileObject = $BuildProfilesJson.Profiles | Where-Object { $_.Name -eq $Name }
         if ($null -eq $BuildProfileObject) {
@@ -189,7 +190,8 @@ function Invoke-Build {
                     $ScriptEncoded = [Text.Encoding]::UTF8.GetBytes($ScriptBlock)
                 }
 
-                $EncryptionIV = Get-RandomByteArray -Seed $Seed -Count 16
+                $EncryptionIVSeed = Get-RandomInt -Seed $EncryptionIVSeed
+                $EncryptionIV = [Byte[]] (Get-RandomInt -Seed $EncryptionIVSeed -Min 0 -Max 256 -Count 16)
                 $ScriptEncoded = ConvertTo-AesEncrypted -InputBuffer $ScriptEncoded -Key $EncryptionKey -InitVector $EncryptionIV
                 $ScriptEncoded = [System.Convert]::ToBase64String($ScriptEncoded)
                 $ScriptContent += "`$$($ModuleName) = `"$($ScriptEncoded)`"`r`n"
@@ -239,47 +241,37 @@ function Get-RandomInt {
     param (
         [Int32] $Seed,
         [Int32] $Min,
-        [Int32] $Max
-    )
-
-    if ($PSBoundParameters['Seed']) {
-        $Rand = New-Object -TypeName "System.Random" -ArgumentList $Seed
-    }
-    else {
-        $Rand = New-Object -TypeName "System.Random"
-    }
-
-    if ($PSBoundParameters['Min'] -and $PSBoundParameters['Max']) {
-        return $Rand.Next($Min, $Max)
-    }
-
-    if ($PSBoundParameters['Max']) {
-        return $Rand.Next($Max)
-    }
-
-    return $Rand.Next()
-}
-
-function Get-RandomByteArray {
-
-    [OutputType([Byte[]])]
-    [CmdletBinding()]
-    param (
-        [Int32] $Seed,
+        [Int32] $Max,
         [UInt32] $Count
     )
 
     process {
-        $ResultBytes = @()
-        for ($i = 0; $i -lt $Count; $i++) {
-            if ($PSBoundParameters['Seed']) {
-                $ResultBytes += Get-RandomInt -Min 0 -Max 256 -Seed $Seed
+        $GenerateCount = 1
+
+        if ($PSBoundParameters['Count']) {
+            $GenerateCount = $Count
+        }
+
+        if ($PSBoundParameters['Seed']) {
+            $Rand = New-Object -TypeName "System.Random" -ArgumentList $Seed
+        }
+        else {
+            $Rand = New-Object -TypeName "System.Random"
+        }
+
+        for ($i = 0; $i -lt $GenerateCount; $i++) {
+            if ($PSBoundParameters['Max']) {
+                if ($PSBoundParameters['Min']) {
+                    $Rand.Next($Min, $Max)
+                }
+                else {
+                    $Rand.Next($Max)
+                }
             }
             else {
-                $ResultBytes += Get-RandomInt -Min 0 -Max 256
+                $Rand.Next()
             }
         }
-        return $ResultBytes
     }
 }
 

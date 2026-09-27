@@ -6,6 +6,10 @@
 
 - Add a 'Summary' attribute to a check's result to provide further explanations. This attribute is only rendered in TXT and HTML reports for now.
 
+### Fixed
+
+- Fix incorrect random number generation.
+
 ## 2026-09-26
 
 ### Added
