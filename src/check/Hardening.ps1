@@ -1533,3 +1533,99 @@ function Invoke-OfficeTrustedLocationsCheck {
         $CheckResult
     }
 }
+
+function Invoke-DeviceInstallationRestrictionCheck {
+    <#
+    .SYNOPSIS
+    Check whether device installation restrictions are enforced.
+
+    Author: @itm4n
+    License: BSD 3-Clause
+
+    .DESCRIPTION
+    This cmdlet retrieves the list of policies that define device installation restrictions, and determines whether device setup classes are denied. If not, an attacker with physical access would likely be able to compromise the host by emulating a USB device with a known vulnerable PnP driver. This check is rather basic and does not cover all possible cases. Therefore, manual analysis and testing is still required. Another aspect checked by this cmdlet is whether the script is run in "Console" mode
+    #>
+
+    [CmdletBinding()]
+    param (
+        [UInt32] $BaseSeverity
+    )
+
+    begin {
+        $DenyPolicies = @("DenyDeviceClasses", "DenyDeviceIDs", "DenyInstanceIDs", "DenyRemovableDevices", "DenyUnspecified")
+        $DeviceClasses = @("USBDevice", "Audio", "CDCPorts", "CDCModem", "CDCNet", "HID", "ImageVideo", "Printer", "MassStorage", "Hub", "SmartCard", "Bluetooth")
+        $DeviceInstallationRestriction = Get-DeviceInstallationRestriction
+    }
+
+    process {
+
+        $Severity = $script:SeverityLevel::None
+        $ExplanationList = @()
+
+        $NoDenyPolicyEnabled = $true
+        $DenyDeviceClassesPolicy = $null
+        foreach ($DenyPolicy in $DenyPolicies) {
+            $Policy = $DeviceInstallationRestriction | Where-Object { $_.Name -eq $DenyPolicy }
+            if ($Policy.State -eq "Enabled") {
+                $NoDenyPolicyEnabled = $false
+                if ($Policy.Name -eq "DenyDeviceClasses") {
+                    $DenyDeviceClassesPolicy = $Policy
+                }
+            }
+        }
+
+        $DeviceClassesNotBlocked = $DeviceClasses
+
+        if ($NoDenyPolicyEnabled) {
+            $ExplanationList += "No Deny policy is defined."
+            $Severity = $BaseSeverity
+        }
+        else {
+            if ($null -ne $DenyDeviceClassesPolicy) {
+                $ExplanationList += "A policy prevents the installation of devices that match certain device setup classes."
+                $DeviceClassesNotBlocked = @()
+                foreach ($Class in $DeviceClasses) {
+                    if ($DenyDeviceClassesPolicy.Options['List'] -notcontains $Class) {
+                        $DeviceClassesNotBlocked += $Class
+                    }
+                }
+                if ($DeviceClassesNotBlocked.Count -eq $DeviceClasses.Count) {
+                    $ExplanationList += "All classes are blocked."
+                }
+                else {
+                    $Severity = $BaseSeverity
+                    $ExplanationList += "The following classes are not blocked: $($DeviceClassesNotBlocked -join ", ")."
+                }
+            }
+            else {
+                $Severity = $BaseSeverity
+                $ExplanationList += "At least one Deny policy is defined, but not the one based on device setup classes. The computer is likely vulnerable."
+            }
+        }
+
+        if ($Severity -ne $script:SeverityLevel::None) {
+            if ($env:SESSIONNAME -eq "Console") {
+                $Severity = $script:SeverityLevel::High
+                $ExplanationList += "The current session is the 'Console' session. Exploitation is likely, but further analysis or testing is required."
+            }
+            else {
+                $ExplanationList += "The current session is not the 'Console' session. Exploitation is less likely."
+            }
+        }
+
+        $Results = @()
+        $DeviceInstallationRestriction | ForEach-Object {
+            $Result = $_ | Select-Object -Property "Name","DisplayName","State"
+            if ($null -ne $_.Options['List']) {
+                $Result | Add-Member -MemberType "NoteProperty" -Name "List" -Value ($_.Options['List'] -join ", ")
+            }
+            $Results += $Result
+        }
+
+        $CheckResult = New-Object -TypeName PSObject
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Result" -Value $Results
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Severity" -Value $Severity
+        $CheckResult | Add-Member -MemberType "NoteProperty" -Name "Summary" -Value ($ExplanationList -join " ")
+        $CheckResult
+    }
+}

@@ -231,6 +231,7 @@
         "SDDL",
         "SECE",
         "SESSIONID",
+        "SESSIONNAME",
         "shellex",
         "SHELLEXTENSION",
         "SHELLNEWVALUE",
