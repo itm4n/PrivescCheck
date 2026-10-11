@@ -583,7 +583,6 @@ function Write-CheckResult {
 
     begin {
         $ResultOutput = ""
-        $IsVulnerabilityCheck = $Check.BaseSeverity -ne $script:SeverityLevel::None
         $Severity = $(if ($Check.Severity) { $Check.Severity } else { $script:SeverityLevel::None }) -as $script:SeverityLevel
     }
 
@@ -601,18 +600,7 @@ function Write-CheckResult {
         $ResultOutput += "[*] STATUS  : "
 
         if ($Severity -eq $script:SeverityLevel::None) {
-            $ResultOutput += "INFO"
-            if ($IsVulnerabilityCheck) {
-                $ResultOutput += " (not vulnerable)`n"
-            }
-            else {
-                if ($Check.ResultRaw) {
-                    $ResultOutput += "`n"
-                }
-                else {
-                    $ResultOutput += " (nothing found)`n"
-                }
-            }
+            $ResultOutput += "INFO$(if (-not $Check.ResultRaw) { " (nothing found)" })`n"
         }
         else {
             $ResultOutput += "VULNERABLE ($($Severity))`n"

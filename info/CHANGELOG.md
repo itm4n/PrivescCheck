@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-09-11
+
+### Modified
+
+- Improve output check result clarity (remove mentions "not vulnerable").
+
 ## 2026-09-27
 
 ### Added
