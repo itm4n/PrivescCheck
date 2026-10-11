@@ -820,25 +820,29 @@ function Get-ScriptLoader {
 
     $LoaderBlock = @"
 @({{MODULE_LIST}}) | ForEach-Object {
-    `$dec = [Convert]::FromBase64String(`$_)
-    `$aes = [Security.Cryptography.Aes]::Create()
-    `$outbuf = New-Object Byte[] (`$dec.Length - (`$aes.Key.Length + `$aes.IV.Length))
-    `$aes.Key =  `$dec[0..(`$aes.Key.Length - 1)]
-    `$aes.IV = `$dec[`$aes.Key.Length..(`$aes.Key.Length + `$aes.IV.Length - 1)]
-    `$rc = (New-Object Security.Cryptography.CryptoStream (New-Object IO.MemoryStream (, `$dec[(`$aes.Key.Length + `$aes.IV.Length)..(`$dec.Length - 1)])), (`$aes.CreateDecryptor()), ([Security.Cryptography.CryptoStreamMode]::Read)).Read(`$outbuf, 0, `$outbuf.Length)
-    try {
-        `$sb = `$ExecutionContext.InvokeCommand.NewScriptBlock((ConvertFrom-Gzip -InputBuffer `$outbuf[0..(`$rc - 1)]))
-    } catch {
-        `$sb = `$ExecutionContext.InvokeCommand.NewScriptBlock(([Text.Encoding]::UTF8.GetString(`$outbuf[0..(`$rc - 1)])))
-    }
-    . `$sb
+    `$DecodedBlob = [Convert]::FromBase64String(`$_)
+    `$CryptoAes = [Security.Cryptography.Aes]::Create()
+    `$CryptoKeyLength = `$CryptoAes.Key.Length
+    `$CryptoKeyIVLength = `$CryptoAes.IV.Length
+    `$CryptoAes.Key =  `$DecodedBlob[0..(`$CryptoKeyLength - 1)]
+    `$CryptoAes.IV = `$DecodedBlob[`$CryptoKeyLength..(`$CryptoKeyLength + `$CryptoKeyIVLength - 1)]
+    `$CryptoAesDecryptor = `$CryptoAes.CreateDecryptor()
+    `$EncryptedBlob = `$DecodedBlob[(`$CryptoKeyLength + `$CryptoKeyIVLength)..(`$DecodedBlob.Length - 1)]
+    `$MemoryStream = New-Object IO.MemoryStream (, `$EncryptedBlob)
+    `$CryptoStream = New-Object Security.Cryptography.CryptoStream (`$MemoryStream, `$CryptoAesDecryptor, ([Security.Cryptography.CryptoStreamMode]::Read))
+    `$Buffer = New-Object Byte[] (`$DecodedBlob.Length - (`$CryptoKeyLength + `$CryptoKeyIVLength))
+    `$ReadCount = `$CryptoStream.Read(`$Buffer, 0, `$Buffer.Length)
+    `$Buffer = `$Buffer[0..(`$ReadCount - 1)]
+    if ((`$Buffer[0] -eq 0x1F) -and (`$Buffer[1] -eq 0x8b)) { `$Source = ConvertFrom-Gzip -InputBuffer `$Buffer }
+    else { `$Source = [Text.Encoding]::UTF8.GetString(`$Buffer) }
+    try { . `$ExecutionContext.InvokeCommand.NewScriptBlock(`$Source) }
+    catch { Write-Warning "A module could not be loaded!" }
 }
 "@
 
     $ModuleList = ($Modules | ForEach-Object { "`$$($_)" }) -join ','
     $LoaderBlockResult = $LoaderBlock
     $LoaderBlockResult = $LoaderBlockResult -replace "{{MODULE_LIST}}", $ModuleList
-    $LoaderBlockResult = $LoaderBlockResult -replace "{{ENCODED_KEY}}", $EncodedKey
 
     return $LoaderBlockResult
 }

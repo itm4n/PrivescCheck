@@ -6,6 +6,10 @@
 
 - Improve output check result clarity (remove mentions "not vulnerable").
 
+### Fixed
+
+- Fix script loader.
+
 ## 2026-09-27
 
 ### Added
