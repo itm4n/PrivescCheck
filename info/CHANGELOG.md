@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-26
+
+### Modified
+
+- Rename check for services with known phantom DLL.
+
 ## 2026-09-11
 
 ### Modified
